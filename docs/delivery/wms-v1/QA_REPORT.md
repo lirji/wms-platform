@@ -141,6 +141,6 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
 | `./mvnw -B -ntp verify` | BUILD SUCCESS 39.016s；inventory failsafe 15 项 0 失败 | 默认构建，不含 warehouse-it/tc-it/failure-it |
 | `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
-| Casdoor `wms-platform-provision.py` | 开通完成；issuer/client 打印；口令在 0600 凭据文件 | 身份已创建；未用该 JWT 打 inventory |
+| 远程 CI `verify` #34492571104 | success 6m51s，含 warehouse-it/tc-it/failure-it | 远程 runner；不能替代生产部署 |
 
 结论：S1-05 测试身份切片 pass；Casdoor 身份开通 pass；Casdoor JWT × 隔离库存 HTTP blocked（无 compose `.env`）。50 项 AC 仍 planned。

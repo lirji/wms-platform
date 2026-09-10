@@ -6,7 +6,7 @@
 
 ## 已完成
 
-- 任务分支`feat/wms-s1-05`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`。基线`origin/main` `b617355`。
+- 任务分支`feat/wms-s1-05`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`。实现提交`a5b60ef`已在`origin/main`。远程 CI verify #34492571104 成功。
 - S1-05：GET lots/sku units；测试 JWT 越权；SKU-LOT CS 12:1；LOT-NEAR/LOT-EXP 显式 UTC；种子复跑含 6 条单位行。
 - 本机 Casdoor `:8000` 已开通 org/app `wms-platform`；凭据只在 gitignored `.local/wms-iam-credentials.json`（0600）。未对隔离 compose 灌种子（工作树无 `.env`）。
 - 先前 S1-01..04 已在远程 main。原目录 ADR-11 脏文件与 auth-platform 原脏工作区未改。

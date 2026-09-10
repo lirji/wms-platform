@@ -18,12 +18,12 @@
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | 本轮远程 CI verify #34489970301 成功（6m44s）。S0 组合门禁与 SBOM 仍未关闭 |
+| EG-01 工程/CI | running | 本轮远程 CI verify #34492571104 成功（6m51s，含 warehouse-it/tc-it/failure-it）。S0 组合门禁与 SBOM 仍未关闭 |
 | EG-02 TC组合/唯一TM | running | 沿用 S0 探针；正式`wms-fulfillment`仍是S4 |
 | EG-03 业务决定 | running | 本地测试 IdP=auth-platform Casdoor；生产 IdP 未锁。OQ-03 仍待 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | running | S1-05 待提交 `feat/wms-s1-05` 并快进远程 main；无生产部署 |
+| Git发布 | passed（S1-05） | `a5b60ef` 已推送任务分支和远程 main；远程包含性已核对；无生产部署 |
 
 ## 本轮已实现（S1-05）
 
@@ -49,4 +49,4 @@
 
 HTTP 写接口未交付。种子脚本不等于控制台。Casdoor 开通不等于隔离库存库已灌种子。
 
-S1-04 发布合并 `a7f90c8` / 文档 `b617355` 已在远程 main；远程 CI verify #34489970301 成功。S1-05 Git 发布见本轮收尾。无生产部署。
+S1-05 实现提交 `a5b60ef` 已在任务分支和远程 main。远程 CI：[verify #34492571104](https://github.com/lirji/wms-platform/actions/runs/34492571104) 成功（6m51s）。S1-04 发布合并 `a7f90c8` / 文档 `b617355` 仍是祖先。无生产部署。
