@@ -25,9 +25,10 @@ docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
 python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Pwarehouse-it verify
 ./mvnw -B -ntp -Ptc-it verify
+./mvnw -B -ntp -Pfailure-it verify
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选，以及代表`wms-fulfillment`的HTTP网关Try探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
+前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
 
 手工启动任一服务：
 
@@ -39,10 +40,10 @@ inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆
 
 ## CI与发布边界
 
-GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试报告；没有部署步骤。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
+GitHub Actions运行构建、进程验证、warehouse-it、tc-it和failure-it，并把三类failsafe报告分别复制到`.local/reports/`后上传；没有部署步骤。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
 
 终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。
 
 独立RM探针使用两个受控子JVM，经各自Cell的ShardingSphere执行Fence与库存事务；包含B故障/进程重启恢复和账号隔离。不是已实现正式入出库业务接口。
 
-启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。HTTP网关Try探针用Seata Jakarta拦截器绑定请求头XID，代表已确认的`wms-fulfillment`入口，同XID重试不得新注册分支。二者都在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。
+启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。HTTP网关Try探针用Seata Jakarta拦截器绑定请求头XID，代表已确认的`wms-fulfillment`入口，同XID重试不得新注册分支。业务屏障探针把只读`terminal_evidence`接到attempt/XID/epoch/参与者Fence，缺证据不得写ALLOCATED。上述探针在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。

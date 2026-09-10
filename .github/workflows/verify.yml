@@ -25,6 +25,9 @@ jobs:
       - run: ./mvnw -B -ntp -Pwarehouse-it verify
       - run: mkdir -p .local/reports/warehouse && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/warehouse/
       - run: ./mvnw -B -ntp -Ptc-it verify
+      - run: mkdir -p .local/reports/tc && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/tc/
+      - run: ./mvnw -B -ntp -Pfailure-it verify
+      - run: mkdir -p .local/reports/failure && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/failure/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

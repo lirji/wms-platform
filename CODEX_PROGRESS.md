@@ -7,35 +7,33 @@
 ## 已完成
 
 - 当前分支`feat/wms-s0-foundation`。
-- 用户已确认：唯一 TM=`wms-fulfillment`；认证=OIDC（issuer/client 在 S1-02 配置，未指定 IdP 产品）；序列号唯一范围=enterprise+SKU+serial。OQ-03 单位/效期仍待。
-- S0-08 关闭。HTTP 网关 Try 探针（Seata Jakarta 拦截器 + 禁止盲目重放 Fence）已加入 `tc-it`；不是正式履约模块。
-- 先前：三服务骨架、warehouse-it/tc-it 探针、S0-04 compose、AC-44 Kafka/线程池隔离。
+- S0业务屏障探针：只读`terminal_evidence`绑定attempt/XID/epoch/参与者Fence；缺证据=`RECOVERY_PENDING`，不得写ALLOCATED；XXL禁Confirm/Cancel。
+- `failure-it` profile与`FailureIsolationIT`：只操作本测试容器，拒绝共享dev-infra。
+- 本地`./mvnw -B -ntp -Ptc-it verify`两项通过（120.7s+8.7s）；`./mvnw -B -ntp -Pfailure-it verify`一项通过（18.27s）。
+- 用户已确认：唯一 TM=`wms-fulfillment`；认证=OIDC；序列号唯一范围=enterprise+SKU+serial。OQ-03 单位/效期仍待。
 
 ## 已修改文件
 
-- `wms-test-support/src/test/java/com/lrj/wms/probe/HttpGatewayTryProbe.java`
-- `wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java`
-- `wms-test-support/pom.xml`
-- `docs/design/07-decisions-evidence.md` 及架构/领域/TCC/计划/状态/QA/`CODEX_PROGRESS.md`
+- `wms-test-support`屏障/故障隔离探针、`pom.xml` failure-it profile、CI、S0手册与TC证据文档、交付状态/QA、本文件。
 - `.idea`及其他项目文件不修改、不提交。
 
 ## 未完成
 
-- S0 挡 S4：正式终态/业务屏障、`failure-it`。不需要再评产品选项。
-- S0 不挡 S1：XXL 真触发、SBOM/CVE、正式 `wms-fulfillment` 模块（S4）。
+- 正式`wms-fulfillment`模块仍是S4。
+- S0不挡S1：XXL真触发、SBOM/CVE。
 - 全部50项正式业务AC仍planned。OQ-03 单位/效期仍待。
 
 ## 当前问题
 
 - OQ-03 货权主体/单位/效期规则未确认；不编造生产默认值。
 - 本次ShardingSphere组合是每RM固定单Cell、片内单物理数据源。
-- TC审计只为S0候选；Seata 2.6重复prepareFence会清理Tried记录。
+- Seata客户端在kill TC后首次重连约60秒；failure-it改为杀TC后读审计库，不把TM重连当成本切片门禁。
 
 ## 下一步建议
 
-1. 直接实现正式屏障（attempt/XID/epoch/参与者 + 缺证据不得放行）。不要再评 HTTP→TM→Try 路径。
-2. 然后补 `failure-it`；XXL 触发与 SBOM 不挡 S1 主数据。
-3. S1 主数据/OpenAPI 可并行准备；OIDC 登录等具体 issuer。
+1. S1主数据/OpenAPI可并行准备；OIDC登录等具体issuer。
+2. XXL对自有admin真触发与VERSION_LOCK SBOM不挡S1。
+3. 正式履约服务按S4创建，不要把本轮探针写成生产模块已交付。
 
 ## 恢复 Prompt
 

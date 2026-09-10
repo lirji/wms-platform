@@ -12,17 +12,18 @@ S0-09隔离POC，尚未批准为生产方案。沿用跨仓Seata TCC及“固定
 
 这属于TC存储审计扩展，不创建业务决定权，不由XXL-JOB决定Confirm/Cancel，也不允许库存服务直接修改TC业务表。正式实现的证据查询应通过受控适配接口，只读审计数据；业务服务不得持有TC写权限。
 
-恢复放行还必须校验环境/集群作用域、绑定XID、TM应用/事务组、当前attempt/launchEpoch及固定分支清单。当前表仅保存TC原始身份与状态，尚未实现这些业务关联校验。缺失、身份不匹配、回滚、失败终态、查询超时一律不能得到“允许出库”。
+恢复放行还必须校验绑定XID、TM应用/事务组、当前attempt/launchEpoch及固定参与者Fence。`TerminalEvidenceAdapter`在`tc-it`/`failure-it`中只读查询`terminal_evidence`并结合履约库attempt做这些校验；缺证据、身份不匹配、空参与者、查询失败为`RECOVERY_PENDING`，回滚终态为`DENIED`，不得写ALLOCATED Outbox。XXL路径禁止Confirm/Cancel。这仍不是正式`wms-fulfillment`服务或生产权限模型。环境/集群作用域的完整生产校验仍待S4。
 
 ## 真实验证入口
 
 ```bash
 ./mvnw -B -ntp -Ptc-it verify
+./mvnw -B -ntp -Pfailure-it verify
 ```
 
-`TcTerminalEvidenceIT`保留文件存储查询限制回归；`TcDatabaseEvidenceIT`使用独立MySQL8.4.11与TC2.6.0。测试类分别启动JVM，避免Seata静态客户端沿用上一容器地址。Docker默认bridge仅连接测试拥有的容器IP，不删除已有网络；容器退出后回收。
+`TcTerminalEvidenceIT`保留文件存储查询限制回归；`TcDatabaseEvidenceIT`使用独立MySQL8.4.11与TC2.6.0。`FailureIsolationIT`只登记并kill/start本测试MySQL/TC，共享dev-infra快照必须不变。测试类分别启动JVM，避免Seata静态客户端沿用上一容器地址。Docker默认bridge仅连接测试拥有的容器IP，不删除已有网络；容器退出后回收。
 
-DB探针断言事务begin后真实出现在`global_table`，以排除配置没有生效。随后检查提交/回滚终态证据与会话清理、TC重启后查询恢复、缺失XID无记录，以及审计写失败后的TC重试恢复。追加TwoWarehouseTccProbe验证真实TC二阶段回调、Fence与MyBatis同物理事务、第二仓失败及恢复、双仓Cancel。`HttpGatewayTryProbe`用Seata Jakarta拦截器从HTTP头绑定XID，代表已确认的`wms-fulfillment`入口；同XID重试不得新注册branch。测试SQL只存在于`src/test/resources/db/tc-probe`，不会被三个业务服务自动执行。
+DB探针断言事务begin后真实出现在`global_table`，以排除配置没有生效。随后检查提交/回滚终态证据与会话清理、TC重启后查询恢复、缺失XID无记录，以及审计写失败后的TC重试恢复。追加TwoWarehouseTccProbe验证真实TC二阶段回调、Fence与MyBatis同物理事务、第二仓失败及恢复、双仓Cancel。`HttpGatewayTryProbe`用Seata Jakarta拦截器从HTTP头绑定XID，代表已确认的`wms-fulfillment`入口；同XID重试不得新注册branch。`BusinessBarrierProbe`把只读审计接到attempt/XID/epoch/参与者Fence，提交前与缺证据不得写ALLOCATED。测试SQL只存在于`src/test/resources/db/`探针目录，不会被三个业务服务自动执行。
 
 Seata DB模式使用延迟恢复路径；初次30秒回滚等待失败后，源码定位到`server.retryDeadThreshold`，探针将其设为1000毫秒以有界验证。该值不是生产推荐，证据可见延迟、后台负载与实际参数需单独压测。失败记录保留在QA报告，不把延长等待等同于解决可靠性问题。
 

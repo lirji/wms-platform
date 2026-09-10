@@ -11,7 +11,8 @@
 | `./mvnw -B -ntp verify` | 构建成功 | Maven多模块及三服务可编译打包 |
 | `python3 scripts/smoke-services.py` | 三进程健康UP，业务路径401/403 | 独立进程与默认拒绝；未接业务数据库 |
 | `./mvnw -B -ntp -Pwarehouse-it verify` | 10项，失败0、错误0、跳过0 | 原6项分片/Fence保留；新增 Kafka 生产消费不 bind XID、线程池泄漏/清理、XXL handler 无当前全局事务、三服务 POM 无 AT/XA |
-| `./mvnw -B -ntp -Ptc-it verify` | 2项，失败0、错误0、跳过0 | 文件模式Finished限制；DB审计区分提交/回滚、重启后查询恢复、审计拒写原子失败后TC恢复 |
+| `./mvnw -B -ntp -Ptc-it verify` | 2项，失败0、错误0、跳过0 | 文件模式Finished限制；DB审计、HTTP Try、业务屏障探针 |
+| `./mvnw -B -ntp -Pfailure-it verify` | 1项，失败0、错误0、跳过0，18.27秒 | 只kill本任务TC；缺证据PENDING；已落盘证据在TC宕机后仍ALLOW |
 | `./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify` | 1项，失败0、错误0、跳过0，126.6秒 | 原审计/双仓/独立RM/CAS/重复Try保留；新增 HTTP 网关 Try |
 | Python/POM/CI YAML语法 | 通过 | 本地语法；远程CI未运行 |
 
@@ -81,4 +82,17 @@ SQL注释检查器修复多行表选项误报和反引号字段漏检；正/负�
 - `DuplicateTryProbe`：同一xid两次`branchRegister`得到不同branchId；新branch与新XID的Try均因业务键所有者冲突失败，reserved保持30；外键空Cancel不释放原预占；原事务Cancel后库存与预占行归零。
 - 实测Seata 2.6对同xid/branch再次`prepareFence`抛出DuplicateKey，日志写成“already rollbacked”，并`addToLogCleanQueue`异步删除Tried记录。若在仍需Cancel的事务上重放Try，后续Cancel会走空回滚、业务释放不执行。夹具因此禁止在活动分支上重放prepareFence；这不是HTTP网关验收。
 
-AC-45/46正式业务验收仍planned。HTTP代理、TM归属和业务Outbox屏障仍未覆盖。
+AC-45/46正式业务验收仍planned。业务Outbox屏障已有S0探针，不是正式履约服务。
+
+## 业务屏障与failure-it
+
+最终`./mvnw -B -ntp -Ptc-it verify`两项通过（失败/错误/跳过0；`TcDatabaseEvidenceIT` 120.7秒，`TcTerminalEvidenceIT` 8.7秒）。`./mvnw -B -ntp -Pfailure-it verify`一项通过（失败/错误/跳过0，18.27秒）。没有增加虚假的 tc-it `@Test` 数量；屏障场景位于`BusinessBarrierProbe`，故障隔离是单独 profile。
+
+- 只读审计账号 INSERT `terminal_evidence` 被数据库拒绝。
+- 提交前、缺XID、空参与者、代际不匹配、证据TM身份与attempt期望不一致：均为`RECOVERY_PENDING`且Outbox为0。
+- 提交9且Fence COMMITTED后`ALLOW_ALLOCATED`并写入一行ALLOCATED；回滚11为`DENIED`。
+- XXL handler 清理上下文后调用二阶段入口抛`XXL_MUST_NOT_CONFIRM_OR_CANCEL`。
+- `FailureIsolationIT` 拒绝非本任务/共享dev-infra容器ID；只kill已登记TC。未提交attempt在TC被杀后仍PENDING；已落盘证据在TC宕机后仍ALLOW且不重复写Outbox。
+- 本机共享`dev-infra-marketing` ClickHouse 会自行重启，不能把其StartedAt变化当成failure-it破坏；隔离断言改为操作集合必须等于owned。
+
+不是正式`wms-fulfillment`、生产审计权限、TC HA或50项业务AC。EG-02仍running。

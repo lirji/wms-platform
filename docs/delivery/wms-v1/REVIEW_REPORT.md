@@ -114,3 +114,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 真实`branchRegister`重试换branchId。预占唯一键拒绝改绑；非所有者Cancel影响行数为0，不得改库存。
 - Seata 2.6重复prepareFence不是幂等成功：DuplicateKey后把Tried记录投入异步清理队列。夹具因此不在仍需Cancel的分支上重放Try。这证明设计要求“禁止盲目重试Try”有运行时依据。
 - 不是HTTP网关、正式TM进程或多仓履约验收。AC-45/46仍planned。
+
+## 业务屏障与failure-it复核
+
+同会话对抗复核实际diff与命令输出，不是独立多智能体审查。
+
+- `TerminalEvidenceAdapter`只读审计库；缺证据/错代际/空参与者/TM身份不匹配一律`RECOVERY_PENDING`，回滚终态`DENIED`，仅提交9且Fence=COMMITTED才允许Outbox。
+- 审计账号INSERT被数据库拒绝。XXL路径显式抛错，不调用TM commit/rollback。
+- 初版`evidenceStatus == 9`在证据尚未落盘时NPE，已改为null安全比较；`tc-it`两项复测通过。
+- `OwnedContainerGuard`拒绝非owned与dev-infra；不能用共享容器StartedAt作门禁（本机ClickHouse会自行重启）。failure-it不在kill TC后要求TM begin重连。
+- 仍不是正式`wms-fulfillment`、生产最小权限或EG-02关闭。

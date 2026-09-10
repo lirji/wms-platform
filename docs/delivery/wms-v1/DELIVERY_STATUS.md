@@ -12,7 +12,7 @@
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
 | EG-01 工程/CI | running | 三服务构建/smoke、CI配置及旧基线远程CI通过；本轮提交需核对远程CI |
-| EG-02 TC组合/唯一TM | running | TM=`wms-fulfillment`已确认；HTTP网关Try探针已有；正式业务屏障未闭合 |
+| EG-02 TC组合/唯一TM | running | TM=`wms-fulfillment`已确认；HTTP网关Try与业务屏障探针已有；正式`wms-fulfillment`模块仍是S4 |
 | EG-03 业务决定 | running | 认证=OIDC、序列号范围=enterprise+SKU+serial、TM=`wms-fulfillment`已确认；OQ-03单位/效期仍待 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
@@ -30,15 +30,17 @@
 - S0 AC-44 局部：warehouse-it 增加 Kafka 3.8.0 生产/消费、线程池 ThreadLocal 泄漏/清理、XXL handler 不得持有当前全局事务；三服务 POM 无 Seata AT/XA。不是正式 Outbox 或 XXL 集群验收。
 - 用户已确认：唯一 TM=`wms-fulfillment`；认证=OIDC（issuer 实施时配置，未指定 IdP 产品）；序列号唯一范围=enterprise+SKU+serial。
 - HTTP 网关 Try 探针：Seata Jakarta 拦截器绑定 `TX_XID`，只接受 `X-Wms-Tm=wms-fulfillment`；同 XID 重试不新注册 branch、不重放 prepareFence；缺 XID 拒绝。不是正式 `wms-fulfillment` 服务。
+- 业务屏障探针：只读账号查 `terminal_evidence`，校验 attempt/XID/epoch/TM分组/参与者Fence；缺证据或身份不匹配=`RECOVERY_PENDING`，回滚=`DENIED`，仅提交证据允许写 ALLOCATED Outbox；XXL 路径禁止 Confirm/Cancel。
+- `failure-it`：`FailureIsolationIT` 只 kill 本测试登记的 MySQL/TC；共享 dev-infra 拒绝操作；未提交 attempt 在 TC 被杀后仍不得放行，已落盘证据在 TC 宕机后仍 ALLOW。
 
 ## 边界与后续工作
 
 不再把下面这些当成待评定的产品选项。TCC、TM=`wms-fulfillment`、OIDC、序列号范围已经确认；缺的是实现与证据。OQ-03（单位/效期）仍待，不挡 S1 主数据表结构。
 
-**S0 还要做（挡 S4 放行，按已批准设计直接实现）**
+**S0 挡 S4 的两项已有隔离证据**（不是正式履约服务或生产权限模型）
 
-1. 正式终态/业务屏障：把 `terminal_evidence` 接到 attempt/XID/epoch/参与者；缺证据=`RECOVERY_PENDING`，不得写 ALLOCATED+Outbox；XXL 不得 Confirm/Cancel。
-2. `failure-it`：只操作本任务容器，禁止动共享 dev-infra。
+1. 终态/业务屏障探针已把 `terminal_evidence` 接到 attempt/XID/epoch/参与者。
+2. `failure-it` 只操作本任务容器，禁止动共享 dev-infra。
 
 **S0 工程补全（不挡 S1 主数据/OpenAPI）**
 
