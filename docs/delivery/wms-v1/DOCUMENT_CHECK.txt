@@ -5,11 +5,11 @@ Other-workspace source links are not claimed validated by remote CI.
 Business evidence is separate in QA_REPORT.md and S0_CHECK.txt; S0 overall is not complete.
 
 SHA256 Markdown:
-f73d46bcb1b2f23af7678e56e0a31f83faa849dc470d1035ac8c8a8030ae28f0  CODEX_PROGRESS.md
+466f680a2c2b9a643eeab37a14c23efdb884165aadc85ca5994777456a97f65f  CODEX_PROGRESS.md
 650dc4f228c3d032f4ae120a172ac2db3b138e8a1e926dde9b0cc2ecc93c9f2b  README.md
 d4867457d161f65fc7a23e5c0025839ed68b4e12596e196333bc14db5ee541a4  docs/delivery/wms-v1/CURSOR_HANDOFF.md
 0a3cb7d76594690ee005ec48b1f15cb5a0eaba2f9691c0838596285c514222e5  docs/delivery/wms-v1/DELIVERY_PLAN.md
-7c2f5c5d9a79924edad8ac6c073a871133a729b351ef95c409445c6db985ba0f  docs/delivery/wms-v1/DELIVERY_STATUS.md
+ac3ad09ca8682351e4770979ab20798b37ae6107cbb50fc09e508e697f05068f  docs/delivery/wms-v1/DELIVERY_STATUS.md
 3c3bf33b27beee51185b50939f4c546b53bbe665e5c866bc5c2e82b4f51e29d1  docs/delivery/wms-v1/QA_REPORT.md
 dfdf67adc90d063c8650badd01c20e6ff913fcaa0eb025754a7de174fdbe8ea1  docs/delivery/wms-v1/REVIEW_REPORT.md
 cc905b8f94219e68a01640a94b91c887b550c304d90c191aa4a6715e9fa71e4c  docs/design/01-architecture.md

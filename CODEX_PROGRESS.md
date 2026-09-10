@@ -7,7 +7,7 @@
 ## 已完成
 
 - 补EG-01..05执行门禁：唯一TM、TC终态证据、业务决定截止阶段、S5完整闭环与后续外部验收；幂等任务已并入各阶段。
-- 本地任务分支`feat/wms-s0-foundation`；origin为GitHub lirji/wms-platform，远程ls-remote无分支，本地尚未提交；.idea保留并忽略。
+- 本地任务分支`feat/wms-s0-foundation`；origin为GitHub lirji/wms-platform，远程ls-remote无分支，本地实现提交5d986dd；.idea保留并忽略。
 - 创建Maven Wrapper3.9.12/父POM、contract骨架、inbound/outbound/inventory独立服务入口及默认拒绝业务访问的配置。
 - 三进程smoke通过：健康UP、业务路径拒绝。只证明启动，不是业务验收。
 - `warehouse-it`六项真实MySQL/分片/Fence探针通过（0失败/错误/跳过）；覆盖同仓回滚、200次并发预占最多100次成功、缺仓/未知仓拒写、账号隔离、Fence局部原子与重复/空回滚。
@@ -28,14 +28,14 @@
 - EG-02完整TC+两仓RM+动态Fence路由、全局终态证据持久化、启动CAS/RPC重试、Kafka/XXL实际验证、许可证/漏洞与镜像锁等尚未完成。
 - 全部业务AC仍planned，仅上述S0子项有技术证据；不能进入跨仓业务实现并宣称S0已通过。
 - 业务开发S1..S9、真实对账/设备/UI/容量和恢复均未完成。
-- 本轮源码自审、文档/SQL注释/配置语法检查完成；本地提交与Git发布/远程CI仍待记录。
+- 本轮源码自审、文档/SQL注释/配置语法检查完成；本地提交5d986dd已完成；首次main授权、Git发布/远程CI仍待完成。
 
 ## 当前问题
 
 - 用户业务决定已通过异步工具询问，尚未收到：唯一TM（建议wms-fulfillment）、序列号唯一范围（建议企业+SKU+serial）、OIDC接入；保持相关门禁pending。
 - Seata2.6.0 DefaultCore源码表明getStatus在会话清理后返回Finished，无法独自分辨提交/回滚；真实探针已证实。需要可恢复的终态证据方案，不能把Finished当成功。
 - 原生Fence直接数据源验证通过，不等同于与ShardingSphere多数据源动态路由组合通过。
-- 远程为空，task-git-delivery要求不擅自创建远程main；待具体可审查成果验证后询问首次main创建授权。已有持续授权仍适用普通提交推送。
+- 远程为空，task-git-delivery要求不擅自创建远程main；已提交具体可审查成果5d986dd，并通过异步工具询问首次main创建授权，等待回答。已有持续授权仍适用普通提交推送。
 
 ## 下一步建议
 
@@ -45,4 +45,4 @@
 
 ## 恢复 Prompt
 
-请读取CODEX_PROGRESS.md和唯一DELIVERY_PLAN/DELIVERY_STATUS，继续已授权实施。先检查git工作树及已保存的QA证据，当前在feat/wms-s0-foundation、尚无初始提交。保护.idea，沿用现有代码和证据；Seata全局终态与用户必要业务决定尚未闭合，不能将7项局部探针当完整S0或业务验收。不要重新规划全部项目，不要求反复输入继续。
+请读取CODEX_PROGRESS.md和唯一DELIVERY_PLAN/DELIVERY_STATUS，继续已授权实施。先检查git工作树及已保存的QA证据，当前在feat/wms-s0-foundation、已有初始实现提交5d986dd。保护.idea，沿用现有代码和证据；Seata全局终态与用户必要业务决定尚未闭合，不能将7项局部探针当完整S0或业务验收。不要重新规划全部项目，不要求反复输入继续。
