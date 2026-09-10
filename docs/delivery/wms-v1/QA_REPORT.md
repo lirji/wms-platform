@@ -34,3 +34,17 @@
 初次运行失败原因分别是Docker自定义网络地址池耗尽、DB模式默认回滚恢复阈值超过30秒探针窗口。改用独立容器在默认bridge上的IP直连，并仅在测试将retryDeadThreshold设为1000毫秒后通过。未删除共享网络、未调整共享TC。最终源码定向复验37.970秒；完整tc-it前序运行77秒。耗时是本机测试值，不是业务SLO。
 
 SQL注释检查器修复多行表选项误报和反引号字段漏检；正/负例检查通过。结构检查20份文档、51条仓库链接、50项AC、64个唯一任务，仍只证明结构。
+
+## S0-05a单RM双仓与TC在途重启补充
+
+最终命令`./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify`通过：1项，失败0、错误0、跳过0，构建约99秒；此@Test内追加了TwoWarehouseTccProbe，不增加虚假的测试数量。
+
+- 一个真实RM客户端注册A/B两个资源，分别使用独立库/账号；TC持久化上下文驱动取连接路由，MyBatis与Fence共享Spring事务。
+- A确认成功、B写效果后抛异常：A效果1，B效果0且Fence仍TRIED，TC成功审计0。
+- 在这个窗口重启测试TC；客户端自行重连后，B完成、A仍一次，两个Fence均COMMITTED，审计最终为提交9。
+- 后续新事务两仓各Try30再Cancel，仅释放本次30，原已确认30保持；各一次CANCEL且Fence为ROLLBACKED。
+- 缺少路由上下文取连接直接失败；未配置默认仓。
+
+初次在途重启验证30秒超时，源码定位原生客户端首次重连调度延迟60秒、后续10秒；仅把对应断言窗口设90秒后通过，没有强制重连或放宽业务断言。最终日志观察RM重新注册与后续真实TC回调，不能把这个耗时当作已满足业务RTO。
+
+限制：TM/RM同一测试JVM；未用正式HTTP/代理Try；未验证两个RM独立进程、RM/TM宕机、ShardingSphere接入该Fence事务、启动CAS或业务放行Outbox。既有warehouse-it与文件TC回归未改语义，复用此前证据；最终定向命令覆盖本次变化。整体EG-02仍running。

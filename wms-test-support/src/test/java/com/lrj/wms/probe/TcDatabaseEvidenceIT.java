@@ -18,7 +18,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 在独立TC/MySQL中验证终态审计候选；无业务RM，不构成跨仓验收。 */
+/** 独立TC/MySQL审计及单RM双仓回调探针；不构成正式跨仓业务验收。 */
 class TcDatabaseEvidenceIT {
     /** 会话清理和TC重启后，应从数据库区分提交与回滚，不依赖TM进程内存。 */
     @Test
@@ -81,7 +81,8 @@ class TcDatabaseEvidenceIT {
                         "SELECT transaction_service_group FROM terminal_evidence WHERE xid=?", String.class, commitXid));
                 assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM terminal_evidence WHERE xid=?", Integer.class, "missing-xid"));
                 verifyAuditFailureRecovery(jdbc);
-                System.out.println("TC_DB_PROBE: persisted commit=9 and rollback=11 survive session cleanup and TC restart; no business RM covered");
+                new TwoWarehouseTccProbe(mysql).verify(jdbc, tc);
+                System.out.println("TC_DB_PROBE: persisted terminal audit, failure recovery and single-RM two-warehouse callbacks verified; full business acceptance pending");
             }
         }
     }

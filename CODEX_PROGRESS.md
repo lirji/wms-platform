@@ -7,7 +7,7 @@
 ## 已完成
 
 - 补EG-01..05执行门禁：唯一TM、TC终态证据、业务决定截止阶段、S5完整闭环与后续外部验收；幂等任务已并入各阶段。
-- 本地任务分支`feat/wms-s0-foundation`；origin为GitHub lirji/wms-platform，远程ls-remote无分支，本地实现提交5d986dd；.idea保留并忽略。
+- 本地任务分支`feat/wms-s0-foundation`；origin为GitHub lirji/wms-platform，远程ls-remote无分支，本地实现提交5d986dd及7fd3830终态审计探针；.idea保留并忽略。
 - 创建Maven Wrapper3.9.12/父POM、contract骨架、inbound/outbound/inventory独立服务入口及默认拒绝业务访问的配置。
 - 三进程smoke通过：健康UP、业务路径拒绝。只证明启动，不是业务验收。
 - `warehouse-it`六项真实MySQL/分片/Fence探针通过（0失败/错误/跳过）；覆盖同仓回滚、200次并发预占最多100次成功、缺仓/未知仓拒写、账号隔离、Fence局部原子与重复/空回滚。
@@ -25,7 +25,7 @@
 ## 未完成
 
 - `tc-it`已通过2项；增加隔离DB终态审计候选，证明重启/审计写失败后的恢复；正式业务关联与双RM适配仍未完成，不能据此放行EG-02。
-- EG-02完整TC+两仓RM+动态Fence路由、全局终态证据持久化、启动CAS/RPC重试、Kafka/XXL实际验证、许可证/漏洞与镜像锁等尚未完成。
+- EG-02两个独立RM进程及ShardingSphere/Fence组合、正式终态与业务绑定、启动CAS/RPC重试、Kafka/XXL实际验证、许可证/漏洞与镜像锁等尚未完成。
 - 全部业务AC仍planned，仅上述S0子项有技术证据；不能进入跨仓业务实现并宣称S0已通过。
 - 业务开发S1..S9、真实对账/设备/UI/容量和恢复均未完成。
 - 本轮源码自审、文档/SQL注释/配置语法检查完成；本地提交5d986dd已完成；首次main授权、Git发布/远程CI仍待完成。
@@ -34,7 +34,7 @@
 
 - 用户业务决定已通过异步工具询问，尚未收到：唯一TM（建议wms-fulfillment）、序列号唯一范围（建议企业+SKU+serial）、OIDC接入；保持相关门禁pending。
 - Seata2.6.0 DefaultCore源码表明getStatus在会话清理后返回Finished，无法独自分辨提交/回滚；真实探针已证实。需要可恢复的终态证据方案，不能把Finished当成功。
-- TC审计候选详见docs/implementation/TC_TERMINAL_EVIDENCE.md，暂未接业务放行；原生Fence直接数据源验证通过，不等同于与ShardingSphere多数据源动态路由组合通过。
+- TC审计候选详见docs/implementation/TC_TERMINAL_EVIDENCE.md，暂未接业务放行；原生Fence单RM双仓物理路由及TC重启验证通过，不等同于与ShardingSphere串联或独立多RM进程通过。
 - 远程为空，task-git-delivery要求不擅自创建远程main；已提交具体可审查成果5d986dd，并通过异步工具询问首次main创建授权，等待回答。已有持续授权仍适用普通提交推送。
 
 ## 下一步建议
@@ -48,3 +48,5 @@
 请读取CODEX_PROGRESS.md和唯一DELIVERY_PLAN/DELIVERY_STATUS，继续已授权实施。先检查git工作树及已保存的QA证据，当前在feat/wms-s0-foundation、已有初始实现提交5d986dd。保护.idea，沿用现有代码和证据；Seata全局终态与用户必要业务决定尚未闭合，不能将8项局部探针当完整S0或业务验收。不要重新规划全部项目，不要求反复输入继续。
 
 本轮补TC DB审计候选、真实故障恢复探针、SQL注释检查器修复及文档同步；最终定向tc-it通过。后续可从BusinessActionContext驱动的物理数据源路由探针继续；Seata TccHook异常会被捕获，不能仅靠hook抛错阻断回调。
+
+本轮追加单RM进程双仓资源的TwoWarehouseTccProbe并验证通过：真实TC回调、MyBatis/Fence同物理事务、B失败原子回滚、部分确认后TC重启恢复、双仓Cancel。原生RM首次重连延迟60秒，初版30秒超时；改为90秒有界恢复断言后最终通过。日志.local/tc-two-warehouse-final.log，1项失败/错误/跳过均0，构建约99秒。待完成独立RM进程与ShardingSphere串联、启动CAS/RPC等，不应重复生成此探针。

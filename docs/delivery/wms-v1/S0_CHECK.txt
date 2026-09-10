@@ -42,3 +42,13 @@ No business RM, timeout rollback or HA covered. Earlier hashes are prior-slice i
 90b78373f93c88d86e361d28a5196604576a85d9315258caf87dc4235054c6d7  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java
 1448dd271a0b18bc5e659e4a7c4b60bd223dc70e1ef531e3cbcc0c7d4b26564a  wms-test-support/src/test/resources/db/tc-probe/V002__terminal_audit.sql
 f0873838dd903d6b03e3a8d057233977a9b166ab7d421550b8cff7d46a9bb98f  wms-test-support/src/test/resources/db/tc-probe/V001__seata_schema.sql
+
+Two-warehouse supplement / 2026-09-10
+Final targeted TcDatabaseEvidenceIT: tests=1, failures=0, errors=0, skipped=0; build about99s.
+Single RM/two resources: physical MyBatis+Fence atomicity, B failure, in-flight TC restart, native RM reconnect, two-warehouse Cancel pass.
+First restart attempt failed 30s deadline; native initial reconnect schedule60s verified in source; bounded90s recovery assertion passed with unchanged native behavior.
+Not independent RM processes or ShardingSphere/Fence composition; EG-02 remains running.
+a1c387ffcc08aaaa15697a8618320f118bbce1b854cb9c9c65a6b3829d9cdf73  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java
+e7c0ebffdd658dcfe16bc5f930435b8f7e8a564a98fdeb18676d9d315b612e57  wms-test-support/src/test/java/com/lrj/wms/probe/TwoWarehouseTccProbe.java
+02f32a0e48c47a13e98859eb0e7aeb3deb6393abae00bad96f20f75254d76b14  wms-test-support/src/test/java/com/lrj/wms/probe/TccProbeMapper.java
+cd00dcf6e7c3d5bbdb67a01cdc5d286cf0357aeef2524df56b6a46b71c8e7bc2  wms-test-support/src/test/resources/db/tcc-warehouse/V003__callback_effect.sql

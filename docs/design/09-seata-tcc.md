@@ -90,3 +90,7 @@ S0新增Seata Server/Client精确版本及Java21/Boot/MyBatis/ShardingSphere/Fen
 ## 9. v0.4重复Try和启动恢复补充
 
 [幂等专项第2、3节](10-idempotency-protocols.md)补齐本文件规则：同业务键不同XID/branchId不作为重复成功，禁止资源改绑；非所有者Cancel不得释放原资源；Try失联禁止盲目重注册分支。attempt先领取launchEpoch再begin，绑定XID以数据库CAS确认后才能Try；已绑定XID永不覆盖，无绑定且证明无业务分支的空启动单独清理。新增AC-45/46，不替代原Fence同物理事务和空回滚验收。
+
+## S0实测补充（候选，不改变正式门禁）
+
+Seata2.6.0的Finished无法区分会话清理前提交/回滚。已建立[TC终态审计候选](../implementation/TC_TERMINAL_EVIDENCE.md)，验证DB审计故障恢复与单RM双仓回调、TC部分确认后重启。审计未与正式attempt/分支屏障及业务Outbox结合，独立RM/分片组合仍待验收；不将该实验迁移直接部署到生产TC。
