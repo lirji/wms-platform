@@ -145,3 +145,18 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 远程 CI `verify` #34492571104 | success 6m51s，含 warehouse-it/tc-it/failure-it | 远程 runner；不能替代生产部署 |
 
 结论：S1-05 测试身份切片 pass；Casdoor 身份开通 pass；Casdoor JWT × 隔离库存 HTTP blocked（无 compose `.env`）。50 项 AC 仍 planned。
+
+## S1-06 效果身份与重授权
+
+环境：2026-09-10，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra 或生产。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `RequestDigestTest` 4 项 | v2 摘要≠v1；用 v1 重放含数量字段仍等于原 v1；未知版本/动作拒绝；事实不全禁止随机身份 | 领域，不是过账 |
+| `EffectHttpIT` 3 项 | 换键复用 effectId；同键异内容 409；越仓 403；OPEN/STARTED 409；UNKNOWN 202 不发新号；SAFE_CLOSED 后下一尝试；APPLIED 409 | 测试 RSA JWT；不是 Casdoor；不是 permit/余额 |
+| `MasterdataMigrationIT` | 10 张表均有中文注释 | 含 V003 三表 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 47.010s | 默认构建 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
+
+结论：S1-06 身份切片本地 pass。AC-47..50 仍 planned。S2 未开始。

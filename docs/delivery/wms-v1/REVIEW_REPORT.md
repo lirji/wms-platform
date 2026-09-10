@@ -158,3 +158,14 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - `NoSuchElementException` 仅由缺失 SKU 抛出并映射 `SKU_NOT_FOUND`。写接口仍未交付。
 - Casdoor 开通成功不能证明隔离 compose 库存库已有种子。Maven IT 仍用测试 RSA `@Primary JwtDecoder`。
 - 确认：无 critical/high；50 项 AC 仍 planned；未开始 `wms-console/`。
+
+## S1-06 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 业务唯一靠事实列 UNIQUE，不透明 UUID 仅作对外 identity；适配层在缺事实时抛 `EFFECT_IDENTITY_CONFLICT`，源码路径无 `randomUUID` 作为兼容回退。
+- OPEN/STARTED 拒绝新尝试；UNKNOWN 返回 202 且不 insert attempt。APPLIED 看 `applied_command_id`。安全关闭本轮用测试 SQL 置位，不是库存 cancel/permit。
+- digest 重放使用保存的 `digest_version`+canonical，v2 多数量字段不能改变 v1 结果。
+- Mapper 均带 enterprise/warehouse。S2 事务表必须用 V004。
+- `GET /tasks/{id}/action-effects` 未实现，任务模块不在本切片。
+- 确认：无 critical/high；AC-47..50 仍 planned；未开始 `wms-console/`。

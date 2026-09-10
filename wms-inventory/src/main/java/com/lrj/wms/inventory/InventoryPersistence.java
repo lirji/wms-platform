@@ -40,6 +40,7 @@ class InventoryPersistence {
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
         Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
+        config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 
