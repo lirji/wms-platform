@@ -11,9 +11,10 @@
 
 ## 已修改文件（S2-03 未发布 main）
 
-- `InventoryApplicationService`：收货、Try 预占、TCC Cancel；同 operation 不二次加量；先锁门禁。
-- `InventoryApplicationIT` 2 项本地通过。
-- 尚未实现移动、发运、Outbox。
+- `InventoryApplicationService`：收货、Try 预占、TCC Cancel、同仓移库（含拣货带 reserved）、发运。
+- `casAdjust` 在 CHECK 之前用 WHERE 拒绝为负/超占，不足返回 0 行而非 SQL 异常。
+- `InventoryApplicationIT` 3 项本地通过。
+- Outbox 表仍待 S2-04。
 
 ## 未完成
 
@@ -23,7 +24,7 @@
 
 ## 下一步建议
 
-1. 在 `feat/wms-s2-03` 补 move/ship，再与 Outbox 表同事务后才快进 main。
+1. 在 `feat/wms-s2-03` 补 Outbox 同事务写入后才快进 main。
 2. 不要把未完成的 S2-03 当作 AC-03 通过。
 
 ## 恢复 Prompt

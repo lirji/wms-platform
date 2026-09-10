@@ -49,7 +49,10 @@ public interface InventoryMapper {
     @Update("UPDATE stock_balance SET on_hand_qty=on_hand_qty+#{onHandDelta}, reserved_qty=reserved_qty+#{reservedDelta}, "
             + "free_execution_claim_qty=free_execution_claim_qty+#{claimDelta}, version=version+1, updated_at=#{now} "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{balanceId} "
-            + "AND version=#{expectedVersion}")
+            + "AND version=#{expectedVersion} "
+            + "AND on_hand_qty+#{onHandDelta}>=0 AND reserved_qty+#{reservedDelta}>=0 "
+            + "AND free_execution_claim_qty+#{claimDelta}>=0 "
+            + "AND on_hand_qty+#{onHandDelta}>=reserved_qty+#{reservedDelta}+free_execution_claim_qty+#{claimDelta}")
     int casAdjust(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("balanceId") String balanceId, @Param("onHandDelta") BigDecimal onHandDelta,
             @Param("reservedDelta") BigDecimal reservedDelta, @Param("claimDelta") BigDecimal claimDelta,
@@ -155,4 +158,12 @@ public interface InventoryMapper {
             + "AND id=#{lineId} AND remaining_qty=requested_qty AND consumed_qty=0 AND released_qty=0")
     int casReleaseTriedLine(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("now") Timestamp now);
+
+    /** 拣货移桶：仍占用源桶的预占明细改挂目标桶。 */
+    @Update("UPDATE reservation_line SET balance_id=#{targetBalanceId}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND balance_id=#{sourceBalanceId} "
+            + "AND remaining_qty>0")
+    int rebindRemainingLines(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("sourceBalanceId") String sourceBalanceId, @Param("targetBalanceId") String targetBalanceId,
+            @Param("now") Timestamp now);
 }

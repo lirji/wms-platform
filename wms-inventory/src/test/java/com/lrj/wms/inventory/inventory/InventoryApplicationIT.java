@@ -29,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** S2-03 收货/预占/TCC Cancel；同 operation 不二次加量。不是并发 100 件 AC-03。 */
+/** S2-03 收货/预占/Cancel/移库/发运；同 operation 不二次加量。不是并发 100 件 AC-03。 */
 class InventoryApplicationIT {
     private static final Instant NOW = Instant.parse("2026-09-10T13:00:00Z");
     private static final String DIGEST = "b".repeat(64);
@@ -59,6 +59,8 @@ class InventoryApplicationIT {
             MasterdataService masterdata = new MasterdataService(session, clock);
             masterdata.createWarehouse("WH-A", "ENT-1", "SHA", "上海仓", "Asia/Shanghai");
             masterdata.createLocation("LOC-1", "GATE-1", "ENT-1", "WH-A", "A-01", "A", "STORAGE", new BigDecimal("100"),
+                    "EA");
+            masterdata.createLocation("LOC-2", "GATE-2", "ENT-1", "WH-A", "A-02", "A", "STORAGE", new BigDecimal("100"),
                     "EA");
             session.commit();
         }
@@ -117,5 +119,37 @@ class InventoryApplicationIT {
             session.rollback();
         }
         jdbc.update("UPDATE location_gate SET state='OPEN' WHERE location_id='LOC-1'");
+    }
+
+    @Test
+    void moveReservedThenShipAndRejectOverShip() {
+        StockBucketKey storage = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", "SKU-MV", MasterdataCodes.NO_LOT,
+                InventoryCodes.QUALITY_GOOD);
+        StockBucketKey stage = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-2", "SKU-MV", MasterdataCodes.NO_LOT,
+                InventoryCodes.QUALITY_GOOD);
+        Quantity ten = Quantity.parse("10", 0);
+        Quantity four = Quantity.parse("4", 0);
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        try (SqlSession session = sessions.openSession(false)) {
+            InventoryApplicationService service = new InventoryApplicationService(session, clock);
+            service.receive("ENT-1", "WH-A", "OP-MV-RCV", "DOC", "ACTOR", storage, ten);
+            service.reserve("ENT-1", "WH-A", "OP-MV-RSV", "DOC", "ACTOR", "ALLOC-MV", "ATT-MV", "xid-mv", 3L,
+                    "ReservationTccAction", 1L, DIGEST, storage, four, "OL-MV");
+            service.move("ENT-1", "WH-A", "OP-MV", "DOC", "ACTOR", storage, stage, four, true);
+            service.move("ENT-1", "WH-A", "OP-MV", "DOC", "ACTOR", storage, stage, four, true);
+            service.ship("ENT-1", "WH-A", "OP-SHIP", "DOC", "ACTOR", stage, four);
+            InventoryException over = assertThrows(InventoryException.class,
+                    () -> service.ship("ENT-1", "WH-A", "OP-SHIP-2", "DOC", "ACTOR", stage, Quantity.parse("1", 0)));
+            assertEquals("STOCK_INSUFFICIENT", over.code());
+            session.commit();
+        }
+        assertEquals(0, jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-MV' AND location_id='LOC-1'",
+                BigDecimal.class).compareTo(new BigDecimal("6.000000")));
+        assertEquals(0, jdbc.queryForObject("SELECT reserved_qty FROM stock_balance WHERE sku_id='SKU-MV' AND location_id='LOC-1'",
+                BigDecimal.class).compareTo(new BigDecimal("0.000000")));
+        assertEquals(0, jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-MV' AND location_id='LOC-2'",
+                BigDecimal.class).compareTo(new BigDecimal("0.000000")));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-MV'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-SHIP'", Integer.class));
     }
 }
