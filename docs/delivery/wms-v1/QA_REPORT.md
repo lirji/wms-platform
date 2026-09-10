@@ -124,6 +124,6 @@ OpenAPI：3.1.0、OIDC 无 client_secret、写接口 Idempotency-Key、Quantity 
 | `WmsJwtAuthoritiesTest` | 2 项 | 声明解析 |
 | `MasterdataMigrationIT` | 7 张表中文注释；CHECK/唯一键 | 含 `operator_grant` |
 
-根 `./mvnw -B -ntp verify` BUILD SUCCESS 37.255s；`python3 scripts/smoke-services.py` 三进程 health UP，业务路径 401/403。smoke 不设 JDBC/issuer。本机 Casdoor `:8000` 未响应，开通脚本已落地但现场身份未创建。
+根 `./mvnw -B -ntp verify` BUILD SUCCESS 37.255s；`python3 scripts/smoke-services.py` 三进程 health UP，业务路径 401/403。smoke 不设 JDBC/issuer。本机 Casdoor `:8000` 未响应，开通脚本已落地但现场身份未创建。远程 CI verify #34489970301 成功（6m44s），含 warehouse-it/tc-it/failure-it。
 
 AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显式 UTC Instant，`expiry_rule_version=0`。

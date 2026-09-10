@@ -18,12 +18,12 @@
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | S1-01 远程 CI verify #34486072532 成功。本轮本地 verify/smoke 后发布；远程 CI 待核 |
+| EG-01 工程/CI | running | 本轮远程 CI verify #34489970301 成功（6m44s）。S0 组合门禁与 SBOM 仍未关闭 |
 | EG-02 TC组合/唯一TM | running | 沿用 S0 探针；正式`wms-fulfillment`仍是S4 |
 | EG-03 业务决定 | running | 本地测试 IdP=auth-platform Casdoor；生产 IdP 未锁。OQ-03 仍待 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | running | 本轮实现待提交推送 |
+| Git发布 | passed（本轮实现） | `a7f90c8` 已推送任务分支和 main；远程包含性已核对；无生产部署 |
 
 ## 本轮已实现（S1-02 / S1-04）
 
@@ -41,4 +41,4 @@
 
 HTTP 写接口未交付。种子脚本不等于控制台。现场 Casdoor 未跑时开通脚本不能证明身份已创建。
 
-无生产部署。
+本轮实现提交 `994ebec` / 发布合并 `a7f90c8` 已在任务分支和远程 main。远程 CI：[verify #34489970301](https://github.com/lirji/wms-platform/actions/runs/34489970301) 成功。auth-platform `dbf2ca4` 已在其远程 main；该提交未见新的 Actions run。无生产部署。

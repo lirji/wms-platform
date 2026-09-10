@@ -6,7 +6,7 @@
 
 ## 已完成
 
-- 任务分支`feat/wms-s1-seed`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`。S1-01/S1-03 已在`origin/main`（`4bcec83` / `eeed0ab`）。
+- 任务分支`feat/wms-s1-seed`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`。发布合并`a7f90c8`已在`origin/main`。远程 CI verify #34489970301 成功。
 - S1-04：`scripts/seed-local.sh --profile isolated-wms` 幂等写入 2 仓、5 类 SKU、基础库位与 `operator_grant`；拒绝 43306/`dev-infra`。
 - S1-02：`wms-security` OIDC 资源服务器；issuer 为空 denyAll。inventory 主数据只读 HTTP 按 JWT 仓范围过滤。
 - auth-platform 隔离工作树`feat/wms-oidc-provision` 增加 `deploy/wms-platform-provision.py`（层①+②，无 SpiceDB）。
