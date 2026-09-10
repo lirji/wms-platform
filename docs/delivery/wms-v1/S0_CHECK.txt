@@ -31,3 +31,14 @@ bba0a73865dcb663f84b05e8f2eaa0372daa3090397457f51f861c712fa6a2a8  wms-test-suppo
 ba7ae6116164fe8fecdb17a81ea749431c955d48d921ba1bef7293596e146e4d  wms-test-support/src/test/resources/db/probe/V001__stock_probe.sql
 65d94bf502a58ba43402e2e68f5f8a6c0c325b1db485bef753fe84518ab8b93e  wms-test-support/src/test/resources/db/probe/V002__fence_probe.sql
 f7351ba1a65cda6a7d08d9a98e10c77ad1a87a3b7cb0d1ec99c4ff8688017836  wms-test-support/src/test/resources/sharding-probe.yaml
+
+S0-09 supplement / 2026-09-10
+TcDatabaseEvidenceIT: tests=1, failures=0, errors=0, skipped=0; final targeted build 37.970s.
+Complete tc-it: tests=2, failures=0, errors=0, skipped=0 before readiness-wait refinement; changed class retested after refinement.
+DB audit: commit9/rollback11 preserved; TC restart query recovered; failed audit insert leaves nonterminal session and zero evidence; recovery completes after fault removed.
+No business RM, timeout rollback or HA covered. Earlier hashes are prior-slice inputs, not current hashes.
+25862a4a33a5727b2e9b5614e5be2c96122bf8124cd9137f47235ee38b8118a6  scripts/check-docs.py
+61cfee0926e91de54f796f8ca2861e0776d31b51a848c6920d35aca4289bb1e2  wms-test-support/pom.xml
+90b78373f93c88d86e361d28a5196604576a85d9315258caf87dc4235054c6d7  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java
+1448dd271a0b18bc5e659e4a7c4b60bd223dc70e1ef531e3cbcc0c7d4b26564a  wms-test-support/src/test/resources/db/tc-probe/V002__terminal_audit.sql
+f0873838dd903d6b03e3a8d057233977a9b166ab7d421550b8cff7d46a9bb98f  wms-test-support/src/test/resources/db/tc-probe/V001__seata_schema.sql

@@ -43,10 +43,10 @@ def main():
     for path in ROOT.glob("wms-*/src/**/db/**/*.sql"):
         text = path.read_text()
         for body in re.findall(r"CREATE TABLE .*?;", text, re.S | re.I):
-            if not re.search(r"\)\s*(?:ENGINE=.*?)?COMMENT\s*=", body, re.I):
+            if not re.search(r"\)\s*(?:ENGINE\s*=.*?)?COMMENT\s*=", body, re.I | re.S):
                 errors.append(f"{path}: 缺表注释")
             for line in body.splitlines():
-                if re.match(r"\s+\w+\s+(?:VARCHAR|CHAR|BIGINT|INT|TINYINT|DECIMAL|DATETIME)\b", line, re.I) and "COMMENT" not in line.upper():
+                if re.match(r"\s+`?\w+`?\s+(?:VARCHAR|CHAR|BIGINT|INT|TINYINT|DECIMAL|DATETIME|TIMESTAMP)\b", line, re.I) and "COMMENT" not in line.upper():
                     errors.append(f"{path}: 缺字段注释 {line}")
     if errors:
         raise SystemExit("\n".join(errors))

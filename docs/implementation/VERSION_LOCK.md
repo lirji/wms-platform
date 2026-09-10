@@ -38,3 +38,5 @@
 - MySQL本机镜像：`mysql@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb`。
 
 这是本次实际运行镜像记录；跨架构CI还需核对对应manifest，不把本机平台镜像摘要当成通用生产锁。
+
+TC DB终态审计隔离候选已实测提交/回滚清理、重启与审计写入故障恢复，详见[候选说明](TC_TERMINAL_EVIDENCE.md)；不改变当前生产版本门禁未通过的结论。

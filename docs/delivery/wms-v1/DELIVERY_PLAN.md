@@ -94,7 +94,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 
 ### S0 工程与选型验证
 
-- S0-01 本地仓库已存在，origin为GitHub；当前远程未返回任何分支，本地未有初始提交。使用feat/wms-s0-foundation，保护.idea；首次远程main创建单独处理，不擅自覆盖远程。
+- S0-01 本地仓库已存在，origin为GitHub；当前远程未返回任何分支，已有本地初始实现提交5d986dd。使用feat/wms-s0-foundation，保护.idea；首次远程main创建单独处理，不擅自覆盖远程。
 - S0-02 产出 `docs/implementation/VERSION_LOCK.md`，验证候选组合，登记许可证/漏洞/镜像摘要；所有版本在父 BOM 管理。
 - S0-03 创建Maven Wrapper/父pom，以及wms-inbound、wms-outbound、wms-inventory独立启动包/镜像/配置/数据库账号；包前缀com.lrj.wms。共享wms-contract只含契约，不共享领域实体或Mapper。
 - S0-04 编写 `deploy/compose.local.yml` 及 `.env.example`（仅变量名/占位），记录 dev-infra 资源；隔离故障测试另起专属实例。
@@ -105,7 +105,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 - S0-07 验证实际Seata/RPC重试是否重新注册branchId及Fence对重复Try的返回行为；验证begin/绑定故障与epoch隔离，建立AC-45/46真实集成夹具。
 
 - S0-08 确认唯一TM归属；若无现有OMS，采用待用户确认的wms-fulfillment。S0的TC实验可用隔离探针，正式履约实现等待归属明确。
-- S0-09 验证选定Seata版本全局提交完成证据的真实获取机制、持久化时机、TC记录清理和TM宕机窗口；若无法形成可恢复成功屏障，不通过该组合门禁。
+- S0-09 候选实验与限制见[TC终态证据](../../implementation/TC_TERMINAL_EVIDENCE.md)。验证选定Seata版本全局提交完成证据的真实获取机制、持久化时机、TC记录清理和TM宕机窗口；若无法形成可恢复成功屏障，不通过该组合门禁。
 - S0-10 产出可重复构建、三服务独立启动和隔离数据库测试证据；其他服务启动包/账号在首次业务切片创建：fulfillment为S4、serial-registry为S3、integration为S5、query为S7，不以核心三服务冒充全平台。
 
 ### S1 基础资料与安全

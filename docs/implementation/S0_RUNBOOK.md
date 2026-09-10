@@ -13,7 +13,7 @@ python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Ptc-it verify
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为；tc-it是原生TC终态查询能力探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
+前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为；tc-it包含原生TC终态查询限制及DB终态审计候选探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
 
 手工启动任一服务：
 
@@ -26,3 +26,5 @@ inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆
 ## CI与发布边界
 
 GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试报告；没有部署步骤。远程为空，本地任务分支已创建。首次远程main创建仍需符合Git技能授权规则。生产部署始终另授权。
+
+终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。

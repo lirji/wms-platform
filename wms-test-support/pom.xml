@@ -94,7 +94,7 @@
             <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
               <excludes>
-                <exclude>**/TcTerminalEvidenceIT.java</exclude>
+                <exclude>**/Tc*IT.java</exclude>
               </excludes>
             </configuration>
             <executions>
@@ -117,8 +117,9 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
+              <reuseForks>false</reuseForks>
               <includes>
-                <include>**/TcTerminalEvidenceIT.java</include>
+                <include>**/Tc*IT.java</include>
               </includes>
             </configuration>
             <executions>
