@@ -16,6 +16,8 @@
 
 - Try库存不足时ShardingSphere/Fence共同回滚及空Cancel不释放已有库存已通过最终定向复验；日志`.local/tc-independent-verified.log`，1项失败/错误/跳过0，用例107.2秒；此前完整tc-it两项亦通过。
 
+- 本轮实现提交`8c41356`已正常快进发布到origin/main，远程包含性已核对；保留`.local/main-integration`工作树（main）与原任务分支。CI执行结果以对应提交的GitHub运行记录核对，不将旧基线通过冒充本轮通过。
+
 ## 已修改文件
 
 - `wms-test-support/src/test/java/com/lrj/wms/probe/CellFenceAlgorithm.java`
@@ -27,7 +29,7 @@
 
 ## 未完成
 
-- 本轮完成后正常提交、推送任务分支和main，并检查新提交CI。恢复时先检查真实Git refs和CI，避免按此中间记录重复发布或询问。
+- 恢复时核对最新Git refs及GitHub CI运行记录；本轮实现8c41356已推送任务分支和main，不重复发布已存在提交或询问首次创建。
 - S0仍缺实际HTTP/代理Try重试、启动attempt/XID/epoch CAS故障、正式终态与业务屏障绑定、Kafka/XXL联调、依赖安全及容量/恢复等后续门禁。
 - 全部50项正式业务AC仍planned；S1..S9、设备/对账/UI等未完成。
 
@@ -41,7 +43,7 @@
 ## 下一步建议
 
 1. 最终定向tc-it已通过；先检查当前HEAD与origin/main及对应CI，完成剩余发布核验再继续S0。
-2. 核对origin/main为祖先后正常推送任务分支与main；无生产部署。核对新提交GitHub CI，不用本地通过替代远程结果。
+2. 本轮发布已完成；从正式代理/HTTP重试、启动CAS/RPC等剩余S0门禁继续。若CI显示本轮回归，优先修复并按正常流程再次发布。
 3. 继续剩余S0协议故障与基础组件门禁；业务决定到达后更新对应OQ，不重新规划项目或重复生成已通过探针。
 
 ## 恢复 Prompt
