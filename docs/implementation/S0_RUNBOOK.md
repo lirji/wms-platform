@@ -18,6 +18,8 @@ docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
 
 故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、XXL 触发、TCC HTTP 网关或业务 Outbox 已验收。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
 
+根目录 [`.gitignore`](../../.gitignore) 排除 Maven `target/`、IntelliJ `.idea/`、本机 `.env`、`.local/`（集成工作树、smoke 日志、CI 报告副本）以及崩溃/合并残留。编排口令模板只提交 `.env.example`；不要把 `.idea` 或真实口令加回版本库。
+
 ## 已创建的命令
 
 ```bash
