@@ -32,6 +32,9 @@ public final class InventoryCodes {
     public static final String REASON_MOVE_IN = "MOVE_IN";
     public static final String REASON_SHIP = "SHIP";
 
+    public static final String AGGREGATE_STOCK_BALANCE = "STOCK_BALANCE";
+    public static final String EVENT_BALANCE_CHANGED = "InventoryBalanceChanged";
+
     public static final String DECISION_ALLOW = "ALLOW";
     public static final String DECISION_DENY = "DENY";
     public static final String DECISION_DRAIN = "DRAIN";

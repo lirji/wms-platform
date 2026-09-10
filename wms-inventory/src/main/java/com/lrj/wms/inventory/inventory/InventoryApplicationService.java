@@ -6,6 +6,7 @@ import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.ReservationState;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -17,7 +18,7 @@ import org.apache.ibatis.session.SqlSession;
 
 /**
  * 收货、预占、TCC Cancel、同仓移库与发运。先锁门禁再按稳定桶键锁余额。
- * Outbox 表在 S2-04；本切片与余额/流水同事务，不写虚假过账成功。
+ * 流水与 Outbox 同会话提交；领取/发布在 S2-04，本切片只落 PENDING。
  */
 public final class InventoryApplicationService {
     private final SqlSession session;
@@ -47,10 +48,10 @@ public final class InventoryApplicationService {
             throw new InventoryException("VERSION_CONFLICT", "收货版本冲突");
         }
         Map<String, Object> after = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
-        mapper.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, operationId, 1,
-                String.valueOf(after.get("id")), delta, BigDecimal.ZERO, BigDecimal.ZERO, decimal(after, "on_hand_qty"),
-                decimal(after, "reserved_qty"), decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
-                InventoryCodes.REASON_RECEIVE, documentId, actorId, now, now);
+        recordLedgerAndOutbox(mapper, enterpriseId, warehouseId, operationId, 1, String.valueOf(after.get("id")),
+                delta, BigDecimal.ZERO, decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
+                decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
+                InventoryCodes.REASON_RECEIVE, documentId, actorId, now);
         return operationId;
     }
 
@@ -80,10 +81,10 @@ public final class InventoryApplicationService {
         mapper.insertReservationLine(UUID.randomUUID().toString(), enterpriseId, warehouseId, reservationId, null, orderLineId,
                 String.valueOf(after.get("id")), qty.toBigDecimal(), qty.toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, now);
-        mapper.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, operationId, 1,
-                String.valueOf(after.get("id")), BigDecimal.ZERO, qty.toBigDecimal(), BigDecimal.ZERO,
-                decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"), decimal(after, "free_execution_claim_qty"),
-                longValue(after.get("version")), InventoryCodes.REASON_RESERVE, documentId, actorId, now, now);
+        recordLedgerAndOutbox(mapper, enterpriseId, warehouseId, operationId, 1, String.valueOf(after.get("id")),
+                BigDecimal.ZERO, qty.toBigDecimal(), decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
+                decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
+                InventoryCodes.REASON_RESERVE, documentId, actorId, now);
         return reservationId;
     }
 
@@ -123,11 +124,10 @@ public final class InventoryApplicationService {
                 throw new InventoryException("VERSION_CONFLICT", "释放预占版本冲突");
             }
             Map<String, Object> after = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
-            mapper.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, operationId, entry++,
-                    String.valueOf(after.get("id")), BigDecimal.ZERO, remaining.negate(), BigDecimal.ZERO,
-                    decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
+            recordLedgerAndOutbox(mapper, enterpriseId, warehouseId, operationId, entry++, String.valueOf(after.get("id")),
+                    BigDecimal.ZERO, remaining.negate(), decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
                     decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
-                    InventoryCodes.REASON_RELEASE, documentId, actorId, now, now);
+                    InventoryCodes.REASON_RELEASE, documentId, actorId, now);
         }
         if (mapper.casReservationState(enterpriseId, warehouseId, String.valueOf(head.get("id")), ReservationState.TRIED,
                 ReservationState.CANCELLED, longValue(head.get("version")), now) != 1) {
@@ -215,10 +215,26 @@ public final class InventoryApplicationService {
             String documentId, String actorId, Timestamp now) {
         Map<String, Object> after = mapper.lockBalanceByDimension(enterpriseId, warehouseId, bucket.ownerId(),
                 bucket.locationId(), bucket.skuId(), bucket.lotId(), bucket.qualityCode());
-        mapper.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, operationId, entryNo,
-                String.valueOf(after.get("id")), onHandDelta, reservedDelta, BigDecimal.ZERO, decimal(after, "on_hand_qty"),
-                decimal(after, "reserved_qty"), decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
-                reason, documentId, actorId, now, now);
+        recordLedgerAndOutbox(mapper, enterpriseId, warehouseId, operationId, entryNo, String.valueOf(after.get("id")),
+                onHandDelta, reservedDelta, decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
+                decimal(after, "free_execution_claim_qty"), longValue(after.get("version")), reason, documentId, actorId,
+                now);
+    }
+
+    private void recordLedgerAndOutbox(InventoryMapper mapper, String enterpriseId, String warehouseId, String operationId,
+            int entryNo, String balanceId, BigDecimal onHandDelta, BigDecimal reservedDelta, BigDecimal onHandAfter,
+            BigDecimal reservedAfter, BigDecimal claimAfter, long balanceVersion, String reason, String documentId,
+            String actorId, Timestamp now) {
+        String ledgerId = UUID.randomUUID().toString();
+        mapper.insertLedger(ledgerId, enterpriseId, warehouseId, operationId, entryNo, balanceId, onHandDelta, reservedDelta,
+                BigDecimal.ZERO, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason, documentId, actorId, now,
+                now);
+        String payload = "{\"onHandDelta\":\"" + onHandDelta.toPlainString() + "\",\"reservedDelta\":\""
+                + reservedDelta.toPlainString() + "\",\"onHandAfter\":\"" + onHandAfter.toPlainString()
+                + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString() + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}";
+        session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
+                InventoryCodes.AGGREGATE_STOCK_BALANCE, balanceId, balanceVersion, InventoryCodes.EVENT_BALANCE_CHANGED,
+                operationId, payload, now);
     }
 
     private Map<String, Object> ensureBalance(InventoryMapper mapper, StockBucketKey bucket, Timestamp now) {

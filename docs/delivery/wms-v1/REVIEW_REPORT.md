@@ -192,3 +192,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 空桶 INSERT ON DUPLICATE 后按维度加锁读回原 id，禁止 Java 侧“查不存在再插入”竞态。
 - Mapper 均带 enterprise/warehouse。本切片无应用服务、无 Outbox。
 - 确认：无 critical/high；AC-03 仍 planned；未开始 `wms-console/`。
+
+## S2-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 流水与 `outbox_event` 同 `SqlSession`；`insertPending` 失败则整会话回滚，不会出现有流水无 Outbox。
+- 重放只看 `countLedger`，同 `operationId` 不二次写流水/Outbox。失败路径（冻结、不足、超发）在 `recordLedgerAndOutbox` 之前抛错。
+- Outbox 仅 `PENDING`；无 claim/lease/publish。`payload` 含 delta/after/`ledgerEntryId`，信封列含 `STOCK_BALANCE`/`InventoryBalanceChanged`/聚合版本。
+- 跨仓移库拒绝；CONFIRMED 不能 TCC Cancel。`casAdjust` WHERE 守卫使不足返回 0 行，不是 CHECK 异常当成功。
+- 确认：无 critical/high；AC-03/AC-05 仍 planned；未开始 `wms-console/`。

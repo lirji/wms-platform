@@ -53,6 +53,7 @@ class InventoryApplicationIT {
         Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
+        config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
@@ -103,6 +104,10 @@ class InventoryApplicationIT {
                 jdbc.queryForObject("SELECT state FROM reservation WHERE allocation_id='ALLOC-1'", String.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-RCV'", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-CXL'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-RCV' AND status='PENDING'",
+                Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-CXL'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-RSV-2'", Integer.class));
     }
 
     @Test
@@ -118,6 +123,7 @@ class InventoryApplicationIT {
             assertEquals("STOCK_FROZEN", error.code());
             session.rollback();
         }
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-FZ'", Integer.class));
         jdbc.update("UPDATE location_gate SET state='OPEN' WHERE location_id='LOC-1'");
     }
 
@@ -151,5 +157,9 @@ class InventoryApplicationIT {
                 BigDecimal.class).compareTo(new BigDecimal("0.000000")));
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-MV'", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-SHIP'", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-MV' AND status='PENDING'",
+                Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-SHIP'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-SHIP-2'", Integer.class));
     }
 }
