@@ -23,6 +23,10 @@
 - TC探针揭示现有getStatus恢复路径不足，不能将探针成功当作EG-02完成。还需终态证据可靠保存/读取与TM宕机窗口验证。
 - Kafka/XXL实际联调、HTTP网关Try、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
 
+## S0-04隔离本地编排
+
+已写入 `deploy/compose.local.yml` 与根目录 `.env.example`。`docker compose config` 可解析。本机用独立项目名 `wms-compose-smoke` 拉起后，三套 MySQL、Kafka 预置 topic、Redis、Seata 8091、XXL admin HTTP 302 均可用；应用账号不能读 seata 库；Cell A 账号不能登录 Cell B。验证后 `down -v`，未改动共享 dev-infra。这不是 Kafka 投递、XXL 触发、HTTP Try 或业务 Outbox 验收。
+
 ## 结论
 
 本轮技术探针通过；整体S0及项目验收未完成，状态in-progress。测试断言不能降级成允许失败/静默跳过来绕过后续门禁。

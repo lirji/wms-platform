@@ -34,4 +34,4 @@
 
 ## 实施入口
 
-S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。当前仅三个受限服务入口与隔离技术探针，入库、出库、库存业务尚未交付。
+S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。当前仅三个受限服务入口与隔离技术探针，入库、出库、库存业务尚未交付。

@@ -4,6 +4,20 @@
 
 JDK21、Docker及网络可用；普通服务端口默认只监听127.0.0.1。测试会创建自己的临时容器和数据库；不会连接共享dev-infra进行故障注入。不要把探针迁移用于生产库存库。
 
+## 隔离本地中间件
+
+`deploy/compose.local.yml` 是 WMS 自有栈：三套 MySQL（应用/Cell A/Cell B）、Kafka 3.8.0、Redis 7、Seata Server 2.6.0、XXL-JOB admin 3.4.2。不加入 sibling `/Users/liruijun/personal/LLM/dev-infra` 网络，不 `depends_on` 共享容器，不修改该仓库。ordinary 共享实例仍在 dev-infra（MySQL 宿主 43306、Redis 46379、Kafka 49092、MinIO 49000/49001）。Seata 不在 dev-infra；XXL 不共用 drools-demo 的 18088 / mysql 3307。本编排不启动 inbound/outbound/inventory JAR，也不创建业务表。
+
+```bash
+cp .env.example .env
+# 把 change-me 换成仅本机使用的口令后再启动
+docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
+```
+
+默认只绑 `127.0.0.1`：应用库 18306、Cell A 18307、Cell B 18308、Kafka 18992、Redis 18379、Seata 18091/控制台 17091、XXL admin 18080。避开本机已占用的 Apollo MySQL 13306、dev-infra 43306/46379/49092、drools XXL 18088。宿主机 Java 客户端连这些端口；容器内互访用服务名。`SEATA_IP` 默认 `127.0.0.1`，给本机进程用；若以后把应用放进同一 compose 网络，需改成对容器可达的地址。XXL 空库首次登录为官方引导账号 `admin` / `123456`，登录后立即改密。官方 admin 镜像是 linux/amd64，Apple Silicon 会走模拟。初始化脚本只在空数据卷执行一次。
+
+故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、XXL 触发、TCC HTTP 网关或业务 Outbox 已验收。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
+
 ## 已创建的命令
 
 ```bash
