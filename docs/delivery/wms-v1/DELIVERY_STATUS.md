@@ -57,4 +57,4 @@ HTTP 网关探针不等于正式履约服务。局部探针与本地编排通过
 
 [候选说明](../../implementation/TC_TERMINAL_EVIDENCE.md)、[本地手册](../../implementation/S0_RUNBOOK.md)、[版本记录](../../implementation/VERSION_LOCK.md)记录实际机制和限制；Git/CI最终结果按本分支提交及远程运行核验，已有普通发布授权不重复询问。
 
-本轮实现提交`7c435c3`已正常快进发布到main，同时包含8c41356/7fd3830/216fd95；保留任务分支和main集成工作树。远程CI执行结果见[main流水线](https://github.com/lirji/wms-platform/actions/workflows/verify.yml?query=branch%3Amain)，应匹配实际提交，不根据本文件更新时间推断通过。
+本轮实现提交`5d444ef`已在任务分支；发布后以远程main是否包含该提交为准。远程CI执行结果见[main流水线](https://github.com/lirji/wms-platform/actions/workflows/verify.yml?query=branch%3Amain)，应匹配实际提交，不根据本文件更新时间推断通过。
