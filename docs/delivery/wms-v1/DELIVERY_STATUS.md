@@ -18,12 +18,12 @@
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | 本轮本地 contract/inventory 验证已过；远程 CI 以发布提交为准 |
+| EG-01 工程/CI | running | 本轮远程 CI verify #34486072532 成功（5m8s）。S0 组合门禁与 SBOM 仍未关闭 |
 | EG-02 TC组合/唯一TM | running | 沿用 S0 探针；正式`wms-fulfillment`仍是S4 |
 | EG-03 业务决定 | running | OIDC/序列号/TM已确认；OQ-03单位/效期仍待，本轮不落生产默认换算 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | pending | 本轮提交后核验远程 main 祖先与 CI |
+| Git发布 | passed（本轮实现） | `4bcec83` 已推送任务分支和 main；远程包含性已核对；无生产部署 |
 
 ## 本轮已实现（S1-01 / S1-03）
 
@@ -42,3 +42,5 @@
 - 50 项业务 AC、S0 XXL 真触发、SBOM/CVE、`wms-console/`。
 
 HTTP 契约文件不等于业务 API 已交付。inventory 迁移不等于服务已接库。
+
+本轮实现提交 `4bcec83` 已在任务分支和远程 main。远程 CI：[verify #34486072532](https://github.com/lirji/wms-platform/actions/runs/34486072532) 成功。无生产部署。

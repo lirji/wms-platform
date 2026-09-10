@@ -6,10 +6,10 @@
 
 ## 已完成
 
-- 任务分支`feat/wms-s1-masterdata`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`，基线`origin/main` `a7bd1ab`。
+- 任务分支`feat/wms-s1-masterdata`，工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata`，发布提交`4bcec83`已在`origin/main`。
 - S1-01：`V001__warehouse_masterdata.sql` 与 masterdata 领域/Mapper；OQ-03 未确认，不编造单位/效期生产默认值。
 - S1-03：`wms-contract/src/main/resources/openapi/wms-v1.yaml` 与 `OpenApiContractTest`。
-- 本地`./mvnw -B -ntp -pl wms-contract,wms-inventory -am verify`：契约 4 项、SkuPolicy 10 项、MasterdataMigrationIT 4 项（约 12.3s）通过。
+- 本地`./mvnw -B -ntp verify` 与 smoke 通过；远程 CI verify #34486072532 成功。
 - 原目录`feat/wms-s0-foundation`上未提交的 ADR-11 文档未纳入本任务。
 
 ## 已修改文件
