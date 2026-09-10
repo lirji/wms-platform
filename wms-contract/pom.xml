@@ -8,4 +8,16 @@
   </parent>
   <artifactId>wms-contract</artifactId>
   <description>仅公开契约，禁止引入业务实体或Mapper</description>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 </project>

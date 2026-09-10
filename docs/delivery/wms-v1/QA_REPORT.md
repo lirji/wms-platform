@@ -96,3 +96,17 @@ AC-45/46正式业务验收仍planned。业务Outbox屏障已有S0探针，不是
 - 本机共享`dev-infra-marketing` ClickHouse 会自行重启，不能把其StartedAt变化当成failure-it破坏；隔离断言改为操作集合必须等于owned。
 
 不是正式`wms-fulfillment`、生产审计权限、TC HA或50项业务AC。EG-02仍running。
+
+## S1-01/S1-03 主数据与 OpenAPI
+
+环境：2026-09-10，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra 或生产。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `python3 scripts/check-docs.py` | 结构通过（工作树修正相对路径忽略 `.local` 后才会计数文档） | 结构，不是业务验收 |
+| `./mvnw -B -ntp -pl wms-contract,wms-inventory -am verify` | contract 4 项、SkuPolicy 10 项、MasterdataMigrationIT 4 项 12.32s，失败/错误/跳过 0 | 契约解析；领域规则；真实库迁移/注释/CHECK/唯一键 |
+| 根 `./mvnw -B -ntp verify` 与 `python3 scripts/smoke-services.py` | BUILD SUCCESS 约 16.7s；三进程 health UP，业务路径 401/403 | 默认构建含契约与主数据 IT；进程仍不接库 |
+
+领域侧：序列号分数精度拒绝；未知状态不回落 ACTIVE/OPEN；1/3 换算拒绝截断；无批次只用 NO_LOT；启用效期可保留源日期且不生成 UTC 日界。库侧：缺列注释为 0；成对容量/序列号精度/NO_LOT 主键被 CHECK 拒绝；仓编码唯一。
+
+OpenAPI：3.1.0、OIDC 无 client_secret、写接口 Idempotency-Key、Quantity 为 string、列表 CursorPage、无 `/tcc/prepare`。这不是 HTTP 业务实现，AC-01/02/31 仍 planned。

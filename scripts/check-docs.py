@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     errors = []
-    docs = [p for p in ROOT.rglob("*.md") if not any(x in p.parts for x in ("target", ".local", ".git", ".idea"))]
+    docs = [p for p in ROOT.rglob("*.md") if not any(x in p.relative_to(ROOT).parts for x in ("target", ".local", ".git", ".idea"))]
     links = 0
     for path in docs:
         text = path.read_text()

@@ -124,3 +124,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 初版`evidenceStatus == 9`在证据尚未落盘时NPE，已改为null安全比较；`tc-it`两项复测通过。
 - `OwnedContainerGuard`拒绝非owned与dev-infra；不能用共享容器StartedAt作门禁（本机ClickHouse会自行重启）。failure-it不在kill TC后要求TM begin重连。
 - 仍不是正式`wms-fulfillment`、生产最小权限或EG-02关闭。
+
+## S1-01/S1-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 主数据表归属 inventory，模板字段与字典一致；`NO_LOT` 禁止写入 lot 表，无批次走 sentinel。OQ-03 未确认，效期只存 UTC/源日期/规则版本，没有默认 00:00 换算。
+- `SkuPolicy` 未知状态抛错；换算 `RoundingMode.UNNECESSARY`。门禁新建为 OPEN+fence_epoch=0，与库存写锁协议后续切片衔接，本轮无 HTTP 写入口。
+- inventory 引入 mybatis 核心但不引入 JDBC starter，避免 smoke 无数据源启动失败。Boot 进程仍 denyAll。
+- OpenAPI 覆盖设计表、内部 stock-commands/permits、主数据与 action-effects；TCC 不开放 REST prepare。契约测试不能证明运行时鉴权。
+- 确认：未把未实现切片标为 AC 通过；未开始 `wms-console/`。

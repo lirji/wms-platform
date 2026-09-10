@@ -12,6 +12,7 @@
 | [领域详细设计](docs/design/02-domain.md) | 库存口径、业务规则、状态机、跨仓和序列号协议 |
 | [数据库与分片](docs/design/03-data-sharding.md) | 字段级模型、约束、索引、事务、路由及迁移 |
 | [API 与事件契约](docs/design/04-contracts.md) | 接口清单、请求结果、权限、幂等、错误和消息 |
+| [OpenAPI 3.1](wms-contract/src/main/resources/openapi/wms-v1.yaml) | S1 已落实的 HTTP 契约；未实现切片不得把文档存在当成业务已交付 |
 | [任务与对账](docs/design/05-jobs-reconciliation.md) | XXL-JOB、检查点、现有对账项目差距和接入方案 |
 | [容量与运维](docs/design/06-capacity-operations.md) | 参数化容量、压测、部署、监控、灰度、恢复 |
 | [决策与来源](docs/design/07-decisions-evidence.md) | 已确认/提议/待确认、版本验证清单、源码证据和官方来源 |
@@ -28,10 +29,10 @@
 
 - 当前推进本项目实施和隔离本地验证；不修改其他项目、不部署生产。
 - 当前目录已是Git仓库，origin为GitHub，实施使用任务分支；远程main已存在；验证通过后按持续授权正常发布，CI不含生产部署。
-- Java 后端、数据库、接口与前端均可由当前实施者完成；不再按工具拆分。`wms-console/` 仍未实现，S1契约稳定后开始。
+- Java 后端、数据库、接口与前端均可由当前实施者完成；不再按工具拆分。`wms-console/` 仍未实现；S1 OpenAPI 已落地，种子接口与 OIDC 未就绪前不开始页面。
 - 新建项目名称暂用 `wms-platform`。总体可行性为 conditional-go：核心方案可实施，版本组合、物理容量、外部数量对账适配和现场设备验收有明确前置门禁。
 - 建议默认值不会被标记为用户已批准。缺少规模数字不阻塞文档完成，但阻塞生产容量签署。
 
 ## 实施入口
 
-S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。当前仅三个受限服务入口与隔离技术探针，入库、出库、库存业务尚未交付。
+S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 已有 V001 主数据迁移，三服务进程仍不自动接库；OIDC、种子与业务 HTTP 尚未接入。

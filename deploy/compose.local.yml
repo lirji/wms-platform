@@ -2,7 +2,7 @@
 # 不 depends_on 共享容器，不修改该仓库。ordinary 共享 MySQL/Redis/Kafka/MinIO 仍在
 # dev-infra（mysql:8.4 宿主 43306、redis:7-alpine 46379、apache/kafka:3.8.0 49092）。
 # Seata 不在 dev-infra；XXL 不共用 drools-demo 的 18088 / mysql 3307。
-# 本文件只起中间件，不启动 inbound/outbound/inventory JAR（业务库尚未接 Flyway）。
+# 本文件只起中间件，不启动 inbound/outbound/inventory JAR。inventory 已有 V001 主数据迁移，但进程仍不自动接库，以免 smoke 无数据源失败。
 # 默认宿主端口避开本机 Apollo MySQL 13306、dev-infra 与 drools XXL 18088。
 # 故障注入另起项目名、端口与网段，例如 COMPOSE_PROJECT_NAME=wms-fault
 # 与 WMS_COMPOSE_SUBNET=10.89.41.0/24 加独立 .env；禁止 docker kill / compose down 共享 dev-infra。

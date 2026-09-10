@@ -1,13 +1,13 @@
 # Cursor 前端实施交接
 
-状态：prepared，前端未实现、未验收。范围是未来 `wms-console/` 管理端与PDA适配页面。Cursor / Claude Code / Codex 均可实施前端、后端、数据库与 API，不再按工具拆分职责。S1 OpenAPI/种子未就绪前不开始页面实现，禁止页面写死业务Mock。
+状态：prepared，前端未实现、未验收。范围是未来 `wms-console/` 管理端与PDA适配页面。Cursor / Claude Code / Codex 均可实施前端、后端、数据库与 API，不再按工具拆分职责。OpenAPI 已落在 `wms-contract/src/main/resources/openapi/wms-v1.yaml`；种子接口与 OIDC 未就绪前不开始页面实现，禁止页面写死业务Mock。
 
 ## 1. 页面与用户路径
 
 | 页面 | 主要内容/操作 | 后端契约 | AC |
 | --- | --- | --- | --- |
 | 仓库选择与首页 | 可访问仓、待办、异常、数据时间 | 权限仓列表、查询汇总 | AC-01/26 |
-| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | masterdata API（S1补齐OpenAPI） | AC-02 |
+| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | masterdata API（OpenAPI 已列路径，HTTP/OIDC 未接入） | AC-02 |
 | 入库工作台 | 单据详情→收货扫描→质检→上架 | inbound、quality、tasks | AC-07/09 |
 | 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水、serial追踪 | inventory/ledger/serial详情（S3补齐） | AC-03/08/15 |
 | 履约与出库 | 全局单/仓子单、准备/确认进度、拣货、包装、发运 | fulfillments、tasks、shipments | AC-10..14 |

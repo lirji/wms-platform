@@ -63,6 +63,12 @@
         <artifactId>xxl-job-core</artifactId>
         <version>${xxl-job.version}</version>
       </dependency>
+      <!-- 与 mybatis-spring-boot-starter 4.1.0 管理的 mybatis 核心一致；inventory 主进程暂不引入 JDBC 自动配置。 -->
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>3.5.19</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <build>
