@@ -2146,6 +2146,38 @@ paths:
         '503':
           $ref: '#/components/responses/Error'
   /api/wms/v1/skus/{skuId}/units:
+    get:
+      operationId: listSkuUnits
+      tags: [masterdata]
+      summary: 当前策略版本单位换算
+      security:
+        - oidc: [masterdata.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SkuId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
     post:
       operationId: addSkuUnit
       tags: [masterdata]

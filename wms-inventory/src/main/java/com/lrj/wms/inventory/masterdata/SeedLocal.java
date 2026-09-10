@@ -69,6 +69,7 @@ public final class SeedLocal {
             Map<String, Integer> counts = new LinkedHashMap<>();
             counts.put("warehouses", mapper.countWarehouses(SeedCatalog.ENTERPRISE));
             counts.put("skus", mapper.countSkus(SeedCatalog.ENTERPRISE));
+            counts.put("skuUnits", mapper.countSkuUnits(SeedCatalog.ENTERPRISE));
             counts.put("lots", mapper.countLots(SeedCatalog.ENTERPRISE));
             counts.put("grants", mapper.countGrants(SeedCatalog.ENTERPRISE));
             return counts;

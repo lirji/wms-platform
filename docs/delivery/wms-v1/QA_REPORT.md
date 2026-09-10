@@ -127,3 +127,20 @@ OpenAPI：3.1.0、OIDC 无 client_secret、写接口 Idempotency-Key、Quantity 
 根 `./mvnw -B -ntp verify` BUILD SUCCESS 37.255s；`python3 scripts/smoke-services.py` 三进程 health UP，业务路径 401/403。smoke 不设 JDBC/issuer。本机 Casdoor `:8000` 未响应，开通脚本已落地但现场身份未创建。远程 CI verify #34489970301 成功（6m44s），含 warehouse-it/tc-it/failure-it。
 
 AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显式 UTC Instant，`expiry_rule_version=0`。
+
+## S1-05 越权/单位/效期/种子复跑
+
+环境：2026-09-10，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11、本机 Casdoor `:8000`。未操作共享 dev-infra 或生产。未开始 `wms-console/`。未创建隔离 compose `.env`，未对 Cell A/B 灌种子。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `MasterdataHttpIT` 9 项 | 无令牌 401；denied 仓列表空且 locations 403；ops CSV 见两仓；WH-A 读 WH-B lots 403；LOT-NEAR `2026-09-17T13:00:00Z`、LOT-EXP `2026-09-09T13:00:00Z`、无 `2026-09-10T00:00:00Z`；SKU-LOT units CS/`12`/`1`；缺 SKU 404 | 测试 RSA JWT，不是 Casdoor JWT 打 inventory 进程 |
+| `SeedReplayIT` | 复跑 2/5/6/6/8（仓/SKU/单位/批/授权）；CS 12:1；固定钟 2026-09-10T13:00:00Z 的近/过期时刻 | 单库双仓幂等，不是双 Cell 物理隔离 |
+| `SkuPolicyTest` 11 项 | 含 1 箱 CS=12 EA 精确换算 | 领域，不是 HTTP |
+| `OpenApiContractTest` 4 项 | GET units/lots 路径存在 | 契约形状 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 39.016s；inventory failsafe 15 项 0 失败 | 默认构建，不含 warehouse-it/tc-it/failure-it |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
+| Casdoor `wms-platform-provision.py` | 开通完成；issuer/client 打印；口令在 0600 凭据文件 | 身份已创建；未用该 JWT 打 inventory |
+
+结论：S1-05 测试身份切片 pass；Casdoor 身份开通 pass；Casdoor JWT × 隔离库存 HTTP blocked（无 compose `.env`）。50 项 AC 仍 planned。

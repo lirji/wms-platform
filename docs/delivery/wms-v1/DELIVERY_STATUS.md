@@ -2,17 +2,17 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S1基础资料与安全（S1-02/S1-04 本轮实现；S1-01/S1-03 已在 main；S0 工程门禁仍 running）。
-- 用户已批准补齐执行门禁并推进业务开发，沿用[唯一计划](DELIVERY_PLAN.md)。本会话要求直接做 S1-04 种子，并自行对接 auth-platform 处理 OIDC。前后端均由当前实施者负责；未开始`wms-console/`。
+- 状态：in-progress；阶段：S1基础资料与安全（S1-05 本轮实现；S1-01..04 已在 main；S0 工程门禁仍 running）。
+- 用户已批准补齐执行门禁并推进业务开发，沿用[唯一计划](DELIVERY_PLAN.md)。本会话要求继续，从 S1-05 未完成门禁执行。前后端均由当前实施者负责；未开始`wms-console/`。
 - 仅操作 wms-platform 隔离工作树 `.local/s1-masterdata` 与 auth-platform 隔离工作树 `.local/auth-wms-oidc`；不部署生产，不修改共享 dev-infra，不触碰原目录 ADR-11 脏文件与 auth-platform 未提交 IAM 改动。
-- 分支：feat/wms-s1-seed（WMS）；feat/wms-oidc-provision（auth-platform）。
+- 分支：feat/wms-s1-05（WMS）。auth-platform 开通脚本沿用已发布 main，本轮只运行不开新提交。
 
 ## 授权记录
 
-- 来源：已批准 DELIVERY_PLAN；用户「直接做 S1-04 种子，OIDC你自己找auth-platform处理」；持续 Git 发布授权。
-- 本轮允许：S1-04 隔离种子、S1-02 Casdoor 资源服务器与 auth-platform 开通脚本、主数据只读 HTTP、相关测试与文档、任务分支提交并快进远程 main。
-- 测试目标：localhost / Testcontainers MySQL 8.4.11；现场 Casdoor 仅在本机 :8000 可达时开通。
-- 排除：生产部署、共享 dev-infra、SpiceDB/ReBAC、`wms-console/`、ADR-11 实现、正式 fulfillment 模块、编造 OQ-03 生产默认值。
+- 来源：已批准 DELIVERY_PLAN；用户「继续」从 S1-05 执行；先前「直接做 S1-04 种子，OIDC你自己找auth-platform处理」；持续 Git 发布授权。
+- 本轮允许：S1-05 测试身份越权/单位/效期/种子复跑可观测接口与测试、本机 Casdoor 开通（不改 auth-platform 源码）、相关文档、任务分支提交并快进远程 main。
+- 测试目标：localhost / Testcontainers MySQL 8.4.11；本机 Casdoor `:8000`。
+- 排除：生产部署、共享 dev-infra、SpiceDB/ReBAC、`wms-console/`、ADR-11 实现、正式 fulfillment 模块、编造 OQ-03 生产默认值、无 `.env` 时强行起隔离 compose。
 
 ## 门禁
 
@@ -23,9 +23,17 @@
 | EG-03 业务决定 | running | 本地测试 IdP=auth-platform Casdoor；生产 IdP 未锁。OQ-03 仍待 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | passed（本轮实现） | `a7f90c8` 已推送任务分支和 main；远程包含性已核对；无生产部署 |
+| Git发布 | running | S1-05 待提交 `feat/wms-s1-05` 并快进远程 main；无生产部署 |
 
-## 本轮已实现（S1-02 / S1-04）
+## 本轮已实现（S1-05）
+
+- GET `/api/wms/v1/warehouses/{warehouseId}/lots`：JWT 仓范围，越仓 403 `WAREHOUSE_FORBIDDEN`；临期/过期批次返回显式 RFC3339 UTC，不出现编造的 `2026-09-10T00:00:00Z`。
+- GET `/api/wms/v1/skus/{skuId}/units`：企业范围；SKU-LOT 含 CS/`12`/`1`；缺失 SKU 404 `SKU_NOT_FOUND`。
+- 空仓范围身份：仓库列表不含 WH-A/WH-B，读库位 403。ops CSV `WH-A,WH-B` 可见两仓。
+- 种子复跑：2 仓 / 5 SKU / 6 sku_unit / 6 lot / 8 grant；CS 12:1；LOT-NEAR `2026-09-17T13:00:00Z`，LOT-EXP `2026-09-09T13:00:00Z`，LOT-STD 无生产/失效时刻。
+- 本机 Casdoor 开通完成（issuer `http://localhost:8000`，client `wms-platform`）。未起隔离 compose，故 Casdoor JWT 打 inventory 进程仍 blocked。
+
+## 先前已实现（S1-02 / S1-04）
 
 - `scripts/seed-local.sh --profile isolated-wms`：必须显式 Cell A/B JDBC；拒绝 43306/`dev-infra`；WH-A→A、WH-B→B，SKU 种子两边都写。
 - `V002__operator_grant.sql`：种子权限映射，运行时仍以 JWT 仓范围为准。S2 库存事务迁移改用 V003。
@@ -35,10 +43,10 @@
 
 ## 未完成
 
-- S1-05 正式黑盒（真实 Casdoor 身份全集）与 S1-06 事实身份运行时。
-- AC-01/02/31 正式业务验收仍 planned。本轮有领域/库/HTTP 隔离证据，不是 50 项 AC 通过。
+- S1-06 事实身份运行时。隔离 compose 双 Cell 种子 + Casdoor JWT 打 inventory HTTP。
+- AC-01/02/31 正式业务验收仍 planned。本轮有测试 JWT HTTP 与 Casdoor 开通证据，不是 50 项 AC 通过。
 - 50 项业务 AC、S0 XXL 真触发、SBOM/CVE、`wms-console/`。
 
-HTTP 写接口未交付。种子脚本不等于控制台。现场 Casdoor 未跑时开通脚本不能证明身份已创建。
+HTTP 写接口未交付。种子脚本不等于控制台。Casdoor 开通不等于隔离库存库已灌种子。
 
-本轮实现提交 `994ebec` / 发布合并 `a7f90c8` 已在任务分支和远程 main。远程 CI：[verify #34489970301](https://github.com/lirji/wms-platform/actions/runs/34489970301) 成功。auth-platform `dbf2ca4` 已在其远程 main；该提交未见新的 Actions run。无生产部署。
+S1-04 发布合并 `a7f90c8` / 文档 `b617355` 已在远程 main；远程 CI verify #34489970301 成功。S1-05 Git 发布见本轮收尾。无生产部署。

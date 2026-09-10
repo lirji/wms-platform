@@ -120,6 +120,59 @@ class MasterdataHttpIT {
         assertTrue(skus.body().contains("SKU-EXPIRED"));
     }
 
+    @Test
+    void deniedTokenSeesNoWarehousesAndCannotReadLocations() throws Exception {
+        String denied = token("wms-denied", List.of());
+        HttpResponse<String> warehouses = get("/api/wms/v1/warehouses", denied);
+        assertEquals(200, warehouses.statusCode());
+        assertTrue(!warehouses.body().contains("WH-A"));
+        assertTrue(!warehouses.body().contains("WH-B"));
+        HttpResponse<String> locations = get("/api/wms/v1/warehouses/WH-A/locations", denied);
+        assertEquals(403, locations.statusCode());
+        assertEquals("WAREHOUSE_FORBIDDEN", extract(locations.body(), "code"));
+    }
+
+    @Test
+    void opsCsvTokenSeesBothWarehouses() throws Exception {
+        String ops = token("wms-ops", "WH-A,WH-B");
+        HttpResponse<String> warehouses = get("/api/wms/v1/warehouses", ops);
+        assertEquals(200, warehouses.statusCode());
+        assertTrue(warehouses.body().contains("WH-A"));
+        assertTrue(warehouses.body().contains("WH-B"));
+        assertEquals(2, warehouseCount(warehouses.body()));
+    }
+
+    @Test
+    void warehouseACannotReadWarehouseBLots() throws Exception {
+        HttpResponse<String> response = get("/api/wms/v1/warehouses/WH-B/lots", token(List.of("WH-A")));
+        assertEquals(403, response.statusCode());
+        assertEquals("WAREHOUSE_FORBIDDEN", extract(response.body(), "code"));
+    }
+
+    @Test
+    void warehouseALotsExposeExplicitExpiryInstants() throws Exception {
+        HttpResponse<String> lots = get("/api/wms/v1/warehouses/WH-A/lots", token(List.of("WH-A")));
+        assertEquals(200, lots.statusCode());
+        assertTrue(lots.body().contains("LOT-NEAR"));
+        assertTrue(lots.body().contains("LOT-EXP"));
+        assertTrue(lots.body().contains("2026-09-17T13:00:00Z"));
+        assertTrue(lots.body().contains("2026-09-09T13:00:00Z"));
+        assertTrue(lots.body().contains("LOT-STD"));
+        assertTrue(!lots.body().contains("2026-09-10T00:00:00Z"));
+    }
+
+    @Test
+    void skuLotUnitsIncludeCasePackTwelveToOne() throws Exception {
+        HttpResponse<String> units = get("/api/wms/v1/skus/SKU-LOT/units", token(List.of("WH-A")));
+        assertEquals(200, units.statusCode());
+        assertTrue(units.body().contains("CS"));
+        assertTrue(units.body().contains("\"numerator\":\"12\""));
+        assertTrue(units.body().contains("\"denominator\":\"1\""));
+        HttpResponse<String> missing = get("/api/wms/v1/skus/SKU-MISSING/units", token(List.of("WH-A")));
+        assertEquals(404, missing.statusCode());
+        assertEquals("SKU_NOT_FOUND", extract(missing.body(), "code"));
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET();
         if (bearer != null) {
@@ -129,10 +182,22 @@ class MasterdataHttpIT {
     }
 
     private static String token(List<String> warehouses) throws Exception {
+        return token("wms-wh-a", warehouses);
+    }
+
+    private static String token(String subject, List<String> warehouses) throws Exception {
+        return signed(subject, warehouses);
+    }
+
+    private static String token(String subject, String warehousesCsv) throws Exception {
+        return signed(subject, warehousesCsv);
+    }
+
+    private static String signed(String subject, Object warehouses) throws Exception {
         RSAKey rsa = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .subject("wms-wh-a")
+                .subject(subject)
                 .issuer(ISSUER)
                 .audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000))

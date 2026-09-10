@@ -73,6 +73,8 @@ class OpenApiContractTest {
                 .path("schema").path("$ref").asText();
         assertEquals("#/components/schemas/CursorPage", listSchema);
         assertTrue(spec.path("paths").has("/api/wms/v1/skus"));
+        assertTrue(spec.path("paths").path("/api/wms/v1/skus/{skuId}/units").has("get"));
+        assertTrue(spec.path("paths").path("/api/wms/v1/warehouses/{warehouseId}/lots").has("get"));
         assertTrue(spec.path("paths").has("/api/wms/v1/warehouses/{warehouseId}/action-effects"));
         assertFalse(spec.path("paths").has("/api/wms/v1/tcc/prepare"));
         assertFalse(spec.path("paths").has("/api/wms/v1/decisions"));
@@ -100,7 +102,9 @@ class OpenApiContractTest {
         paths.add("/api/wms/v1/operations/{operationId}");
         paths.add("/api/wms/v1/warehouses/{warehouseId}/action-effects/{effectId}/execution-attempts");
         paths.add("/api/wms/v1/skus");
+        paths.add("/api/wms/v1/skus/{skuId}/units");
         paths.add("/api/wms/v1/warehouses/{warehouseId}/locations");
+        paths.add("/api/wms/v1/warehouses/{warehouseId}/lots");
         paths.add("/internal/wms/v1/warehouses/{warehouseId}/stock-commands");
         paths.add("/internal/wms/v1/warehouses/{warehouseId}/execution-permits");
         return paths;

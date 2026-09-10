@@ -146,3 +146,15 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - V002 已被授权映射占用；S2 `V002__inventory_transactions.sql` 文件名需改为 V003，否则 Flyway 冲突。这是范围内的版本号占用，不是提前实现 S2。
 - auth-platform 脚本不写 SpiceDB、不提交口令。现场 Casdoor 未验证前不能声称身份已开通。
 - 确认：50 项 AC 仍 planned；未开始 `wms-console/`。
+
+## S1-05 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- GET lots 走 `requireWarehouse`，与 locations 同一越权路径；GET units 按企业 `countSku`/`listSkuUnits`，商品主数据不是仓级资源。denied 空仓可见 SKU 目录、不可见仓/库位/批，与现有 `listSkus` 一致。
+- Mapper 查询均带 `enterprise_id`，lots 另带 `warehouse_id`，units 另带 `sku_id`。不接受请求头扩大权限。
+- DATETIME(6) 注释为 UTC，JDBC 默认按本地墙钟读写。HTTP 将 `LocalDateTime` 按 `ZoneId.systemDefault()` 还原 Instant，与 `SeedReplayIT` 的 `Timestamp.toInstant()` 一致。拒绝改成“一律当 UTC 墙钟”，否则上海 JVM 会把种子 13:00Z 显示成 21:00Z。OQ-03 未批准生产时区换算。
+- 数量 JSON 用十进制字符串，匹配 Quantity 契约；测试断言 `"numerator":"12"`。
+- `NoSuchElementException` 仅由缺失 SKU 抛出并映射 `SKU_NOT_FOUND`。写接口仍未交付。
+- Casdoor 开通成功不能证明隔离 compose 库存库已有种子。Maven IT 仍用测试 RSA `@Primary JwtDecoder`。
+- 确认：无 critical/high；50 项 AC 仍 planned；未开始 `wms-console/`。

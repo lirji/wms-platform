@@ -239,6 +239,8 @@ post("/api/wms/v1/skus", "createSku", "masterdata", "masterdata.write", "SkuCrea
 get("/api/wms/v1/skus", "listSkus", "masterdata", "masterdata.read", ("200",), "商品列表", cursor)
 get("/api/wms/v1/skus/{skuId}", "getSku", "masterdata", "masterdata.read", ("200",),
     "商品详情含单位版本", ["- $ref: '#/components/parameters/SkuId'"])
+get("/api/wms/v1/skus/{skuId}/units", "listSkuUnits", "masterdata", "masterdata.read", ("200",),
+    "当前策略版本单位换算", ["- $ref: '#/components/parameters/SkuId'"] + cursor)
 post("/api/wms/v1/skus/{skuId}/units", "addSkuUnit", "masterdata", "masterdata.write",
      "SkuUnitCreateRequest", ("201",), "追加当前策略版本单位",
      ["- $ref: '#/components/parameters/SkuId'"])

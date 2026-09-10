@@ -41,6 +41,13 @@ class SkuPolicyTest {
     }
 
     @Test
+    void casePackTwelveToOneConvertsExactly() {
+        SkuPolicy sku = sample(0, true, false, false);
+        assertEquals(new BigDecimal("12"),
+                sku.toBaseQuantity(BigDecimal.ONE, new BigDecimal("12"), BigDecimal.ONE));
+    }
+
+    @Test
     void nonLotSkuOnlyAllowsSentinel() {
         SkuPolicy sku = sample(0, false, false, false);
         sku.requireLotUsage(MasterdataCodes.NO_LOT);

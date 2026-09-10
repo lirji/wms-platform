@@ -102,6 +102,14 @@ public interface MasterdataMapper {
     @Select("SELECT COUNT(*) FROM operator_grant WHERE enterprise_id=#{enterpriseId}")
     int countGrants(@Param("enterpriseId") String enterpriseId);
 
+    /** 统计单位换算行，用于种子复跑核对。 */
+    @Select("SELECT COUNT(*) FROM sku_unit WHERE enterprise_id=#{enterpriseId}")
+    int countSkuUnits(@Param("enterpriseId") String enterpriseId);
+
+    /** 企业内是否存在该商品。 */
+    @Select("SELECT COUNT(*) FROM sku WHERE enterprise_id=#{enterpriseId} AND id=#{skuId}")
+    int countSku(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId);
+
     /** 列出企业仓库。 */
     @Select("SELECT id, code, name, timezone, state, version FROM warehouse WHERE enterprise_id=#{enterpriseId} ORDER BY code, id")
     java.util.List<java.util.Map<String, Object>> listWarehouses(@Param("enterpriseId") String enterpriseId);
@@ -115,5 +123,17 @@ public interface MasterdataMapper {
     @Select("SELECT id, code, zone_code, location_type, state, version FROM location "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} ORDER BY code, id")
     java.util.List<java.util.Map<String, Object>> listLocations(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId);
+
+    /** 列出当前策略版本单位换算。 */
+    @Select("SELECT unit_code, numerator, denominator, policy_version FROM sku_unit "
+            + "WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} ORDER BY unit_code, id")
+    java.util.List<java.util.Map<String, Object>> listSkuUnits(@Param("enterpriseId") String enterpriseId,
+            @Param("skuId") String skuId);
+
+    /** 列出仓级批次，含显式效期时刻。 */
+    @Select("SELECT id, sku_id, lot_code, produced_at, expires_at, expiry_rule_version FROM lot "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} ORDER BY sku_id, lot_code, id")
+    java.util.List<java.util.Map<String, Object>> listLots(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId);
 }
