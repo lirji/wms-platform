@@ -212,3 +212,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - `command_dedup` 用 INSERT IGNORE + 锁读比较摘要；同键异内容不覆盖。失败过账回滚幂等行。
 - 入出库服务本轮无自有 Outbox 表，因其尚无业务事件；S2-04a/S3 再补。
 - 确认：无 critical/high；AC-03/AC-05 仍 planned；未开始 `wms-console/`。
+
+## S2-04a 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 锁顺序：先 `stock_effect` 再 `stock_command` 再余额原语。已 APPLIED 效果拒绝其他命令；墓碑后 `applyReceive` 不写流水。
+- STARTED permit 禁止普通取消。本切片收货直接 POSTED，不模拟设备 UNKNOWN。
+- T1/T3 与 T2 分库分会话；`ThreeServiceProtocolIT` 用三容器证明，不经 Kafka。
+- inbound V001 占用计划 S3-01 的 `V001__inbound.sql` 文件名，S3 改为后续版本。
+- 确认：无 critical/high；AC 仍 planned；未开始 `wms-console/`。

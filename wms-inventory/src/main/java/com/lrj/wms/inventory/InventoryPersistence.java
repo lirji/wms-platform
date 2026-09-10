@@ -44,6 +44,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper.class);
+        config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 

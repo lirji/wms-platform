@@ -53,6 +53,30 @@ public interface EffectMapper {
             @Param("state") String state, @Param("fromState") String fromState, @Param("expectedVersion") long expectedVersion,
             @Param("now") Timestamp now);
 
+    /** 绑定活动命令，供来源 commandId 受理。 */
+    @Update("UPDATE stock_effect SET active_command_id=#{commandId}, attempt_no=GREATEST(attempt_no, #{attemptNo}), "
+            + "state=#{state}, version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND id=#{effectId} AND applied_command_id IS NULL "
+            + "AND (active_command_id IS NULL OR active_command_id=#{commandId})")
+    int casBindActive(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("effectId") String effectId, @Param("commandId") String commandId, @Param("attemptNo") long attemptNo,
+            @Param("state") String state, @Param("now") Timestamp now);
+
+    /** 过账成功：唯一 applied_command_id。 */
+    @Update("UPDATE stock_effect SET applied_command_id=#{commandId}, state='APPLIED', version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{effectId} "
+            + "AND applied_command_id IS NULL AND active_command_id=#{commandId}")
+    int casApply(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("effectId") String effectId, @Param("commandId") String commandId, @Param("now") Timestamp now);
+
+    /** 取消未过账活动命令。 */
+    @Update("UPDATE stock_effect SET active_command_id=NULL, state=#{state}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{effectId} "
+            + "AND applied_command_id IS NULL AND (active_command_id=#{commandId} OR active_command_id IS NULL)")
+    int casCancelActive(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("effectId") String effectId, @Param("commandId") String commandId, @Param("state") String state,
+            @Param("now") Timestamp now);
+
     /** 插入执行尝试。 */
     @Insert("INSERT INTO stock_effect_attempt (id, enterprise_id, warehouse_id, effect_id, command_id, previous_command_id, "
             + "attempt_no, state, digest_version, intent_digest, canonical_request, version, created_at, updated_at) "

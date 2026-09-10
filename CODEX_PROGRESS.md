@@ -2,29 +2,28 @@
 
 ## 任务目标
 
-按已批准的唯一计划`docs/delivery/wms-v1/DELIVERY_PLAN.md`连续推进 WMS，不需用户再说继续。当前切片 S2-04a 库存命令/凭证/permit 与最小 T1/T2/T3（进行中）。不能宣称 50 项 AC 完成。未开始`wms-console/`。
+按已批准计划把整个 WMS v1 做到 S9 与 50 项 AC 可观察验收。当前切片 S2-04a（定向 IT 已通过，待完整 verify 后发布）。不能宣称项目完成。未开始`wms-console/`。
 
 ## 已完成
 
-- S2-03 `0bf8d14`、S2-04 `31cd3c3` 已快进远程 main。
-- 工作树`/Users/liruijun/personal/LLM/wms-platform/.local/s1-masterdata` 当前分支`feat/wms-s2-04a`。
-- S2-03 main CI #34541003086 被后续 main 快进 cancel-in-progress。S2-04 feat #34541582571 / main #34541603485 发布时仍在跑。
+- S2-03 `0bf8d14`、S2-04 `31cd3c3` 已在 remote main。
+- 工作树`.local/s1-masterdata` 分支`feat/wms-s2-04a`。
+- S2-04a 定向：`StockCommandIT`、`InboundProtocolIT`、`OutboundProtocolIT`、`ThreeServiceProtocolIT`、`MasterdataMigrationIT` 失败 0。
 
 ## 已修改文件（S2-04a 未发布 main）
 
-- `V007__stock_command.sql`：`stock_command`/`stock_posting`/`execution_permit`/`execution_claim`。
-- 表数断言 16→20。T2 受理、入出库 T1/T3 尚未写。
+- 库存 T2 命令/凭证/墓碑；入出库来源协议表与 T1/T3；三库闭环 IT。
 
 ## 未完成
 
-- S2-04a T2 命令受理/取消墓碑、inbound/outbound source_command/inbox、最小三服务闭环。
-- S2-05 并发 IT。隔离 compose Casdoor JWT。50 项 AC。OQ-03。`wms-console/`。
+- S2-04a 完整 verify/smoke/快进 main。S2-05→S9。50 项 AC。OQ-03。`wms-console/`。
 
 ## 下一步建议
 
-1. 在 `feat/wms-s2-04a` 实现库存 T2 受理与取消墓碑，再补来源 T1/T3。
-2. 未完成 T1/T2/T3 前不要快进 main。不要把表迁移当作 AC-05 通过。
+1. 完整 verify 后快进 `feat/wms-s2-04a`。
+2. 立即 S2-05 并发/幂等/Outbox 崩溃 IT。
+3. 不要把本切片当作 AC-03/05 或项目完成。
 
 ## 恢复 Prompt
 
-请读取CODEX_PROGRESS.md，核对 Git。从 feat/wms-s2-04a 未完成的 T2/T1/T3 继续。只操作隔离工作树。不要要求反复输入继续。
+请读取CODEX_PROGRESS.md。S2-04a 若已在 main 则从 S2-05 继续。只操作隔离工作树。不要要求反复输入继续。不要把目标缩成只做 S2。

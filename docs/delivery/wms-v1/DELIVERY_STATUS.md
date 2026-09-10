@@ -2,43 +2,38 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S2库存事务内核（S2-04 本轮本地已验证，待快进 remote main；S2-03 `0bf8d14` 已在 main）。
-- 用户已批准按计划连续执行后续未完成切片，不再等待「继续」。前后端均由当前实施者负责；未开始`wms-console/`。
-- 仅操作 wms-platform 隔离工作树 `.local/s1-masterdata`；不部署生产，不修改共享 dev-infra，不触碰原目录 ADR-11 脏文件与 auth-platform 未提交 IAM 改动。
-- 分支：feat/wms-s2-04（WMS）。
+- 状态：in-progress；阶段：S2库存事务内核（S2-04a 本轮本地定向已通过，待完整 verify 后快进 main）。
+- 用户 `/goal` 要求按唯一计划做到整个项目完成；50 项 AC 与 S9 仍未完成，目标保持完整。未开始`wms-console/`。
+- 仅操作隔离工作树 `.local/s1-masterdata`；不部署生产，不改共享 dev-infra。
+- 分支：feat/wms-s2-04a（WMS）。
 
 ## 授权记录
 
-- 来源：已批准 DELIVERY_PLAN；用户 `/goal` 要求当前任务做完并连续执行后续未完成切片；持续 Git 发布授权。
-- 本轮允许：S2-04 Outbox 领取/发布/重试/隔离、`command_dedup` 与业务同事务、测试与文档、任务分支提交并快进远程 main。
+- 来源：已批准 DELIVERY_PLAN；`/goal` 连续做到整个项目；持续 Git 发布授权。
+- 本轮允许：S2-04a stock_command/posting/permit、取消墓碑、inbound/outbound source 协议与最小 T1/T2/T3、测试文档、快进 remote main。
 - 测试目标：localhost / Testcontainers MySQL 8.4.11。
-- 排除：生产部署、共享 dev-infra、SpiceDB/ReBAC、`wms-console/`、ADR-11 实现、正式 fulfillment 模块、编造 OQ-03、编造 Kafka 成功投递、command/permit（S2-04a）。
+- 排除：生产部署、共享 dev-infra、编造 OQ-03、编造 Kafka 成功、S2-05 并发 IT 未在本轮冒充通过。
 
 ## 门禁
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | S2-03 main run #34541003086 与 feat #34540978748 发布时 in_progress。S0 组合门禁与 SBOM 仍未关闭 |
-| EG-02 TC组合/唯一TM | running | 沿用 S0 探针；正式`wms-fulfillment`仍是S4 |
-| EG-03 业务决定 | running | 本地测试 IdP=auth-platform Casdoor；生产 IdP 未锁。OQ-03 仍待 |
-| EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
-| EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | running | S2-04 待推 `feat/wms-s2-04` 并快进远程 main；无生产部署 |
+| EG-01 工程/CI | running | S2-04 main #34541603485 发布时 pending。S0/SBOM 未关 |
+| EG-02 TC组合/唯一TM | running | 正式`wms-fulfillment`仍是S4 |
+| EG-03 业务决定 | running | OQ-03 仍待 |
+| EG-04 完整闭环 | pending | S5退出必选 |
+| EG-05 外部与非功能 | pending | S8/S9 |
+| Git发布 | running | S2-04a 待完整 verify 后快进；无生产部署 |
 
-## 本轮已实现（S2-04）
+## 本轮已实现（S2-04a）
 
-- `OutboxPublisher`：按物理库 `FOR UPDATE SKIP LOCKED` 领取，CAS `claim_epoch`，成功 `PUBLISHED`，可重试回 `PENDING`，毒消息/`claim_epoch>=8` 为 `ISOLATED`。未接入 Kafka。
-- `V006__command_dedup.sql`：仓级唯一客户端键；同键同摘要重放，同键异内容 `COMMAND_CONFLICT`；与流水/Outbox 同会话。
-
-## 先前已实现
-
-- S2-03 原语+PENDING Outbox。远程 main `0bf8d14`。
-- S2-02 Mapper。远程 main `5a7b9fe`。S2-01 `3e90882`。S1-06 `20dc6a7`。
+- `V007`：stock_command/posting/execution_permit/claim。
+- `StockCommandService`：收货 T2 过账、同命令重放、取消墓碑、晚到不入账、恢复查询。
+- inbound/outbound `V001__source_protocol`：source_effect/command/execution/inbox/outbox；T1/T3。
+- `ThreeServiceProtocolIT`：三独立 MySQL，入库 T1→库存 T2→入库 T3；出库 T1→库存墓碑→出库 T3。
 
 ## 未完成
 
-- S2-04a command/permit。S2-05 并发/崩溃 IT。隔离 compose Casdoor JWT。
-- AC-03..06 正式业务验收仍 planned。
-- 50 项业务 AC、S0 XXL 真触发、SBOM/CVE、`wms-console/`。
+- S2-05 并发/崩溃 IT。S2-07 及 S3…S9。50 项 AC。`wms-console/`。OQ-03。
 
 无生产部署。

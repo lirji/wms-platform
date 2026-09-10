@@ -217,3 +217,20 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
 
 结论：S2-04 定向 IT pass。AC-03/AC-05 仍 planned。S2-04a 未开始。
+
+## S2-04a 命令凭证与三服务协议
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。三个独立库。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `StockCommandIT` | 收货重放不加量；已过账取消保持 APPLIED；墓碑后晚到 0 流水 | T2，不是并发 |
+| `InboundProtocolIT` | T1 重放；T3 同 event 不二次 posted | 入库本库 |
+| `OutboundProtocolIT` | T1 发运命令；T3 记 CANCELLED | 出库本库 |
+| `ThreeServiceProtocolIT` | 三容器：入库 T1→库存 T2 APPLIED→入库 T3；出库 T1→库存墓碑→出库 CANCELLED | 协议闭环，不是 Kafka |
+| `MasterdataMigrationIT` | 20 张表中文注释 | 含 V007 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 02:05 min | 默认构建含入出库 failsafe |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
+
+结论：S2-04a 定向 IT pass。AC-03/AC-05 仍 planned。S2-05 未开始。
