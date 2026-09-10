@@ -27,7 +27,7 @@ python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Ptc-it verify
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制及DB终态审计候选探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
+前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选，以及代表`wms-fulfillment`的HTTP网关Try探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
 
 手工启动任一服务：
 
@@ -45,4 +45,4 @@ GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试�
 
 独立RM探针使用两个受控子JVM，经各自Cell的ShardingSphere执行Fence与库存事务；包含B故障/进程重启恢复和账号隔离。不是已实现正式入出库业务接口。
 
-启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。二者都在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。
+启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。HTTP网关Try探针用Seata Jakarta拦截器绑定请求头XID，代表已确认的`wms-fulfillment`入口，同XID重试不得新注册分支。二者都在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。

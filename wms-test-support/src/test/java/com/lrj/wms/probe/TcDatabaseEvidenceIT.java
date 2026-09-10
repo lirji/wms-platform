@@ -84,8 +84,9 @@ class TcDatabaseEvidenceIT {
                 verifyAuditFailureRecovery(jdbc);
                 new TwoWarehouseTccProbe(mysql).verify(jdbc, tc);
                 new DuplicateTryProbe(mysql).verify(jdbc);
+                new HttpGatewayTryProbe(mysql).verify(jdbc);
                 IndependentRmProbe.verify(mysql, jdbc, "127.0.0.1:" + tcPort);
-                System.out.println("TC_DB_PROBE: persisted terminal audit, TC/RM restart, launch CAS and duplicate Try ownership verified; full business acceptance pending");
+                System.out.println("TC_DB_PROBE: persisted terminal audit, TC/RM restart, launch CAS, duplicate Try ownership and HTTP gateway Try verified; full business acceptance pending");
             }
         }
     }

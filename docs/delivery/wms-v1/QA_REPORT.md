@@ -12,7 +12,7 @@
 | `python3 scripts/smoke-services.py` | 三进程健康UP，业务路径401/403 | 独立进程与默认拒绝；未接业务数据库 |
 | `./mvnw -B -ntp -Pwarehouse-it verify` | 10项，失败0、错误0、跳过0 | 原6项分片/Fence保留；新增 Kafka 生产消费不 bind XID、线程池泄漏/清理、XXL handler 无当前全局事务、三服务 POM 无 AT/XA |
 | `./mvnw -B -ntp -Ptc-it verify` | 2项，失败0、错误0、跳过0 | 文件模式Finished限制；DB审计区分提交/回滚、重启后查询恢复、审计拒写原子失败后TC恢复 |
-| `./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify` | 最终修改后1项，失败0、错误0、跳过0 | 加入重启端口就绪等待后定向复验 |
+| `./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify` | 1项，失败0、错误0、跳过0，126.6秒 | 原审计/双仓/独立RM/CAS/重复Try保留；新增 HTTP 网关 Try |
 | Python/POM/CI YAML语法 | 通过 | 本地语法；远程CI未运行 |
 
 ## 修复与限制
@@ -21,7 +21,7 @@
 - Seata传递ANTLR4.8与ShardingSphere生成版本4.13.2冲突：父POM固定4.13.2后SQL测试通过；AT路径不启用、不宣称兼容。
 - Fence测试直接绑定一个物理数据源；不等同于多仓RM动态路由和真实TC二阶段故障恢复。
 - TC探针揭示现有getStatus恢复路径不足，不能将探针成功当作EG-02完成。还需终态证据可靠保存/读取与TM宕机窗口验证。
-- Kafka 生产/消费与线程池 XID 隔离已有 warehouse-it 探针；XXL admin 触发、HTTP网关Try、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
+- Kafka 生产/消费与线程池 XID 隔离已有 warehouse-it 探针；HTTP 网关 Try 已有 tc-it 探针。XXL admin 触发、正式履约服务、全链路、外部设备/UI/对账/容量均未验收。
 
 ## S0-04隔离本地编排
 
@@ -30,6 +30,10 @@
 ## AC-44上下文隔离切片
 
 `ContextIsolationIT` 使用 `apache/kafka:3.8.0` Testcontainers：生产一条带 xid 字段的消息，消费时 `RootContext` 为空且不 bind。单线程池不 unbind 会把 XID 留给下一任务，finally unbind 后为空。XXL `IJobHandler` 清理后无当前全局事务。三个业务模块 POM 不含 seata/XA。不是正式 Outbox、调度触发或 HTTP Try，AC-44 正式业务验收仍 planned。
+
+## 业务决定与HTTP网关Try
+
+用户确认唯一 TM=`wms-fulfillment`、认证=OIDC（未指定 IdP 产品）、序列号唯一范围=enterprise+SKU+serial。`HttpGatewayTryProbe` 经 Seata Jakarta 拦截器绑定请求头 XID，只接受 `X-Wms-Tm=wms-fulfillment`；同 XID 第二次 HTTP 不增加 branch、不重放 prepareFence；缺 XID 返回 400。定向 `TcDatabaseEvidenceIT` 126.6 秒通过。不是正式 `wms-fulfillment` 模块，AC 仍 planned。
 
 ## 结论
 

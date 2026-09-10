@@ -15,7 +15,7 @@
 
 ## 2. TM、TC、RM与权威
 
-- `wms-fulfillment`为TM发起方：持有业务订单/attempt、选仓清单和业务幂等，调用TCC Try并请求TC提交或回滚。
+- `wms-fulfillment`为已确认的唯一TM发起方：持有业务订单/attempt、选仓清单和业务幂等，调用TCC Try并请求TC提交或回滚。该服务按S4创建，S0可用隔离探针模拟其 HTTP Try 入口，不得把探针当作履约服务已交付。
 - Seata Server为TC：持久化XID、分支状态和全局提交/回滚进度，驱动Confirm/Cancel及恢复重试。TC是全局事务状态权威。
 - 各Cell的`wms-inventory`为RM：实现仓级ReservationTccAction的Try/Confirm/Cancel，管理真实库存资源。
 - fulfillment保留观察到的TC状态、XID和分支结果，用于业务恢复；不再自建可以覆盖TC的COMMIT/ABORT决策表，也不通过Kafka自发二阶段决定。

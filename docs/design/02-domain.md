@@ -6,7 +6,7 @@
 
 身份术语：operation_id指服务端持久化业务操作身份；PDA/上游使用clientOperationId或等值Idempotency-Key重试，服务端映射到同一operation_id。调拨接收额度在申请时绑定预先生成的targetClientOperationId，目标受理后记录对应operation_id。
 
-以下为 v0.3 可执行提案，实施相应功能前确认：序列号在企业+SKU 范围唯一；首期局部冻结盘点；收货进入待验区、发运减少仓内实物；FIFO/FEFO 按 SKU 配置；跨仓调拨货权保持不变。未确认部分不阻塞文档交付。
+序列号唯一范围已确认：`enterprise_id + sku_id + normalized_serial`。其余仍为可执行提案，实施相应功能前确认：首期局部冻结盘点；收货进入待验区、发运减少仓内实物；FIFO/FEFO 按 SKU 配置；跨仓调拨货权保持不变。
 
 ## 2. 库存数量与维度
 
@@ -79,7 +79,7 @@ TCC仅覆盖短时跨仓库存资源预留，不包含设备、拣货、发运�
 
 ## 7. 序列号唯一性与跨仓转移
 
-提案唯一键：`enterprise_id + sku_id + normalized_serial_no`。正规化规则由商品版本确定，首期保留大小写，不随意去除内部空格；使用二进制比较。若要求企业全局唯一，实施前调整唯一键并新增冲突验收。
+已确认唯一键：`enterprise_id + sku_id + normalized_serial`。正规化规则由商品版本确定，首期保留大小写，不随意去除内部空格；使用二进制比较。企业全局唯一（跨 SKU）不在本决定内。
 
 登记权威状态：`CLAIMED -> ACTIVE -> TRANSFER_PREPARED -> IN_TRANSIT -> RECEIVING -> ACTIVE`；外发为 SHIPPED，报废为 SCRAPPED，退货通过带原发运引用的 RETURN_CLAIMED 再进入 ACTIVE。每次归属授权都有递增 owner_epoch；状态变更含 transfer_id/receipt_operation_id。
 

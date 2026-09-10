@@ -22,13 +22,13 @@ S0-09隔离POC，尚未批准为生产方案。沿用跨仓Seata TCC及“固定
 
 `TcTerminalEvidenceIT`保留文件存储查询限制回归；`TcDatabaseEvidenceIT`使用独立MySQL8.4.11与TC2.6.0。测试类分别启动JVM，避免Seata静态客户端沿用上一容器地址。Docker默认bridge仅连接测试拥有的容器IP，不删除已有网络；容器退出后回收。
 
-DB探针断言事务begin后真实出现在`global_table`，以排除配置没有生效。随后检查提交/回滚终态证据与会话清理、TC重启后查询恢复、缺失XID无记录，以及审计写失败后的TC重试恢复。追加TwoWarehouseTccProbe验证真实TC二阶段回调、Fence与MyBatis同物理事务、第二仓失败及恢复、双仓Cancel；仍显式调用branchRegister/prepareFence，未验证正式HTTP/代理Try重试。测试SQL只存在于`src/test/resources/db/tc-probe`，不会被三个业务服务自动执行。
+DB探针断言事务begin后真实出现在`global_table`，以排除配置没有生效。随后检查提交/回滚终态证据与会话清理、TC重启后查询恢复、缺失XID无记录，以及审计写失败后的TC重试恢复。追加TwoWarehouseTccProbe验证真实TC二阶段回调、Fence与MyBatis同物理事务、第二仓失败及恢复、双仓Cancel。`HttpGatewayTryProbe`用Seata Jakarta拦截器从HTTP头绑定XID，代表已确认的`wms-fulfillment`入口；同XID重试不得新注册branch。测试SQL只存在于`src/test/resources/db/tc-probe`，不会被三个业务服务自动执行。
 
 Seata DB模式使用延迟恢复路径；初次30秒回滚等待失败后，源码定位到`server.retryDeadThreshold`，探针将其设为1000毫秒以有界验证。该值不是生产推荐，证据可见延迟、后台负载与实际参数需单独压测。失败记录保留在QA报告，不把延长等待等同于解决可靠性问题。
 
 ## 纳入正式方案前的必要证据
 
-- 两个独立RM及片内ShardingSphere/Fence组合已有探针；仍需正式RPC/代理Try、TM宕机、超时回滚、重复/乱序二阶段回调、Cell迁移与扩容。
+- 两个独立RM及片内ShardingSphere/Fence组合已有探针；HTTP网关Try已有隔离探针，仍需正式`wms-fulfillment`服务、TM宕机、超时回滚、重复/乱序二阶段回调、Cell迁移与扩容。
 - 审计不可写时的业务放行阻断、恢复时重发业务Outbox；TM已经死亡也能以同attempt/XID恢复。
 - TC HA/主从切换、DB恢复与证据恢复同一数据点；禁止独立恢复审计表制造状态错配。
 - 正式迁移和最小权限：迁移账号创建触发器，TC运行账号不授DDL，查询账号仅SELECT审计；触发器definer、备份和恢复必须受治理。
