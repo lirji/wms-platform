@@ -17,6 +17,7 @@ public final class StockCommandCodes {
 
     public static final String POSTING_RECEIPT = "RECEIPT";
     public static final String POSTING_SHIPMENT = "SHIPMENT";
+    public static final String POSTING_COMPENSATION = "COMPENSATION";
 
     public static final String NO_SOURCE_EXECUTION = "NO_SOURCE_EXECUTION";
 

@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ibatis.session.SqlSession;
 
-/** 入库 T1/T3。T1 提交后再触发库存 T2，不跨库持事务。 */
+/** 入库 T1/T3。先锁 source_effect；同事实换键复用原命令。 */
 public final class SourceProtocolService {
     public static final String SOURCE = "wms-inbound";
     public static final String ACTION_RECEIVE = "RECEIVE";
@@ -28,25 +28,87 @@ public final class SourceProtocolService {
     /** T1：保存效果、命令、实物与 Outbox。 */
     public Map<String, Object> submitReceive(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty) {
+        return submitReceive(enterpriseId, warehouseId, commandId, parentId, partId, lineId, actorId, qty, null);
+    }
+
+    /** T1；previousCommandId 非空表示安全关闭后的下一尝试。 */
+    public Map<String, Object> submitReceive(String enterpriseId, String warehouseId, String commandId, String parentId,
+            String partId, String lineId, String actorId, BigDecimal qty, String previousCommandId) {
         Timestamp now = Timestamp.from(clock.instant());
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(ACTION_RECEIVE + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();
         mapper.insertEffect(effectCandidate, enterpriseId, warehouseId, SOURCE, ACTION_RECEIVE, "RECEIPT_PART", parentId,
-                partId, lineId, commandId, "PENDING", now);
+                partId, lineId, commandId, "REGISTERED", now);
         String effectId = mapper.findEffectId(enterpriseId, warehouseId, SOURCE, ACTION_RECEIVE, "RECEIPT_PART", parentId,
                 partId, lineId);
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> existing = mapper.getCommand(enterpriseId, warehouseId, commandId);
         if (existing != null) {
             return view(existing, effectId);
         }
+        if (previousCommandId == null || previousCommandId.isBlank()) {
+            if (effect.get("applied_command_id") != null) {
+                return view(mapper.getCommand(enterpriseId, warehouseId, String.valueOf(effect.get("applied_command_id"))),
+                        effectId);
+            }
+            Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
+            if (latest != null) {
+                return view(latest, effectId);
+            }
+            if (effect.get("active_command_id") != null) {
+                return view(mapper.getCommand(enterpriseId, warehouseId, String.valueOf(effect.get("active_command_id"))),
+                        effectId);
+            }
+        }
+        long attemptNo = 1L;
+        if (previousCommandId != null && !previousCommandId.isBlank()) {
+            if (!"SAFE_CLOSED".equals(String.valueOf(effect.get("state")))) {
+                throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+            }
+            if (!previousCommandId.equals(String.valueOf(effect.get("active_command_id")))) {
+                throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+            }
+            attemptNo = ((Number) effect.get("attempt_no")).longValue() + 1;
+            if (mapper.casNextAttempt(enterpriseId, warehouseId, effectId, attemptNo, commandId, "OPEN",
+                    "SAFE_CLOSED", ((Number) effect.get("version")).longValue(), now) != 1) {
+                throw new IllegalStateException("VERSION_CONFLICT");
+            }
+        }
         String executionId = UUID.randomUUID().toString();
         String payload = "{\"qty\":\"" + qty.toPlainString() + "\",\"commandId\":\"" + commandId + "\"}";
-        mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, ACTION_RECEIVE, digest,
-                payload, "PENDING", now);
+        mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, ACTION_RECEIVE,
+                attemptNo, blankToNull(previousCommandId), digest, payload, "PENDING", now);
         mapper.insertExecution(executionId, enterpriseId, warehouseId, commandId, ACTION_RECEIVE, qty, actorId, now);
         mapper.insertOutbox(UUID.randomUUID().toString(), enterpriseId, warehouseId, commandId, "StockCommandRequested",
                 payload, now);
+        if (previousCommandId == null || previousCommandId.isBlank()) {
+            if (mapper.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, "OPEN", now) != 1) {
+                throw new IllegalStateException("VERSION_CONFLICT");
+            }
+        }
+        return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
+    }
+
+    /** 未过账命令安全关闭，之后才允许同一效果的下一尝试。 */
+    public Map<String, Object> safeClose(String enterpriseId, String warehouseId, String commandId) {
+        Timestamp now = Timestamp.from(clock.instant());
+        SourceMapper mapper = session.getMapper(SourceMapper.class);
+        String effectId = mapper.findEffectByCommand(enterpriseId, warehouseId, commandId);
+        if (effectId == null) {
+            throw new IllegalStateException("RESOURCE_NOT_FOUND");
+        }
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, effectId);
+        if (effect.get("applied_command_id") != null) {
+            throw new IllegalStateException("EFFECT_ALREADY_APPLIED");
+        }
+        if (mapper.markSafeClose(enterpriseId, warehouseId, commandId, UUID.randomUUID().toString(),
+                "{\"commandId\":\"" + commandId + "\"}", now) != 1) {
+            throw new IllegalStateException("RESOURCE_NOT_FOUND");
+        }
+        if (mapper.casSafeClose(enterpriseId, warehouseId, effectId, commandId, now) != 1) {
+            throw new IllegalStateException("VERSION_CONFLICT");
+        }
         return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
     }
 
@@ -87,6 +149,10 @@ public final class SourceProtocolService {
         body.put("effectId", effectId);
         body.put("postingId", command.get("posting_id"));
         return body;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static String sha256(String canonical) {

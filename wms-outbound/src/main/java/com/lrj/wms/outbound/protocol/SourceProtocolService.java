@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ibatis.session.SqlSession;
 
-/** 出库 T1/T3。T1 提交后再触发库存 T2，不跨库持事务。 */
+/** 出库 T1/T3。先锁 source_effect；同事实换键复用原命令。 */
 public final class SourceProtocolService {
     public static final String SOURCE = "wms-outbound";
     public static final String ACTION_SHIP = "SHIP";
@@ -33,20 +33,36 @@ public final class SourceProtocolService {
         String digest = sha256(ACTION_SHIP + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();
         mapper.insertEffect(effectCandidate, enterpriseId, warehouseId, SOURCE, ACTION_SHIP, "SHIPMENT_PART", parentId,
-                partId, lineId, commandId, "PENDING", now);
+                partId, lineId, commandId, "REGISTERED", now);
         String effectId = mapper.findEffectId(enterpriseId, warehouseId, SOURCE, ACTION_SHIP, "SHIPMENT_PART", parentId,
                 partId, lineId);
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> existing = mapper.getCommand(enterpriseId, warehouseId, commandId);
         if (existing != null) {
             return view(existing, effectId);
         }
+        if (effect.get("applied_command_id") != null) {
+            return view(mapper.getCommand(enterpriseId, warehouseId, String.valueOf(effect.get("applied_command_id"))),
+                    effectId);
+        }
+        Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
+        if (latest != null) {
+            return view(latest, effectId);
+        }
+        if (effect.get("active_command_id") != null) {
+            return view(mapper.getCommand(enterpriseId, warehouseId, String.valueOf(effect.get("active_command_id"))),
+                    effectId);
+        }
         String executionId = UUID.randomUUID().toString();
         String payload = "{\"qty\":\"" + qty.toPlainString() + "\",\"commandId\":\"" + commandId + "\"}";
-        mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, ACTION_SHIP, digest,
-                payload, "PENDING", now);
+        mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, ACTION_SHIP, 1L, null,
+                digest, payload, "PENDING", now);
         mapper.insertExecution(executionId, enterpriseId, warehouseId, commandId, ACTION_SHIP, qty, actorId, now);
         mapper.insertOutbox(UUID.randomUUID().toString(), enterpriseId, warehouseId, commandId, "StockCommandRequested",
                 payload, now);
+        if (mapper.casBindActive(enterpriseId, warehouseId, effectId, commandId, 1L, "OPEN", now) != 1) {
+            throw new IllegalStateException("VERSION_CONFLICT");
+        }
         return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
     }
 

@@ -34,6 +34,35 @@ public interface StockCommandMapper {
     Map<String, Object> getByCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId);
 
+    @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
+            + "digest_version, state FROM stock_command WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND source_service=#{sourceService} AND business_effect_key=#{effectId} AND action=#{action} "
+            + "ORDER BY attempt_no DESC LIMIT 1")
+    Map<String, Object> findLatestByEffect(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
+            @Param("effectId") String effectId, @Param("action") String action);
+
+    @Update("UPDATE stock_command SET safe_close_id=#{closeId}, safe_close_version=safe_close_version+1, "
+            + "safe_close_evidence=CAST(#{evidence} AS JSON), updated_at=#{now} WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND source_service=#{sourceService} AND command_id=#{commandId}")
+    int markSafeClose(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("sourceService") String sourceService, @Param("commandId") String commandId,
+            @Param("closeId") String closeId, @Param("evidence") String evidence, @Param("now") Timestamp now);
+
+    @Insert("INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, "
+            + "action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, "
+            + "ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at) "
+            + "VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, "
+            + "#{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, "
+            + "CAST(#{manifest} AS JSON), 1, #{originalPostingId}, 0, 0, #{now}, #{now})")
+    int insertCompensationPosting(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
+            @Param("commandId") String commandId, @Param("effectId") String effectId, @Param("action") String action,
+            @Param("attemptId") String attemptId, @Param("postingType") String postingType,
+            @Param("quantity") BigDecimal quantity, @Param("sourceExecutionId") String sourceExecutionId,
+            @Param("sourceDocumentId") String sourceDocumentId, @Param("manifest") String manifest,
+            @Param("originalPostingId") String originalPostingId, @Param("now") Timestamp now);
+
     @Update("UPDATE stock_command SET state=#{toState}, result_json=CAST(#{resultJson} AS JSON), version=version+1, "
             + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
             + "AND source_service=#{sourceService} AND command_id=#{commandId} AND state=#{fromState}")

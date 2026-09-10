@@ -231,3 +231,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 同键异内容走既有 `command_dedup`，不覆盖摘要。Outbox 插入失败用库内触发器，不是 mock Mapper；失败后 ledger/dedup 为 0。
 - Testcontainers MySQL 默认 binlog 拒普通用户建触发器；IT 用 root `SET GLOBAL log_bin_trust_function_creators=1`，不改生产镜像。
 - 确认：无 critical/high；AC-03/04/05 仍 planned；未开始 `wms-console/`。
+
+## S2-07 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 命令唯一键保持 effect+action+attempt_no，没有只放宽旧索引。posting 改为效果级唯一，同效果不能两份有效凭证。
+- T1/T2 先锁 effect；同事实换键返回原命令，不插第二 attempt=1。未 SAFE_CLOSED 不得发新尝试；APPLIED/STARTED 拒绝安全关闭。
+- 补偿是新 CASE_PART 效果并引用 original_posting_id，本切片不回冲原收货余额。
+- 确认：无 critical/high；AC-47..50 仍 planned；未开始 `wms-console/`。

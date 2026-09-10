@@ -76,4 +76,33 @@ class InboundProtocolIT {
                 BigDecimal.class).compareTo(new BigDecimal("4.000000")));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM source_outbox WHERE command_id='CMD-IN'", Integer.class));
     }
+
+    @Test
+    void sameFactDifferentKeyReusesCommandAndSafeCloseAllowsNext() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        try (SqlSession session = sessions.openSession(false)) {
+            SourceProtocolService service = new SourceProtocolService(session, clock);
+            Map<String, Object> first = service.submitReceive("ENT-1", "WH-A", "CMD-F1", "RCPT-F", "PART-F", "LINE-F",
+                    "ACTOR", new BigDecimal("3"));
+            Map<String, Object> swapped = service.submitReceive("ENT-1", "WH-A", "CMD-F2", "RCPT-F", "PART-F", "LINE-F",
+                    "ACTOR", new BigDecimal("3"));
+            assertEquals("CMD-F1", first.get("commandId"));
+            assertEquals("CMD-F1", swapped.get("commandId"));
+            Map<String, Object> secondPart = service.submitReceive("ENT-1", "WH-A", "CMD-F3", "RCPT-F", "PART-F2",
+                    "LINE-F", "ACTOR", new BigDecimal("1"));
+            assertEquals("CMD-F3", secondPart.get("commandId"));
+            assertNotEquals(first.get("effectId"), secondPart.get("effectId"));
+            service.safeClose("ENT-1", "WH-A", "CMD-F1");
+            Map<String, Object> next = service.submitReceive("ENT-1", "WH-A", "CMD-F4", "RCPT-F", "PART-F", "LINE-F",
+                    "ACTOR", new BigDecimal("3"), "CMD-F1");
+            assertEquals("CMD-F4", next.get("commandId"));
+            session.commit();
+        }
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='CMD-F1'", Integer.class));
+        assertEquals(2, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM source_command WHERE command_id IN ('CMD-F1','CMD-F4') AND business_effect_key=("
+                        + "SELECT id FROM source_effect WHERE fact_parent_id='RCPT-F' AND fact_part_id='PART-F')",
+                Integer.class));
+        assertEquals(2L, jdbc.queryForObject("SELECT attempt_no FROM source_command WHERE command_id='CMD-F4'", Long.class));
+    }
 }
