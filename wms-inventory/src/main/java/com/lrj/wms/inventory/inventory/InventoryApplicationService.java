@@ -5,12 +5,15 @@ import com.lrj.wms.inventory.inventory.domain.InventoryPolicy;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.ReservationState;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.domain.CommandDigest;
+import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,7 +21,7 @@ import org.apache.ibatis.session.SqlSession;
 
 /**
  * 收货、预占、TCC Cancel、同仓移库与发运。先锁门禁再按稳定桶键锁余额。
- * 流水与 Outbox 同会话提交；领取/发布在 S2-04，本切片只落 PENDING。
+ * 流水、Outbox 与 command_dedup 同会话提交。领取/发布由 OutboxPublisher 按物理库扫描。
  */
 public final class InventoryApplicationService {
     private final SqlSession session;
@@ -34,6 +37,10 @@ public final class InventoryApplicationService {
             StockBucketKey bucket, Quantity qty) {
         requireSameScope(enterpriseId, warehouseId, bucket);
         requirePositive(qty);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RECEIVE, operationId,
+                CommandDigest.v1(InventoryCodes.REASON_RECEIVE, documentId, bucket, qty.toPlainString()))) {
+            return operationId;
+        }
         InventoryMapper mapper = mapper();
         if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
             return operationId;
@@ -62,6 +69,11 @@ public final class InventoryApplicationService {
         requireSameScope(enterpriseId, warehouseId, bucket);
         requirePositive(qty);
         InventoryCodes.requireQuality(bucket.qualityCode());
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RESERVE, operationId,
+                CommandDigest.v1(InventoryCodes.REASON_RESERVE, documentId, bucket, qty.toPlainString(), allocationId,
+                        attemptId, orderLineId))) {
+            return operationId;
+        }
         InventoryMapper mapper = mapper();
         if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
             return operationId;
@@ -91,6 +103,10 @@ public final class InventoryApplicationService {
     /** TCC Cancel：仅 TRIED 可释放 reserved。CONFIRMED 拒绝。 */
     public void cancelTried(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             String allocationId, String attemptId) {
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RELEASE, operationId,
+                CommandDigest.v1Parts(InventoryCodes.REASON_RELEASE, documentId, allocationId, attemptId))) {
+            return;
+        }
         InventoryMapper mapper = mapper();
         if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
             return;
@@ -147,6 +163,12 @@ public final class InventoryApplicationService {
         if (source.equals(target)) {
             throw new InventoryException("INVALID_QUANTITY", "移库源与目标不能相同");
         }
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_MOVE_OUT, operationId,
+                CommandDigest.v1(InventoryCodes.REASON_MOVE_OUT, documentId, source, qty.toPlainString(),
+                        target.locationId(), target.skuId(), target.lotId(), target.qualityCode(),
+                        Boolean.toString(moveReserved)))) {
+            return;
+        }
         InventoryMapper mapper = mapper();
         if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
             return;
@@ -187,6 +209,10 @@ public final class InventoryApplicationService {
             StockBucketKey bucket, Quantity qty) {
         requireSameScope(enterpriseId, warehouseId, bucket);
         requirePositive(qty);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_SHIP, operationId,
+                CommandDigest.v1(InventoryCodes.REASON_SHIP, documentId, bucket, qty.toPlainString()))) {
+            return;
+        }
         InventoryMapper mapper = mapper();
         if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
             return;
@@ -219,6 +245,29 @@ public final class InventoryApplicationService {
                 onHandDelta, reservedDelta, decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
                 decimal(after, "free_execution_claim_qty"), longValue(after.get("version")), reason, documentId, actorId,
                 now);
+    }
+
+    private boolean replayCommand(String enterpriseId, String warehouseId, String action, String operationId,
+            String digest) {
+        Timestamp now = now();
+        Timestamp retainUntil = Timestamp.from(clock.instant().plus(Duration.ofDays(7)));
+        CommandDedupMapper dedup = session.getMapper(CommandDedupMapper.class);
+        int inserted = dedup.insertIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId,
+                InventoryCodes.SOURCE_INVENTORY, action, operationId, operationId, digest, CommandDigest.VERSION_1,
+                InventoryCodes.COMMAND_APPLIED, retainUntil, now);
+        if (inserted == 1) {
+            return false;
+        }
+        Map<String, Object> existing = dedup.lockByClient(enterpriseId, warehouseId, InventoryCodes.SOURCE_INVENTORY, action,
+                operationId);
+        if (existing == null) {
+            throw new InventoryException("VERSION_CONFLICT", "命令受理竞争");
+        }
+        if (!digest.equals(String.valueOf(existing.get("request_digest")))
+                || CommandDigest.VERSION_1 != ((Number) existing.get("digest_version")).intValue()) {
+            throw new InventoryException("COMMAND_CONFLICT", "同键不同内容");
+        }
+        return true;
     }
 
     private void recordLedgerAndOutbox(InventoryMapper mapper, String enterpriseId, String warehouseId, String operationId,

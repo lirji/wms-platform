@@ -35,6 +35,13 @@ public final class InventoryCodes {
     public static final String AGGREGATE_STOCK_BALANCE = "STOCK_BALANCE";
     public static final String EVENT_BALANCE_CHANGED = "InventoryBalanceChanged";
 
+    public static final String SOURCE_INVENTORY = "wms-inventory";
+    public static final String COMMAND_APPLIED = "APPLIED";
+    public static final String OUTBOX_PENDING = "PENDING";
+    public static final String OUTBOX_CLAIMED = "CLAIMED";
+    public static final String OUTBOX_PUBLISHED = "PUBLISHED";
+    public static final String OUTBOX_ISOLATED = "ISOLATED";
+
     public static final String DECISION_ALLOW = "ALLOW";
     public static final String DECISION_DENY = "DENY";
     public static final String DECISION_DRAIN = "DRAIN";

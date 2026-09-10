@@ -202,3 +202,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - Outbox 仅 `PENDING`；无 claim/lease/publish。`payload` 含 delta/after/`ledgerEntryId`，信封列含 `STOCK_BALANCE`/`InventoryBalanceChanged`/聚合版本。
 - 跨仓移库拒绝；CONFIRMED 不能 TCC Cancel。`casAdjust` WHERE 守卫使不足返回 0 行，不是 CHECK 异常当成功。
 - 确认：无 critical/high；AC-03/AC-05 仍 planned；未开始 `wms-console/`。
+
+## S2-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 领取与投递分会话：先提交 CLAIMED 再调 transport，发送后宕机可凭过期租约重领，符合至少一次。`claim_epoch` CAS 防止旧发布器结案。
+- 未加入 Kafka 依赖；`PUBLISHED` 只表示 transport 未抛错。内存 transport 不能证明外部投递。
+- `command_dedup` 用 INSERT IGNORE + 锁读比较摘要；同键异内容不覆盖。失败过账回滚幂等行。
+- 入出库服务本轮无自有 Outbox 表，因其尚无业务事件；S2-04a/S3 再补。
+- 确认：无 critical/high；AC-03/AC-05 仍 planned；未开始 `wms-console/`。

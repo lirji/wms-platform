@@ -29,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** S2-03 收货/预占/Cancel/移库/发运；同 operation 不二次加量。不是并发 100 件 AC-03。 */
+/** S2-03/S2-04 收货原语、同键重放与同键异内容拒绝。不是并发 100 件 AC-03。 */
 class InventoryApplicationIT {
     private static final Instant NOW = Instant.parse("2026-09-10T13:00:00Z");
     private static final String DIGEST = "b".repeat(64);
@@ -54,6 +54,7 @@ class InventoryApplicationIT {
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper.class);
+        config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
@@ -108,6 +109,16 @@ class InventoryApplicationIT {
                 Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-CXL'", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='OP-RSV-2'", Integer.class));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM command_dedup WHERE client_operation_id='OP-RCV' AND action='RECEIVE'", Integer.class));
+        InventoryException conflict = assertThrows(InventoryException.class, () -> {
+            try (SqlSession session = sessions.openSession(false)) {
+                InventoryApplicationService service = new InventoryApplicationService(session,
+                        Clock.fixed(NOW, ZoneOffset.UTC));
+                service.receive("ENT-1", "WH-A", "OP-RCV", "DOC-OTHER", "ACTOR", bucket, ten);
+            }
+        });
+        assertEquals("COMMAND_CONFLICT", conflict.code());
     }
 
     @Test
