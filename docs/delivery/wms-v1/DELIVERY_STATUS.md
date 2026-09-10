@@ -26,13 +26,14 @@
 - 单RM双仓ContextDataSource回归保留；新增两个独立RM JVM，各经自己Cell的ShardingSphere访问库存/Fence/效果。第二仓崩溃后用原XID/branch恢复，第一仓不重复；取消数量及数据库账号隔离通过。
 - 新增Try不足/空Cancel用例最终定向复验通过，结果见[QA报告](QA_REPORT.md)和实际报告为准。
 - S0-07启动CAS与重复Try：并发只激活一个attempt；begin后失联仅在受控入口证明下提升代际；已绑定XID不可覆盖。真实`branchRegister`重试产生新branchId；新所有者无法接管；外键Cancel不释放原预占。Seata 2.6对同身份再次prepareFence会DuplicateKey并异步删除Tried记录，因此禁止盲目重放Try。
-- S0-04：已增加隔离 `deploy/compose.local.yml` 与根目录 `.env.example`（仅占位口令）。三套 MySQL、Kafka、Redis、Seata DB 模式、自有 XXL admin；不启动业务 JAR，不加入 dev-infra 网络。编排能解析不等于 Kafka/XXL 行为或 EG-02 完成。
+- S0-04：已增加隔离 `deploy/compose.local.yml` 与根目录 `.env.example`（仅占位口令）。三套 MySQL、Kafka、Redis、Seata DB 模式、自有 XXL admin；不启动业务 JAR，不加入 dev-infra 网络。
+- S0 AC-44 局部：warehouse-it 增加 Kafka 3.8.0 生产/消费、线程池 ThreadLocal 泄漏/清理、XXL handler 不得持有当前全局事务；三服务 POM 无 Seata AT/XA。不是正式 Outbox、XXL 触发或 HTTP Try。
 
 ## 边界与后续工作
 
 这是每RM固定单Cell、片内单物理数据库的组合验证，不承诺单RM跨库本地原子性或生产Cell迁移。终态审计为候选，尚未接attempt/分支屏障及业务Outbox，不能直接部署生产TC。
 
-继续S0 Kafka/XXL 实际联调、正式终态与业务屏障、依赖治理；TM、认证、序列号决定仍待回复。全部50项正式业务AC仍planned，局部探针与本地编排通过不代表S0或全项目完成。
+继续S0 HTTP网关Try、正式终态与业务屏障、XXL 实际触发、依赖治理；TM、认证、序列号决定仍待回复。全部50项正式业务AC仍planned，局部探针与本地编排通过不代表S0或全项目完成。
 
 [候选说明](../../implementation/TC_TERMINAL_EVIDENCE.md)、[本地手册](../../implementation/S0_RUNBOOK.md)、[版本记录](../../implementation/VERSION_LOCK.md)记录实际机制和限制；Git/CI最终结果按本分支提交及远程运行核验，已有普通发布授权不重复询问。
 

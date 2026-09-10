@@ -27,7 +27,7 @@ python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Ptc-it verify
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为；tc-it包含原生TC终态查询限制及DB终态审计候选探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
+前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制及DB终态审计候选探针，不是完整跨仓事务。两类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。完整failure-it、种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
 
 手工启动任一服务：
 

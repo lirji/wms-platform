@@ -13,18 +13,20 @@
 - 单RM双仓真实回调验证局部回滚、部分确认后TC重启、双仓Cancel；独立RM JVM+片内ShardingSphere恢复及Try不足/空Cancel通过。
 - S0-07：启动CAS（唯一活动attempt、代际隔离、绑定不可覆盖、丢失响应权威读）与真实`branchRegister`重复Try（新branchId不能接管、外键Cancel不释放）已通过`tc-it`并发布`7c435c3`。Seata 2.6同身份prepareFence会DuplicateKey并异步删Tried记录，禁止盲目重放。
 - S0-04：隔离本地 compose（三 MySQL / Kafka / Redis / Seata / XXL admin）与 `.env.example`；不改 sibling 仓库，不启动业务 JAR。
+- AC-44 局部：`ContextIsolationIT` 验证 Kafka 消费不 bind XID、线程池必须 unbind、XXL handler 无当前全局事务、三服务无 AT/XA。
 - origin/main存在且包含a37477b；沿用持续授权正常快进发布。旧基线CI run34426596804成功，不能冒充本轮。
 
 ## 已修改文件
 
-- `deploy/compose.local.yml`、`.env.example`、`deploy/init/**`
+- `wms-test-support/src/test/java/com/lrj/wms/probe/ContextIsolationIT.java`
+- `pom.xml`、`wms-test-support/pom.xml`
 - `README.md`、`docs/implementation/S0_RUNBOOK.md`、`docs/implementation/VERSION_LOCK.md`、状态/QA及`CODEX_PROGRESS.md`。
 - `.idea`及其他项目文件不修改、不提交。
 
 ## 未完成
 
 - 本轮提交`7c435c3`已推送任务分支和main；远程CI以该提交对应运行为准，旧基线通过不能冒充本轮。
-- S0仍缺HTTP网关Try、正式终态与业务屏障、Kafka/XXL行为联调、依赖安全及容量/恢复。compose 存在不等于这些已验收。
+- S0仍缺HTTP网关Try、正式终态与业务屏障、XXL 实际触发、依赖安全及容量/恢复。Kafka 消费不 bind XID 不等于 Outbox 已实现。
 - 全部50项正式业务AC仍planned；S1..S9、设备/对账/UI未完成。
 
 ## 当前问题
@@ -36,8 +38,8 @@
 
 ## 下一步建议
 
-1. 本轮S0-04隔离 compose 验证后按持续授权发布；远程CI以该提交为准，不要追加纯文档提交打断流水线。
-2. 继续剩余S0：Kafka/XXL 实际使用、正式屏障与依赖治理。HTTP网关Try尚未实现，不把Seata RM RPC当作HTTP验收。
+1. 本轮 AC-44 局部探针验证后按持续授权发布；远程CI以该提交为准，不要追加纯文档提交打断流水线。
+2. 继续剩余S0：HTTP网关Try、正式屏障、XXL 触发与依赖治理。不把 Kafka 探针当作 Outbox 验收。
 3. S1契约与种子稳定后并行实施`wms-console/`；业务决定到达后更新对应OQ。
 
 ## 恢复 Prompt

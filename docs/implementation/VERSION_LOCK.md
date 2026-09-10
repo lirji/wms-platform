@@ -16,9 +16,10 @@
 | MySQL | mysql:8.4.11 | 复用dev-infra现有镜像版本创建专属临时容器，不操作共享实例；本地 compose 三实例同标签 |
 | Testcontainers | 2.0.5 | Docker29.7.2下真实启动MySQL，Docker不可用直接失败 |
 | ANTLR runtime | 4.13.2 | 覆盖Seata传递的4.8，修复ShardingSphere解析器ATN版本冲突 |
-| XXL-JOB core | 3.4.2 | 仅依赖解析；admin触发与集群验证未执行 |
+| XXL-JOB core | 3.4.2 | 依赖可解析；warehouse-it 证明 handler 清理后无当前全局事务；admin 触发与集群未执行 |
 | XXL-JOB admin | xuxueli/xxl-job-admin:3.4.2 | 仅 `deploy/compose.local.yml` 声明与本机隔离编排启动；官方镜像为 linux/amd64，arm64 经模拟运行。未做任务触发/分片/集群 |
-| Kafka broker | apache/kafka:3.8.0 | 与 dev-infra 同标签；仅隔离 compose 声明，未做生产/消费/XID泄漏验收 |
+| Kafka broker | apache/kafka:3.8.0 | 与 dev-infra 同标签；隔离 compose 可启动；warehouse-it 用同标签 Testcontainers 验证生产/消费且消费不 bind XID |
+| Kafka client | kafka-clients 3.8.0 | 与 broker 对齐；仅测试探针使用，未做事务消息/生产 Outbox |
 | Redis | redis:7-alpine | 与 dev-infra 同标签；仅本地缓存编排，未做业务缓存验收 |
 
 ## 关键装配决定

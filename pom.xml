@@ -26,6 +26,7 @@
     <seata.version>2.6.0</seata.version>
     <antlr4.version>4.13.2</antlr4.version>
     <xxl-job.version>3.4.2</xxl-job.version>
+    <kafka.version>3.8.0</kafka.version>
     <testcontainers.version>2.0.5</testcontainers.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -51,6 +52,11 @@
         <groupId>org.apache.seata</groupId>
         <artifactId>seata-all</artifactId>
         <version>${seata.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka-clients</artifactId>
+        <version>${kafka.version}</version>
       </dependency>
       <dependency>
         <groupId>com.xuxueli</groupId>

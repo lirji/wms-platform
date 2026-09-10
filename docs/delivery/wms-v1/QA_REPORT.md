@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | `./mvnw -B -ntp verify` | 构建成功 | Maven多模块及三服务可编译打包 |
 | `python3 scripts/smoke-services.py` | 三进程健康UP，业务路径401/403 | 独立进程与默认拒绝；未接业务数据库 |
-| `./mvnw -B -ntp -Pwarehouse-it verify` | 6项，失败0、错误0、跳过0 | 多SKU同仓回滚；200并发最多100件占用；缺仓/未知仓拒写及账号隔离；Boot-MyBatis分片装配；Fence原子回滚；重复Confirm和空回滚/晚Try |
+| `./mvnw -B -ntp -Pwarehouse-it verify` | 10项，失败0、错误0、跳过0 | 原6项分片/Fence保留；新增 Kafka 生产消费不 bind XID、线程池泄漏/清理、XXL handler 无当前全局事务、三服务 POM 无 AT/XA |
 | `./mvnw -B -ntp -Ptc-it verify` | 2项，失败0、错误0、跳过0 | 文件模式Finished限制；DB审计区分提交/回滚、重启后查询恢复、审计拒写原子失败后TC恢复 |
 | `./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify` | 最终修改后1项，失败0、错误0、跳过0 | 加入重启端口就绪等待后定向复验 |
 | Python/POM/CI YAML语法 | 通过 | 本地语法；远程CI未运行 |
@@ -21,11 +21,15 @@
 - Seata传递ANTLR4.8与ShardingSphere生成版本4.13.2冲突：父POM固定4.13.2后SQL测试通过；AT路径不启用、不宣称兼容。
 - Fence测试直接绑定一个物理数据源；不等同于多仓RM动态路由和真实TC二阶段故障恢复。
 - TC探针揭示现有getStatus恢复路径不足，不能将探针成功当作EG-02完成。还需终态证据可靠保存/读取与TM宕机窗口验证。
-- Kafka/XXL实际联调、HTTP网关Try、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
+- Kafka 生产/消费与线程池 XID 隔离已有 warehouse-it 探针；XXL admin 触发、HTTP网关Try、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
 
 ## S0-04隔离本地编排
 
 已写入 `deploy/compose.local.yml` 与根目录 `.env.example`。`docker compose config` 可解析。本机用独立项目名 `wms-compose-smoke` 拉起后，三套 MySQL、Kafka 预置 topic、Redis、Seata 8091、XXL admin HTTP 302 均可用；应用账号不能读 seata 库；Cell A 账号不能登录 Cell B。验证后 `down -v`，未改动共享 dev-infra。这不是 Kafka 投递、XXL 触发、HTTP Try 或业务 Outbox 验收。
+
+## AC-44上下文隔离切片
+
+`ContextIsolationIT` 使用 `apache/kafka:3.8.0` Testcontainers：生产一条带 xid 字段的消息，消费时 `RootContext` 为空且不 bind。单线程池不 unbind 会把 XID 留给下一任务，finally unbind 后为空。XXL `IJobHandler` 清理后无当前全局事务。三个业务模块 POM 不含 seata/XA。不是正式 Outbox、调度触发或 HTTP Try，AC-44 正式业务验收仍 planned。
 
 ## 结论
 
