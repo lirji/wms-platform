@@ -18,7 +18,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.mysql.MySQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 独立TC/MySQL审计、双仓回调及独立RM进程探针；不构成正式跨仓业务验收。 */
+/** 独立TC/MySQL审计、启动CAS、重复Try所有权、双仓回调及独立RM进程探针；不构成正式跨仓业务验收。 */
 class TcDatabaseEvidenceIT {
     /** 会话清理和TC重启后，应从数据库区分提交与回滚，不依赖TM进程内存。 */
     @Test
@@ -56,6 +56,7 @@ class TcDatabaseEvidenceIT {
                 System.setProperty("service.vgroupMapping.wms_s0_group", "default");
                 System.setProperty("service.default.grouplist", "127.0.0.1:" + tcPort);
                 TMClient.init("wms-s0-db-probe", "wms_s0_group");
+                LaunchBindingProbe.verify(mysql);
                 var committed = GlobalTransactionContext.createNew();
                 committed.begin(30000, "s0-db-commit");
                 String commitXid = committed.getXid();
@@ -82,8 +83,9 @@ class TcDatabaseEvidenceIT {
                 assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM terminal_evidence WHERE xid=?", Integer.class, "missing-xid"));
                 verifyAuditFailureRecovery(jdbc);
                 new TwoWarehouseTccProbe(mysql).verify(jdbc, tc);
+                new DuplicateTryProbe(mysql).verify(jdbc);
                 IndependentRmProbe.verify(mysql, jdbc, "127.0.0.1:" + tcPort);
-                System.out.println("TC_DB_PROBE: persisted terminal audit, TC/RM restart and per-Cell ShardingSphere/Fence verified; full business acceptance pending");
+                System.out.println("TC_DB_PROBE: persisted terminal audit, TC/RM restart, launch CAS and duplicate Try ownership verified; full business acceptance pending");
             }
         }
     }

@@ -22,7 +22,7 @@
 
 - ShardingSphere 5.5.3的JDBC基础模块不自动提供全部插件；显式加入sharding-core、MySQL parser/connector、standalone memory及authority-simple。探针使用内存元数据仓库，库存数据是持久化MySQL；生产元数据治理另需验证。
 - ANTLR冲突由实际SQL测试发现，不能只编译验证兼容。统一4.13.2用于本项目TCC组合；Seata AT SQL解析路径不启用也未验收，不宣称该修订适用AT。
-- 首批原生Fence验证使用固定物理DataSource，后补单RM双仓ContextDataSource路由及TC在途重启通过；后续双独立RM各自单Cell经ShardingSphere/Fence组合已有探针；单RM跨物理库原子性未承诺，不能把各自测试通过当作组合通过。
+- 首批原生Fence验证使用固定物理DataSource，后补单RM双仓ContextDataSource路由及TC在途重启通过；后续双独立RM各自单Cell经ShardingSphere/Fence组合已有探针；启动CAS与真实branchRegister重复Try所有权夹具已通过；单RM跨物理库原子性未承诺，不能把各自测试通过当作组合通过。
 - 服务目前只有受限启动入口，尚未接数据库、OIDC或业务API；健康UP只代表进程。
 - ordinary开发组件优先dev-infra；故障探针使用Testcontainers创建/回收自己的资源，无权重启或清理共享组件。
 

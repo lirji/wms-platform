@@ -21,7 +21,7 @@
 - Seata传递ANTLR4.8与ShardingSphere生成版本4.13.2冲突：父POM固定4.13.2后SQL测试通过；AT路径不启用、不宣称兼容。
 - Fence测试直接绑定一个物理数据源；不等同于多仓RM动态路由和真实TC二阶段故障恢复。
 - TC探针揭示现有getStatus恢复路径不足，不能将探针成功当作EG-02完成。还需终态证据可靠保存/读取与TM宕机窗口验证。
-- Kafka/XXL实际联调、启动CAS/RPC故障、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
+- Kafka/XXL实际联调、HTTP网关Try、全链路、身份/序列号、外部设备/UI/对账/容量均未验收。
 
 ## 结论
 
@@ -59,4 +59,14 @@ SQL注释检查器修复多行表选项误报和反引号字段漏检；正/负�
 - 将A探针可用量设零后Try返回明确库存不足；TC已有1个branch但库存库Fence为0，证明本地Try回滚。TC随后空Cancel生成状态4 Fence、无CANCEL业务效果，原占用30保持。
 - 子进程日志`wms-test-support/target/failsafe-reports/rm-*.log`，由现有CI报告规则上传。只操作测试创建的数据库/容器/进程，未重启dev-infra。
 
-未覆盖：单RM跨多物理库的本地事务、生产Cell迁移、真实HTTP/代理Try重试与业务所有权、TM宕机后的attempt绑定及Outbox屏障。依赖版本未变，旧warehouse-it/进程smoke复用已有同输入证据，远程CI将重跑基础检查。Git远程main已存在，旧基线a37477b的CI run34426596804成功；本轮提交的CI必须另核验。
+未覆盖：单RM跨多物理库的本地事务、生产Cell迁移、真实HTTP网关Try、TM宕机后的attempt绑定及Outbox屏障。依赖版本未变，旧warehouse-it/进程smoke复用已有同输入证据，远程CI将重跑基础检查。Git远程main已存在，旧基线a37477b的CI run34426596804成功；本轮提交的CI必须另核验。
+
+## S0-07启动CAS与重复Try
+
+最终`./mvnw -B -ntp -Ptc-it verify`两项通过（失败/错误/跳过0；`TcDatabaseEvidenceIT` 106.6秒，`TcTerminalEvidenceIT` 7.4秒）。定向` -Dit.test=TcDatabaseEvidenceIT` 亦通过（1项，108.6秒）。没有增加虚假的@Test数量。
+
+- `LaunchBindingProbe`：16个候选并发只激活一个attempt；两执行器争抢启动权仅一人领取；begin后解绑且租约过期时，仅`entry_protocol_version=1`可提升代际；旧epoch无法绑定已隔离XID；绑定响应丢失通过权威读恢复同一XID；活动槽与尝试插入失败同事务回滚；无入口证明的过期租约不能重开。
+- `DuplicateTryProbe`：同一xid两次`branchRegister`得到不同branchId；新branch与新XID的Try均因业务键所有者冲突失败，reserved保持30；外键空Cancel不释放原预占；原事务Cancel后库存与预占行归零。
+- 实测Seata 2.6对同xid/branch再次`prepareFence`抛出DuplicateKey，日志写成“already rollbacked”，并`addToLogCleanQueue`异步删除Tried记录。若在仍需Cancel的事务上重放Try，后续Cancel会走空回滚、业务释放不执行。夹具因此禁止在活动分支上重放prepareFence；这不是HTTP网关验收。
+
+AC-45/46正式业务验收仍planned。HTTP代理、TM归属和业务Outbox屏障仍未覆盖。

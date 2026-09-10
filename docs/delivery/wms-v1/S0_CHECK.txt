@@ -63,3 +63,18 @@ Production HTTP/TM binding/Outbox/Cell migration remain unverified.
 f13738bbac14c07b0b7b970174211b4fcb1ea78976bffb5ac1e757b3fe2c25e1  wms-test-support/src/test/java/com/lrj/wms/probe/WarehouseRmProcess.java
 d75083dd186fe39f86f3c2226739c56b74d8cd7572b499c8810c67d916b71b0b  wms-test-support/src/test/java/com/lrj/wms/probe/IndependentRmProbe.java
 449f00e6f5caad3e3531276a2802e6ddaba2547ca09cf461ba4904b8cc560c80  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java
+
+Launch CAS and duplicate Try supplement / 2026-09-10
+Full tc-it: 2 tests, 0 failures/errors/skips; TcDatabaseEvidenceIT 106.6s, TcTerminalEvidenceIT 7.4s.
+Targeted TcDatabaseEvidenceIT: 1 test, 0 failures/errors/skips, 108.6s.
+Launch CAS: one active attempt, one launch winner, fenced old epoch, immutable bound XID, lost binding recovered, unproven lease denied.
+Duplicate Try: new branchId on retry; owner conflict; foreign cancel preserves reservation; original cancel releases once.
+Seata 2.6 duplicate prepareFence is DuplicateKey plus async Tried cleanup; live-branch replay is forbidden.
+Not HTTP gateway, official TM or business AC-45/46.
+7ff28c9b22a41e205d1626a6c0cbb82695c51cb19ee8eb90fe1875736b345d35  wms-test-support/src/test/java/com/lrj/wms/probe/LaunchBindingProbe.java
+b766778835ebabf12d84223cbf4d8e96099fc01f8fed1caf9512fcfb0b04e4fc  wms-test-support/src/test/java/com/lrj/wms/probe/LaunchProbeMapper.java
+184fbe664bfcc2faedb9a566ff2162b0dac1e7527bcebb3739d8b67d108462ef  wms-test-support/src/test/java/com/lrj/wms/probe/DuplicateTryProbe.java
+aed23148856eb522f73bf80ac176f83661be69cc1f6f3099104fe0205e9ddebd  wms-test-support/src/test/java/com/lrj/wms/probe/ReservationProbeMapper.java
+2fae68d4e915414443154b5fd6ec524879d502e3c0e051fc4a1349f1b89ac913  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java
+fadc7176aec0e0dca3facabb0037122a98f5c9e3a4ba27ed25040463f9a030ae  wms-test-support/src/test/resources/db/launch-probe/V001__launch.sql
+9ee9757e7f029b92b7272c521deafdaf2817f64e46b1910c3ed01da70b36ed11  wms-test-support/src/test/resources/db/retry-probe/V004__reservation.sql

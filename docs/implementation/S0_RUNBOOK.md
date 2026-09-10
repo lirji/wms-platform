@@ -30,3 +30,5 @@ GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试�
 终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。
 
 独立RM探针使用两个受控子JVM，经各自Cell的ShardingSphere执行Fence与库存事务；包含B故障/进程重启恢复和账号隔离。不是已实现正式入出库业务接口。
+
+启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。二者都在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。
