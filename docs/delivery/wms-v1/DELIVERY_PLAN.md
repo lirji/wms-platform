@@ -94,7 +94,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 
 ### S0 工程与选型验证
 
-- S0-01 本地仓库已存在，origin为GitHub；当前远程未返回任何分支，已有本地初始实现提交5d986dd。使用feat/wms-s0-foundation，保护.idea；首次远程main创建单独处理，不擅自覆盖远程。
+- S0-01 本地仓库已存在，origin为GitHub；当前已核对origin/main存在且包含a37477b基线。使用feat/wms-s0-foundation，保护.idea；沿用持续授权正常快进发布，不强推。
 - S0-02 产出 `docs/implementation/VERSION_LOCK.md`，验证候选组合，登记许可证/漏洞/镜像摘要；所有版本在父 BOM 管理。
 - S0-03 创建Maven Wrapper/父pom，以及wms-inbound、wms-outbound、wms-inventory独立启动包/镜像/配置/数据库账号；包前缀com.lrj.wms。共享wms-contract只含契约，不共享领域实体或Mapper。
 - S0-04 编写 `deploy/compose.local.yml` 及 `.env.example`（仅变量名/占位），记录 dev-infra 资源；隔离故障测试另起专属实例。
@@ -237,7 +237,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 
 | 门禁 | 截止阶段 | 必须交付的证据/决定 | 未满足时行为 |
 | --- | --- | --- | --- |
-| EG-01 工程与远程 | S0 | Maven可重复构建，任务分支，GitHub CI；空远程首次main创建授权 | 可本地开发验证，未授权不创建远程main |
+| EG-01 工程与远程 | S0 | Maven可重复构建，任务分支，GitHub CI及正常main发布（远程已存在） | 本地通过不替代当前提交的远程CI |
 | EG-02 唯一TM与技术组合 | S0 | TM归属决定、VERSION_LOCK、Fence同物理事务/路由、全局终态证据POC | TC组合未证明则阻塞依赖的跨仓实现，不能用Mock通过 |
 | EG-03 身份与序列号业务规则 | S1/S3 | S1认证接入约定；S3序列号唯一范围；单位与效期规则按业务入口确认 | 通用工程可继续，相关生产规则不靠猜测落库 |
 | EG-04 首个完整闭环 | S5退出 | S5-06同批数据与故障恢复报告、适用AC结果 | 未通过不进入S6扩展 |

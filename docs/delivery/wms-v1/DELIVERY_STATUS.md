@@ -2,47 +2,34 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S0工程与兼容验证。
+- 状态：in-progress；阶段：S0工程与兼容/恢复验证。
 - 用户已批准补齐执行门禁并推进业务开发，沿用[唯一计划](DELIVERY_PLAN.md)。
-- 仅操作wms-platform和明确隔离的本地测试资源；不部署生产，不修改共享组件配置，前端交Cursor。
-- 分支：feat/wms-s0-foundation；origin为GitHub；本地实现提交5d986dd，远程查询未返回分支；已询问首次main创建授权，尚待答复。
+- 仅操作wms-platform和明确隔离的测试资源；不部署生产，不修改共享组件配置，前端交Cursor。
+- 分支：feat/wms-s0-foundation。origin/main已存在且包含a37477b，首次main创建不再阻塞；旧基线CI已成功，新提交按持续授权验证后正常发布。
 
 ## 门禁
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | 三服务构建/smoke、GitHub CI配置已完成；远程CI未运行 |
-| EG-02 TC组合/唯一TM | running | 6项数据库/分片/Fence探针及2项真实TC探针通过；终态审计候选及单RM双仓回调/TC在途重启通过；独立RM、分片组合及TM决定未闭合 |
-| EG-03 业务决定 | pending | 已询问认证和序列号范围；相关实现等待回答 |
+| EG-01 工程/CI | running | 三服务构建/smoke、CI配置及旧基线远程CI通过；本轮提交需核对远程CI |
+| EG-02 TC组合/唯一TM | running | 局部数据库/分片/Fence、终态审计、TC重启、独立RM/片内ShardingSphere恢复已有证据；正式启动协议、业务屏障及TM决定未闭合 |
+| EG-03 业务决定 | pending | 认证、序列号范围及TM归属待决定 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | pending | 空远程，首次main创建需明确授权；不影响本地实现 |
+| Git发布 | running | main已存在；正常快进发布，禁止强推及生产部署 |
 
-## 已完成
+## 已实现与已验证范围
 
-- 原10份设计与50项planned验收保留，四项幂等补充任务已并入各阶段。
-- 补充S0终态证据POC、TM决定及S5完整闭环门禁。
-- 核查本机Java/Maven/Docker，dev-infra已有共享MySQL/Kafka等；故障测试使用独立资源。
+- Maven五模块骨架、inbound/outbound/inventory独立进程，仅开放健康接口；没有正式业务API或业务数据库接入。
+- warehouse-it六项真实MySQL/分片/Fence技术探针通过。Seata+ShardingSphere实际依赖冲突已修复，候选版本仍不等同于生产锁定。
+- TC文件模式的Finished歧义、DB终态审计候选、审计写失败与TC重启恢复已实测。
+- 单RM双仓ContextDataSource回归保留；新增两个独立RM JVM，各经自己Cell的ShardingSphere访问库存/Fence/效果。第二仓崩溃后用原XID/branch恢复，第一仓不重复；取消数量及数据库账号隔离通过。
+- 新增Try不足/空Cancel用例最终定向复验通过，结果见[QA报告](QA_REPORT.md)和实际报告为准。
 
-## 下一步
+## 边界与后续工作
 
-继续独立RM进程/分片Fence组合、启动CAS/RPC故障及剩余S0验证；实际命令和结论随切片更新。前期DOCUMENT_CHECK仅是文档结构证据，不代表本次业务验证。
+这是每RM固定单Cell、片内单物理数据库的组合验证，不承诺单RM跨库本地原子性或生产Cell迁移。终态审计为候选，尚未接attempt/分支屏障及业务Outbox，不能直接部署生产TC。
 
-## 本轮实际实现与验证
+继续S0实际代理/HTTP重试、启动CAS/RPC故障、Kafka/XXL与依赖治理；TM、认证、序列号决定仍待回复。全部50项正式业务AC仍planned，局部探针通过不代表S0或全项目完成。
 
-- 新增五模块Maven工程，三个服务仅开放健康接口，其余路径拒绝；业务代码尚未进入S1。
-- 完成6项warehouse-it技术探针及2项tc-it终态能力/审计候选探针；三独立进程smoke通过。详见[QA报告](QA_REPORT.md)、[版本记录](../../implementation/VERSION_LOCK.md)及[本地手册](../../implementation/S0_RUNBOOK.md)。
-- 修复实际ANTLR4.8/4.13.2冲突和ShardingSphere插件装配；S0探针采用MySQL8.4.11独立容器。
-- TC提交/回滚清理后均为Finished，不能作为恢复成功证据；这不是可以忽略的错误，EG-02仍未完成。
-- 用户必要业务决定仍待回复：TM归属、序列号范围、认证接入。原有结构检查证据已更新，但全部业务AC仍planned。
-- 本地工作可作为独立S0准备切片提交；不宣称S0全部通过或全项目交付。远程为空，首次main创建尚待授权，生产部署无授权。
-
-## 本地提交与当前等待项
-
-实现提交：`5d986dd feat(wms): 建立实施基线与S0隔离验证`。工作分支`feat/wms-s0-foundation`，未推送，远程CI未运行。已请求首次创建远程main的授权，待用户答复后处理；没有部署配置。
-
-S0剩余技术门禁不能跳过；S1相关认证及S0唯一TM决定尚待用户回答。当前8项技术探针已结束并回收自身容器，后续从未完成项继续，不重新生成项目。
-
-S0-09已补隔离TC DB终态审计候选和故障恢复证据，见[方案](../../implementation/TC_TERMINAL_EVIDENCE.md)；不作为正式TC迁移发布，尚待两仓RM及业务关联屏障验证。
-
-新增单RM双仓原生回调探针通过，包括B确认失败原子回滚、TC在途重启恢复、双仓Cancel；最终定向构建约99秒。业务与独立多进程组合仍未验收，详见QA_REPORT。
+[候选说明](../../implementation/TC_TERMINAL_EVIDENCE.md)、[本地手册](../../implementation/S0_RUNBOOK.md)、[版本记录](../../implementation/VERSION_LOCK.md)记录实际机制和限制；Git/CI最终结果按本分支提交及远程运行核验，已有普通发布授权不重复询问。

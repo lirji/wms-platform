@@ -48,3 +48,15 @@ SQL注释检查器修复多行表选项误报和反引号字段漏检；正/负�
 初次在途重启验证30秒超时，源码定位原生客户端首次重连调度延迟60秒、后续10秒；仅把对应断言窗口设90秒后通过，没有强制重连或放宽业务断言。最终日志观察RM重新注册与后续真实TC回调，不能把这个耗时当作已满足业务RTO。
 
 限制：TM/RM同一测试JVM；未用正式HTTP/代理Try；未验证两个RM独立进程、RM/TM宕机、ShardingSphere接入该Fence事务、启动CAS或业务放行Outbox。既有warehouse-it与文件TC回归未改语义，复用此前证据；最终定向命令覆盖本次变化。整体EG-02仍running。
+
+## 独立RM/片内ShardingSphere切片
+
+本轮`./mvnw -B -ntp -Ptc-it verify`两项通过（失败/错误/跳过0，约115秒）；补Try不足/空回滚断言后，最终`./mvnw -B -ntp -Ptc-it -Dit.test=TcDatabaseEvidenceIT verify`通过（1项，失败/错误/跳过0，用例107.2秒）。没有增加虚假的@Test数量，新增场景位于IndependentRmProbe。
+
+- 两个独立RM JVM，A/B数据库账号互相跨库SELECT拒绝。各进程使用片内单Cell ShardingSphere数据源，库存/Fence/效果同Spring事务。
+- B确认写效果后失败，效果0且Fence TRIED；强制终止仅本测试B进程，A仍运行。新B PID恢复相同XID/branch，不重新Try，A/B效果各1且原Fence COMMITTED。
+- 双仓新Try/Cancel仅释放新占用，原确认占用30保持。
+- 将A探针可用量设零后Try返回明确库存不足；TC已有1个branch但库存库Fence为0，证明本地Try回滚。TC随后空Cancel生成状态4 Fence、无CANCEL业务效果，原占用30保持。
+- 子进程日志`wms-test-support/target/failsafe-reports/rm-*.log`，由现有CI报告规则上传。只操作测试创建的数据库/容器/进程，未重启dev-infra。
+
+未覆盖：单RM跨多物理库的本地事务、生产Cell迁移、真实HTTP/代理Try重试与业务所有权、TM宕机后的attempt绑定及Outbox屏障。依赖版本未变，旧warehouse-it/进程smoke复用已有同输入证据，远程CI将重跑基础检查。Git远程main已存在，旧基线a37477b的CI run34426596804成功；本轮提交的CI必须另核验。

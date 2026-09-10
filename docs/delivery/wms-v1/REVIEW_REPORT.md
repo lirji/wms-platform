@@ -95,3 +95,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 新路由探针在取连接时拒绝缺失/不匹配上下文，避开Seata hook吞异常导致的拒绝失效；SqlSessionTemplate与Fence使用相同DataSource事务资源。
 - 两个仓为独立数据库与账号，但RM/TM同测试JVM。没有把手动branchRegister等同于真实HTTP/代理重试，也没有把ContextDataSource直连等同于ShardingSphere组合验证。
 - 主代理源码复核；未新增多代理审查、未进行生产部署。运行结果与仍缺故障场景以QA报告为准。
+
+## 独立RM与ShardingSphere切片复核
+
+主代理进行源码和实际数据库结果复核，未新增多代理评审。
+
+- `WarehouseRmProcess`只接本Cell账号，三表经同一个ShardingSphere数据源及Spring事务；不用不同DataSource分别执行Fence和库存。
+- `IndependentRmProbe`以持有的Process句柄注入崩溃；关闭管道异常不能跳过进程回收，子进程日志/队列/内存及等待有界。账号不进入命令行或版本库。
+- Try失败仅把专用库存不足异常转换为确定拒绝，其他异常导致探针失败，不将未知系统结果伪装成业务拒绝。
+- 重启不重新prepare，断言原branch仍唯一；核查A效果一次、B失败局部回滚、空Cancel无业务效果。
+- 每RM固定单Cell是当前已验证范围。所有权、业务幂等、动态Cell路由和容量仍有门禁，不能把该夹具当正式库存服务。

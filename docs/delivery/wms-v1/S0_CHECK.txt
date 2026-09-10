@@ -52,3 +52,14 @@ a1c387ffcc08aaaa15697a8618320f118bbce1b854cb9c9c65a6b3829d9cdf73  wms-test-suppo
 e7c0ebffdd658dcfe16bc5f930435b8f7e8a564a98fdeb18676d9d315b612e57  wms-test-support/src/test/java/com/lrj/wms/probe/TwoWarehouseTccProbe.java
 02f32a0e48c47a13e98859eb0e7aeb3deb6393abae00bad96f20f75254d76b14  wms-test-support/src/test/java/com/lrj/wms/probe/TccProbeMapper.java
 cd00dcf6e7c3d5bbdb67a01cdc5d286cf0357aeef2524df56b6a46b71c8e7bc2  wms-test-support/src/test/resources/db/tcc-warehouse/V003__callback_effect.sql
+
+Independent RM supplement / 2026-09-10
+Full tc-it before final new scenario: 2 tests, 0 failures/errors/skips, about115s.
+Final targeted TcDatabaseEvidenceIT after all changes: 1 test, 0 failures/errors/skips, test107.2s.
+Two independent RM JVMs + per-Cell ShardingSphere/Fence: B process crash/restart resumes original branch; each effect once; cancel preserves confirmed quantity; DB accounts deny cross-Cell SELECT.
+Insufficient Try: no Fence residue; subsequent TC empty Cancel creates suspended fence without business effect or releasing prior reservation.
+Production HTTP/TM binding/Outbox/Cell migration remain unverified.
+5edc8f9d55cddea5941baba15124b173d1c113f985d04100474d21d2d62aa489  wms-test-support/src/test/java/com/lrj/wms/probe/CellFenceAlgorithm.java
+f13738bbac14c07b0b7b970174211b4fcb1ea78976bffb5ac1e757b3fe2c25e1  wms-test-support/src/test/java/com/lrj/wms/probe/WarehouseRmProcess.java
+d75083dd186fe39f86f3c2226739c56b74d8cd7572b499c8810c67d916b71b0b  wms-test-support/src/test/java/com/lrj/wms/probe/IndependentRmProbe.java
+449f00e6f5caad3e3531276a2802e6ddaba2547ca09cf461ba4904b8cc560c80  wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java

@@ -2,51 +2,48 @@
 
 ## 任务目标
 
-用户已批准“先补齐几个执行门禁后推进业务开发”。沿用v0.4独立三服务设计、Seata TCC跨仓预占及其他本地事务+可靠消息，执行唯一计划`docs/delivery/wms-v1/DELIVERY_PLAN.md`。当前S0，未完成全项目。
+按已批准的唯一计划`docs/delivery/wms-v1/DELIVERY_PLAN.md`补执行门禁后推进WMS业务开发。保留独立入库/出库/库存服务、跨仓Seata TCC、其他本地事务+可靠消息。当前S0进行中，不能宣称业务交付完成。
 
 ## 已完成
 
-- 补EG-01..05执行门禁：唯一TM、TC终态证据、业务决定截止阶段、S5完整闭环与后续外部验收；幂等任务已并入各阶段。
-- 本地任务分支`feat/wms-s0-foundation`；origin为GitHub lirji/wms-platform，远程ls-remote无分支，本地实现提交5d986dd及7fd3830终态审计探针；.idea保留并忽略。
-- 创建Maven Wrapper3.9.12/父POM、contract骨架、inbound/outbound/inventory独立服务入口及默认拒绝业务访问的配置。
-- 三进程smoke通过：健康UP、业务路径拒绝。只证明启动，不是业务验收。
-- `warehouse-it`六项真实MySQL/分片/Fence探针通过（0失败/错误/跳过）；覆盖同仓回滚、200次并发预占最多100次成功、缺仓/未知仓拒写、账号隔离、Fence局部原子与重复/空回滚。
-- 修复实际依赖冲突：ShardingSphere5.5.3需显式插件，ANTLR runtime固定4.13.2替换Seata传递4.8；MySQL测试镜像8.4.11复用本机版本、独立容器。
-- 新增GitHub CI、本地运行手册及候选版本记录；尚未远程执行CI。
+- 当前分支`feat/wms-s0-foundation`；初始工程5d986dd、文档a37477b、TC审计7fd3830、单RM双仓/TC恢复216fd95。
+- 三个服务启动骨架与默认拒绝业务访问、Maven Wrapper、CI及候选版本记录；构建和三进程smoke通过。
+- warehouse-it六项真实MySQL/分片/Fence局部验证通过；修复ShardingSphere插件装配和ANTLR4.8/4.13.2冲突。
+- TC会话清理后提交/回滚均为Finished已实测；DB终态审计候选验证提交/回滚区分、TC重启及审计写失败恢复。
+- 单RM双仓真实回调验证局部回滚、部分确认后TC重启、双仓Cancel；记录原生首次重连调度60秒，探针恢复断言90秒有界。
+- 新增独立RM JVM夹具：两个RM分别持有一个Cell账号，库存/Fence/效果通过片内ShardingSphere；B进程重启恢复原XID/branch且不重Try，A效果一次，双仓Cancel及账号互相拒读已通过。
+- 已重新核对远程：origin/main存在且包含a37477b，旧基线GitHub CI成功（run34426596804）。此前空远程/首次创建阻塞已解除，沿用持续授权正常快进发布，不再询问首次main。
+
+- Try库存不足时ShardingSphere/Fence共同回滚及空Cancel不释放已有库存已通过最终定向复验；日志`.local/tc-independent-verified.log`，1项失败/错误/跳过0，用例107.2秒；此前完整tc-it两项亦通过。
 
 ## 已修改文件
 
-- `pom.xml`、`.mvn/wrapper/maven-wrapper.properties`、`mvnw`/`mvnw.cmd`、`.gitignore`。
-- `wms-contract`、`wms-inbound`、`wms-outbound`、`wms-inventory`、`wms-test-support`。
-- `scripts/smoke-services.py`、`.github/workflows/verify.yml`。
-- `README.md`、唯一计划/状态及`docs/implementation/VERSION_LOCK.md`、`S0_RUNBOOK.md`。
-- 原设计文档已随5d986dd提交，属于前期本任务成果；`.idea`不提交。
+- `wms-test-support/src/test/java/com/lrj/wms/probe/CellFenceAlgorithm.java`
+- `wms-test-support/src/test/java/com/lrj/wms/probe/WarehouseRmProcess.java`
+- `wms-test-support/src/test/java/com/lrj/wms/probe/IndependentRmProbe.java`
+- `wms-test-support/src/test/java/com/lrj/wms/probe/TcDatabaseEvidenceIT.java`
+- `README.md`、`docs/implementation/TC_TERMINAL_EVIDENCE.md`、`S0_RUNBOOK.md`、`VERSION_LOCK.md`及唯一计划/状态/QA/评审证据。
+- `.idea`及其他项目文件不修改、不提交。
 
 ## 未完成
 
-- `tc-it`已通过2项；增加隔离DB终态审计候选，证明重启/审计写失败后的恢复；正式业务关联与双RM适配仍未完成，不能据此放行EG-02。
-- EG-02两个独立RM进程及ShardingSphere/Fence组合、正式终态与业务绑定、启动CAS/RPC重试、Kafka/XXL实际验证、许可证/漏洞与镜像锁等尚未完成。
-- 全部业务AC仍planned，仅上述S0子项有技术证据；不能进入跨仓业务实现并宣称S0已通过。
-- 业务开发S1..S9、真实对账/设备/UI/容量和恢复均未完成。
-- 本轮源码自审、文档/SQL注释/配置语法检查完成；本地提交5d986dd已完成；首次main授权、Git发布/远程CI仍待完成。
+- 本轮完成后正常提交、推送任务分支和main，并检查新提交CI。恢复时先检查真实Git refs和CI，避免按此中间记录重复发布或询问。
+- S0仍缺实际HTTP/代理Try重试、启动attempt/XID/epoch CAS故障、正式终态与业务屏障绑定、Kafka/XXL联调、依赖安全及容量/恢复等后续门禁。
+- 全部50项正式业务AC仍planned；S1..S9、设备/对账/UI等未完成。
 
 ## 当前问题
 
-- 用户业务决定已通过异步工具询问，尚未收到：唯一TM（建议wms-fulfillment）、序列号唯一范围（建议企业+SKU+serial）、OIDC接入；保持相关门禁pending。
-- Seata2.6.0 DefaultCore源码表明getStatus在会话清理后返回Finished，无法独自分辨提交/回滚；真实探针已证实。需要可恢复的终态证据方案，不能把Finished当成功。
-- TC审计候选详见docs/implementation/TC_TERMINAL_EVIDENCE.md，暂未接业务放行；原生Fence单RM双仓物理路由及TC重启验证通过，不等同于与ShardingSphere串联或独立多RM进程通过。
-- 远程为空，task-git-delivery要求不擅自创建远程main；已提交具体可审查成果5d986dd，并通过异步工具询问首次main创建授权，等待回答。已有持续授权仍适用普通提交推送。
+- TM归属（建议wms-fulfillment）、序列号范围（建议企业+SKU+serial）、认证接入仍待用户决定；不将“继续”解释成选定这些互斥选项。
+- 本次ShardingSphere组合是每RM固定单Cell、片内单物理数据源，不证明单RM跨库本地原子性或Cell迁移/大规模分表。
+- TC审计只为S0候选，未授权部署生产TC；缺证据/Finished均不放行业务。
+- 原生TccHook会吞异常，不能仅靠hook异常拒绝错误路由。正式RPC与所有权校验未验收。
 
 ## 下一步建议
 
-1. 阅读QA_REPORT与VERSION_LOCK，TC查询限制已实测；继续终态证据适配、两仓RM与启动CAS/RPC故障验证，不重复已通过的局部探针。
-2. 完成独立可推进的S0任务；用户决定到达后更新OQ和实现门禁，不替换整个设计。
-3. 按必要检查结果分批提交。若S0依赖/决定确实阻塞，记录可恢复状态与具体缺口，不假称全交付。
+1. 最终定向tc-it已通过；先检查当前HEAD与origin/main及对应CI，完成剩余发布核验再继续S0。
+2. 核对origin/main为祖先后正常推送任务分支与main；无生产部署。核对新提交GitHub CI，不用本地通过替代远程结果。
+3. 继续剩余S0协议故障与基础组件门禁；业务决定到达后更新对应OQ，不重新规划项目或重复生成已通过探针。
 
 ## 恢复 Prompt
 
-请读取CODEX_PROGRESS.md和唯一DELIVERY_PLAN/DELIVERY_STATUS，继续已授权实施。先检查git工作树及已保存的QA证据，当前在feat/wms-s0-foundation、已有初始实现提交5d986dd。保护.idea，沿用现有代码和证据；Seata全局终态与用户必要业务决定尚未闭合，不能将8项局部探针当完整S0或业务验收。不要重新规划全部项目，不要求反复输入继续。
-
-本轮补TC DB审计候选、真实故障恢复探针、SQL注释检查器修复及文档同步；最终定向tc-it通过。后续可从BusinessActionContext驱动的物理数据源路由探针继续；Seata TccHook异常会被捕获，不能仅靠hook抛错阻断回调。
-
-本轮追加单RM进程双仓资源的TwoWarehouseTccProbe并验证通过：真实TC回调、MyBatis/Fence同物理事务、B失败原子回滚、部分确认后TC重启恢复、双仓Cancel。原生RM首次重连延迟60秒，初版30秒超时；改为90秒有界恢复断言后最终通过。日志.local/tc-two-warehouse-final.log，1项失败/错误/跳过均0，构建约99秒。待完成独立RM进程与ShardingSphere串联、启动CAS/RPC等，不应重复生成此探针。
+请读取CODEX_PROGRESS.md、DELIVERY_STATUS.md和QA_REPORT.md，核对当前Git/CI与最终测试报告，从第一个未完成门禁继续。远程main已存在，不再重复询问首次创建。保护用户已有改动，只操作wms-platform和自建测试资源；已通过的局部证据不等于全部S0/业务AC验收。不要要求反复输入继续。

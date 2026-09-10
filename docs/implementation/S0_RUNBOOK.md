@@ -25,6 +25,8 @@ inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆
 
 ## CI与发布边界
 
-GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试报告；没有部署步骤。远程为空，本地任务分支已创建。首次远程main创建仍需符合Git技能授权规则。生产部署始终另授权。
+GitHub Actions运行构建、进程验证、warehouse-it和tc-it，保留测试报告；没有部署步骤。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
 
 终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。
+
+独立RM探针使用两个受控子JVM，经各自Cell的ShardingSphere执行Fence与库存事务；包含B故障/进程重启恢复和账号隔离。不是已实现正式入出库业务接口。

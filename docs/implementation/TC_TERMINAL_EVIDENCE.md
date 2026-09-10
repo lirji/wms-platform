@@ -2,7 +2,7 @@
 
 ## 状态与边界
 
-S0-09隔离POC，尚未批准为生产方案。沿用跨仓Seata TCC及“固定分支全部CONFIRMED + TC可靠全局成功证据”门禁；实验使用一个RM进程注册两个仓资源，连接两个独立物理数据源；尚非两个独立库存服务进程，不替代S0-05a或AC-12/42完整验收。
+S0-09隔离POC，尚未批准为生产方案。沿用跨仓Seata TCC及“固定分支全部CONFIRMED + TC可靠全局成功证据”门禁；实验保留单RM双仓回归，并增加两个独立RM JVM，每个RM经ShardingSphere连接自己的库存Cell，不替代S0-05a或AC-12/42完整验收。
 
 `getStatus(xid)=Finished`只表示当前没有可返回的会话状态，不能区分提交/回滚。TM的`commit()`返回及进程内`getLocalStatus()`也不替代跨进程持久化证据。
 
@@ -28,7 +28,7 @@ Seata DB模式使用延迟恢复路径；初次30秒回滚等待失败后，源�
 
 ## 纳入正式方案前的必要证据
 
-- 两个独立库存RM进程及ShardingSphere组合；当前仅单RM双资源、ContextDataSource直连两库。还需RM/TM崩溃、超时回滚、重复/乱序二阶段回调。
+- 两个独立RM及片内ShardingSphere/Fence组合已有探针；仍需正式RPC/代理Try、TM宕机、超时回滚、重复/乱序二阶段回调、Cell迁移与扩容。
 - 审计不可写时的业务放行阻断、恢复时重发业务Outbox；TM已经死亡也能以同attempt/XID恢复。
 - TC HA/主从切换、DB恢复与证据恢复同一数据点；禁止独立恢复审计表制造状态错配。
 - 正式迁移和最小权限：迁移账号创建触发器，TC运行账号不授DDL，查询账号仅SELECT审计；触发器definer、备份和恢复必须受治理。
@@ -52,3 +52,11 @@ Seata 2.6.0 `TCCResourceManager`会先设置BusinessActionContext，再进入Fen
 重启用例覆盖“一仓CONFIRMED、另一仓CommitRetrying”窗口，保留相同XID和持久化branch上下文。Seata客户端原生首次重连调度延迟60秒，后续间隔10秒；初版30秒等待因此失败，探针仅将该恢复断言上限改为90秒，不修改客户端行为，不据此承诺业务RTO。正式恢复SLO需覆盖进程刚启动即断连的情况。
 
 源码依据：[TCCResourceManager](https://github.com/apache/incubator-seata/blob/v2.6.0/tcc/src/main/java/org/apache/seata/rm/tcc/TCCResourceManager.java)、[AbstractNettyRemotingClient](https://github.com/apache/incubator-seata/blob/v2.6.0/core/src/main/java/org/apache/seata/core/rpc/netty/AbstractNettyRemotingClient.java)。
+
+## 独立RM与片内ShardingSphere验证
+
+`IndependentRmProbe`以两个独立JVM运行`WarehouseRmProcess`；每个进程只持有自己的Cell账号，通过ShardingSphere-JDBC访问库存、Fence和回调效果表，三个表进入相同Spring本地事务。B确认先写效果再失败，效果/Fence共同回滚；杀掉B后用相同账号和resourceId启动新进程，由TC恢复原XID/branch，禁止重新Try。A效果应始终一次；后续Cancel只释放新预占，不能释放已确认占用。两个账号的跨库SELECT均应被数据库拒绝。
+
+这是“每RM固定一个Cell、片内单物理数据源”的组合证据。配置的三个逻辑表均通过ShardingSphere SHARDING规则访问这个Cell；不是单RM跨多个物理库的本地原子事务，也不证明Cell扩缩容或大容量分表已通过。单Cell拓扑避免Seata静态Fence数据源切换及跨连接本地事务问题，正式容量达到拆分条件时仍需记录新的原子范围/恢复协议。
+
+子进程通过父子stdin/stdout管道接受隔离测试命令，没有新增业务HTTP接口。账号密码使用临时环境变量，不写入命令行或仓库；内存上限256MiB、响应队列8条、单份日志约1MB上限、等待有界。资源关闭仅回收本测试拥有的Process句柄。日志在`wms-test-support/target/failsafe-reports/rm-*.log`，由已有CI报告步骤归档。
