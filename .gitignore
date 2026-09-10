@@ -1,10 +1,31 @@
-# 构建、IDE和本机机密不进入版本库
+# 本地构建、编辑器、机密和本机工作副本不进入版本库。
+# 编排口令模板只提交 .env.example；CI 报告在 runner 生成后上传，不入库。
+
+# Maven 模块构建产物（含 surefire/failsafe）
 **/target/
+
+# IntelliJ；S0-01 要求保护 .idea，不提交本机 IDE 配置
 .idea/
 *.iml
+out/
+
+# 操作系统杂项
 .DS_Store
+Thumbs.db
+
+# 隔离编排口令：复制 .env.example 为 .env 后替换 change-me
 .env
 .env.*
 !.env.example
+
+# 本机工作树、smoke 日志、CI 复制的 failsafe 报告
 .local/
+
+# 进程、崩溃与合并残留
 *.log
+*.pid
+hs_err_pid*
+replay_pid*
+*.hprof
+*.orig
+*.rej
