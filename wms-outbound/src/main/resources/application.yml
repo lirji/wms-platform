@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: wms-outbound
+server:
+  address: ${WMS_BIND_ADDRESS:127.0.0.1}
+  port: ${WMS_HTTP_PORT:18182}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true

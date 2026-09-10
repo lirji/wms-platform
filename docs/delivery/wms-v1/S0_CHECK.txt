@@ -1,0 +1,33 @@
+S0 local evidence / 2026-09-10
+com.lrj.wms.probe.ShardingRouteIT: tests=6, failures=0, errors=0, skipped=0
+com.lrj.wms.probe.TcTerminalEvidenceIT: tests=1, failures=0, errors=0, skipped=0
+Smoke: inbound/outbound/inventory health UP; business endpoints denied.
+TC: Committed/Rollbacked -> Finished after cleanup; terminal recovery gate remains open.
+Not full business or S0 acceptance.
+
+SHA256 inputs:
+d08a77f22e57556dfaa7f148978c1c0bdd9ba9a73bc8c9f7d7f7cb856d08f89e  .github/workflows/verify.yml
+bb3e69c2618ed7128395b2ea9a9fbfcc74a90b666a68923107d87840585f2ec9  pom.xml
+275cbc27f40dc29f5aaeb37bf3eb77119f7c25db67efd4f6572ed84c7788a915  scripts/check-docs.py
+bfeda9ed5a6b0def164d768d62449c521dd73e4b6bb4f6bda953029c591ffe69  scripts/smoke-services.py
+74a9965cc9e7acba60f5243745408232d6b59dfbf16a798db285662b9220e834  wms-contract/pom.xml
+d1a48dc7161d806e05f46fb5c58596e7af21abfffbb12a861abc34f3a610baf4  wms-inbound/pom.xml
+b4b8928ffb28e06cdf0e301a051602597f5e26b2d091ddc73aebdce67700585f  wms-inbound/src/main/java/com/lrj/wms/inbound/BootstrapSecurity.java
+cedc54df39454c542a22dc2d12456488e6f66d241593d8c1aa83485ef09bfb71  wms-inbound/src/main/java/com/lrj/wms/inbound/InboundApplication.java
+2bd96677b08950155d4ce5cfcabfca915f286c7755b27b02d3ee7d4c670359cc  wms-inbound/src/main/resources/application.yml
+8f2c87ffcf59e9b323aeb276c9f071066ace7173b0677263691cdce0386cb616  wms-inventory/pom.xml
+e8f22106ae55b71864f8a4b8817a82cb02101712d4dfd130f6f0d98fd369f84e  wms-inventory/src/main/java/com/lrj/wms/inventory/BootstrapSecurity.java
+6c27cf367e60d04659a1f56c805f77cbcb0ab2412da833834c01f39f3556639b  wms-inventory/src/main/java/com/lrj/wms/inventory/InventoryApplication.java
+020b8d9b6790053ae23a864ef1f33896a8d3132bd368e6e18aa652a6c66dba7e  wms-inventory/src/main/resources/application.yml
+aab99709c648083873e325b6fc37512b33cf485189d079eb4537658101c61f11  wms-outbound/pom.xml
+753f822623560771c2a5a22b41c58716864b4a5d3c20d0994ab25afb4da905cd  wms-outbound/src/main/java/com/lrj/wms/outbound/BootstrapSecurity.java
+1978d3c9fe43153b9f44fd0e13b6e9b62987d90bc9509231ae22d43d69d7c9e6  wms-outbound/src/main/java/com/lrj/wms/outbound/OutboundApplication.java
+b8af053ff53d7e58c913ead2486ed4b729a8494505687630443d94137d3f1b7c  wms-outbound/src/main/resources/application.yml
+d873b0f3f21b286296caa7322920c70ca042aa411adc7cf4c7037d756172474f  wms-test-support/pom.xml
+bba0a73865dcb663f84b05e8f2eaa0372daa3090397457f51f861c712fa6a2a8  wms-test-support/src/test/java/com/lrj/wms/probe/ShardingRouteIT.java
+8e97ceb8ebc6641533d1c2cf3e05ee1109dcee7fa6f582fb7fcdc25542213989  wms-test-support/src/test/java/com/lrj/wms/probe/StockProbeMapper.java
+342e52863a58d3c8237d6819d0e3a6f19f623620dd25b28b71fe81cc221c6a8a  wms-test-support/src/test/java/com/lrj/wms/probe/TcTerminalEvidenceIT.java
+8ec8c6d6a0c033965e48ad0dcbe79c4948945675f4b7d48dab80480d785ac206  wms-test-support/src/test/java/com/lrj/wms/probe/WarehouseProbeAlgorithm.java
+ba7ae6116164fe8fecdb17a81ea749431c955d48d921ba1bef7293596e146e4d  wms-test-support/src/test/resources/db/probe/V001__stock_probe.sql
+65d94bf502a58ba43402e2e68f5f8a6c0c325b1db485bef753fe84518ab8b93e  wms-test-support/src/test/resources/db/probe/V002__fence_probe.sql
+f7351ba1a65cda6a7d08d9a98e10c77ad1a87a3b7cb0d1ec99c4ff8688017836  wms-test-support/src/test/resources/sharding-probe.yaml

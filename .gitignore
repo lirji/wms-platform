@@ -1,0 +1,10 @@
+# 构建、IDE和本机机密不进入版本库
+**/target/
+.idea/
+*.iml
+.DS_Store
+.env
+.env.*
+!.env.example
+.local/
+*.log

@@ -1,0 +1,29 @@
+databaseName: wms_s0_probe
+mode:
+  type: Standalone
+  repository:
+    type: Memory
+rules:
+  - !SHARDING
+    tables:
+      stock_probe:
+        actualDataNodes: ds_${['a','b']}.stock_probe
+        databaseStrategy:
+          standard:
+            shardingColumn: warehouse_id
+            shardingAlgorithmName: warehouse
+        auditStrategy:
+          auditorNames:
+            - require_warehouse
+          allowHintDisable: false
+    shardingAlgorithms:
+      warehouse:
+        type: CLASS_BASED
+        props:
+          strategy: STANDARD
+          algorithmClassName: com.lrj.wms.probe.WarehouseProbeAlgorithm
+    auditors:
+      require_warehouse:
+        type: DML_SHARDING_CONDITIONS
+props:
+  sql-show: false

@@ -1,0 +1,26 @@
+WMS v0.4 / S0 implementation update / 2026-09-10
+PASS documents=19, repository_links=45, AC=50, unique_tasks=64; structure only
+Checks: repository-local links, Markdown fences, JSON examples, source migration comments, AC/task IDs, whitespace.
+Other-workspace source links are not claimed validated by remote CI.
+Business evidence is separate in QA_REPORT.md and S0_CHECK.txt; S0 overall is not complete.
+
+SHA256 Markdown:
+f73d46bcb1b2f23af7678e56e0a31f83faa849dc470d1035ac8c8a8030ae28f0  CODEX_PROGRESS.md
+650dc4f228c3d032f4ae120a172ac2db3b138e8a1e926dde9b0cc2ecc93c9f2b  README.md
+d4867457d161f65fc7a23e5c0025839ed68b4e12596e196333bc14db5ee541a4  docs/delivery/wms-v1/CURSOR_HANDOFF.md
+0a3cb7d76594690ee005ec48b1f15cb5a0eaba2f9691c0838596285c514222e5  docs/delivery/wms-v1/DELIVERY_PLAN.md
+7c2f5c5d9a79924edad8ac6c073a871133a729b351ef95c409445c6db985ba0f  docs/delivery/wms-v1/DELIVERY_STATUS.md
+3c3bf33b27beee51185b50939f4c546b53bbe665e5c866bc5c2e82b4f51e29d1  docs/delivery/wms-v1/QA_REPORT.md
+dfdf67adc90d063c8650badd01c20e6ff913fcaa0eb025754a7de174fdbe8ea1  docs/delivery/wms-v1/REVIEW_REPORT.md
+cc905b8f94219e68a01640a94b91c887b550c304d90c191aa4a6715e9fa71e4c  docs/design/01-architecture.md
+d241d1a351a6eb0e953dca75270e2936d436c21e293421759ea5ab15d9be6661  docs/design/02-domain.md
+8799b99f6f95706f8b696b041d4d923a2dfed27e1e9d61da19ee3ff249eec99d  docs/design/03-data-sharding.md
+fa82e9d1333b6dfe18709d1adb6aba42e2ec94be560e83adcd6a72c070b876ca  docs/design/04-contracts.md
+e94491ba8a4d18cd688b3cb7b5e308ee3982bb6ea6242902514aa985b3b1665a  docs/design/05-jobs-reconciliation.md
+9ce96ea7e5d9727d237f9b25b111343801f9ceff1e2e5dc93bf806494396d4a5  docs/design/06-capacity-operations.md
+21609e5df7306c2a0ccf23a8ab5d7e74bdbe6ae994b275f884a85f85e7688151  docs/design/07-decisions-evidence.md
+60a635fee771cd34ba212ff6f011a1418ad776cddd149aafe9ebaa32312c92eb  docs/design/08-service-boundaries-protocols.md
+06301170761a5442727bd3d0f940016188a818cd9bce1f497c91b0f8ecfdb840  docs/design/09-seata-tcc.md
+4c825c65424c9d2cd38dd147a29dbfb020cada93fb57dc717883f7b993a28123  docs/design/10-idempotency-protocols.md
+9975a82ed206c77777ec18921a28199a06397f58c41908cbd95033e44e2d2cc1  docs/implementation/S0_RUNBOOK.md
+3afc21d886789faf7cf04311afda7353f80cf05df2fc5f6553ded67913829299  docs/implementation/VERSION_LOCK.md
