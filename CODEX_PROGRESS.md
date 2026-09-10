@@ -11,7 +11,7 @@
 - warehouse-it六项真实MySQL/分片/Fence局部验证通过；修复ShardingSphere插件装配和ANTLR4.8/4.13.2冲突。
 - TC会话清理后提交/回滚均为Finished已实测；DB终态审计候选验证提交/回滚区分、TC重启及审计写失败恢复。
 - 单RM双仓真实回调验证局部回滚、部分确认后TC重启、双仓Cancel；独立RM JVM+片内ShardingSphere恢复及Try不足/空Cancel通过。
-- S0-07：启动CAS（唯一活动attempt、代际隔离、绑定不可覆盖、丢失响应权威读）与真实`branchRegister`重复Try（新branchId不能接管、外键Cancel不释放）已通过`tc-it`。Seata 2.6同身份prepareFence会DuplicateKey并异步删Tried记录，禁止盲目重放。
+- S0-07：启动CAS（唯一活动attempt、代际隔离、绑定不可覆盖、丢失响应权威读）与真实`branchRegister`重复Try（新branchId不能接管、外键Cancel不释放）已通过`tc-it`并发布`7c435c3`。Seata 2.6同身份prepareFence会DuplicateKey并异步删Tried记录，禁止盲目重放。
 - origin/main存在且包含a37477b；沿用持续授权正常快进发布。旧基线CI run34426596804成功，不能冒充本轮。
 
 ## 已修改文件
@@ -28,7 +28,7 @@
 
 ## 未完成
 
-- 本轮提交发布后核对远程CI；不把旧基线通过冒充本轮。
+- 本轮提交`7c435c3`已推送任务分支和main；远程CI以该提交对应运行为准，旧基线通过不能冒充本轮。
 - S0仍缺HTTP网关Try、正式终态与业务屏障、Kafka/XXL联调、依赖安全及容量/恢复。
 - 全部50项正式业务AC仍planned；S1..S9、设备/对账/UI未完成。
 
@@ -41,7 +41,7 @@
 
 ## 下一步建议
 
-1. 本轮S0-07本地tc-it已通过；按持续授权提交、推送任务分支并快进main，再核对本轮远程CI。
+1. 本轮S0-07已发布`7c435c3`；核对本轮远程CI。若CI回归，优先修复并再次发布。
 2. 继续剩余S0：Kafka/XXL、正式屏障与依赖治理。HTTP网关Try尚未实现，不把Seata RM RPC当作HTTP验收。
 3. S1契约与种子稳定后并行实施`wms-console/`；业务决定到达后更新对应OQ。
 

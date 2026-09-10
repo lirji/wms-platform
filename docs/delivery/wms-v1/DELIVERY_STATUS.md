@@ -16,7 +16,7 @@
 | EG-03 业务决定 | pending | 认证、序列号范围及TM归属待决定 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | passed（本轮实现） | 8c41356已推送任务分支和main，远程包含性已核对；无生产部署 |
+| Git发布 | passed（本轮实现） | 7c435c3已推送任务分支和main，远程包含性已核对；无生产部署 |
 
 ## 已实现与已验证范围
 
@@ -35,4 +35,4 @@
 
 [候选说明](../../implementation/TC_TERMINAL_EVIDENCE.md)、[本地手册](../../implementation/S0_RUNBOOK.md)、[版本记录](../../implementation/VERSION_LOCK.md)记录实际机制和限制；Git/CI最终结果按本分支提交及远程运行核验，已有普通发布授权不重复询问。
 
-本轮实现提交`8c41356`已正常快进发布到main，同时包含7fd3830/216fd95；保留任务分支和main集成工作树。远程CI执行结果见[main流水线](https://github.com/lirji/wms-platform/actions/workflows/verify.yml?query=branch%3Amain)，应匹配实际提交，不根据本文件更新时间推断通过。
+本轮实现提交`7c435c3`已正常快进发布到main，同时包含8c41356/7fd3830/216fd95；保留任务分支和main集成工作树。远程CI执行结果见[main流水线](https://github.com/lirji/wms-platform/actions/workflows/verify.yml?query=branch%3Amain)，应匹配实际提交，不根据本文件更新时间推断通过。
