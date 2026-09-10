@@ -2,45 +2,43 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S1基础资料与安全（S1-01/S1-03进行中，S0工程门禁仍 running）。
-- 用户已批准补齐执行门禁并推进业务开发，沿用[唯一计划](DELIVERY_PLAN.md)。本会话确认开始 S1。前后端均由当前实施者负责；种子接口与 OIDC 未就绪前不开始`wms-console/`。
-- 仅操作wms-platform和明确隔离的测试资源；不部署生产，不修改共享组件配置。
-- 分支：feat/wms-s1-masterdata（独立工作树 `.local/s1-masterdata`，不混入原目录未提交的 ADR-11 文档）。原 feat/wms-s0-foundation 工作区保留用户脏文件。
+- 状态：in-progress；阶段：S1基础资料与安全（S1-02/S1-04 本轮实现；S1-01/S1-03 已在 main；S0 工程门禁仍 running）。
+- 用户已批准补齐执行门禁并推进业务开发，沿用[唯一计划](DELIVERY_PLAN.md)。本会话要求直接做 S1-04 种子，并自行对接 auth-platform 处理 OIDC。前后端均由当前实施者负责；未开始`wms-console/`。
+- 仅操作 wms-platform 隔离工作树 `.local/s1-masterdata` 与 auth-platform 隔离工作树 `.local/auth-wms-oidc`；不部署生产，不修改共享 dev-infra，不触碰原目录 ADR-11 脏文件与 auth-platform 未提交 IAM 改动。
+- 分支：feat/wms-s1-seed（WMS）；feat/wms-oidc-provision（auth-platform）。
 
 ## 授权记录
 
-- 来源：已批准 DELIVERY_PLAN；用户「开始吧！」启动 S1；持续 Git 发布授权。
-- 本轮允许：S1-01 主数据迁移/领域、S1-03 OpenAPI 与契约测试、相关文档、任务分支提交并快进远程 main。
-- 测试目标：localhost / Testcontainers MySQL 8.4.11。
-- 排除：生产部署、共享 dev-infra、OIDC 产品选型（S1-02）、seed-local（S1-04）、`wms-console/`、ADR-11 实现、正式 fulfillment 模块。
+- 来源：已批准 DELIVERY_PLAN；用户「直接做 S1-04 种子，OIDC你自己找auth-platform处理」；持续 Git 发布授权。
+- 本轮允许：S1-04 隔离种子、S1-02 Casdoor 资源服务器与 auth-platform 开通脚本、主数据只读 HTTP、相关测试与文档、任务分支提交并快进远程 main。
+- 测试目标：localhost / Testcontainers MySQL 8.4.11；现场 Casdoor 仅在本机 :8000 可达时开通。
+- 排除：生产部署、共享 dev-infra、SpiceDB/ReBAC、`wms-console/`、ADR-11 实现、正式 fulfillment 模块、编造 OQ-03 生产默认值。
 
 ## 门禁
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | 本轮远程 CI verify #34486072532 成功（5m8s）。S0 组合门禁与 SBOM 仍未关闭 |
+| EG-01 工程/CI | running | S1-01 远程 CI verify #34486072532 成功。本轮本地 verify/smoke 后发布；远程 CI 待核 |
 | EG-02 TC组合/唯一TM | running | 沿用 S0 探针；正式`wms-fulfillment`仍是S4 |
-| EG-03 业务决定 | running | OIDC/序列号/TM已确认；OQ-03单位/效期仍待，本轮不落生产默认换算 |
+| EG-03 业务决定 | running | 本地测试 IdP=auth-platform Casdoor；生产 IdP 未锁。OQ-03 仍待 |
 | EG-04 完整闭环 | pending | S5退出必选，尚未实现 |
 | EG-05 外部与非功能 | pending | S8/S9执行 |
-| Git发布 | passed（本轮实现） | `4bcec83` 已推送任务分支和 main；远程包含性已核对；无生产部署 |
+| Git发布 | running | 本轮实现待提交推送 |
 
-## 本轮已实现（S1-01 / S1-03）
+## 本轮已实现（S1-02 / S1-04）
 
-- `wms-inventory` 迁移 `V001__warehouse_masterdata.sql`：warehouse/location/location_gate/sku/sku_unit/lot，表与列中文注释，唯一键与 CHECK。
-- 领域 `SkuPolicy`：精度 0..6、序列号整数基础单位、精确换算禁止截断、NO_LOT sentinel、IANA 时区、未知状态拒绝回落；不把源日期默认成 00:00 UTC。
-- `MasterdataService` + MyBatis Mapper：仓/库位+OPEN门禁/SKU+基础单位/单位版本/批次写入。进程仍 denyAll，不自动接数据源。
-- `wms-contract/src/main/resources/openapi/wms-v1.yaml`：公开/内部路径、幂等头、错误码、cursor 分页、数量字符串、OIDC 安全方案（无密钥）、主数据与 action-effects。无 TCC `/prepare` REST。
-- 契约测试 `OpenApiContractTest`；主数据 `SkuPolicyTest` + `MasterdataMigrationIT`（真实 MySQL）。
+- `scripts/seed-local.sh --profile isolated-wms`：必须显式 Cell A/B JDBC；拒绝 43306/`dev-infra`；WH-A→A、WH-B→B，SKU 种子两边都写。
+- `V002__operator_grant.sql`：种子权限映射，运行时仍以 JWT 仓范围为准。S2 库存事务迁移改用 V003。
+- `wms-security`：issuer 空 denyAll；issuer 非空校验 JWT。`server.max-http-request-header-size: 64KB`。
+- inventory 仅当 `WMS_INVENTORY_JDBC_URL` 非空时接库并 Flyway；GET warehouses/skus/locations；越仓 403 `WAREHOUSE_FORBIDDEN`。
+- auth-platform `deploy/wms-platform-provision.py`：org/app `wms-platform`，用户 `wms-wh-a`/`wms-wh-b`/`wms-ops`/`wms-denied`，凭据 0600 文件。
 
 ## 未完成
 
-- S1-02 OIDC 资源服务器（缺 IdP 产品，issuer 用环境配置）。
-- S1-04/S1-05 seed-local、越权/种子复跑、HTTP 主数据 API。
-- S1-06 事实身份运行时实现（契约路径已列入 OpenAPI）。
-- AC-01/02/31 正式业务验收仍 planned。AC-02 仅有领域+库约束证据，无认证 HTTP。
+- S1-05 正式黑盒（真实 Casdoor 身份全集）与 S1-06 事实身份运行时。
+- AC-01/02/31 正式业务验收仍 planned。本轮有领域/库/HTTP 隔离证据，不是 50 项 AC 通过。
 - 50 项业务 AC、S0 XXL 真触发、SBOM/CVE、`wms-console/`。
 
-HTTP 契约文件不等于业务 API 已交付。inventory 迁移不等于服务已接库。
+HTTP 写接口未交付。种子脚本不等于控制台。现场 Casdoor 未跑时开通脚本不能证明身份已创建。
 
-本轮实现提交 `4bcec83` 已在任务分支和远程 main。远程 CI：[verify #34486072532](https://github.com/lirji/wms-platform/actions/runs/34486072532) 成功。无生产部署。
+无生产部署。

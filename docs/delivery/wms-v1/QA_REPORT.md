@@ -110,3 +110,20 @@ AC-45/46正式业务验收仍planned。业务Outbox屏障已有S0探针，不是
 领域侧：序列号分数精度拒绝；未知状态不回落 ACTIVE/OPEN；1/3 换算拒绝截断；无批次只用 NO_LOT；启用效期可保留源日期且不生成 UTC 日界。库侧：缺列注释为 0；成对容量/序列号精度/NO_LOT 主键被 CHECK 拒绝；仓编码唯一。
 
 OpenAPI：3.1.0、OIDC 无 client_secret、写接口 Idempotency-Key、Quantity 为 string、列表 CursorPage、无 `/tcc/prepare`。这不是 HTTP 业务实现，AC-01/02/31 仍 planned。
+
+## S1-02/S1-04 种子与 OIDC
+
+环境：2026-09-10，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra 或生产。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SeedLocalIsolationTest` | 拒绝 43306/`dev-infra`，要求 `wms_inventory` | 脚本防护，不是连真实隔离 compose |
+| `SeedReplayIT` | 复跑计数 2 仓 / 5 SKU / 6 lot / 8 grant 不变 | 幂等种子；单库双仓，不是双 Cell 物理隔离验收 |
+| `OidcDisabledWebIT` | health 200，`/warehouses` 403 | issuer 空不得免认证 |
+| `MasterdataHttpIT` | 无令牌 401；WH-A 只见本仓；跨仓 locations 403 `WAREHOUSE_FORBIDDEN`；库位/SKU 来自种子 | 测试 RSA JWT，不是现场 Casdoor |
+| `WmsJwtAuthoritiesTest` | 2 项 | 声明解析 |
+| `MasterdataMigrationIT` | 7 张表中文注释；CHECK/唯一键 | 含 `operator_grant` |
+
+根 `./mvnw -B -ntp verify` BUILD SUCCESS 37.255s；`python3 scripts/smoke-services.py` 三进程 health UP，业务路径 401/403。smoke 不设 JDBC/issuer。本机 Casdoor `:8000` 未响应，开通脚本已落地但现场身份未创建。
+
+AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显式 UTC Instant，`expiry_rule_version=0`。

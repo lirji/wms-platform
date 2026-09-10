@@ -29,10 +29,10 @@
 
 - 当前推进本项目实施和隔离本地验证；不修改其他项目、不部署生产。
 - 当前目录已是Git仓库，origin为GitHub，实施使用任务分支；远程main已存在；验证通过后按持续授权正常发布，CI不含生产部署。
-- Java 后端、数据库、接口与前端均可由当前实施者完成；不再按工具拆分。`wms-console/` 仍未实现；S1 OpenAPI 已落地，种子接口与 OIDC 未就绪前不开始页面。
+- Java 后端、数据库、接口与前端均可由当前实施者完成；不再按工具拆分。`wms-console/` 仍未实现。S1 已有 OpenAPI、幂等种子和 OIDC 资源服务器（issuer 来自环境）；页面仍禁止写死业务 Mock。
 - 新建项目名称暂用 `wms-platform`。总体可行性为 conditional-go：核心方案可实施，版本组合、物理容量、外部数量对账适配和现场设备验收有明确前置门禁。
 - 建议默认值不会被标记为用户已批准。缺少规模数字不阻塞文档完成，但阻塞生产容量签署。
 
 ## 实施入口
 
-S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 已有 V001 主数据迁移，三服务进程仍不自动接库；OIDC、种子与业务 HTTP 尚未接入。
+S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 在显式 JDBC 时迁移并提供主数据只读 HTTP；OIDC issuer 为空则业务接口拒绝。本地 Casdoor 开通脚本在 auth-platform `deploy/wms-platform-provision.py`。尚未开始 `wms-console/`。

@@ -26,9 +26,12 @@ python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Pwarehouse-it verify
 ./mvnw -B -ntp -Ptc-it verify
 ./mvnw -B -ntp -Pfailure-it verify
+./scripts/seed-local.sh --profile isolated-wms
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。种子和容量脚本尚未实现，不能运行设计中的目标命令冒充交付。
+前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。容量脚本尚未实现。
+
+`seed-local.sh` 只接受 `--profile isolated-wms`，且必须显式提供 Cell A/B 的 `WMS_INVENTORY_*_JDBC_URL` / 用户 / 口令；拒绝 43306 与 `dev-infra`。它会把 WH-A 写入 Cell A、WH-B 写入 Cell B，并把 5 类 SKU 种子写到两个库存库。这不是控制台，也不接生产库。
 
 手工启动任一服务：
 
@@ -36,7 +39,7 @@ python3 scripts/smoke-services.py
 java -jar wms-inventory/target/wms-inventory-0.1.0-SNAPSHOT.jar
 ```
 
-inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆盖。业务路径在S1认证接入前全部拒绝；不提供默认用户，不记录生成密码。当前服务未接业务数据库，健康状态不证明库存可用。
+inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆盖。`WMS_OIDC_ISSUER` 为空时业务路径 403；配置 issuer 后无令牌为 401，不得免认证回退。Casdoor 本地开通见 sibling auth-platform `deploy/wms-platform-provision.py`（凭据写入 `WMS_IAM_CREDENTIALS`，不进仓库）。inventory 仅在 `WMS_INVENTORY_JDBC_URL` 非空时 Flyway 并提供主数据只读 HTTP。健康状态不证明库存可用。未开始 `wms-console/`。
 
 ## CI与发布边界
 

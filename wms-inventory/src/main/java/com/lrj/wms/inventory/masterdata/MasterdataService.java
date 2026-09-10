@@ -10,7 +10,7 @@ import java.time.Instant;
 import org.apache.ibatis.session.SqlSession;
 
 /**
- * 主数据写入用例。HTTP/OIDC 仍由后续切片接入；本服务拒绝无企业作用域的写入。
+ * 主数据写入用例。只读 HTTP 由 MasterdataQueryController 提供；OIDC 失败不得免认证回退。
  */
 public final class MasterdataService {
     private final SqlSession session;

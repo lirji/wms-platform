@@ -6,20 +6,20 @@
     <artifactId>wms-platform</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
-  <artifactId>wms-inbound</artifactId>
+  <artifactId>wms-security</artifactId>
+  <description>OIDC资源服务器与无issuer时的默认拒绝，不含业务实体</description>
   <dependencies>
-    <dependency>
-      <groupId>com.lrj.wms</groupId>
-      <artifactId>wms-security</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-actuator</artifactId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -27,12 +27,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-    </plugins>
-  </build>
 </project>

@@ -134,3 +134,15 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - inventory 引入 mybatis 核心但不引入 JDBC starter，避免 smoke 无数据源启动失败。Boot 进程仍 denyAll。
 - OpenAPI 覆盖设计表、内部 stock-commands/permits、主数据与 action-effects；TCC 不开放 REST prepare。契约测试不能证明运行时鉴权。
 - 确认：未把未实现切片标为 AC 通过；未开始 `wms-console/`。
+
+## S1-02/S1-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 种子只写调用方显式 JDBC；43306/`dev-infra` 在 shell 与 `SeedLocal.requireIsolated` 双重拒绝。SKU 模板两边都种，仓/库位/批按 Cell 切开，符合模板 C / 仓数据 W。
+- `operator_grant` 是审计映射，HTTP 鉴权只信 JWT `warehouses`/`enterprise_id`。跨仓 403 有 IT 证据。
+- issuer 默认空字符串，smoke 仍 denyAll。JwtDecoder `@ConditionalOnMissingBean`，测试用本机 RSA，不把 localhost:8000 写进默认配置。
+- inventory 不引入 `spring-boot-starter-jdbc`，无 URL 时没有 DataSource 自动配置类可启动失败。
+- V002 已被授权映射占用；S2 `V002__inventory_transactions.sql` 文件名需改为 V003，否则 Flyway 冲突。这是范围内的版本号占用，不是提前实现 S2。
+- auth-platform 脚本不写 SpiceDB、不提交口令。现场 Casdoor 未验证前不能声称身份已开通。
+- 确认：50 项 AC 仍 planned；未开始 `wms-console/`。

@@ -1,13 +1,13 @@
 # Cursor 前端实施交接
 
-状态：prepared，前端未实现、未验收。范围是未来 `wms-console/` 管理端与PDA适配页面。Cursor / Claude Code / Codex 均可实施前端、后端、数据库与 API，不再按工具拆分职责。OpenAPI 已落在 `wms-contract/src/main/resources/openapi/wms-v1.yaml`；种子接口与 OIDC 未就绪前不开始页面实现，禁止页面写死业务Mock。
+状态：prepared，前端未实现、未验收。范围是未来 `wms-console/` 管理端与PDA适配页面。Cursor / Claude Code / Codex 均可实施前端、后端、数据库与 API，不再按工具拆分职责。OpenAPI 已落在 `wms-contract/src/main/resources/openapi/wms-v1.yaml`；inventory 已有主数据只读 HTTP 与 OIDC 资源服务器，但 `wms-console/` 仍未开始。禁止页面写死业务Mock。
 
 ## 1. 页面与用户路径
 
 | 页面 | 主要内容/操作 | 后端契约 | AC |
 | --- | --- | --- | --- |
 | 仓库选择与首页 | 可访问仓、待办、异常、数据时间 | 权限仓列表、查询汇总 | AC-01/26 |
-| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | masterdata API（OpenAPI 已列路径，HTTP/OIDC 未接入） | AC-02 |
+| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | GET `/api/wms/v1/warehouses`、`/skus`、`/warehouses/{id}/locations`（需 OIDC；写接口仍未实现） | AC-02 |
 | 入库工作台 | 单据详情→收货扫描→质检→上架 | inbound、quality、tasks | AC-07/09 |
 | 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水、serial追踪 | inventory/ledger/serial详情（S3补齐） | AC-03/08/15 |
 | 履约与出库 | 全局单/仓子单、准备/确认进度、拣货、包装、发运 | fulfillments、tasks、shipments | AC-10..14 |
@@ -33,7 +33,7 @@
 
 遵循 [API契约](../../design/04-contracts.md)，以S1生成的OpenAPI为最终代码类型来源。数量用字符串输入/显示，禁止JS浮点运算决定发运量。时区按仓展示，API传UTC。Idempotency-Key按一次有意业务操作生成并在重试中复用；scanSequence每个新扫描递增。
 
-演示数据来自后端幂等seed写入数据库，再由API读取，禁止页面数组写死业务Mock。前端测试可以使用隔离fixture，但必须与交付演示数据区分。种子脚本当前为计划入口，S1实现后提供实际命令、测试账号权限和数据库隔离说明，凭据不写入文档。
+演示数据来自后端幂等 seed 写入数据库，再由 API 读取，禁止页面数组写死业务 Mock。前端测试可以使用隔离 fixture，但必须与交付演示数据区分。种子命令：`./scripts/seed-local.sh --profile isolated-wms`，必须显式 JDBC，拒绝共享 dev-infra。测试账号由 auth-platform `deploy/wms-platform-provision.py` 写入 `WMS_IAM_CREDENTIALS`（0600，不进仓库）。
 
 ## 4. 交付与验收
 

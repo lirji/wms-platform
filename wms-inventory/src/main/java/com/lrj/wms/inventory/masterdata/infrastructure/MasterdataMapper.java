@@ -9,8 +9,10 @@ import org.apache.ibatis.annotations.Select;
 /** inventory 主数据写入与按作用域读取；调用方必须带企业/仓条件。 */
 public interface MasterdataMapper {
     /** 插入仓主数据。 */
+    /** 幂等写入仓；唯一键冲突时保持原行。 */
     @Insert("INSERT INTO warehouse (id, enterprise_id, warehouse_id, code, name, timezone, state, version, created_at, updated_at) "
-            + "VALUES (#{id}, #{enterpriseId}, #{id}, #{code}, #{name}, #{timezone}, #{state}, 0, #{now}, #{now})")
+            + "VALUES (#{id}, #{enterpriseId}, #{id}, #{code}, #{name}, #{timezone}, #{state}, 0, #{now}, #{now}) "
+            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertWarehouse(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("code") String code,
             @Param("name") String name, @Param("timezone") String timezone, @Param("state") String state,
             @Param("now") Timestamp now);
@@ -18,7 +20,8 @@ public interface MasterdataMapper {
     /** 插入库位主数据。 */
     @Insert("INSERT INTO location (id, enterprise_id, warehouse_id, code, zone_code, location_type, capacity_qty, capacity_unit, "
             + "state, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{code}, #{zoneCode}, "
-            + "#{locationType}, #{capacityQty}, #{capacityUnit}, #{state}, 0, #{now}, #{now})")
+            + "#{locationType}, #{capacityQty}, #{capacityUnit}, #{state}, 0, #{now}, #{now}) "
+            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertLocation(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("code") String code, @Param("zoneCode") String zoneCode,
             @Param("locationType") String locationType, @Param("capacityQty") BigDecimal capacityQty,
@@ -27,7 +30,8 @@ public interface MasterdataMapper {
     /** 插入库位门禁，新建库位默认 OPEN 且 fence_epoch=0。 */
     @Insert("INSERT INTO location_gate (id, enterprise_id, warehouse_id, location_id, state, reason_code, fence_epoch, "
             + "count_plan_id, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{locationId}, "
-            + "#{state}, #{reasonCode}, #{fenceEpoch}, #{countPlanId}, 0, #{now}, #{now})")
+            + "#{state}, #{reasonCode}, #{fenceEpoch}, #{countPlanId}, 0, #{now}, #{now}) "
+            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertGate(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("locationId") String locationId, @Param("state") String state,
             @Param("reasonCode") String reasonCode, @Param("fenceEpoch") long fenceEpoch,
@@ -37,7 +41,7 @@ public interface MasterdataMapper {
     @Insert("INSERT INTO sku (id, enterprise_id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, "
             + "expiry_enabled, policy_version, state, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{code}, "
             + "#{name}, #{baseUnit}, #{quantityScale}, #{lotEnabled}, #{serialEnabled}, #{expiryEnabled}, #{policyVersion}, "
-            + "#{state}, 0, #{now}, #{now})")
+            + "#{state}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertSku(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("code") String code,
             @Param("name") String name, @Param("baseUnit") String baseUnit, @Param("quantityScale") int quantityScale,
             @Param("lotEnabled") int lotEnabled, @Param("serialEnabled") int serialEnabled,
@@ -47,7 +51,7 @@ public interface MasterdataMapper {
     /** 插入当前策略版本的单位换算。 */
     @Insert("INSERT INTO sku_unit (id, enterprise_id, sku_id, unit_code, numerator, denominator, policy_version, version, "
             + "created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{skuId}, #{unitCode}, #{numerator}, #{denominator}, "
-            + "#{policyVersion}, 0, #{now}, #{now})")
+            + "#{policyVersion}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertSkuUnit(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
             @Param("unitCode") String unitCode, @Param("numerator") BigDecimal numerator,
             @Param("denominator") BigDecimal denominator, @Param("policyVersion") long policyVersion,
@@ -57,7 +61,7 @@ public interface MasterdataMapper {
     @Insert("INSERT INTO lot (id, enterprise_id, warehouse_id, owner_id, sku_id, lot_code, business_lot_key, produced_at, "
             + "expires_at, source_date, expiry_rule_version, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, "
             + "#{warehouseId}, #{ownerId}, #{skuId}, #{lotCode}, #{businessLotKey}, #{producedAt}, #{expiresAt}, #{sourceDate}, "
-            + "#{expiryRuleVersion}, 0, #{now}, #{now})")
+            + "#{expiryRuleVersion}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
     int insertLot(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("ownerId") String ownerId, @Param("skuId") String skuId,
             @Param("lotCode") String lotCode, @Param("businessLotKey") String businessLotKey,
@@ -74,4 +78,42 @@ public interface MasterdataMapper {
             + "AND location_id=#{locationId}")
     String gateState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("locationId") String locationId);
+
+    /** 幂等写入种子权限映射。 */
+    @Insert("INSERT INTO operator_grant (id, enterprise_id, subject, warehouse_id, permission_code, version, created_at, updated_at) "
+            + "VALUES (#{id}, #{enterpriseId}, #{subject}, #{warehouseId}, #{permission}, 0, #{now}, #{now}) "
+            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    int insertGrant(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("subject") String subject,
+            @Param("warehouseId") String warehouseId, @Param("permission") String permission, @Param("now") Timestamp now);
+
+    /** 统计企业下仓库数，用于种子复跑核对。 */
+    @Select("SELECT COUNT(*) FROM warehouse WHERE enterprise_id=#{enterpriseId}")
+    int countWarehouses(@Param("enterpriseId") String enterpriseId);
+
+    /** 统计商品数。 */
+    @Select("SELECT COUNT(*) FROM sku WHERE enterprise_id=#{enterpriseId}")
+    int countSkus(@Param("enterpriseId") String enterpriseId);
+
+    /** 统计批次。 */
+    @Select("SELECT COUNT(*) FROM lot WHERE enterprise_id=#{enterpriseId}")
+    int countLots(@Param("enterpriseId") String enterpriseId);
+
+    /** 统计授权映射。 */
+    @Select("SELECT COUNT(*) FROM operator_grant WHERE enterprise_id=#{enterpriseId}")
+    int countGrants(@Param("enterpriseId") String enterpriseId);
+
+    /** 列出企业仓库。 */
+    @Select("SELECT id, code, name, timezone, state, version FROM warehouse WHERE enterprise_id=#{enterpriseId} ORDER BY code, id")
+    java.util.List<java.util.Map<String, Object>> listWarehouses(@Param("enterpriseId") String enterpriseId);
+
+    /** 列出企业商品。 */
+    @Select("SELECT id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, expiry_enabled, state, version "
+            + "FROM sku WHERE enterprise_id=#{enterpriseId} ORDER BY code, id")
+    java.util.List<java.util.Map<String, Object>> listSkus(@Param("enterpriseId") String enterpriseId);
+
+    /** 列出仓内库位。 */
+    @Select("SELECT id, code, zone_code, location_type, state, version FROM location "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} ORDER BY code, id")
+    java.util.List<java.util.Map<String, Object>> listLocations(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId);
 }
