@@ -21,8 +21,9 @@
 
 ## 未完成
 
-- S0仍缺正式终态与业务屏障、XXL 实际触发、依赖安全及容量/恢复。HTTP 探针不等于 `wms-fulfillment` 已交付。
-- 全部50项正式业务AC仍planned；S1..S9、设备/对账/UI未完成。`wms-fulfillment` 按 S4 建模块。
+- S0 挡 S4：正式终态/业务屏障、`failure-it`。不需要再评产品选项。
+- S0 不挡 S1：XXL 真触发、SBOM/CVE、正式 `wms-fulfillment` 模块（S4）。
+- 全部50项正式业务AC仍planned。OQ-03 单位/效期仍待。
 
 ## 当前问题
 
@@ -32,9 +33,9 @@
 
 ## 下一步建议
 
-1. 本轮决定记录与 HTTP Try 探针验证后发布；远程CI以该提交为准，不要追加纯文档提交打断流水线。
-2. 继续正式屏障、XXL 触发与依赖治理。S1-02 等具体 OIDC issuer。
-3. S1 主数据/OpenAPI 可在无 IdP 产品名的情况下先做契约与表结构；权限集成需要 issuer。
+1. 直接实现正式屏障（attempt/XID/epoch/参与者 + 缺证据不得放行）。不要再评 HTTP→TM→Try 路径。
+2. 然后补 `failure-it`；XXL 触发与 SBOM 不挡 S1 主数据。
+3. S1 主数据/OpenAPI 可并行准备；OIDC 登录等具体 issuer。
 
 ## 恢复 Prompt
 
