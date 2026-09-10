@@ -169,3 +169,14 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - Mapper 均带 enterprise/warehouse。S2 事务表必须用 V004。
 - `GET /tasks/{id}/action-effects` 未实现，任务模块不在本切片。
 - 确认：无 critical/high；AC-47..50 仍 planned；未开始 `wms-console/`。
+
+## S2-01 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 数量 `RoundingMode.UNNECESSARY`，没有 HALF_UP 回落。同精度才能加减。
+- 桶键 lot 走 `requireCode`，无法用 null 规避唯一；质量封闭 HOLD/GOOD/REJECTED，未知不得当 GOOD。
+- 预占 CONFIRMED→CANCELLED 被拒绝，符合「已提交后用户取消走新业务释放」。
+- 门禁矩阵用 ALLOW/DENY/DRAIN/ISOLATE，布尔默认 true 不会出现。MAINTENANCE 只放行维护命令。
+- 分配策略无默认 FIFO。序列号可用量不走桶公式。
+- 确认：无 critical/high；未写库存表；未开始 `wms-console/`。
