@@ -240,3 +240,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - T1/T2 先锁 effect；同事实换键返回原命令，不插第二 attempt=1。未 SAFE_CLOSED 不得发新尝试；APPLIED/STARTED 拒绝安全关闭。
 - 补偿是新 CASE_PART 效果并引用 original_posting_id，本切片不回冲原收货余额。
 - 确认：无 critical/high；AC-47..50 仍 planned；未开始 `wms-console/`。
+
+## S3-01 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 入库单只在 inbound；库存只落 `quality_qualification`。行累计 physical/posted 分列，CHECK 保证 posted<=physical、上架实物<=收货实物。
+- T3 用 inbox 插入行数决定是否加 posted，重放不二次累计。超收在加 physical 前按剩余额度拒绝。
+- 质检版本乱序不覆盖已生效结论。本切片不改质量桶、不建序列号登记。
+- 确认：无 critical/high；AC-07 仍 planned；未开始 `wms-console/`。
