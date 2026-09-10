@@ -222,3 +222,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - T1/T3 与 T2 分库分会话；`ThreeServiceProtocolIT` 用三容器证明，不经 Kafka。
 - inbound V001 占用计划 S3-01 的 `V001__inbound.sql` 文件名，S3 改为后续版本。
 - 确认：无 critical/high；AC 仍 planned；未开始 `wms-console/`。
+
+## S2-05 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 并发预占 CAS 失败不能一律当不足：重锁后 available < qty 才 `STOCK_INSUFFICIENT`，否则最多再试 16 次，耗尽 `VERSION_CONFLICT`。`InventoryConcurrencyIT` 观察到 10/10 胜负与 reserved=on_hand。
+- 同键异内容走既有 `command_dedup`，不覆盖摘要。Outbox 插入失败用库内触发器，不是 mock Mapper；失败后 ledger/dedup 为 0。
+- Testcontainers MySQL 默认 binlog 拒普通用户建触发器；IT 用 root `SET GLOBAL log_bin_trust_function_creators=1`，不改生产镜像。
+- 确认：无 critical/high；AC-03/04/05 仍 planned；未开始 `wms-console/`。

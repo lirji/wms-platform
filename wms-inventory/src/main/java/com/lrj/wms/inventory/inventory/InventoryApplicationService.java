@@ -80,13 +80,25 @@ public final class InventoryApplicationService {
         }
         Timestamp now = now();
         requireGate(mapper, enterpriseId, warehouseId, bucket.locationId(), InventoryCodes.CMD_NEW_RESERVE);
-        Map<String, Object> balance = ensureBalance(mapper, bucket, now);
-        int updated = mapper.casReserveGood(enterpriseId, warehouseId, String.valueOf(balance.get("id")), qty.toBigDecimal(),
-                longValue(balance.get("version")), now);
-        if (updated != 1) {
-            throw new InventoryException("STOCK_INSUFFICIENT", "可分配量不足或非GOOD");
+        Map<String, Object> after = null;
+        for (int attempt = 0; attempt < 16; attempt++) {
+            Map<String, Object> balance = ensureBalance(mapper, bucket, now);
+            int updated = mapper.casReserveGood(enterpriseId, warehouseId, String.valueOf(balance.get("id")),
+                    qty.toBigDecimal(), longValue(balance.get("version")), now);
+            if (updated == 1) {
+                after = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
+                break;
+            }
+            Map<String, Object> latest = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
+            BigDecimal available = decimal(latest, "on_hand_qty").subtract(decimal(latest, "reserved_qty"))
+                    .subtract(decimal(latest, "free_execution_claim_qty"));
+            if (available.compareTo(qty.toBigDecimal()) < 0) {
+                throw new InventoryException("STOCK_INSUFFICIENT", "可分配量不足或非GOOD");
+            }
         }
-        Map<String, Object> after = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
+        if (after == null) {
+            throw new InventoryException("VERSION_CONFLICT", "预占版本冲突");
+        }
         String reservationId = UUID.randomUUID().toString();
         mapper.insertReservation(reservationId, enterpriseId, warehouseId, allocationId, attemptId, requestDigest, 1,
                 ReservationState.TRIED, xid, branchId, actionName, routeEpoch, null, now);
