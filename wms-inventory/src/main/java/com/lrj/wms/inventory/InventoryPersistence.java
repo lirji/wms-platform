@@ -41,6 +41,7 @@ class InventoryPersistence {
         Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
+        config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 

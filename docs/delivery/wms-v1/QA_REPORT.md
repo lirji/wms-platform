@@ -169,5 +169,21 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | --- | --- | --- |
 | `InventoryDomainTest` 7 项 | 超精度拒绝；科学计数法拒绝；未知质量/HELD 拒绝；CONFIRMED 不能 TCC Cancel；HOLD/冻结可用量为 0；QUIESCING 新预占 DENY、在途 DRAIN；FROZEN 迟到事实 ISOLATE；FIFO/FEFO 无默认 | 领域，不是余额表/过账 |
 | `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 46.642s | 默认构建 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
 
 结论：S2-01 领域切片本地 pass。AC-03 仍 planned。S2-02 未开始。
+
+## S2-02 余额预占流水 Mapper
+
+环境：2026-09-10，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra 或生产。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `InventoryTransactionIT` 3 项 | 空桶唯一键复用原 id；GOOD 预占不足 0 行；HOLD 不能走 GOOD 预占；占用超过实物 CHECK 拒绝；流水桶版本唯一；同 XID 所有者唯一；明细 requested 守恒 | Mapper/约束，不是并发过账原语 |
+| `MasterdataMigrationIT` | 14 张表均有中文注释 | 含 V004 四表 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 01:00 min | 默认构建 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
+
+结论：S2-02 本地 pass。AC-03 仍 planned。S2-03 未开始。

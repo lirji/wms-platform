@@ -180,3 +180,15 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 门禁矩阵用 ALLOW/DENY/DRAIN/ISOLATE，布尔默认 true 不会出现。MAINTENANCE 只放行维护命令。
 - 分配策略无默认 FIFO。序列号可用量不走桶公式。
 - 确认：无 critical/high；未写库存表；未开始 `wms-console/`。
+
+## S2-02 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 计划 V002 文件名已被占用，迁移为 V004。流水增加 claim 增减列，否则第三占用无法入账。
+- `casReserveGood` 硬编码 `quality_code='GOOD'`，HOLD 影响 0 行，不会把待验当可分配。
+- `casAdjust` 依赖表 CHECK 拒绝为负/超占；影响 0 行是版本冲突，不能当成功。
+- 预占所有者唯一键含 xid/branch_id/action_name，XID 长度 128 与官方 schema/S0 探针一致。
+- 空桶 INSERT ON DUPLICATE 后按维度加锁读回原 id，禁止 Java 侧“查不存在再插入”竞态。
+- Mapper 均带 enterprise/warehouse。本切片无应用服务、无 Outbox。
+- 确认：无 critical/high；AC-03 仍 planned；未开始 `wms-console/`。
