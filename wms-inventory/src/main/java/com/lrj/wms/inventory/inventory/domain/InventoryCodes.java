@@ -25,6 +25,13 @@ public final class InventoryCodes {
     public static final String CMD_UNFREEZE = "UNFREEZE";
     public static final String CMD_MAINTENANCE = "MAINTENANCE";
 
+    public static final String REASON_RECEIVE = "RECEIVE";
+    public static final String REASON_RESERVE = "RESERVE";
+    public static final String REASON_RELEASE = "RELEASE";
+    public static final String REASON_MOVE_OUT = "MOVE_OUT";
+    public static final String REASON_MOVE_IN = "MOVE_IN";
+    public static final String REASON_SHIP = "SHIP";
+
     public static final String DECISION_ALLOW = "ALLOW";
     public static final String DECISION_DENY = "DENY";
     public static final String DECISION_DRAIN = "DRAIN";

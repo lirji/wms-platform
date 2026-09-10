@@ -112,4 +112,47 @@ public interface InventoryMapper {
             @Param("remainingQty") BigDecimal remainingQty, @Param("pickedQty") BigDecimal pickedQty,
             @Param("consumedQty") BigDecimal consumedQty, @Param("releasedQty") BigDecimal releasedQty,
             @Param("inflightQty") BigDecimal inflightQty, @Param("now") Timestamp now);
+
+    /** 同一 operation 已有流水则幂等重放。 */
+    @Select("SELECT COUNT(*) FROM stock_ledger WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND operation_id=#{operationId}")
+    int countLedger(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("operationId") String operationId);
+
+    /** 预占头 CAS 状态迁移。 */
+    @Update("UPDATE reservation SET state=#{toState}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{reservationId} "
+            + "AND version=#{expectedVersion} AND state=#{fromState}")
+    int casReservationState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("reservationId") String reservationId, @Param("fromState") String fromState,
+            @Param("toState") String toState, @Param("expectedVersion") long expectedVersion, @Param("now") Timestamp now);
+
+    /** 预占涉及的库位，用于先锁门禁。 */
+    @Select("SELECT DISTINCT b.location_id FROM reservation r JOIN reservation_line l "
+            + "ON l.enterprise_id=r.enterprise_id AND l.warehouse_id=r.warehouse_id AND l.reservation_id=r.id "
+            + "JOIN stock_balance b ON b.enterprise_id=r.enterprise_id AND b.warehouse_id=r.warehouse_id AND b.id=l.balance_id "
+            + "WHERE r.enterprise_id=#{enterpriseId} AND r.warehouse_id=#{warehouseId} AND r.allocation_id=#{allocationId} "
+            + "AND r.attempt_id=#{attemptId} ORDER BY b.location_id")
+    java.util.List<String> reservationLocationIds(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
+            @Param("attemptId") String attemptId);
+    @Select("SELECT id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, "
+            + "route_epoch, execution_authorization_id, version FROM reservation WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND allocation_id=#{allocationId} AND attempt_id=#{attemptId} FOR UPDATE")
+    Map<String, Object> lockReservationByAttempt(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
+            @Param("attemptId") String attemptId);
+
+    /** 读取预占明细（调用方已锁头）。 */
+    @Select("SELECT id, balance_id, requested_qty, remaining_qty, version FROM reservation_line "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND reservation_id=#{reservationId}")
+    java.util.List<Map<String, Object>> listReservationLines(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("reservationId") String reservationId);
+
+    /** TCC Cancel 时把未消费剩余全部释放。 */
+    @Update("UPDATE reservation_line SET released_qty=requested_qty, remaining_qty=0, picked_qty=0, inflight_qty=0, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{lineId} AND remaining_qty=requested_qty AND consumed_qty=0 AND released_qty=0")
+    int casReleaseTriedLine(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("now") Timestamp now);
 }
