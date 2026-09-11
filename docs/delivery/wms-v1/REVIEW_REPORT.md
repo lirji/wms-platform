@@ -267,3 +267,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 登记不可用时本地 HOLD 与 `local_serial` EXCEPTION 一起保留，不删除意向。恢复只补登记，不二次加量。
 - 库存不编译依赖登记 Boot 包；测试用内存端口。两库真实 HTTP 联调仍未做。
 - 确认：无 critical/high；AC-08/09 仍 planned；未开始 `wms-console/`。
+
+## S3-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- FEFO 不默认 FIFO。过期批次可收货保留实物，但不能新预占，也不进候选。
+- 入库上架看最新质检结论和目标库位类型；不合格或发运位不写任务/实物。
+- 两仓并发失败仓保留 HOLD 意向，不删除本地记录。
+- 确认：无 critical/high；AC-08/09/15 仍 planned；未开始 `wms-console/`。

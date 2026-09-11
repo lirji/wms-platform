@@ -18,6 +18,7 @@ public final class InboundReceiptService {
     public static final String STATUS_RECEIVING = "RECEIVING";
     public static final String RESULT_ACCEPTED = "ACCEPTED";
     public static final String RESULT_REJECTED = "REJECTED";
+    public static final String LOCATION_STORAGE = "STORAGE";
 
     private final SqlSession session;
     private final Clock clock;
@@ -105,12 +106,31 @@ public final class InboundReceiptService {
         return body;
     }
 
-    /** 上架实物：不超过已收未上架实物，写 PUTAWAY 任务。库存命令由调用方随后提交。 */
+    /** 上架实物：不超过已收未上架且质检合格量；目标必须是存储位。 */
     public Map<String, Object> putaway(String enterpriseId, String warehouseId, String orderId, String lineId,
-            String taskId, String targetLocationId, BigDecimal qty) {
+            String taskId, String targetLocationId, String targetLocationType, BigDecimal qty) {
+        if (targetLocationId == null || targetLocationId.isBlank()) {
+            throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架库位不能为空");
+        }
+        if (!LOCATION_STORAGE.equals(targetLocationType)) {
+            throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架目标必须是存储位");
+        }
         Timestamp now = Timestamp.from(clock.instant());
-        Map<String, Object> line = requireLine(mapper(), enterpriseId, warehouseId, lineId);
-        BigDecimal remain = decimal(line.get("received_physical_qty")).subtract(decimal(line.get("putaway_physical_qty")));
+        InboundReceiptMapper mapper = mapper();
+        Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
+        Map<String, Object> inspection = mapper.latestInspection(enterpriseId, warehouseId, lineId);
+        if (inspection == null) {
+            throw new InboundException("QC_REQUIRED", "上架前必须完成质检");
+        }
+        if (RESULT_REJECTED.equals(String.valueOf(inspection.get("result_code")))) {
+            throw new InboundException("QC_REJECTED", "质检不合格不能上架");
+        }
+        BigDecimal accepted = decimal(inspection.get("accepted_qty"));
+        BigDecimal already = decimal(line.get("putaway_physical_qty"));
+        if (already.add(qty).compareTo(accepted) > 0) {
+            throw new InboundException("QC_INSUFFICIENT_ACCEPTED", "上架超过质检合格量");
+        }
+        BigDecimal remain = decimal(line.get("received_physical_qty")).subtract(already);
         if (qty.compareTo(remain) > 0) {
             throw new InboundException("OVER_PUTAWAY", "上架超过已收未上架量");
         }

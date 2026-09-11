@@ -64,6 +64,12 @@ public interface InboundReceiptMapper {
     int updateOrderStatus(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("orderId") String orderId, @Param("status") String status, @Param("now") Timestamp now);
 
+    @Select("SELECT id, result_code, accepted_qty, rejected_qty, source_version FROM quality_inspection "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND inbound_line_id=#{lineId} "
+            + "ORDER BY source_version DESC LIMIT 1")
+    Map<String, Object> latestInspection(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("lineId") String lineId);
+
     @Insert("INSERT INTO quality_inspection (id, enterprise_id, warehouse_id, inbound_line_id, inspected_qty, accepted_qty, "
             + "rejected_qty, result_code, source_version, actor_id, evidence_refs, version, created_at, updated_at) "
             + "VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{lineId}, #{inspected}, #{accepted}, #{rejected}, "

@@ -1,15 +1,17 @@
 package com.lrj.wms.inventory.inventory;
 
+import com.lrj.wms.inventory.inventory.domain.CommandDigest;
+import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.InventoryPolicy;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.ReservationState;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
-import com.lrj.wms.inventory.inventory.domain.CommandDigest;
 import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -80,6 +82,7 @@ public final class InventoryApplicationService {
         }
         Timestamp now = now();
         requireGate(mapper, enterpriseId, warehouseId, bucket.locationId(), InventoryCodes.CMD_NEW_RESERVE);
+        requireLiveLot(enterpriseId, warehouseId, bucket);
         Map<String, Object> after = null;
         for (int attempt = 0; attempt < 16; attempt++) {
             Map<String, Object> balance = ensureBalance(mapper, bucket, now);
@@ -307,6 +310,20 @@ public final class InventoryApplicationService {
             throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
         }
         return locked;
+    }
+
+    private void requireLiveLot(String enterpriseId, String warehouseId, StockBucketKey bucket) {
+        if (MasterdataCodes.NO_LOT.equals(bucket.lotId())) {
+            return;
+        }
+        Map<String, Object> lot = session.getMapper(MasterdataMapper.class).getLot(enterpriseId, warehouseId,
+                bucket.lotId());
+        if (lot == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "批次不存在");
+        }
+        if (!ExpiryPolicy.satisfied(ExpiryPolicy.instantOf(lot.get("expires_at")), clock.instant())) {
+            throw new InventoryException("LOT_EXPIRED", "批次已过期，不能新预占");
+        }
     }
 
     private void requireGate(InventoryMapper mapper, String enterpriseId, String warehouseId, String locationId,

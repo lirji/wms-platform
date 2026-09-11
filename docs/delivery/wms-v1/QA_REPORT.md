@@ -310,3 +310,20 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 仍只三进程，未拉登记服务 |
 
 结论：S3-03 本地 pass。AC-08/09 仍 planned。S3-04 未开始。
+
+## S3-04 FEFO 与入库负例
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `FefoCandidateIT` | 候选 NEAR→FAR，过期批次不入列；预占过期 `LOT_EXPIRED`；发运位 `INVALID_PUTAWAY_LOCATION` | 库存本库 |
+| `SerialReceiptIT` 重复/两仓 | 同仓第二操作 `SERIAL_ALREADY_RECEIVED`；两仓并发 1 AUTHORIZED / 1 EXCEPTION，两仓均留 HOLD | 内存登记端口 |
+| `InboundReceiptIT` 质检/库位 | 未质检 `QC_REQUIRED`；全拒 `QC_REJECTED`；SHIPPING `INVALID_PUTAWAY_LOCATION`；putaway 实物仍 0 | 入库本库 |
+| `InventoryDomainTest` 效期 | 左闭右开：相等时刻不满足 | 单测 |
+| 定向 `verify` | BUILD SUCCESS 41s | 上述用例 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:00 min | 默认构建含 FEFO/上架校验 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 仍只三进程 |
+
+结论：S3-04 本地 verify pass。AC-08/09/15 仍 planned。S3-05 未开始。

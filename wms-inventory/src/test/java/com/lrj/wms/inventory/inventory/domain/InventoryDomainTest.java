@@ -2,6 +2,7 @@ package com.lrj.wms.inventory.inventory.domain;
 
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -79,7 +80,18 @@ class InventoryDomainTest {
                 false).toPlainString());
         assertEquals("0", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_GOOD, true,
                 true).toPlainString());
+        assertEquals("0", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_GOOD, false,
+                false).toPlainString());
         assertThrows(IllegalArgumentException.class, InventoryPolicy::rejectBucketFormulaForSerial);
+    }
+
+    @Test
+    void expiryUsesHalfOpenInterval() {
+        Instant now = Instant.parse("2026-09-11T10:00:00Z");
+        assertTrue(ExpiryPolicy.satisfied(null, now));
+        assertTrue(ExpiryPolicy.satisfied(Instant.parse("2026-09-11T10:00:01Z"), now));
+        assertFalse(ExpiryPolicy.satisfied(now, now));
+        assertFalse(ExpiryPolicy.satisfied(Instant.parse("2026-09-11T09:59:59Z"), now));
     }
 
     @Test

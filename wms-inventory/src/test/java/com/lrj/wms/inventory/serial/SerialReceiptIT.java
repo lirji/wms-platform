@@ -20,6 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
@@ -68,6 +71,9 @@ class SerialReceiptIT {
             MasterdataService masterdata = new MasterdataService(session, clock);
             masterdata.createWarehouse("WH-A", "ENT-1", "SHA", "上海仓", "Asia/Shanghai");
             masterdata.createLocation("LOC-S", "GATE-S", "ENT-1", "WH-A", "S-01", "A", "STORAGE", new BigDecimal("100"),
+                    "EA");
+            masterdata.createWarehouse("WH-B", "ENT-1", "NGB", "宁波仓", "Asia/Shanghai");
+            masterdata.createLocation("LOC-B", "GATE-B", "ENT-1", "WH-B", "B-01", "A", "STORAGE", new BigDecimal("100"),
                     "EA");
             session.commit();
         }
@@ -151,6 +157,80 @@ class SerialReceiptIT {
                 "SELECT state FROM local_serial WHERE serial_id='SN-DOWN'", String.class));
     }
 
+    @Test
+    void duplicateSerialInSameWarehouseIsRejected() {
+        MemoryRegistry registry = new MemoryRegistry();
+        StockBucketKey hold = bucket("SKU-DUP", InventoryCodes.QUALITY_HOLD);
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        try (SqlSession session = sessions.openSession(false)) {
+            SerialReceiptService service = new SerialReceiptService(session, clock, registry);
+            assertEquals(SerialReceiptService.STATE_AUTHORIZED,
+                    service.receiveHold("ENT-1", "WH-A", "OP-DUP-1", "DOC-DUP", "ACTOR", "sn-dup", hold).get("state"));
+            InventoryException duplicate = assertThrows(InventoryException.class,
+                    () -> service.receiveHold("ENT-1", "WH-A", "OP-DUP-2", "DOC-DUP", "ACTOR", "sn-dup", hold));
+            assertEquals("SERIAL_ALREADY_RECEIVED", duplicate.code());
+            session.commit();
+        }
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE serial_id='SN-DUP'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-DUP-1'",
+                Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-DUP-2'",
+                Integer.class));
+    }
+
+    @Test
+    void twoWarehousesConcurrentRegisterOnlyOneAuthorizes() throws Exception {
+        MemoryRegistry registry = new MemoryRegistry();
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        CyclicBarrier start = new CyclicBarrier(2);
+        CountDownLatch done = new CountDownLatch(2);
+        AtomicInteger authorized = new AtomicInteger();
+        AtomicInteger conflicted = new AtomicInteger();
+        Thread a = new Thread(() -> receiveWarehouse("WH-A", "LOC-S", "OP-TW-A", registry, clock, start, done,
+                authorized, conflicted));
+        Thread b = new Thread(() -> receiveWarehouse("WH-B", "LOC-B", "OP-TW-B", registry, clock, start, done,
+                authorized, conflicted));
+        a.start();
+        b.start();
+        done.await();
+        assertEquals(1, authorized.get());
+        assertEquals(1, conflicted.get());
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE serial_id='SN-TW'", Integer.class));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM local_serial WHERE serial_id='SN-TW' AND state='AUTHORIZED'", Integer.class));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM local_serial WHERE serial_id='SN-TW' AND state='EXCEPTION' "
+                        + "AND registry_error='SERIAL_ALREADY_CLAIMED'", Integer.class));
+        assertEquals(2, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM stock_balance WHERE sku_id='SKU-TW' AND quality_code='HOLD' AND on_hand_qty=1",
+                Integer.class));
+    }
+
+    private void receiveWarehouse(String warehouseId, String locationId, String operation, MemoryRegistry registry,
+            Clock clock, CyclicBarrier start, CountDownLatch done, AtomicInteger authorized, AtomicInteger conflicted) {
+        try {
+            start.await();
+            try (SqlSession session = sessions.openSession(false)) {
+                StockBucketKey hold = StockBucketKey.of("ENT-1", warehouseId, "OWNER-1", locationId, "SKU-TW",
+                        MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_HOLD);
+                Map<String, Object> result = new SerialReceiptService(session, clock, registry).receiveHold("ENT-1",
+                        warehouseId, operation, "DOC-TW", "ACTOR", "sn-tw", hold);
+                session.commit();
+                if (SerialReceiptService.STATE_AUTHORIZED.equals(result.get("state"))) {
+                    authorized.incrementAndGet();
+                } else {
+                    assertEquals(SerialReceiptService.STATE_EXCEPTION, result.get("state"));
+                    assertEquals("SERIAL_ALREADY_CLAIMED", result.get("registryError"));
+                    conflicted.incrementAndGet();
+                }
+            }
+        } catch (Exception error) {
+            throw new IllegalStateException(error);
+        } finally {
+            done.countDown();
+        }
+    }
+
     private static StockBucketKey bucket(String sku, String quality) {
         return StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-S", sku, MasterdataCodes.NO_LOT, quality);
     }
@@ -160,7 +240,7 @@ class SerialReceiptIT {
         volatile boolean available = true;
 
         @Override
-        public Map<String, Object> claim(String enterpriseId, String skuId, String serial, String warehouseId,
+        public synchronized Map<String, Object> claim(String enterpriseId, String skuId, String serial, String warehouseId,
                 String operationId) {
             requireAvailable();
             String key = key(enterpriseId, skuId, serial);
@@ -183,7 +263,7 @@ class SerialReceiptIT {
         }
 
         @Override
-        public Map<String, Object> activate(String enterpriseId, String skuId, String serial, String warehouseId,
+        public synchronized Map<String, Object> activate(String enterpriseId, String skuId, String serial, String warehouseId,
                 String operationId) {
             requireAvailable();
             Map<String, Object> row = rows.get(key(enterpriseId, skuId, serial));
