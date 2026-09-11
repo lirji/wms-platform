@@ -91,4 +91,57 @@
       </plugins>
     </pluginManagement>
   </build>
+  <profiles>
+    <profile>
+      <id>sbom</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.cyclonedx</groupId>
+            <artifactId>cyclonedx-maven-plugin</artifactId>
+            <version>2.9.1</version>
+            <inherited>false</inherited>
+            <executions>
+              <execution>
+                <id>aggregate-bom</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>makeAggregateBom</goal>
+                </goals>
+                <configuration>
+                  <projectType>application</projectType>
+                  <outputFormat>json</outputFormat>
+                  <outputDirectory>${maven.multiModuleProjectDirectory}/docs/implementation/sbom</outputDirectory>
+                  <outputName>wms-platform</outputName>
+                  <skipNotDeployed>false</skipNotDeployed>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>license-maven-plugin</artifactId>
+            <version>2.5.0</version>
+            <inherited>false</inherited>
+            <executions>
+              <execution>
+                <id>aggregate-licenses</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>aggregate-add-third-party</goal>
+                </goals>
+                <configuration>
+                  <outputDirectory>${maven.multiModuleProjectDirectory}/docs/implementation/sbom</outputDirectory>
+                  <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+                  <fileTemplate>/org/codehaus/mojo/license/third-party-file.ftl</fileTemplate>
+                  <missingFile>${maven.multiModuleProjectDirectory}/docs/implementation/sbom/missing-licenses.properties</missingFile>
+                  <failOnMissing>false</failOnMissing>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

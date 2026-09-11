@@ -16,7 +16,7 @@ docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
 
 默认只绑 `127.0.0.1`：应用库 18306、Cell A 18307、Cell B 18308、Kafka 18992、Redis 18379、Seata 18091/控制台 17091、XXL admin 18080。避开本机已占用的 Apollo MySQL 13306、dev-infra 43306/46379/49092、drools XXL 18088。宿主机 Java 客户端连这些端口；容器内互访用服务名。`SEATA_IP` 默认 `127.0.0.1`，给本机进程用；若以后把应用放进同一 compose 网络，需改成对容器可达的地址。XXL 空库首次登录为官方引导账号 `admin` / `123456`，登录后立即改密。官方 admin 镜像是 linux/amd64，Apple Silicon 会走模拟。初始化脚本只在空数据卷执行一次。
 
-故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、XXL 触发、TCC HTTP 网关或业务 Outbox 已验收。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
+故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、TCC HTTP 网关、业务 Outbox 或 XXL 集群/分片已验收。官方 admin 真实触发由 warehouse-it 的 `XxlAdminTriggerIT` 证明，不把 compose 健康检查当作该证据。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
 
 根目录 [`.gitignore`](../../.gitignore) 排除 Maven `target/`、IntelliJ `.idea/`、本机 `.env`、`.local/`（集成工作树、smoke 日志、CI 报告副本）以及崩溃/合并残留。编排口令模板只提交 `.env.example`；不要把 `.idea` 或真实口令加回版本库。
 
@@ -28,10 +28,11 @@ python3 scripts/smoke-services.py
 ./mvnw -B -ntp -Pwarehouse-it verify
 ./mvnw -B -ntp -Ptc-it verify
 ./mvnw -B -ntp -Pfailure-it verify
+./scripts/generate-sbom.sh
 ./scripts/seed-local.sh --profile isolated-wms
 ```
 
-前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。容量脚本尚未实现。
+前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路，以及官方 XXL admin 3.4.2 对隔离执行器的一次真实触发（`XxlAdminTriggerIT`，不是集群/分片）。tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。`generate-sbom.sh` 只在 `-Psbom` 下写候选 BOM/许可证/OSV 快照，不加入默认 verify，不是生产锁。容量脚本尚未实现。
 
 `seed-local.sh` 只接受 `--profile isolated-wms`，且必须显式提供 Cell A/B 的 `WMS_INVENTORY_*_JDBC_URL` / 用户 / 口令；拒绝 43306 与 `dev-infra`。它会把 WH-A 写入 Cell A、WH-B 写入 Cell B，并把 5 类 SKU 种子写到两个库存库。这不是控制台，也不接生产库。
 

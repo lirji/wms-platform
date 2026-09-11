@@ -22,7 +22,7 @@
 - Seata传递ANTLR4.8与ShardingSphere生成版本4.13.2冲突：父POM固定4.13.2后SQL测试通过；AT路径不启用、不宣称兼容。
 - Fence测试直接绑定一个物理数据源；不等同于多仓RM动态路由和真实TC二阶段故障恢复。
 - TC探针揭示现有getStatus恢复路径不足，不能将探针成功当作EG-02完成。还需终态证据可靠保存/读取与TM宕机窗口验证。
-- Kafka 生产/消费与线程池 XID 隔离已有 warehouse-it 探针；HTTP 网关 Try 已有 tc-it 探针。XXL admin 触发、正式履约服务、全链路、外部设备/UI/对账/容量均未验收。
+- Kafka 生产/消费与线程池 XID 隔离已有 warehouse-it 探针；HTTP 网关 Try 已有 tc-it 探针。官方 XXL admin 真实触发见 2026-09-11 `XxlAdminTriggerIT`（不是集群/分片）。正式履约全链路、外部设备/UI/对账/容量均未验收。
 
 ## S0-04隔离本地编排
 
@@ -358,3 +358,15 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | inbound/outbound/inventory/fulfillment health UP，业务路径拒绝 | 独立进程；未接履约 JDBC |
 
 结论：S4-01 本地 verify pass。AC-10/12/41 仍 planned。S4-02 未开始。
+
+## S0 剩余：XXL admin 真实触发与候选 SBOM
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2。官方 `xuxueli/xxl-job-admin:3.4.2` 为 linux/amd64，本机经模拟。未操作共享 dev-infra。未开始 `wms-console/`。未发明 OQ-03。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `./mvnw -B -ntp -pl wms-test-support -am -Pwarehouse-it -Dsurefire.skip=true -Dit.test=XxlAdminTriggerIT verify` | 1 项通过；日志 `XXL_ADMIN_TRIGGER: official 3.4.2 admin dispatched BEAN handler; executor did not hold TCC` | 官方 admin `/auth/doLogin` + `/jobinfo/trigger`；执行器清理 TCC。不是集群/分片 |
+| `./mvnw -B -ntp -pl wms-test-support -am -Pwarehouse-it -Dsurefire.skip=true verify` | 11 项，失败 0，01:24 | warehouse-it 含上述触发；其余分片/Fence/Kafka/线程池回归 |
+| `./scripts/generate-sbom.sh` 产物 | CycloneDX 75 组件；THIRD-PARTY 285 条；OSV 67 purl / 1 命中 | 候选快照，不是生产锁 |
+
+限制：Tomcat embed 11.0.24 有 3 条 GHSA，未 bump Spring Boot。`xxl-job-core` 许可证记为 GPL-3。ST4 4.3 许可证未知。probe 不是生产 TC 或履约交付。
