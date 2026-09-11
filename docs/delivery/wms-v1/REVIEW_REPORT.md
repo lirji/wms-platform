@@ -258,3 +258,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - INSERT IGNORE + 行锁后比较 claim_operation_id，并发第二仓得到 `SERIAL_ALREADY_CLAIMED`。
 - 本切片只到 CLAIMED，不激活、不联合质检放行。smoke 仍三进程。
 - 确认：无 critical/high；AC-08 仍 planned；未开始 `wms-console/`。
+
+## S3-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 登记激活不改质量桶。AUTHORIZED 只表示登记放行；GOOD 桶仍空，预占得到 `STOCK_INSUFFICIENT`。
+- 登记不可用时本地 HOLD 与 `local_serial` EXCEPTION 一起保留，不删除意向。恢复只补登记，不二次加量。
+- 库存不编译依赖登记 Boot 包；测试用内存端口。两库真实 HTTP 联调仍未做。
+- 确认：无 critical/high；AC-08/09 仍 planned；未开始 `wms-console/`。

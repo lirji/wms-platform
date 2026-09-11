@@ -57,7 +57,7 @@ class MasterdataMigrationIT {
         List<Map<String, Object>> tables = jdbc.queryForList(
                 "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
                         + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME<>'flyway_schema_history'");
-        assertEquals(21, tables.size());
+        assertEquals(22, tables.size());
         for (Map<String, Object> table : tables) {
             assertFalse(String.valueOf(table.get("TABLE_COMMENT")).isBlank(), () -> table.get("TABLE_NAME") + " 缺表注释");
         }

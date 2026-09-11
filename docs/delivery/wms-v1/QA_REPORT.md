@@ -294,3 +294,19 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | 三进程 health UP | 仍只三进程，未拉登记服务 |
 
 结论：S3-02 定向 IT pass。AC-08 仍 planned。S3-03 未开始。
+
+## S3-03 HOLD 收货与登记激活
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SerialRegistryActivateIT` | CLAIMED→ACTIVE；重放保持 ACTIVE；他仓 `SERIAL_OWNER_MISMATCH` | 登记库，不是库存放行 |
+| `SerialReceiptIT` | HOLD on_hand=1 且 AUTHORIZED；GOOD 桶预占 `STOCK_INSUFFICIENT`；登记 down 保留 EXCEPTION+HOLD；恢复后 AUTHORIZED 质量仍 HOLD | 库存+内存登记端口，不是两库真实 HTTP |
+| `MasterdataMigrationIT` | 22 张表中文注释 | 含 V010 |
+| `./mvnw -B -ntp -pl wms-inventory,wms-serial-registry -am verify -Dit.test=SerialReceiptIT,SerialRegistryActivateIT,MasterdataMigrationIT` | BUILD SUCCESS 39s | 定向 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 03:25 min | 默认构建含 V010/activate |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 仍只三进程，未拉登记服务 |
+
+结论：S3-03 本地 pass。AC-08/09 仍 planned。S3-04 未开始。

@@ -5,6 +5,7 @@ import java.util.Map;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 /** 全局序列号身份。唯一键不含仓。 */
 public interface SerialRegistryMapper {
@@ -21,4 +22,16 @@ public interface SerialRegistryMapper {
             + "AND normalized_serial=#{serial} FOR UPDATE")
     Map<String, Object> lockIdentity(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
             @Param("serial") String serial);
+
+    @Select("SELECT id, sku_id, normalized_serial, state, owner_warehouse_id, owner_epoch, claim_operation_id, "
+            + "route_bucket, version FROM serial_registry WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} "
+            + "AND normalized_serial=#{serial}")
+    Map<String, Object> getIdentity(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
+            @Param("serial") String serial);
+
+    @Update("UPDATE serial_registry SET state=#{state}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} AND normalized_serial=#{serial} "
+            + "AND state='CLAIMED'")
+    int activateClaimed(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
+            @Param("serial") String serial, @Param("state") String state, @Param("now") Timestamp now);
 }
