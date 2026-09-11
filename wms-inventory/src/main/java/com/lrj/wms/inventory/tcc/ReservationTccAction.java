@@ -79,7 +79,8 @@ public final class ReservationTccAction {
     }
 
     private static String phaseOperation(String phase, BusinessActionContext context) {
-        return "tcc-" + phase + ":" + context.getXid() + ":" + context.getBranchId();
+        return com.lrj.wms.inventory.inventory.domain.CommandDigest.v1Parts("tcc-" + phase, context.getXid(),
+                Long.toString(context.getBranchId()));
     }
 
     private static String text(BusinessActionContext context, String key) {

@@ -400,3 +400,20 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp verify` | BUILD SUCCESS 04:20 min；inventory failsafe 40 项 0 失败 | 默认构建，不含 warehouse-it/tc-it |
 
 结论：S4-03 本地 verify pass。AC-10/12/41 仍 planned。S4-04 未开始。
+
+## S4-04 真实 TC 恢复与分片 Fence
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11、`apache/seata-server:2.6.0` file-mode。同 JVM TM/RM，应用名 `wms-inventory-s4`。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SeataTccRecoveryIT` Confirm/换实例 | 冻结门禁下 Confirm 成功；reserved=4；新 `TCCResource` 实例 `confirmAttempts>=2`；原实例 0 | 同 JVM 换实例，不是独立 RM 进程重启 |
+| `SeataTccRecoveryIT` Cancel/空回滚 | TRIED 释放回 reserved=4；无 Try 的全局回滚不改已确认库存 | file-mode TC；不是 XXL |
+| `SeataTccRecoveryIT` 超时 | `begin(8000)` 后 TRIED 保持至 TC Cancel；无 XXL 表 | 库存侧超时 Cancel；不是 XXL 集群 |
+| `SeataTccRecoveryIT` 错误 XID / 缺证据 | `OWNER_MISMATCH`；`execution_authorization_id` 空；无 ALLOCATED 事件/出库表 | 不是 fulfillment 全仓屏障 |
+| `TccFenceShardingIT` | 两物理库；Try 失败 B 干净；Confirm A / Cancel B；空回滚拒晚 Try；无上下文不得取连接 | 路由+单 Cell SS；不是真实 TC |
+| `./mvnw -B -ntp -pl wms-inventory -am -Dsurefire.skip=true -Dfailsafe.reuseForks=false -Dit.test=TccFenceShardingIT,SeataTccRecoveryIT verify` | BUILD SUCCESS；failsafe 2 项 0 失败（30.25s / 17.10s） | 定向 TC/分片 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-inventory -am verify` | BUILD SUCCESS；inventory failsafe 40 项 0 失败 | 默认构建不含 Seata 用例 |
+
+结论：S4-04 本地定向 IT 与 default verify pass。AC-10/11/41/43 仅在上述范围内有证据。AC-12 履约屏障与 AC-42 TM/TC 宕机仍 planned。S4-05 未开始。

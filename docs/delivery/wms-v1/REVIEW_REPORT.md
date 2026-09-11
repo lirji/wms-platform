@@ -305,3 +305,14 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 未 `RMClient.init`、未接真实 TC。空回滚由官方 Fence status=4 处理。
 - `cancelTried` 无预占时不再抛 `RESOURCE_NOT_FOUND`，以支持空回滚；带 XID 的 Cancel 校验所有者。
 - 确认：无 critical/high；AC-10/12 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S4-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 真实 XID 写入 `tcc-confirm:{xid}:{branch}` 会超出 `operation_id` VARCHAR(64)；已改为 `CommandDigest.v1Parts`。这是生产修复，不是测试专用。
+- Seata 禁止同名 TCC 资源二次 `registerResource`。换实例改为已注册 `TCCResource.setTargetBean`，仍是同进程回调，不是独立 RM 重启。
+- `TccFenceShardingIT` 无真实 TC；物理库选择发生在 Fence 开事务前。SS 5.5 无 `defaultDataSourceName`，只声明实际访问的表。
+- 默认 failsafe 排除两项 TC/分片 IT；CI `-Ptc-it` 会启动 Seata 容器。不要把 file-mode Finished 当 DB 终态证据。
+- Confirm 仍不写 ALLOCATED / 执行授权。AC-12 履约屏障留给 S4-05。
+- 确认：无 critical/high；未到 S8 不创建 `wms-console/`。
