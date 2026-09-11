@@ -463,3 +463,18 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-inventory,wms-fulfillment -am verify` | BUILD SUCCESS；inventory failsafe 42、fulfillment 9，0 失败 | 默认构建 |
 
 结论：S4-07 本地 owner/launch pass。AC-45/46 仅在本库 CAS/唯一键范围内有证据，不是独立 TM 进程崩溃或真实 RPC 换 branch。
+
+## S5-01 出库单/部分拣货/包裹/取消
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。未写库存表，未派发设备，未实现 applyPick。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `OutboundPickIT` | AUTH_REQUIRED；OVER_PICK；拣 3/5 后 posted 重放不加倍；pack 3；cancel 2 + RESTOCK + CANCEL；无 `stock_balance`/`reservation`/`stock_posting` | outbound 本库 |
+| `OutboundProtocolIT` | V003 后 SHIP T1/T3 仍通过 | 来源协议回归 |
+| `ThreeServiceProtocolIT` | outbound V003 三库迁移后仍通过 | 既有 T1/T2/T3 探针，不是拣货黑盒 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-outbound -am -Dsurefire.skip=true -Dit.test=OutboundPickIT,OutboundProtocolIT verify` | BUILD SUCCESS；failsafe 2 项 0 失败 | 定向 |
+| `./mvnw -B -ntp -pl wms-inventory -am -Dsurefire.skip=true -Dit.test=ThreeServiceProtocolIT verify` | BUILD SUCCESS；1 项 0 失败 | 三库协议回归 |
+
+结论：S5-01 本地 outbound 单据 pass。AC-13/14/15 黑盒、WCS、inventory permit/pick/ship 仍 planned。

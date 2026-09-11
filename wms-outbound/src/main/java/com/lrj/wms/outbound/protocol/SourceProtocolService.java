@@ -16,6 +16,8 @@ import org.apache.ibatis.session.SqlSession;
 public final class SourceProtocolService {
     public static final String SOURCE = "wms-outbound";
     public static final String ACTION_SHIP = "SHIP";
+    public static final String ACTION_PICK = "PICK";
+    public static final String ACTION_CANCEL = "CANCEL";
 
     private final SqlSession session;
     private final Clock clock;
@@ -66,6 +68,52 @@ public final class SourceProtocolService {
         return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
     }
 
+    /** T1：拣货子动作命令。 */
+    public Map<String, Object> submitPick(String enterpriseId, String warehouseId, String commandId, String parentId,
+            String partId, String lineId, String actorId, BigDecimal qty) {
+        return submitAction(ACTION_PICK, "SUB_ACTION", enterpriseId, warehouseId, commandId, parentId, partId, lineId,
+                actorId, qty);
+    }
+
+    /** T1：发运前取消未执行量。 */
+    public Map<String, Object> submitCancel(String enterpriseId, String warehouseId, String commandId, String parentId,
+            String partId, String lineId, String actorId, BigDecimal qty) {
+        return submitAction(ACTION_CANCEL, "SUB_ACTION", enterpriseId, warehouseId, commandId, parentId, partId, lineId,
+                actorId, qty);
+    }
+
+    private Map<String, Object> submitAction(String action, String factType, String enterpriseId, String warehouseId,
+            String commandId, String parentId, String partId, String lineId, String actorId, BigDecimal qty) {
+        Timestamp now = Timestamp.from(clock.instant());
+        SourceMapper mapper = session.getMapper(SourceMapper.class);
+        String digest = sha256(action + '\u001f' + commandId + '\u001f' + qty.toPlainString());
+        String effectCandidate = UUID.randomUUID().toString();
+        mapper.insertEffect(effectCandidate, enterpriseId, warehouseId, SOURCE, action, factType, parentId, partId,
+                lineId, commandId, "REGISTERED", now);
+        String effectId = mapper.findEffectId(enterpriseId, warehouseId, SOURCE, action, factType, parentId, partId,
+                lineId);
+        mapper.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> existing = mapper.getCommand(enterpriseId, warehouseId, commandId);
+        if (existing != null) {
+            return view(existing, effectId);
+        }
+        Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
+        if (latest != null) {
+            return view(latest, effectId);
+        }
+        String executionId = UUID.randomUUID().toString();
+        String payload = "{\"qty\":\"" + qty.toPlainString() + "\",\"commandId\":\"" + commandId + "\"}";
+        mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, action, 1L, null,
+                digest, payload, "PENDING", now);
+        mapper.insertExecution(executionId, enterpriseId, warehouseId, commandId, action, qty, actorId, now);
+        mapper.insertOutbox(UUID.randomUUID().toString(), enterpriseId, warehouseId, commandId, "StockCommandRequested",
+                payload, now);
+        if (mapper.casBindActive(enterpriseId, warehouseId, effectId, commandId, 1L, "OPEN", now) != 1) {
+            throw new IllegalStateException("VERSION_CONFLICT");
+        }
+        return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
+    }
+
     /** T3：inbox + 过账累计。同 eventId 重放不二次加 posted。 */
     public Map<String, Object> consumeResult(String enterpriseId, String warehouseId, String eventId, String commandId,
             String resultState, String postingId, BigDecimal postedQty) {
@@ -83,8 +131,10 @@ public final class SourceProtocolService {
             mapper.updateEffectApplied(enterpriseId, warehouseId, mapper.findEffectByCommand(enterpriseId, warehouseId, commandId),
                     commandId, resultState, now);
         }
-        return view(mapper.getCommand(enterpriseId, warehouseId, commandId),
+        Map<String, Object> body = view(mapper.getCommand(enterpriseId, warehouseId, commandId),
                 mapper.findEffectByCommand(enterpriseId, warehouseId, commandId));
+        body.put("consumed", inserted == 1);
+        return body;
     }
 
     public Map<String, Object> get(String enterpriseId, String warehouseId, String commandId) {

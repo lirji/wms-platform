@@ -151,7 +151,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 
 ### S5 出库与设备适配
 
-- S5-01 在wms-outbound实现单据、任务、包裹、physical/posted累计、取消和来源命令，独立迁移`wms-outbound/src/main/resources/db/migration/V001__outbound.sql`；inventory负责permit/claim、转桶和扣减，不写出库单。
+- S5-01 在wms-outbound实现单据、任务、包裹、physical/posted累计、取消和来源命令，独立迁移`wms-outbound/src/main/resources/db/migration/V003__outbound.sql`（V001 已被来源协议占用）；inventory负责permit/claim、转桶和扣减，不写出库单。
 - S5-02 `wms-integration/wcs` 定义命令/查询/回执适配端口；编写明确标识 simulator 的测试实现。
 - S5-03 人工/PDA/设备共享稳定动作身份，worker换主沿用；STARTED授权后才能派发，UNKNOWN保持库存占用。可信旧worker回执用于恢复，但旧worker不能新派工。逆向依赖原posting且累计不超过可逆量。
 - S5-04 黑盒验证同单部分完成、短拣、效期在拣货后到期、重复发运及取消后回库。

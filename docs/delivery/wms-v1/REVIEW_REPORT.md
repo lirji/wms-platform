@@ -346,3 +346,15 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - `claimLaunch` 去掉租约过期接管。隔离要求 launch=`UNKNOWN` 且无 `reservation_id`。
 - 空 XID 只写 `allocation_launch`，不写 `attempt.xid`，不调用 TC。
 - 确认：无 critical/high；未到 S8 不创建 `wms-console/`。
+
+## S5-01 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 迁移用 `V003__outbound.sql`，因为 V001 已是来源协议。计划路径已按仓库证据改写。
+- 建单 `INSERT IGNORE` + allocation/attempt 唯一键；缺 `execution_authorization_id` 拒绝。取消先锁单再锁行。
+- `consumePick` 仅新 inbox 且 APPLIED 才加 `picked_posted`。取消走 `submitCancel`，不调用 `submitShip`。
+- CHECK：`0<=posted<=physical`，`packed<=picked`，`shipped<=packed`，`picked+cancelled<=allocated`。
+- 规划任务不预扣行剩余量，可能超计划；`pickPartial` 仍按行剩余拒绝 OVER_PICK。接受为 medium，S5-03 动作身份再收紧。
+- outbound POM 无 Seata。不写库存出库表，不派发 WCS。
+- 确认：无 critical/high；AC-13/14 仍 planned；未到 S8 不创建 `wms-console/`。
