@@ -316,3 +316,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 默认 failsafe 排除两项 TC/分片 IT；CI `-Ptc-it` 会启动 Seata 容器。不要把 file-mode Finished 当 DB 终态证据。
 - Confirm 仍不写 ALLOCATED / 执行授权。AC-12 履约屏障留给 S4-05。
 - 确认：无 critical/high；未到 S8 不创建 `wms-console/`。
+
+## S4-05 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- ALLOCATED 与 Outbox 同一 `SqlSession`；缺证据/未确认路径不写事件。已 ALLOCATED 重放只 `INSERT IGNORE`。
+- 恢复扫描 `Committed` + 非空证据；仍缺仓确认则跳过，不改状态。
+- Outbox 只请求建单/执行授权，不调用 outbound HTTP，不写 `source_command` / WCS。fulfillment POM 仍无 Seata。
+- 不是真实 TC 查询。XXL 监控留给 S4-06。
+- 确认：无 critical/high；未到 S8 不创建 `wms-console/`。

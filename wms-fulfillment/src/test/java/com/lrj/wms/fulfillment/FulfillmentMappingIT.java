@@ -110,6 +110,8 @@ class FulfillmentMappingIT {
             FulfillmentException missing = assertThrows(FulfillmentException.class,
                     () -> service.markAllocated("ENT-XID", attemptId));
             assertEquals("ALLOCATED_EVIDENCE_MISSING", missing.code());
+            assertEquals(0, jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?", Integer.class, attemptId));
             assertTrue(FulfillmentService.isRecoveryPending(missing));
             service.observeTc("ENT-XID", attemptId, FulfillmentService.TC_COMMITTED,
                     "{\"xid\":\"xid-so2\",\"status\":9}");
@@ -120,6 +122,8 @@ class FulfillmentMappingIT {
             service.observeParticipant("ENT-XID", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
             Map<String, Object> allocated = service.markAllocated("ENT-XID", attemptId);
             assertEquals(FulfillmentService.ATTEMPT_ALLOCATED, allocated.get("state"));
+            Map<String, Object> allocatedAgain = service.markAllocated("ENT-XID", attemptId);
+            assertEquals(FulfillmentService.ATTEMPT_ALLOCATED, allocatedAgain.get("state"));
             session.commit();
         }
         assertEquals("xid-so2", jdbc.queryForObject(
@@ -133,6 +137,23 @@ class FulfillmentMappingIT {
         assertNull(jdbc.queryForObject(
                 "SELECT xid FROM allocation_participant WHERE attempt_id=? AND warehouse_id='WH-B'",
                 String.class, attemptId));
+        assertEquals(5, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND status='PENDING'",
+                Integer.class, attemptId));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='AllocationCompleted' "
+                        + "AND warehouse_id='NO_WAREHOUSE'",
+                Integer.class, attemptId));
+        assertEquals(2, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='OutboundOrderRequested'",
+                Integer.class, attemptId));
+        assertEquals(2, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",
+                Integer.class, attemptId));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() "
+                        + "AND table_name IN ('source_command','source_execution','wcs_command')",
+                Integer.class));
     }
 
     @Test

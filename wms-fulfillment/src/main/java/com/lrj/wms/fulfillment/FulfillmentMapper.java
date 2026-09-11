@@ -161,4 +161,33 @@ public interface FulfillmentMapper {
     int bindLaunch(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
             @Param("epoch") long epoch, @Param("executorId") String executorId, @Param("xid") String xid,
             @Param("state") String state, @Param("now") Timestamp now);
+
+    /** 参与仓行，供出库建单/执行授权 Outbox 正文。 */
+    @Select("SELECT p.warehouse_id, p.reservation_id, l.order_line_id, l.sku_id, l.qty, l.base_unit "
+            + "FROM allocation_participant p JOIN participant_line l ON l.enterprise_id=p.enterprise_id "
+            + "AND l.participant_id=p.id WHERE p.enterprise_id=#{enterpriseId} AND p.attempt_id=#{attemptId} "
+            + "ORDER BY p.warehouse_id, l.order_line_id")
+    List<Map<String, Object>> listParticipantLines(@Param("enterpriseId") String enterpriseId,
+            @Param("attemptId") String attemptId);
+
+    /** TC 已提交、可补齐 ALLOCATED/Outbox 的 attempt。 */
+    @Select("SELECT id FROM allocation_attempt WHERE enterprise_id=#{enterpriseId} "
+            + "AND tc_observed_status='Committed' AND tc_terminal_evidence IS NOT NULL "
+            + "AND tc_terminal_evidence<>'' AND state IN ('TCC_TRYING','TCC_COMPLETING','ALLOCATED') "
+            + "ORDER BY id FOR UPDATE")
+    List<String> listReadyBarrierAttempts(@Param("enterpriseId") String enterpriseId);
+
+    /** 屏障 Outbox 幂等写入。 */
+    @Insert("INSERT IGNORE INTO fulfillment_outbox (event_id, enterprise_id, attempt_id, warehouse_id, event_type, "
+            + "operation_id, payload, status, version, created_at, updated_at) VALUES (#{eventId}, #{enterpriseId}, "
+            + "#{attemptId}, #{warehouseId}, #{eventType}, #{operationId}, CAST(#{payload} AS JSON), 'PENDING', 0, "
+            + "#{now}, #{now})")
+    int insertOutboxIgnore(@Param("eventId") String eventId, @Param("enterpriseId") String enterpriseId,
+            @Param("attemptId") String attemptId, @Param("warehouseId") String warehouseId,
+            @Param("eventType") String eventType, @Param("operationId") String operationId,
+            @Param("payload") String payload, @Param("now") Timestamp now);
+
+    /** 核对本 attempt 已写的屏障事件数。 */
+    @Select("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId}")
+    int countOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId);
 }

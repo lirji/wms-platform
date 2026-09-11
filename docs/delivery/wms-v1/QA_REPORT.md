@@ -417,3 +417,18 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-inventory -am verify` | BUILD SUCCESS；inventory failsafe 40 项 0 失败 | 默认构建不含 Seata 用例 |
 
 结论：S4-04 本地定向 IT 与 default verify pass。AC-10/11/41/43 仅在上述范围内有证据。AC-12 履约屏障与 AC-42 TM/TC 宕机仍 planned。S4-05 未开始。
+
+## S4-05 ALLOCATED 与建单/执行授权 Outbox
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。不是真实 TCC begin，不派发设备。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `FulfillmentMappingIT` 缺证据 | `ALLOCATED_EVIDENCE_MISSING` 且 outbox=0；未全确认 `PARTICIPANTS_NOT_CONFIRMED` | 观察副本，不是 TC 查询 |
+| `FulfillmentMappingIT` 成功/重放 | ALLOCATED；5 条 PENDING（1 完成 + 2 建单 + 2 执行授权）；无出库/WCS 表 | 履约本库 |
+| `FulfillmentBarrierIT` 恢复 | 未调用 mark 的 attempt 被补齐；删除 Outbox 后 recover 写回 5 条；payload 含 res-A | 本地恢复，不是 XXL |
+| `FulfillmentPlanIT` | 2 项 0 失败 | S4-02 回归 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-fulfillment -am verify` | BUILD SUCCESS；failsafe 6 项 0 失败 | 默认构建 |
+
+结论：S4-05 本地 fulfillment verify pass。AC-12 的履约 Outbox 屏障在本库成立；真实 TC 终态查询与 XXL 监控仍 planned（S4-06）。

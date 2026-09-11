@@ -33,6 +33,10 @@ public final class FulfillmentService {
     public static final String LAUNCH_BOUND = "BOUND";
     public static final String CLEANUP_NONE = "NONE";
     public static final String TC_COMMITTED = "Committed";
+    public static final String NO_WAREHOUSE = "NO_WAREHOUSE";
+    public static final String EVENT_ALLOCATION_COMPLETED = "AllocationCompleted";
+    public static final String EVENT_OUTBOUND_ORDER_REQUESTED = "OutboundOrderRequested";
+    public static final String EVENT_EXECUTION_AUTHORIZATION_REQUESTED = "ExecutionAuthorizationRequested";
     public static final Duration LAUNCH_LEASE = Duration.ofSeconds(30);
 
     private final SqlSession session;
@@ -274,19 +278,23 @@ public final class FulfillmentService {
         return headers;
     }
 
-    /** 仅当 TC Committed 证据与全部仓 CONFIRMED 同时满足才写 ALLOCATED。 */
+    /**
+     * 仅当 TC Committed 证据与全部仓 CONFIRMED 同时满足才写 ALLOCATED，并在同一本地事务写建单/执行授权 Outbox。
+     * 已 ALLOCATED 则只补齐缺失 Outbox。不在 TCC 事务内派发设备。
+     */
     public Map<String, Object> markAllocated(String enterpriseId, String attemptId) {
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        List<Map<String, Object>> participants = mapper.lockParticipants(enterpriseId, attemptId);
         if (ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state")))) {
-            return attemptView(attempt, mapper.lockParticipants(enterpriseId, attemptId));
+            writeBarrierOutbox(mapper, enterpriseId, attemptId, attempt, participants);
+            return attemptView(attempt, participants);
         }
         String observed = nullable(attempt.get("tc_observed_status"));
         String evidence = nullable(attempt.get("tc_terminal_evidence"));
         if (!TC_COMMITTED.equals(observed) || evidence == null || evidence.isBlank()) {
             throw new FulfillmentException("ALLOCATED_EVIDENCE_MISSING", "缺少TC终态证据，拒绝ALLOCATED");
         }
-        List<Map<String, Object>> participants = mapper.lockParticipants(enterpriseId, attemptId);
         if (participants.isEmpty()) {
             throw new FulfillmentException("INVALID_PARTICIPANT", "attempt没有固定参与者");
         }
@@ -299,7 +307,27 @@ public final class FulfillmentService {
                 && mapper.casAttemptState(enterpriseId, attemptId, ATTEMPT_ALLOCATED, "TCC_COMPLETING", now()) != 1) {
             throw new FulfillmentException("VERSION_CONFLICT", "ALLOCATED状态竞争");
         }
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        Map<String, Object> allocated = mapper.lockAttempt(enterpriseId, attemptId);
+        writeBarrierOutbox(mapper, enterpriseId, attemptId, allocated, participants);
+        return attemptView(allocated, participants);
+    }
+
+    /** 扫描已具备证据的 attempt，补齐 ALLOCATED 与屏障 Outbox。跳过仍缺确认的项。 */
+    public int recoverReadyBarriers(String enterpriseId) {
+        requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        int recovered = 0;
+        for (String attemptId : mapper.listReadyBarrierAttempts(enterpriseId)) {
+            try {
+                markAllocated(enterpriseId, attemptId);
+                recovered++;
+            } catch (FulfillmentException error) {
+                if (!isRecoveryPending(error)) {
+                    throw error;
+                }
+            }
+        }
+        return recovered;
     }
 
     /** 缺证据或参与者未确认时的稳定拒绝码，供调用方进入RECOVERY_PENDING。 */
@@ -387,6 +415,71 @@ public final class FulfillmentService {
             throw new FulfillmentException("UNKNOWN_ATTEMPT", "attempt不存在");
         }
         return attempt;
+    }
+
+    private void writeBarrierOutbox(FulfillmentMapper mapper, String enterpriseId, String attemptId,
+            Map<String, Object> attempt, List<Map<String, Object>> participants) {
+        Timestamp now = now();
+        String xid = nullable(attempt.get("xid"));
+        String evidence = nullable(attempt.get("tc_terminal_evidence"));
+        String warehouses = String.join(",", participants.stream()
+                .map(participant -> String.valueOf(participant.get("warehouse_id"))).toList());
+        insertOutbox(mapper, enterpriseId, attemptId, NO_WAREHOUSE, EVENT_ALLOCATION_COMPLETED,
+                "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
+                        + "\",\"tcTerminalEvidence\":\"" + escape(evidence) + "\",\"warehouses\":\""
+                        + escape(warehouses) + "\"}", now);
+        List<Map<String, Object>> lines = mapper.listParticipantLines(enterpriseId, attemptId);
+        for (Map<String, Object> participant : participants) {
+            String warehouseId = String.valueOf(participant.get("warehouse_id"));
+            String reservationId = nullable(participant.get("reservation_id"));
+            String payload = "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
+                    + "\",\"warehouseId\":\"" + escape(warehouseId) + "\",\"reservationId\":\""
+                    + escape(reservationId) + "\",\"lines\":" + linesJson(lines, warehouseId) + "}";
+            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_OUTBOUND_ORDER_REQUESTED, payload, now);
+            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_EXECUTION_AUTHORIZATION_REQUESTED,
+                    payload, now);
+        }
+    }
+
+    private static void insertOutbox(FulfillmentMapper mapper, String enterpriseId, String attemptId,
+            String warehouseId, String eventType, String payload, Timestamp now) {
+        mapper.insertOutboxIgnore(UUID.randomUUID().toString(), enterpriseId, attemptId, warehouseId, eventType,
+                operationId(eventType, attemptId, warehouseId), payload, now);
+    }
+
+    private static String linesJson(List<Map<String, Object>> lines, String warehouseId) {
+        StringBuilder body = new StringBuilder("[");
+        boolean first = true;
+        for (Map<String, Object> line : lines) {
+            if (!warehouseId.equals(String.valueOf(line.get("warehouse_id")))) {
+                continue;
+            }
+            if (!first) {
+                body.append(',');
+            }
+            first = false;
+            body.append("{\"orderLineId\":\"").append(escape(line.get("order_line_id")))
+                    .append("\",\"skuId\":\"").append(escape(line.get("sku_id")))
+                    .append("\",\"qty\":\"").append(escape(line.get("qty")))
+                    .append("\",\"baseUnit\":\"").append(escape(line.get("base_unit"))).append("\"}");
+        }
+        return body.append(']').toString();
+    }
+
+    private static String operationId(String eventType, String attemptId, String warehouseId) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
+                    (eventType + '\u001f' + attemptId + '\u001f' + warehouseId).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException(error);
+        }
+    }
+
+    private static String escape(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private Timestamp now() {
