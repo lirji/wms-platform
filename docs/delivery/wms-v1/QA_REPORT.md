@@ -447,3 +447,19 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-inventory,wms-fulfillment -am verify` | BUILD SUCCESS；inventory failsafe 41、fulfillment 7，0 失败 | 默认构建未启 XXL admin / Seata |
 
 结论：S4-06 本地 monitor/sweep pass。AC-10 的「XXL 不释放 TRIED」仅在进程内 handler 成立。AC-12/42 的真实 TC 查询、XXL 集群与运维会话保留仍 planned。
+
+## S4-07 owner 匹配与空启动清理
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。不是真实 TC begin，fulfillment 不调用 Confirm/Cancel。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ReservationOwnerIT` | 同身份重放 reserved=3；异 digest `TCC_CONTEXT_MISMATCH`；换 XID `TCC_OWNER_CONFLICT`；取消后原/新身份都不能再 Try | 本库预占，不是 RPC 重注册 |
+| `FulfillmentLaunchIT` 隔离 | 租约过期仍 `LAUNCH_CAS_LOST`；UNKNOWN 后 recoverer 绑定；旧 owner `LAUNCH_OWNER_MISMATCH`；活动 attempt 不能重开 | 履约本库 |
+| `FulfillmentLaunchIT` 清理 | 已知空 XID `CLEANED` 后可隔离再绑；有 reservation 不能隔离；已绑定拒绝当空启动清 | 审计行，不改 TC |
+| `InventoryConcurrencyIT` | 20 并发仍 10 胜 10 不足 | AC-03 回归 |
+| `FulfillmentMappingIT` / `FulfillmentPlanIT` | 回归 0 失败 | S4-01/02 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-inventory,wms-fulfillment -am verify` | BUILD SUCCESS；inventory failsafe 42、fulfillment 9，0 失败 | 默认构建 |
+
+结论：S4-07 本地 owner/launch pass。AC-45/46 仅在本库 CAS/唯一键范围内有证据，不是独立 TM 进程崩溃或真实 RPC 换 branch。

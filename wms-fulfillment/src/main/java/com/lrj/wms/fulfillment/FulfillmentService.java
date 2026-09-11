@@ -31,7 +31,11 @@ public final class FulfillmentService {
     public static final String PARTICIPANT_CONFIRMED = "CONFIRMED";
     public static final String LAUNCH_CLAIMED = "CLAIMED";
     public static final String LAUNCH_BOUND = "BOUND";
+    public static final String LAUNCH_UNKNOWN = "UNKNOWN";
     public static final String CLEANUP_NONE = "NONE";
+    public static final String CLEANUP_PENDING = "PENDING";
+    public static final String CLEANUP_CLEANED = "CLEANED";
+    public static final String CLEANUP_WAITING_TIMEOUT = "WAITING_TIMEOUT";
     public static final String TC_COMMITTED = "Committed";
     public static final String NO_WAREHOUSE = "NO_WAREHOUSE";
     public static final String EVENT_ALLOCATION_COMPLETED = "AllocationCompleted";
@@ -201,6 +205,78 @@ public final class FulfillmentService {
         }
         mapper.bindLaunch(enterpriseId, attemptId, epoch, executorId, xid, LAUNCH_BOUND, now);
         return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+    }
+
+    /** begin/绑定失联：未绑定 XID 时把当前启动标 UNKNOWN，租约过期不能单独推断。 */
+    public Map<String, Object> markLaunchUnknown(String enterpriseId, String attemptId) {
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        if (nullable(attempt.get("xid")) != null) {
+            throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID只能恢复原事务，不能标空启动");
+        }
+        long epoch = ((Number) attempt.get("launch_epoch")).longValue();
+        if (mapper.markLaunchUnknown(enterpriseId, attemptId, epoch, LAUNCH_UNKNOWN, CLEANUP_PENDING, now()) != 1) {
+            throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "没有可标记失联的CLAIMED启动");
+        }
+        return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
+    }
+
+    /** 记录已知空 XID，不写入 attempt.xid，供受控回滚清理。 */
+    public Map<String, Object> recordKnownEmptyXid(String enterpriseId, String attemptId, String xid) {
+        xid = requireXid(xid);
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        if (nullable(attempt.get("xid")) != null) {
+            throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID不能记为空启动");
+        }
+        long epoch = ((Number) attempt.get("launch_epoch")).longValue();
+        if (mapper.recordEmptyXid(enterpriseId, attemptId, epoch, xid, LAUNCH_UNKNOWN, CLEANUP_PENDING, now()) != 1) {
+            throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "没有可记录空XID的启动行");
+        }
+        return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
+    }
+
+    /**
+     * 仅当启动已标 UNKNOWN、attempt 未绑定且无仓级 reservation 时提升代际。
+     * 失败者不得 Try；旧执行器随后 bind 会因代际失败。
+     */
+    public Map<String, Object> isolateEmptyLaunch(String enterpriseId, String attemptId, String recovererId) {
+        requireId(recovererId, "INVALID_EXECUTOR", "恢复执行器不能为空");
+        Timestamp now = now();
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        if (nullable(attempt.get("xid")) != null) {
+            throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID不能隔离空启动");
+        }
+        long epoch = ((Number) attempt.get("launch_epoch")).longValue();
+        if (mapper.isolateEmptyLaunch(enterpriseId, attemptId, recovererId,
+                Timestamp.from(clock.instant().plus(LAUNCH_LEASE)), epoch,
+                ((Number) attempt.get("version")).longValue(), ATTEMPT_STARTING, now) != 1) {
+            throw new FulfillmentException("LAUNCH_NOT_ISOLATED", "空启动未证明可隔离，保持RECOVERY_PENDING");
+        }
+        mapper.insertLaunch(UUID.randomUUID().toString(), enterpriseId, attemptId, epoch + 1, recovererId,
+                LAUNCH_CLAIMED, CLEANUP_NONE, now);
+        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+    }
+
+    /** 清理已知空启动。已绑定 attempt 拒绝。未知空 XID 只标等待 TC 超时。不调用 Confirm/Cancel。 */
+    public Map<String, Object> cleanupEmptyLaunch(String enterpriseId, String attemptId) {
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        if (nullable(attempt.get("xid")) != null) {
+            throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID不能当空启动清理");
+        }
+        long epoch = ((Number) attempt.get("launch_epoch")).longValue();
+        Map<String, Object> launch = mapper.lockLaunch(enterpriseId, attemptId, epoch);
+        if (launch == null) {
+            throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "启动记录不存在");
+        }
+        String cleanup = nullable(launch.get("xid")) == null ? CLEANUP_WAITING_TIMEOUT : CLEANUP_CLEANED;
+        String error = nullable(launch.get("xid")) == null ? "UNKNOWN_EMPTY_XID" : "KNOWN_EMPTY_XID";
+        if (mapper.cleanupLaunch(enterpriseId, attemptId, epoch, cleanup, error, now()) != 1) {
+            throw new FulfillmentException("LAUNCH_CLEANUP_CONFLICT", "空启动清理竞争");
+        }
+        return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
     }
 
     /** 写入 TC 观察副本，不据此直接放行。 */
@@ -548,6 +624,20 @@ public final class FulfillmentService {
         }
         body.put("warehouses", warehouses);
         body.put("participants", branches);
+        return body;
+    }
+
+    private static Map<String, Object> launchView(Map<String, Object> launch, Map<String, Object> attempt) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("attemptId", attempt.get("id"));
+        body.put("attemptState", attempt.get("state"));
+        body.put("attemptXid", attempt.get("xid"));
+        body.put("launchEpoch", launch.get("launch_epoch"));
+        body.put("executorId", launch.get("executor_id"));
+        body.put("launchXid", launch.get("xid"));
+        body.put("launchState", launch.get("state"));
+        body.put("cleanupState", launch.get("cleanup_state"));
+        body.put("errorCode", launch.get("error_code"));
         return body;
     }
 

@@ -146,6 +146,14 @@ public interface InventoryMapper {
             @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
             @Param("attemptId") String attemptId);
 
+    /** 无行不锁间隙，避免不同 attempt 并发预占互相堵住。 */
+    @Select("SELECT id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, "
+            + "route_epoch, execution_authorization_id, version FROM reservation WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND allocation_id=#{allocationId} AND attempt_id=#{attemptId}")
+    Map<String, Object> findReservationByAttempt(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
+            @Param("attemptId") String attemptId);
+
     /** 巡检仍占用的预占，只读，不驱动 Confirm/Cancel。 */
     @Select("SELECT id, allocation_id, attempt_id, state, xid, updated_at FROM reservation "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "

@@ -17,8 +17,10 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ibatis.exceptions.PersistenceException;
 import org.apache.ibatis.session.SqlSession;
 
 /**
@@ -68,51 +70,9 @@ public final class InventoryApplicationService {
     public String reserve(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             String allocationId, String attemptId, String xid, long branchId, String actionName, long routeEpoch,
             String requestDigest, StockBucketKey bucket, Quantity qty, String orderLineId) {
-        requireSameScope(enterpriseId, warehouseId, bucket);
-        requirePositive(qty);
-        InventoryCodes.requireQuality(bucket.qualityCode());
-        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RESERVE, operationId,
-                CommandDigest.v1(InventoryCodes.REASON_RESERVE, documentId, bucket, qty.toPlainString(), allocationId,
-                        attemptId, orderLineId))) {
-            return operationId;
-        }
-        InventoryMapper mapper = mapper();
-        if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
-            return operationId;
-        }
-        Timestamp now = now();
-        requireGate(mapper, enterpriseId, warehouseId, bucket.locationId(), InventoryCodes.CMD_NEW_RESERVE);
-        requireLiveLot(enterpriseId, warehouseId, bucket);
-        Map<String, Object> after = null;
-        for (int attempt = 0; attempt < 16; attempt++) {
-            Map<String, Object> balance = ensureBalance(mapper, bucket, now);
-            int updated = mapper.casReserveGood(enterpriseId, warehouseId, String.valueOf(balance.get("id")),
-                    qty.toBigDecimal(), longValue(balance.get("version")), now);
-            if (updated == 1) {
-                after = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
-                break;
-            }
-            Map<String, Object> latest = mapper.lockBalanceById(enterpriseId, warehouseId, String.valueOf(balance.get("id")));
-            BigDecimal available = decimal(latest, "on_hand_qty").subtract(decimal(latest, "reserved_qty"))
-                    .subtract(decimal(latest, "free_execution_claim_qty"));
-            if (available.compareTo(qty.toBigDecimal()) < 0) {
-                throw new InventoryException("STOCK_INSUFFICIENT", "可分配量不足或非GOOD");
-            }
-        }
-        if (after == null) {
-            throw new InventoryException("VERSION_CONFLICT", "预占版本冲突");
-        }
-        String reservationId = UUID.randomUUID().toString();
-        mapper.insertReservation(reservationId, enterpriseId, warehouseId, allocationId, attemptId, requestDigest, 1,
-                ReservationState.TRIED, xid, branchId, actionName, routeEpoch, null, now);
-        mapper.insertReservationLine(UUID.randomUUID().toString(), enterpriseId, warehouseId, reservationId, null, orderLineId,
-                String.valueOf(after.get("id")), qty.toBigDecimal(), qty.toBigDecimal(), BigDecimal.ZERO, BigDecimal.ZERO,
-                BigDecimal.ZERO, BigDecimal.ZERO, now);
-        recordLedgerAndOutbox(mapper, enterpriseId, warehouseId, operationId, 1, String.valueOf(after.get("id")),
-                BigDecimal.ZERO, qty.toBigDecimal(), decimal(after, "on_hand_qty"), decimal(after, "reserved_qty"),
-                decimal(after, "free_execution_claim_qty"), longValue(after.get("version")),
-                InventoryCodes.REASON_RESERVE, documentId, actorId, now);
-        return reservationId;
+        return reserveTried(enterpriseId, warehouseId, operationId, documentId, actorId, allocationId, attemptId, xid,
+                branchId, actionName, routeEpoch, requestDigest,
+                List.of(new ReservationLineInput(bucket, qty, orderLineId)));
     }
 
     /**
@@ -133,20 +93,30 @@ public final class InventoryApplicationService {
             requirePositive(line.qty());
             InventoryCodes.requireQuality(line.bucket().qualityCode());
         }
-        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RESERVE, operationId,
-                reserveTriedDigest(documentId, allocationId, attemptId, lines))) {
-            Map<String, Object> existing = mapper().lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
-                    attemptId);
-            if (existing == null) {
-                throw new InventoryException("RESOURCE_NOT_FOUND", "预占重放时记录不存在");
-            }
-            return String.valueOf(existing.get("id"));
-        }
         InventoryMapper mapper = mapper();
-        if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
+        if (mapper.findReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId) != null) {
             Map<String, Object> existing = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
                     attemptId);
-            return existing == null ? operationId : String.valueOf(existing.get("id"));
+            if (existing != null) {
+                return replayOrRejectTried(existing, xid, branchId, actionName, requestDigest);
+            }
+        }
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RESERVE, operationId,
+                reserveTriedDigest(documentId, allocationId, attemptId, lines))) {
+            Map<String, Object> replayed = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
+                    attemptId);
+            if (replayed == null) {
+                throw new InventoryException("RESOURCE_NOT_FOUND", "预占重放时记录不存在");
+            }
+            return replayOrRejectTried(replayed, xid, branchId, actionName, requestDigest);
+        }
+        if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
+            Map<String, Object> replayed = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
+                    attemptId);
+            if (replayed == null) {
+                throw new InventoryException("RESOURCE_NOT_FOUND", "预占流水存在但记录不存在");
+            }
+            return replayOrRejectTried(replayed, xid, branchId, actionName, requestDigest);
         }
         Timestamp now = now();
         List<String> locationIds = lines.stream().map(line -> line.bucket().locationId()).distinct().sorted().toList();
@@ -187,8 +157,20 @@ public final class InventoryApplicationService {
             snapshots.add(after);
         }
         String reservationId = UUID.randomUUID().toString();
-        mapper.insertReservation(reservationId, enterpriseId, warehouseId, allocationId, attemptId, requestDigest, 1,
-                ReservationState.TRIED, xid, branchId, actionName, routeEpoch, null, now);
+        try {
+            mapper.insertReservation(reservationId, enterpriseId, warehouseId, allocationId, attemptId, requestDigest, 1,
+                    ReservationState.TRIED, xid, branchId, actionName, routeEpoch, null, now);
+        } catch (PersistenceException error) {
+            if (!isDuplicate(error)) {
+                throw error;
+            }
+            Map<String, Object> raced = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
+                    attemptId);
+            if (raced != null) {
+                replayOrRejectTried(raced, xid, branchId, actionName, requestDigest);
+            }
+            throw new InventoryException("VERSION_CONFLICT", "预占并发写入，本事务必须回滚后按原记录恢复");
+        }
         int entry = 1;
         for (int i = 0; i < lines.size(); i++) {
             ReservationLineInput line = lines.get(i);
@@ -493,6 +475,38 @@ public final class InventoryApplicationService {
         if (InventoryCodes.DECISION_DENY.equals(decision)) {
             throw new InventoryException("STOCK_FROZEN", "门禁拒绝确认预占：" + decision);
         }
+    }
+
+    /** 同 B 重放或拒绝改绑。不得把唯一键冲突当成新成功。 */
+    private static String replayOrRejectTried(Map<String, Object> head, String xid, long branchId, String actionName,
+            String requestDigest) {
+        boolean sameOwner = xid != null && xid.equals(String.valueOf(head.get("xid")))
+                && branchId == longValue(head.get("branch_id"))
+                && actionName != null && actionName.equals(String.valueOf(head.get("action_name")));
+        if (!sameOwner) {
+            throw new InventoryException("TCC_OWNER_CONFLICT", "新分支不能接管已有预占");
+        }
+        String digest = head.get("request_digest") == null ? "" : String.valueOf(head.get("request_digest"));
+        if (requestDigest != null && !requestDigest.equals(digest)) {
+            throw new InventoryException("TCC_CONTEXT_MISMATCH", "同一所有者请求摘要不一致");
+        }
+        String state = String.valueOf(head.get("state"));
+        if (ReservationState.CANCELLED.equals(state)) {
+            throw new InventoryException("TCC_BRANCH_TERMINAL", "原分支已终态，不能再执行业务Try");
+        }
+        return String.valueOf(head.get("id"));
+    }
+
+    private static boolean isDuplicate(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("duplicate")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static void requireOwner(Map<String, Object> head, String xid, Long branchId, String actionName) {

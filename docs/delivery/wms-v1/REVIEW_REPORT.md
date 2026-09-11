@@ -336,3 +336,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - `@XxlJob` 仅标注 handler 名。未注册 `XxlJobSpringExecutor`，避免 smoke 连 admin。
 - fulfillment 增加 `xxl-job-core`，仍无 Seata。不要把 stub 端口当生产审计。
 - 确认：无 critical/high；未到 S8 不创建 `wms-console/`。
+
+## S4-07 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 先无锁查找再 `FOR UPDATE`，避免空行间隙锁把不同 attempt 的并发预占堵住（`InventoryConcurrencyIT` 回归）。
+- 唯一键冲突后若已改 reserved，必须抛错回滚，不能把冲突当成功重放。
+- `claimLaunch` 去掉租约过期接管。隔离要求 launch=`UNKNOWN` 且无 `reservation_id`。
+- 空 XID 只写 `allocation_launch`，不写 `attempt.xid`，不调用 TC。
+- 确认：无 critical/high；未到 S8 不创建 `wms-console/`。

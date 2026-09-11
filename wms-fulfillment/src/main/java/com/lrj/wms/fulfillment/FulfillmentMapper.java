@@ -71,12 +71,12 @@ public interface FulfillmentMapper {
             + "WHERE enterprise_id=#{enterpriseId} AND id=#{id} FOR UPDATE")
     Map<String, Object> lockAttempt(@Param("enterpriseId") String enterpriseId, @Param("id") String id);
 
-    /** 领取启动权：无主、本执行器或租约过期才可提升代际。 */
+    /** 领取启动权：仅无主或本执行器重放。租约过期不能单独接管。 */
     @Update("UPDATE allocation_attempt SET launch_owner=#{owner}, launch_lease_until=#{leaseUntil}, "
             + "launch_epoch=launch_epoch+1, state=#{state}, version=version+1, updated_at=#{now} "
             + "WHERE enterprise_id=#{enterpriseId} AND id=#{id} AND xid IS NULL AND launch_epoch=#{epoch} "
             + "AND version=#{version} AND state IN ('PLANNED','TCC_STARTING') "
-            + "AND (launch_owner IS NULL OR launch_owner=#{owner} OR launch_lease_until < #{now})")
+            + "AND (launch_owner IS NULL OR launch_owner=#{owner})")
     int claimLaunch(@Param("enterpriseId") String enterpriseId, @Param("id") String id, @Param("owner") String owner,
             @Param("leaseUntil") Timestamp leaseUntil, @Param("epoch") long epoch, @Param("version") long version,
             @Param("state") String state, @Param("now") Timestamp now);
@@ -161,6 +161,50 @@ public interface FulfillmentMapper {
     int bindLaunch(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
             @Param("epoch") long epoch, @Param("executorId") String executorId, @Param("xid") String xid,
             @Param("state") String state, @Param("now") Timestamp now);
+
+    /** 当前代际启动审计。 */
+    @Select("SELECT id, attempt_id, launch_epoch, executor_id, xid, state, cleanup_state, error_code, version "
+            + "FROM allocation_launch WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} "
+            + "AND launch_epoch=#{epoch} FOR UPDATE")
+    Map<String, Object> lockLaunch(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("epoch") long epoch);
+
+    /** 失联标记：未绑定 attempt 的 CLAIMED 启动改为 UNKNOWN。 */
+    @Update("UPDATE allocation_launch SET state=#{state}, cleanup_state=#{cleanup}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} AND launch_epoch=#{epoch} "
+            + "AND state='CLAIMED'")
+    int markLaunchUnknown(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("epoch") long epoch, @Param("state") String state, @Param("cleanup") String cleanup,
+            @Param("now") Timestamp now);
+
+    /** 记录已知空 XID，不绑定 attempt。 */
+    @Update("UPDATE allocation_launch SET xid=#{xid}, state=#{state}, cleanup_state=#{cleanup}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} "
+            + "AND launch_epoch=#{epoch} AND xid IS NULL AND state IN ('CLAIMED','UNKNOWN')")
+    int recordEmptyXid(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("epoch") long epoch, @Param("xid") String xid, @Param("state") String state,
+            @Param("cleanup") String cleanup, @Param("now") Timestamp now);
+
+    /** 空启动清理。attempt 已绑 XID 的行不会命中。 */
+    @Update("UPDATE allocation_launch SET cleanup_state=#{cleanup}, error_code=#{errorCode}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} "
+            + "AND launch_epoch=#{epoch} AND cleanup_state IN ('NONE','PENDING')")
+    int cleanupLaunch(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("epoch") long epoch, @Param("cleanup") String cleanup, @Param("errorCode") String errorCode,
+            @Param("now") Timestamp now);
+
+    /** 已证明无业务分支时提升代际。租约过期单独不足。 */
+    @Update("UPDATE allocation_attempt SET launch_owner=#{owner}, launch_lease_until=#{leaseUntil}, "
+            + "launch_epoch=launch_epoch+1, state=#{state}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND id=#{id} AND xid IS NULL AND launch_epoch=#{epoch} "
+            + "AND version=#{version} AND state IN ('PLANNED','TCC_STARTING') "
+            + "AND EXISTS (SELECT 1 FROM allocation_launch l WHERE l.enterprise_id=#{enterpriseId} "
+            + "AND l.attempt_id=#{id} AND l.launch_epoch=#{epoch} AND l.state='UNKNOWN') "
+            + "AND NOT EXISTS (SELECT 1 FROM allocation_participant p WHERE p.enterprise_id=#{enterpriseId} "
+            + "AND p.attempt_id=#{id} AND p.reservation_id IS NOT NULL)")
+    int isolateEmptyLaunch(@Param("enterpriseId") String enterpriseId, @Param("id") String id,
+            @Param("owner") String owner, @Param("leaseUntil") Timestamp leaseUntil, @Param("epoch") long epoch,
+            @Param("version") long version, @Param("state") String state, @Param("now") Timestamp now);
 
     /** 参与仓行，供出库建单/执行授权 Outbox 正文。 */
     @Select("SELECT p.warehouse_id, p.reservation_id, l.order_line_id, l.sku_id, l.qty, l.base_unit "
