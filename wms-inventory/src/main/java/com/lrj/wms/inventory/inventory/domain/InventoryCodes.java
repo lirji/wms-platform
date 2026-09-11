@@ -28,12 +28,15 @@ public final class InventoryCodes {
     public static final String REASON_RECEIVE = "RECEIVE";
     public static final String REASON_RESERVE = "RESERVE";
     public static final String REASON_RELEASE = "RELEASE";
+    public static final String REASON_CONFIRM = "CONFIRM";
     public static final String REASON_MOVE_OUT = "MOVE_OUT";
     public static final String REASON_MOVE_IN = "MOVE_IN";
     public static final String REASON_SHIP = "SHIP";
 
     public static final String AGGREGATE_STOCK_BALANCE = "STOCK_BALANCE";
+    public static final String AGGREGATE_RESERVATION = "RESERVATION";
     public static final String EVENT_BALANCE_CHANGED = "InventoryBalanceChanged";
+    public static final String EVENT_RESERVATION_CONFIRMED = "ReservationConfirmed";
 
     public static final String SOURCE_INVENTORY = "wms-inventory";
     public static final String COMMAND_APPLIED = "APPLIED";

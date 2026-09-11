@@ -386,3 +386,17 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp verify` | BUILD SUCCESS 04:10 min；fulfillment 5 项 0 失败 | 默认构建 |
 
 结论：S4-02 定向 IT pass。AC-10/12 仍 planned。S4-03 未开始。
+
+## S4-03 inventory ReservationTccAction 与 Fence
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。未启动真实 TC。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ReservationTccIT` Try/Confirm | 冻结门禁后 Confirm 成功；reserved 仍为 4；二次 Confirm 幂等；Confirm 后再抢 7 件不足；Fence status=2 | 同库 Fence，不是真实 TC |
+| `ReservationTccIT` Cancel/空回滚 | TRIED 释放 reserved=0；二次 Cancel 幂等；空回滚 Fence status=4 且拒绝晚 Try | 空回滚安全；无 TC |
+| `ReservationTccIT` Try 失败 | 注入异常后占用与 Fence 均为 0 | 同事务回滚 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:20 min；inventory failsafe 40 项 0 失败 | 默认构建，不含 warehouse-it/tc-it |
+
+结论：S4-03 本地 verify pass。AC-10/12/41 仍 planned。S4-04 未开始。

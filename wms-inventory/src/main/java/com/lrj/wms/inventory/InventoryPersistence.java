@@ -1,14 +1,19 @@
 package com.lrj.wms.inventory;
 
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.tcc.InventoryTccFence;
+import com.lrj.wms.inventory.tcc.ReservationTccAction;
 import com.mysql.cj.jdbc.MysqlDataSource;
+import java.time.Clock;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
-import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
+import org.apache.seata.rm.fence.SpringFenceHandler;
 import org.flywaydb.core.Flyway;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.mybatis.spring.transaction.SpringManagedTransactionFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -38,7 +43,8 @@ class InventoryPersistence {
 
     @Bean
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
-        Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
+        Configuration config = new Configuration(
+                new Environment("inventory", new SpringManagedTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class);
@@ -54,5 +60,18 @@ class InventoryPersistence {
     @Bean
     PlatformTransactionManager transactionManager(DataSource dataSource) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    /** Fence 与库存余额共用物理库；绑定失败直接阻止启动，不回落 AT。 */
+    @Bean
+    SpringFenceHandler inventoryTccFence(DataSource dataSource, PlatformTransactionManager transactionManager) {
+        return InventoryTccFence.bind(dataSource, transactionManager);
+    }
+
+    @Bean
+    ReservationTccAction reservationTccAction(SqlSessionFactory sqlSessionFactory) {
+        return new ReservationTccAction(
+                new com.lrj.wms.inventory.inventory.InventoryApplicationService(new SqlSessionTemplate(sqlSessionFactory),
+                        Clock.systemUTC()));
     }
 }

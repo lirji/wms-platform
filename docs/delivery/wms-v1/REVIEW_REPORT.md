@@ -295,3 +295,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - `TryPropagation` 无 XID 不得出头；错 XID/错 TM 拒绝。未引入 Seata 客户端，不是真实 Try。
 - DATETIME 截止按 JDBC `LocalDateTime` + JVM 默认时区还原，未发明 OQ-03 UTC 墙钟规则。
 - 确认：无 critical/high；AC-10/12 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S4-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- Confirm 只 CAS `TRIED→CONFIRMED`，不调用 `casReserveGood`；冻结门禁仍允许完成原预占。
+- Fence 与业务共用库存 DataSource/`TransactionTemplate`；拒绝 `DataSourceProxy`。inbound/outbound POM 仍无 seata。
+- 未 `RMClient.init`、未接真实 TC。空回滚由官方 Fence status=4 处理。
+- `cancelTried` 无预占时不再抛 `RESOURCE_NOT_FOUND`，以支持空回滚；带 XID 的 Cancel 校验所有者。
+- 确认：无 critical/high；AC-10/12 仍 planned；未到 S8 不创建 `wms-console/`。

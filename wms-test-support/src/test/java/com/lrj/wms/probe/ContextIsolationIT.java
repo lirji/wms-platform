@@ -119,14 +119,20 @@ class ContextIsolationIT {
         assertNull(RootContext.getXID());
     }
 
-    /** 三个业务服务未引入 Seata AT/XA 代理；TCC 只应出现在预占链路。 */
+    /** inbound/outbound 不引入 Seata；inventory 仅 TCC RM 且禁用 AT 数据源代理。 */
     @Test
     void businessServicesDoNotEnableAtOrXa() throws Exception {
-        for (String module : List.of("wms-inbound", "wms-outbound", "wms-inventory")) {
+        for (String module : List.of("wms-inbound", "wms-outbound")) {
             var pom = Files.readString(Path.of("..", module, "pom.xml"));
             assertFalse(pom.contains("seata"), module + " 不应依赖 Seata");
             assertFalse(pom.contains("atomikos") || pom.contains("narayana"), module + " 不应引入 XA");
         }
+        var inventoryPom = Files.readString(Path.of("..", "wms-inventory", "pom.xml"));
+        assertTrue(inventoryPom.contains("seata-all"), "inventory RM 需要 seata-all");
+        assertFalse(inventoryPom.contains("atomikos") || inventoryPom.contains("narayana"), "inventory 不应引入 XA");
+        var inventoryYml = Files.readString(Path.of("..", "wms-inventory", "src/main/resources/application.yml"));
+        assertTrue(inventoryYml.contains("enable-auto-data-source-proxy: false"));
+        assertFalse(inventoryYml.contains("enable-auto-data-source-proxy: true"));
         assertTrue(Class.forName("org.apache.seata.rm.datasource.DataSourceProxy")
                 .getName().startsWith("org.apache.seata"));
         assertNull(GlobalTransactionContext.getCurrent());

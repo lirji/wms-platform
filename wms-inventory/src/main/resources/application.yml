@@ -15,6 +15,11 @@ management:
       show-details: never
       probes:
         enabled: true
+seata:
+  enabled: true
+  enable-auto-data-source-proxy: false
+  application-id: ${spring.application.name}
+  tx-service-group: wms_inventory_group
 wms:
   oidc:
     issuer: ${WMS_OIDC_ISSUER:}
