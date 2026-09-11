@@ -276,3 +276,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 入库上架看最新质检结论和目标库位类型；不合格或发运位不写任务/实物。
 - 两仓并发失败仓保留 HOLD 意向，不删除本地记录。
 - 确认：无 critical/high；AC-08/09/15 仍 planned；未开始 `wms-console/`。
+
+## S3-05 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 观察绑定在额度检查之后写入，超量拒绝不留分批行。同序号只按摘要恢复，不按新 client 命令加量。
+- 业务事实键是 receiptSession+part+line；设备会话重置仍带原 part 则复用命令。缺身份直接隔离。
+- 未把 inbound 观察接到库存 HTTP。AC-47 端到端仍 planned。
+- 确认：无 critical/high；AC-47 仍 planned；未开始 `wms-console/`。

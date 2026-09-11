@@ -95,4 +95,54 @@ public interface InboundReceiptMapper {
     int addTaskCompleted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("taskId") String taskId, @Param("qty") BigDecimal qty, @Param("state") String state,
             @Param("now") Timestamp now);
+
+    @Insert("INSERT IGNORE INTO inbound_receipt_part (id, enterprise_id, warehouse_id, receipt_session_id, inbound_order_id, "
+            + "inbound_line_id, part_id, qty, command_id, actor_id, state, version, created_at, updated_at) VALUES (#{id}, "
+            + "#{enterpriseId}, #{warehouseId}, #{sessionId}, #{orderId}, #{lineId}, #{partId}, #{qty}, #{commandId}, "
+            + "#{actorId}, 'REGISTERED', 0, #{now}, #{now})")
+    int insertPartIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("sessionId") String sessionId, @Param("orderId") String orderId,
+            @Param("lineId") String lineId, @Param("partId") String partId, @Param("qty") BigDecimal qty,
+            @Param("commandId") String commandId, @Param("actorId") String actorId, @Param("now") Timestamp now);
+
+    @Select("SELECT id, part_id, qty, command_id, state FROM inbound_receipt_part WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND receipt_session_id=#{sessionId} AND part_id=#{partId} "
+            + "AND inbound_line_id=#{lineId} FOR UPDATE")
+    Map<String, Object> lockPart(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("sessionId") String sessionId, @Param("partId") String partId, @Param("lineId") String lineId);
+
+    @Insert("INSERT IGNORE INTO device_observation_binding (id, enterprise_id, warehouse_id, device_id, session_id, "
+            + "sequence_no, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, "
+            + "digest_version, state, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, "
+            + "#{deviceId}, #{deviceSessionId}, #{sequenceNo}, #{effectKey}, #{receiptSessionId}, #{partId}, #{lineId}, "
+            + "#{commandId}, #{digest}, 1, #{state}, 0, #{now}, #{now})")
+    int insertObservationIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("deviceId") String deviceId,
+            @Param("deviceSessionId") String deviceSessionId, @Param("sequenceNo") long sequenceNo,
+            @Param("effectKey") String effectKey, @Param("receiptSessionId") String receiptSessionId,
+            @Param("partId") String partId, @Param("lineId") String lineId, @Param("commandId") String commandId,
+            @Param("digest") String digest, @Param("state") String state, @Param("now") Timestamp now);
+
+    @Select("SELECT id, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, "
+            + "digest_version, state FROM device_observation_binding WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND device_id=#{deviceId} AND session_id=#{deviceSessionId} "
+            + "AND sequence_no=#{sequenceNo} FOR UPDATE")
+    Map<String, Object> lockObservation(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("deviceId") String deviceId, @Param("deviceSessionId") String deviceSessionId,
+            @Param("sequenceNo") long sequenceNo);
+
+    @Select("SELECT id, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, "
+            + "digest_version, state FROM device_observation_binding WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND device_id=#{deviceId} AND session_id=#{deviceSessionId} "
+            + "AND sequence_no=#{sequenceNo}")
+    Map<String, Object> getObservation(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("deviceId") String deviceId, @Param("deviceSessionId") String deviceSessionId,
+            @Param("sequenceNo") long sequenceNo);
+
+    @Update("UPDATE device_observation_binding SET business_effect_key=#{effectKey}, command_id=#{commandId}, state='BOUND', "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{id}")
+    int bindObservation(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id, @Param("effectKey") String effectKey, @Param("commandId") String commandId,
+            @Param("now") Timestamp now);
 }

@@ -327,3 +327,16 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 仍只三进程 |
 
 结论：S3-04 本地 verify pass。AC-08/09/15 仍 planned。S3-05 未开始。
+
+## S3-05 收货观察与分批额度
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ReceiptObservationIT` 重放/第二批 | 同序号换命令键仍 `CMD-O1`；第二批累计 physical=10；第三批 `OVER_RECEIVE`；`CMD-O1B` 不落命令 | 入库本库，不是库存过账 |
+| `ReceiptObservationIT` 隔离/重置会话 | 空设备 `AMBIGUOUS_OBSERVATION`；异数量 `OBSERVATION_CONFLICT`；新会话复用 `CMD-A1`，实物仍 3 | 入库本库 |
+| `InboundReceiptIT` / `InboundProtocolIT` | 回归通过 | 未破坏质检上架与 T1 换键 |
+| 定向 inbound `verify` | BUILD SUCCESS | 上述用例 |
+
+结论：S3-05 定向 IT pass。AC-47 仍 planned。S4 未开始。
