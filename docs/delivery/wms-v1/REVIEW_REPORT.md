@@ -358,3 +358,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 规划任务不预扣行剩余量，可能超计划；`pickPartial` 仍按行剩余拒绝 OVER_PICK。接受为 medium，S5-03 动作身份再收紧。
 - outbound POM 无 Seata。不写库存出库表，不派发 WCS。
 - 确认：无 critical/high；AC-13/14 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S5-02 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 生产代码是三端口；`SimulatorWcsAdapter` 常量 `SIMULATOR`。不是 Boot 服务，未加入 smoke。
+- 同 `deviceCommandId` 异内容冲突；查不到返回 empty，由调用方当 UNKNOWN，不换号。
+- UNKNOWN 回执保持 UNKNOWN，不标 COMPLETED。integration POM 无 Seata；`ContextIsolationIT` 已纳入。
+- 不写库存、不签发 permit、不派发物理动作。
+- 确认：无 critical/high；AC-25 仍 planned；未到 S8 不创建 `wms-console/`。

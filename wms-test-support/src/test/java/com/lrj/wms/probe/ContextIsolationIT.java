@@ -119,10 +119,10 @@ class ContextIsolationIT {
         assertNull(RootContext.getXID());
     }
 
-    /** inbound/outbound 不引入 Seata；inventory 仅 TCC RM 且禁用 AT 数据源代理。 */
+    /** inbound/outbound/integration 不引入 Seata；inventory 仅 TCC RM 且禁用 AT 数据源代理。 */
     @Test
     void businessServicesDoNotEnableAtOrXa() throws Exception {
-        for (String module : List.of("wms-inbound", "wms-outbound")) {
+        for (String module : List.of("wms-inbound", "wms-outbound", "wms-integration")) {
             var pom = Files.readString(Path.of("..", module, "pom.xml"));
             assertFalse(pom.contains("seata"), module + " 不应依赖 Seata");
             assertFalse(pom.contains("atomikos") || pom.contains("narayana"), module + " 不应引入 XA");

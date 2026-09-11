@@ -55,7 +55,7 @@ flowchart TB
 
 基础主数据由inventory内masterdata模块管理，inbound/outbound保留版本化快照；质检结论由inbound持有、库存资格由inventory接收并校验。各服务版本/状态分别建模，无共享事务管理器。服务间只共享契约，不共享Mapper、领域实体或业务实现。
 
-## 4. 模块组织（S4-01 已创建 fulfillment 映射服务；console/integration/query 仍未生成）
+## 4. 模块组织（S5-02 已创建 integration WCS 端口与 simulator；console/query 仍未生成）
 
 ```text
 wms-platform/

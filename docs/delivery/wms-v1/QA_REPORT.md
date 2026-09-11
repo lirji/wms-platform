@@ -478,3 +478,15 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-inventory -am -Dsurefire.skip=true -Dit.test=ThreeServiceProtocolIT verify` | BUILD SUCCESS；1 项 0 失败 | 三库协议回归 |
 
 结论：S5-01 本地 outbound 单据 pass。AC-13/14/15 黑盒、WCS、inventory permit/pick/ship 仍 planned。
+
+## S5-02 WCS 端口与 simulator
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21。进程内内存 simulator，无 Docker、无真实设备、未写库存。未发明 OQ-03。未到 S8，未创建 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SimulatorWcsAdapterIT` | `IMPLEMENTATION=SIMULATOR`；同命令重放；异 digest `COMMAND_CONFLICT`；未知命令查询为空；回执重放；UNKNOWN 保持 UNKNOWN；无库存写 | 内存适配器 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-integration -am -Dsurefire.skip=true -Dit.test=SimulatorWcsAdapterIT verify` | BUILD SUCCESS；1 项 0 失败 | 定向 |
+
+结论：S5-02 本地端口/simulator pass。AC-25 真实设备与 S5-03 STARTED 派发仍 planned。不要把 simulator 当现场协议。
