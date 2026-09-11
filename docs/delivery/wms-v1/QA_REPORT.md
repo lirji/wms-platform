@@ -280,3 +280,17 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 无 JDBC/issuer |
 
 结论：S3-01 本地 pass。AC-07 仍 planned。S3-02 未开始。
+
+## S3-02 序列号登记身份
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SerialRegistryIT` | 两仓并发 1 胜 1 `SERIAL_ALREADY_CLAIMED`；表行=1；规范化 `sn-1`→`SN-1` 重放 | 登记库唯一性，不是库存 HOLD/激活 |
+| `./mvnw -B -ntp -pl wms-serial-registry -am verify` | BUILD SUCCESS 14s | 新模块 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 03:16 min | 默认构建含新模块 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP | 仍只三进程，未拉登记服务 |
+
+结论：S3-02 定向 IT pass。AC-08 仍 planned。S3-03 未开始。

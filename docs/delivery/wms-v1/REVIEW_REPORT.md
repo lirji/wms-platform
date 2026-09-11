@@ -249,3 +249,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - T3 用 inbox 插入行数决定是否加 posted，重放不二次累计。超收在加 physical 前按剩余额度拒绝。
 - 质检版本乱序不覆盖已生效结论。本切片不改质量桶、不建序列号登记。
 - 确认：无 critical/high；AC-07 仍 planned；未开始 `wms-console/`。
+
+## S3-02 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 登记库独立模块，不写入库单或库存余额。唯一维是 enterprise+SKU+normalized_serial，符合已确认 OQ。
+- INSERT IGNORE + 行锁后比较 claim_operation_id，并发第二仓得到 `SERIAL_ALREADY_CLAIMED`。
+- 本切片只到 CLAIMED，不激活、不联合质检放行。smoke 仍三进程。
+- 确认：无 critical/high；AC-08 仍 planned；未开始 `wms-console/`。

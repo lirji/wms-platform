@@ -18,6 +18,7 @@
     <module>wms-inbound</module>
     <module>wms-outbound</module>
     <module>wms-inventory</module>
+    <module>wms-serial-registry</module>
     <module>wms-test-support</module>
   </modules>
   <properties>
