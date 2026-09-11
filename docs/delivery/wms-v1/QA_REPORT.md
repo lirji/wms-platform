@@ -368,5 +368,7 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-test-support -am -Pwarehouse-it -Dsurefire.skip=true -Dit.test=XxlAdminTriggerIT verify` | 1 项通过；日志 `XXL_ADMIN_TRIGGER: official 3.4.2 admin dispatched BEAN handler; executor did not hold TCC` | 官方 admin `/auth/doLogin` + `/jobinfo/trigger`；执行器清理 TCC。不是集群/分片 |
 | `./mvnw -B -ntp -pl wms-test-support -am -Pwarehouse-it -Dsurefire.skip=true verify` | 11 项，失败 0，01:24 | warehouse-it 含上述触发；其余分片/Fence/Kafka/线程池回归 |
 | `./scripts/generate-sbom.sh` 产物 | CycloneDX 75 组件；THIRD-PARTY 285 条；OSV 67 purl / 1 命中 | 候选快照，不是生产锁 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:05 min | 默认构建未激活 `-Psbom` |
 
 限制：Tomcat embed 11.0.24 有 3 条 GHSA，未 bump Spring Boot。`xxl-job-core` 许可证记为 GPL-3。ST4 4.3 许可证未知。probe 不是生产 TC 或履约交付。
