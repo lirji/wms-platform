@@ -31,7 +31,7 @@ python3 scripts/smoke-services.py
 ./scripts/seed-local.sh --profile isolated-wms
 ```
 
-前两条构建并启动三个独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。容量脚本尚未实现。
+前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，以及 Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路；tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。容量脚本尚未实现。
 
 `seed-local.sh` 只接受 `--profile isolated-wms`，且必须显式提供 Cell A/B 的 `WMS_INVENTORY_*_JDBC_URL` / 用户 / 口令；拒绝 43306 与 `dev-infra`。它会把 WH-A 写入 Cell A、WH-B 写入 Cell B，并把 5 类 SKU 种子写到两个库存库。这不是控制台，也不接生产库。
 

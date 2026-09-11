@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: wms-fulfillment
+server:
+  address: ${WMS_BIND_ADDRESS:127.0.0.1}
+  port: ${WMS_HTTP_PORT:18185}
+  max-http-request-header-size: 64KB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+wms:
+  oidc:
+    issuer: ${WMS_OIDC_ISSUER:}
+    jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
+    client-id: ${WMS_OIDC_CLIENT_ID:}

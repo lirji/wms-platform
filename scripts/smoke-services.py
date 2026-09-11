@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""启动本次构建的三个独立进程，验证健康与默认拒绝访问；不代表业务验收。"""
+"""启动本次构建的独立进程，验证健康与默认拒绝访问；不代表业务验收。"""
 import json
 import re
 import subprocess
@@ -15,7 +15,7 @@ def main():
     output = ROOT / ".local" / "smoke"
     output.mkdir(parents=True, exist_ok=True)
     try:
-        for service in ("inbound", "outbound", "inventory"):
+        for service in ("inbound", "outbound", "inventory", "fulfillment"):
             jar = ROOT / f"wms-{service}/target/wms-{service}-0.1.0-SNAPSHOT.jar"
             if not jar.is_file():
                 raise RuntimeError(f"先执行构建，缺少 {jar.name}")

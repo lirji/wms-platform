@@ -338,5 +338,23 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `ReceiptObservationIT` 隔离/重置会话 | 空设备 `AMBIGUOUS_OBSERVATION`；异数量 `OBSERVATION_CONFLICT`；新会话复用 `CMD-A1`，实物仍 3 | 入库本库 |
 | `InboundReceiptIT` / `InboundProtocolIT` | 回归通过 | 未破坏质检上架与 T1 换键 |
 | 定向 inbound `verify` | BUILD SUCCESS | 上述用例 |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:38 min | 默认构建含 V004 |
+| `python3 scripts/smoke-services.py` | 三进程 health UP，业务路径拒绝 | 仍只三进程 |
 
-结论：S3-05 定向 IT pass。AC-47 仍 planned。S4 未开始。
+结论：S3-05 本地 pass。AC-47 仍 planned。S4 未开始。
+
+## S4-01 履约 attempt/XID/participant 映射
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未开始 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `FulfillmentMappingIT` 重放/冲突 | 同源同摘要复用单头单行；异摘要 `ORDER_CONFLICT` | 履约本库 |
+| `FulfillmentMappingIT` XID/证据 | 绑定一次；改绑 `XID_ALREADY_BOUND`；仓分支改绑 `BRANCH_ALREADY_BOUND`；缺证据/未确认仓拒绝 ALLOCATED | 不是真实 TC/RM |
+| `FulfillmentMappingIT` 并发启动 | 同 XID 第二 attempt `XID_CONFLICT`；两执行器 claim 1 胜 1 `LAUNCH_CAS_LOST` | 履约本库 CAS |
+| `python3 scripts/check-docs.py` | PASS documents=20 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:22 min；fulfillment 3 项 0 失败 | 默认构建，不含 warehouse-it/tc-it/failure-it |
+| `python3 scripts/smoke-services.py` | inbound/outbound/inventory/fulfillment health UP，业务路径拒绝 | 独立进程；未接履约 JDBC |
+
+结论：S4-01 本地 verify pass。AC-10/12/41 仍 planned。S4-02 未开始。
