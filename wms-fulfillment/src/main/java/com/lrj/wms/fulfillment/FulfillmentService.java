@@ -312,6 +312,12 @@ public final class FulfillmentService {
         return attemptView(allocated, participants);
     }
 
+    /** 已绑 XID 且未放行的 attempt，供 XXL 同步观察。 */
+    public List<Map<String, Object>> listOpenBoundAttempts(String enterpriseId) {
+        requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
+        return session.getMapper(FulfillmentMapper.class).listOpenBoundAttempts(enterpriseId);
+    }
+
     /** 扫描已具备证据的 attempt，补齐 ALLOCATED 与屏障 Outbox。跳过仍缺确认的项。 */
     public int recoverReadyBarriers(String enterpriseId) {
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");

@@ -326,3 +326,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - Outbox 只请求建单/执行授权，不调用 outbound HTTP，不写 `source_command` / WCS。fulfillment POM 仍无 Seata。
 - 不是真实 TC 查询。XXL 监控留给 S4-06。
 - 确认：无 critical/high；未到 S8 不创建 `wms-console/`。
+
+## S4-06 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- Watch 只读 `TRIED`/`CONFIRMED`，先 `RootContext.unbind()`；`refusePhaseTwo` 固定抛错。没有 TTL 释放路径。
+- Sweep 缺证据才读 `TcStatusPort`；默认 `UnavailableTcStatusPort` 返回 empty，不发明终态。有观察后再走既有 `recoverReadyBarriers`。
+- `@XxlJob` 仅标注 handler 名。未注册 `XxlJobSpringExecutor`，避免 smoke 连 admin。
+- fulfillment 增加 `xxl-job-core`，仍无 Seata。不要把 stub 端口当生产审计。
+- 确认：无 critical/high；未到 S8 不创建 `wms-console/`。

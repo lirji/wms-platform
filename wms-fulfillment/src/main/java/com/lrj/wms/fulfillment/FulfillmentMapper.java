@@ -170,6 +170,12 @@ public interface FulfillmentMapper {
     List<Map<String, Object>> listParticipantLines(@Param("enterpriseId") String enterpriseId,
             @Param("attemptId") String attemptId);
 
+    /** 已绑 XID、尚未终态放行的 attempt，供观察同步。 */
+    @Select("SELECT id, xid, state, tc_observed_status, tc_terminal_evidence FROM allocation_attempt "
+            + "WHERE enterprise_id=#{enterpriseId} AND xid IS NOT NULL "
+            + "AND state IN ('TCC_TRYING','TCC_COMPLETING') ORDER BY id LIMIT 100")
+    List<Map<String, Object>> listOpenBoundAttempts(@Param("enterpriseId") String enterpriseId);
+
     /** TC 已提交、可补齐 ALLOCATED/Outbox 的 attempt。 */
     @Select("SELECT id FROM allocation_attempt WHERE enterprise_id=#{enterpriseId} "
             + "AND tc_observed_status='Committed' AND tc_terminal_evidence IS NOT NULL "

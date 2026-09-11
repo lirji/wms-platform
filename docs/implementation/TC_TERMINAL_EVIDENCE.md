@@ -12,7 +12,7 @@ S0-09隔离POC，尚未批准为生产方案。沿用跨仓Seata TCC及“固定
 
 这属于TC存储审计扩展，不创建业务决定权，不由XXL-JOB决定Confirm/Cancel，也不允许库存服务直接修改TC业务表。正式实现的证据查询应通过受控适配接口，只读审计数据；业务服务不得持有TC写权限。
 
-恢复放行还必须校验绑定XID、TM应用/事务组、当前attempt/launchEpoch及固定参与者Fence。`TerminalEvidenceAdapter`在`tc-it`/`failure-it`中只读查询`terminal_evidence`并结合履约库attempt做这些校验；缺证据、身份不匹配、空参与者、查询失败为`RECOVERY_PENDING`，回滚终态为`DENIED`，不得写ALLOCATED Outbox。XXL路径禁止Confirm/Cancel。这仍不是正式`wms-fulfillment`服务或生产权限模型。环境/集群作用域的完整生产校验仍待S4。
+恢复放行还必须校验绑定XID、TM应用/事务组、当前attempt/launchEpoch及固定参与者Fence。`TerminalEvidenceAdapter`在`tc-it`/`failure-it`中只读查询`terminal_evidence`并结合履约库attempt做这些校验；缺证据、身份不匹配、空参与者、查询失败为`RECOVERY_PENDING`，回滚终态为`DENIED`，不得写ALLOCATED Outbox。XXL路径禁止Confirm/Cancel。S4-06 的 `allocationRecoverySweep` 只通过只读 `TcStatusPort` 写观察副本并补齐业务 Outbox；默认 `UnavailableTcStatusPort` 不合成终态。这仍不是生产 TC 审计账号、会话保留期或 HA 验收。环境/集群作用域的完整生产校验仍待运维签署。
 
 ## 真实验证入口
 

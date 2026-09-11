@@ -146,6 +146,13 @@ public interface InventoryMapper {
             @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
             @Param("attemptId") String attemptId);
 
+    /** 巡检仍占用的预占，只读，不驱动 Confirm/Cancel。 */
+    @Select("SELECT id, allocation_id, attempt_id, state, xid, updated_at FROM reservation "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND state IN ('TRIED','CONFIRMED') ORDER BY updated_at, id LIMIT #{limit}")
+    java.util.List<Map<String, Object>> listWatchReservations(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+
     /** 读取预占明细（调用方已锁头）。 */
     @Select("SELECT id, balance_id, requested_qty, remaining_qty, version FROM reservation_line "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND reservation_id=#{reservationId}")

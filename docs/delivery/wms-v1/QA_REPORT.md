@@ -432,3 +432,18 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-fulfillment -am verify` | BUILD SUCCESS；failsafe 6 项 0 失败 | 默认构建 |
 
 结论：S4-05 本地 fulfillment verify pass。AC-12 的履约 Outbox 屏障在本库成立；真实 TC 终态查询与 XXL 监控仍 planned（S4-06）。
+
+## S4-06 XXL 只监控不发二阶段
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。Handler 在进程内直接调用，不是官方 admin 触发，不是 XXL 集群/分片，不是真实 TC DB 审计。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `TccReservationWatchIT` | 绑定 XID 后巡检清掉上下文；state 仍 TRIED；reserved=3；`refusePhaseTwo` 抛错 | 同进程 handler，不是 admin |
+| `AllocationRecoverySweepIT` 默认端口 | `UnavailableTcStatusPort` 保持 pending、0 Outbox | 不合成终态 |
+| `AllocationRecoverySweepIT` stub 端口 | 写入 Committed 观察后 ALLOCATED + 5 PENDING | 观察副本 + 本库屏障，不是 Seata 查询 |
+| `FulfillmentBarrierIT` / `FulfillmentMappingIT` / `FulfillmentPlanIT` | 回归 0 失败 | S4-02/05 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp -pl wms-inventory,wms-fulfillment -am verify` | BUILD SUCCESS；inventory failsafe 41、fulfillment 7，0 失败 | 默认构建未启 XXL admin / Seata |
+
+结论：S4-06 本地 monitor/sweep pass。AC-10 的「XXL 不释放 TRIED」仅在进程内 handler 成立。AC-12/42 的真实 TC 查询、XXL 集群与运维会话保留仍 planned。
