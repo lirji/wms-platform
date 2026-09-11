@@ -285,3 +285,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 业务事实键是 receiptSession+part+line；设备会话重置仍带原 part 则复用命令。缺身份直接隔离。
 - 未把 inbound 观察接到库存 HTTP。AC-47 端到端仍 planned。
 - 确认：无 critical/high；AC-47 仍 planned；未开始 `wms-console/`。
+
+## S4-02 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- `allocation_digest` 含仓+行+SKU+数量+单位；不足量拒绝，不写 attempt。
+- 截止后拒绝 claim/bind/tryHeaders；观察/ALLOCATED 不走该门。
+- `TryPropagation` 无 XID 不得出头；错 XID/错 TM 拒绝。未引入 Seata 客户端，不是真实 Try。
+- DATETIME 截止按 JDBC `LocalDateTime` + JVM 默认时区还原，未发明 OQ-03 UTC 墙钟规则。
+- 确认：无 critical/high；AC-10/12 仍 planned；未到 S8 不创建 `wms-console/`。

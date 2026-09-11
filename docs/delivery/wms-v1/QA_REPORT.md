@@ -372,3 +372,17 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp verify` | BUILD SUCCESS 04:05 min | 默认构建未激活 `-Psbom` |
 
 限制：Tomcat embed 11.0.24 有 3 条 GHSA，未 bump Spring Boot。`xxl-job-core` 许可证记为 GPL-3。ST4 4.3 许可证未知。probe 不是生产 TC 或履约交付。
+
+## S4-02 冻结选仓数量摘要与有界 Try
+
+环境：2026-09-11，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `FulfillmentPlanIT` 冻结 | 数量不足 `QTY_MISMATCH`；等量分仓写入 `allocation_digest`；活动 attempt 不得重开 | 履约本库；不是自动选仓算法 |
+| `FulfillmentPlanIT` 有界Try/头 | 未绑定拒绝空 `TX_XID`；绑定后头含 XID 与 `wms-fulfillment`；截止后 `TRY_DEADLINE_EXCEEDED` | 不是 Seata begin/Confirm |
+| `FulfillmentMappingIT` 回归 | 3 项 0 失败 | S4-01 映射仍成立 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| `./mvnw -B -ntp verify` | BUILD SUCCESS 04:10 min；fulfillment 5 项 0 失败 | 默认构建 |
+
+结论：S4-02 定向 IT pass。AC-10/12 仍 planned。S4-03 未开始。

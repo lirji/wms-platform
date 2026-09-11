@@ -48,18 +48,27 @@ public interface FulfillmentMapper {
             @Param("attemptId") String attemptId, @Param("expectedActive") String expectedActive,
             @Param("version") long version, @Param("now") Timestamp now);
 
+    /** 读取履约行，供冻结数量校验。 */
+    @Select("SELECT source_line_id, sku_id, requested_qty, base_unit FROM fulfillment_line "
+            + "WHERE enterprise_id=#{enterpriseId} AND fulfillment_id=#{fulfillmentId} "
+            + "ORDER BY source_line_id FOR UPDATE")
+    List<Map<String, Object>> lockLines(@Param("enterpriseId") String enterpriseId,
+            @Param("fulfillmentId") String fulfillmentId);
+
     /** 插入未绑定XID的attempt。 */
     @Insert("INSERT INTO allocation_attempt (id, enterprise_id, fulfillment_id, state, deadline, participant_set_hash, "
-            + "cancel_requested, launch_epoch, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, "
-            + "#{fulfillmentId}, #{state}, #{deadline}, #{hash}, 0, 0, 0, #{now}, #{now})")
+            + "allocation_digest, cancel_requested, launch_epoch, version, created_at, updated_at) VALUES (#{id}, "
+            + "#{enterpriseId}, #{fulfillmentId}, #{state}, #{deadline}, #{hash}, #{digest}, 0, 0, 0, #{now}, #{now})")
     int insertAttempt(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("fulfillmentId") String fulfillmentId, @Param("state") String state,
-            @Param("deadline") Timestamp deadline, @Param("hash") String hash, @Param("now") Timestamp now);
+            @Param("deadline") Timestamp deadline, @Param("hash") String hash, @Param("digest") String digest,
+            @Param("now") Timestamp now);
 
     /** 锁定attempt映射行。 */
     @Select("SELECT id, fulfillment_id, state, deadline, xid, tc_observed_status, tc_terminal_evidence, "
-            + "participant_set_hash, cancel_requested, launch_epoch, launch_owner, launch_lease_until, xid_bound_at, "
-            + "version FROM allocation_attempt WHERE enterprise_id=#{enterpriseId} AND id=#{id} FOR UPDATE")
+            + "participant_set_hash, allocation_digest, cancel_requested, launch_epoch, launch_owner, "
+            + "launch_lease_until, xid_bound_at, version FROM allocation_attempt "
+            + "WHERE enterprise_id=#{enterpriseId} AND id=#{id} FOR UPDATE")
     Map<String, Object> lockAttempt(@Param("enterpriseId") String enterpriseId, @Param("id") String id);
 
     /** 领取启动权：无主、本执行器或租约过期才可提升代际。 */

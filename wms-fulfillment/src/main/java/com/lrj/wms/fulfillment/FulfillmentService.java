@@ -109,13 +109,15 @@ public final class FulfillmentService {
                 throw new FulfillmentException("ATTEMPT_IN_PROGRESS", "活动attempt未知或未终态，不能重开");
             }
         }
+        freezeAgainstOrder(mapper, enterpriseId, fulfillmentId, uniqueWarehouses, participantLines);
         String hash = participantHash(uniqueWarehouses);
+        String digest = AllocationPlan.digest(participantLines);
         String attemptId = UUID.randomUUID().toString();
         if (deadline == null) {
             throw new FulfillmentException("INVALID_DEADLINE", "截止时刻不能为空");
         }
         mapper.insertAttempt(attemptId, enterpriseId, fulfillmentId, ATTEMPT_PLANNED, Timestamp.from(deadline),
-                hash, now);
+                hash, digest, now);
         for (String warehouseId : uniqueWarehouses) {
             String participantId = UUID.randomUUID().toString();
             mapper.insertParticipant(participantId, enterpriseId, attemptId, warehouseId, PARTICIPANT_PLANNED, now);
@@ -141,6 +143,7 @@ public final class FulfillmentService {
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        refuseExpiredTry(attempt);
         String xid = nullable(attempt.get("xid"));
         String owner = nullable(attempt.get("launch_owner"));
         long epoch = ((Number) attempt.get("launch_epoch")).longValue();
@@ -169,6 +172,7 @@ public final class FulfillmentService {
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        refuseExpiredTry(attempt);
         String bound = nullable(attempt.get("xid"));
         String owner = nullable(attempt.get("launch_owner"));
         long epoch = ((Number) attempt.get("launch_epoch")).longValue();
@@ -221,6 +225,7 @@ public final class FulfillmentService {
         }
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        refuseExpiredTry(attempt);
         String bound = nullable(attempt.get("xid"));
         if (bound == null) {
             throw new FulfillmentException("XID_NOT_BOUND", "attempt尚未绑定XID，不能登记仓分支");
@@ -257,6 +262,16 @@ public final class FulfillmentService {
             throw new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在");
         }
         return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+    }
+
+    /** 已绑定 XID 后生成下游 Try 头；禁止空上下文。 */
+    public Map<String, String> tryHeaders(String enterpriseId, String attemptId) {
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
+        refuseExpiredTry(attempt);
+        Map<String, String> headers = TryPropagation.headers(nullable(attempt.get("xid")));
+        TryPropagation.requireMatch(headers, nullable(attempt.get("xid")));
+        return headers;
     }
 
     /** 仅当 TC Committed 证据与全部仓 CONFIRMED 同时满足才写 ALLOCATED。 */
@@ -302,6 +317,67 @@ public final class FulfillmentService {
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
+    }
+
+    private void freezeAgainstOrder(FulfillmentMapper mapper, String enterpriseId, String fulfillmentId,
+            Set<String> warehouses, List<Map<String, Object>> participantLines) {
+        List<Map<String, Object>> orderLines = mapper.lockLines(enterpriseId, fulfillmentId);
+        if (orderLines.isEmpty()) {
+            throw new FulfillmentException("INVALID_LINE", "履约行不存在，不能冻结分配");
+        }
+        Map<String, Map<String, Object>> bySource = new LinkedHashMap<>();
+        for (Map<String, Object> line : orderLines) {
+            bySource.put(String.valueOf(line.get("source_line_id")), line);
+        }
+        Map<String, BigDecimal> assigned = new LinkedHashMap<>();
+        for (Map<String, Object> line : participantLines) {
+            String orderLineId = required(line, "orderLineId");
+            Map<String, Object> orderLine = bySource.get(orderLineId);
+            if (orderLine == null) {
+                throw new FulfillmentException("INVALID_LINE", "参与行不是履约行");
+            }
+            if (!String.valueOf(orderLine.get("sku_id")).equals(required(line, "skuId"))
+                    || !String.valueOf(orderLine.get("base_unit")).equals(required(line, "baseUnit"))) {
+                throw new FulfillmentException("QTY_MISMATCH", "参与行SKU或单位与履约行不一致");
+            }
+            if (!warehouses.contains(required(line, "warehouseId"))) {
+                throw new FulfillmentException("INVALID_PARTICIPANT", "参与行仓库不在固定清单中");
+            }
+            assigned.merge(orderLineId, requiredQty(line.get("qty")), BigDecimal::add);
+        }
+        if (assigned.size() != bySource.size()) {
+            throw new FulfillmentException("QTY_MISMATCH", "每个履约行都必须有冻结数量");
+        }
+        for (Map.Entry<String, Map<String, Object>> entry : bySource.entrySet()) {
+            BigDecimal requested = requiredQty(entry.getValue().get("requested_qty"));
+            BigDecimal total = assigned.get(entry.getKey());
+            if (requested == null || total == null || requested.compareTo(total) != 0) {
+                throw new FulfillmentException("QTY_MISMATCH", "冻结数量必须等于履约行请求数量");
+            }
+        }
+    }
+
+    private void refuseExpiredTry(Map<String, Object> attempt) {
+        Instant deadline = toInstant(attempt.get("deadline"));
+        if (deadline != null && !clock.instant().isBefore(deadline)) {
+            throw new FulfillmentException("TRY_DEADLINE_EXCEEDED", "超过有界Try截止，不能再发起或传播");
+        }
+    }
+
+    private static Instant toInstant(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.time.LocalDateTime local) {
+            return local.atZone(java.time.ZoneId.systemDefault()).toInstant();
+        }
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        throw new IllegalStateException("不支持的截止时刻类型: " + value.getClass().getName());
     }
 
     private Map<String, Object> requireAttempt(FulfillmentMapper mapper, String enterpriseId, String attemptId) {
@@ -356,6 +432,7 @@ public final class FulfillmentService {
         body.put("tcObservedStatus", attempt.get("tc_observed_status"));
         body.put("tcTerminalEvidence", attempt.get("tc_terminal_evidence"));
         body.put("participantSetHash", attempt.get("participant_set_hash"));
+        body.put("allocationDigest", attempt.get("allocation_digest"));
         body.put("launchEpoch", attempt.get("launch_epoch"));
         body.put("launchOwner", attempt.get("launch_owner"));
         List<String> warehouses = new ArrayList<>();
