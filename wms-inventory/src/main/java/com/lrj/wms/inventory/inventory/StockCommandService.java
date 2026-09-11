@@ -103,9 +103,7 @@ public final class StockCommandService {
             throw new InventoryException("EFFECT_ALREADY_APPLIED", "已过账不得取消为墓碑");
         }
         Map<String, Object> permit = commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId);
-        if (permit != null && StockCommandCodes.PERMIT_STARTED.equals(String.valueOf(permit.get("state")))) {
-            throw new InventoryException("PERMIT_STARTED", "已开始执行不得普通取消");
-        }
+        refuseIfOccupying(permit);
         commands.insertIgnore(enterpriseId, warehouseId, sourceService, commandId, action, effectId, commandId, 1L, null,
                 digest, CommandDigest.VERSION_1, StockCommandCodes.CMD_CANCELLED, now);
         Map<String, Object> row = commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId);
@@ -145,9 +143,7 @@ public final class StockCommandService {
             throw new InventoryException("STALE_EXECUTION_ATTEMPT", "STARTED/UNKNOWN 不得发新尝试");
         }
         Map<String, Object> permit = commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId);
-        if (permit != null && StockCommandCodes.PERMIT_STARTED.equals(String.valueOf(permit.get("state")))) {
-            throw new InventoryException("PERMIT_STARTED", "已开始执行不得安全关闭");
-        }
+        refuseIfOccupying(permit);
         String closeId = UUID.randomUUID().toString();
         if (commands.markSafeClose(enterpriseId, warehouseId, sourceService, commandId, closeId,
                 "{\"commandId\":\"" + commandId + "\"}", now) != 1) {
@@ -177,6 +173,13 @@ public final class StockCommandService {
         if (reused != null) {
             return view(reused);
         }
+        Map<String, Object> original = commands.lockPosting(enterpriseId, warehouseId, originalPostingId);
+        if (original == null) {
+            throw new InventoryException("ORIGINAL_POSTING_MISSING", "补偿必须引用原过账凭证");
+        }
+        if (commands.addReversed(enterpriseId, warehouseId, originalPostingId, qty.toBigDecimal(), now) != 1) {
+            throw new InventoryException("OVER_REVERSE", "逆向累计超过原凭证可逆量");
+        }
         commands.insertIgnore(enterpriseId, warehouseId, sourceService, commandId, EffectCodes.ACTION_COMPENSATE, effectId,
                 commandId, 1L, null, digest, CommandDigest.VERSION_1, StockCommandCodes.CMD_PENDING, now);
         Map<String, Object> terminal = replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest);
@@ -199,6 +202,74 @@ public final class StockCommandService {
             throw new InventoryException("VERSION_CONFLICT", "补偿命令冲突");
         }
         return get(enterpriseId, warehouseId, sourceService, commandId);
+    }
+
+    /** STARTED 授权。同身份重放返回原 permit；UNKNOWN 保持占用且不得换新命令。 */
+    public Map<String, Object> startPermit(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String taskId, long taskEpoch, String parentId, String partId, String lineId, BigDecimal qty) {
+        EffectCodes.requireAction(EffectCodes.ACTION_PICK);
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1Parts(EffectCodes.ACTION_PICK, taskId, String.valueOf(taskEpoch),
+                qty.toPlainString(), commandId);
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, EffectCodes.ACTION_PICK,
+                EffectCodes.FACT_SUB_ACTION, parentId, partId, lineId, now);
+        Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_PICK, effectId, effect, null, digest);
+        if (reused != null) {
+            return startView(reused, commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService,
+                    String.valueOf(reused.get("command_id"))));
+        }
+        long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_PICK, effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
+            return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId),
+                    commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
+        }
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_STARTED,
+                now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "STARTED绑定冲突");
+        }
+        String attemptId = UUID.randomUUID().toString();
+        commands.insertPermit(UUID.randomUUID().toString(), enterpriseId, warehouseId, sourceService, commandId, effectId,
+                attemptId, attemptNo, taskId, taskEpoch, EffectCodes.ACTION_PICK, digest, qty, BigDecimal.ZERO,
+                qty, StockCommandCodes.PERMIT_STARTED, now, null, now);
+        return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId),
+                commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
+    }
+
+    /** 设备未知：permit/效果进入 UNKNOWN，不释放占用，不能普通取消。 */
+    public Map<String, Object> markUnknown(String enterpriseId, String warehouseId, String sourceService, String commandId) {
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        Map<String, Object> permit = commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId);
+        if (permit == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "执行授权不存在");
+        }
+        String permitState = String.valueOf(permit.get("state"));
+        if (StockCommandCodes.PERMIT_UNKNOWN.equals(permitState)) {
+            return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId), permit);
+        }
+        if (!StockCommandCodes.PERMIT_STARTED.equals(permitState)) {
+            throw new InventoryException("INVALID_STATE", "仅STARTED可以记UNKNOWN");
+        }
+        Map<String, Object> command = commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId);
+        if (command == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "命令不存在");
+        }
+        if (effects.casBindActive(enterpriseId, warehouseId, String.valueOf(command.get("business_effect_key")), commandId,
+                longValue(command.get("attempt_no")), EffectCodes.STATE_UNKNOWN, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "UNKNOWN绑定冲突");
+        }
+        if (commands.casPermitState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.PERMIT_STARTED,
+                StockCommandCodes.PERMIT_UNKNOWN, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "UNKNOWN授权冲突");
+        }
+        return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId),
+                commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
     }
 
     /** 恢复查询，不改变状态。 */
@@ -291,6 +362,30 @@ public final class StockCommandService {
             throw new InventoryException("RESOURCE_NOT_FOUND", "效果登记失败");
         }
         return effectId;
+    }
+
+    private static void refuseIfOccupying(Map<String, Object> permit) {
+        if (permit == null) {
+            return;
+        }
+        String state = String.valueOf(permit.get("state"));
+        if (StockCommandCodes.PERMIT_STARTED.equals(state)) {
+            throw new InventoryException("PERMIT_STARTED", "已开始执行不得普通取消或安全关闭");
+        }
+        if (StockCommandCodes.PERMIT_UNKNOWN.equals(state)) {
+            throw new InventoryException("PERMIT_UNKNOWN", "未知结果保持占用，不得释放");
+        }
+    }
+
+    private static Map<String, Object> startView(Map<String, Object> command, Map<String, Object> permit) {
+        Map<String, Object> body = view(command);
+        if (permit != null) {
+            body.put("permitId", permit.get("permit_id"));
+            body.put("permitState", permit.get("state"));
+            body.put("taskId", permit.get("source_task_id"));
+            body.put("taskEpoch", permit.get("source_task_epoch"));
+        }
+        return body;
     }
 
     private static Map<String, Object> view(Map<String, Object> row) {

@@ -96,11 +96,19 @@ public interface OutboundOrderMapper {
             @Param("sourceLocationId") String sourceLocationId, @Param("targetLocationId") String targetLocationId,
             @Param("plannedQty") BigDecimal plannedQty, @Param("state") String state, @Param("now") Timestamp now);
 
-    @Select("SELECT id, document_id, document_line_id, planned_qty, completed_qty, state, claim_epoch, version "
-            + "FROM outbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} "
-            + "FOR UPDATE")
+    @Select("SELECT id, document_id, document_line_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, "
+            + "action_id, device_command_id, version FROM outbound_task WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND id=#{id} FOR UPDATE")
     Map<String, Object> lockTask(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id);
+
+    @Update("UPDATE outbound_task SET assignee_id=#{workerId}, claim_epoch=#{epoch}, action_id=#{actionId}, "
+            + "device_command_id=#{deviceCommandId}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")
+    int claimTask(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id, @Param("workerId") String workerId, @Param("epoch") long epoch,
+            @Param("actionId") String actionId, @Param("deviceCommandId") String deviceCommandId,
+            @Param("now") Timestamp now);
 
     @Update("UPDATE outbound_task SET completed_qty=completed_qty+#{qty}, state=#{state}, version=version+1, "
             + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")

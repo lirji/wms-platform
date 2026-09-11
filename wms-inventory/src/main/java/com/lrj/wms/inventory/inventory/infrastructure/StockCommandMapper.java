@@ -100,9 +100,28 @@ public interface StockCommandMapper {
             @Param("state") String state, @Param("startedAt") Timestamp startedAt, @Param("postedAt") Timestamp postedAt,
             @Param("now") Timestamp now);
 
-    @Select("SELECT permit_id, state FROM execution_permit WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+    @Select("SELECT permit_id, command_id, state, quantity, source_task_id, source_task_epoch FROM execution_permit "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
             + "AND source_service=#{sourceService} AND command_id=#{commandId} FOR UPDATE")
     Map<String, Object> lockPermitByCommand(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("commandId") String commandId);
+
+    @Update("UPDATE execution_permit SET state=#{toState}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND source_service=#{sourceService} "
+            + "AND command_id=#{commandId} AND state=#{fromState}")
+    int casPermitState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("sourceService") String sourceService, @Param("commandId") String commandId,
+            @Param("fromState") String fromState, @Param("toState") String toState, @Param("now") Timestamp now);
+
+    @Select("SELECT id, quantity, reversed_qty, command_id FROM stock_posting "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} FOR UPDATE")
+    Map<String, Object> lockPosting(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id);
+
+    @Update("UPDATE stock_posting SET reversed_qty=reversed_qty+#{qty}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} "
+            + "AND reversed_qty+#{qty}<=quantity")
+    int addReversed(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 }

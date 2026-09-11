@@ -490,3 +490,17 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `./mvnw -B -ntp -pl wms-integration -am -Dsurefire.skip=true -Dit.test=SimulatorWcsAdapterIT verify` | BUILD SUCCESS；1 项 0 失败 | 定向 |
 
 结论：S5-02 本地端口/simulator pass。AC-25 真实设备与 S5-03 STARTED 派发仍 planned。不要把 simulator 当现场协议。
+
+## S5-03 STARTED 派发身份与逆向上限
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。outbound 授权口为内存桩，不是 inventory HTTP。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ExecutionPermitIT` | STARTED 重放；换 command 复用原身份；UNKNOWN 拒取消；补偿 4/5 后超 2 得 `OVER_REVERSE` | inventory 本库 |
+| `OutboundDispatchIT` | 未领取 `WORKER_FENCED`；换主沿用 `device_command_id`；旧 epoch 围栏；UNKNOWN 拒新派发；`SIMULATOR` | outbound + 内存授权 + simulator |
+| `OutboundPickIT` / `OutboundProtocolIT` / `EffectCommandUniquenessIT` | 回归 0 失败 | S5-01 / S2-07 |
+| `python3 scripts/check-docs.py` | 待提交时结构检查 | 结构 |
+| 定向 Maven | inventory 2 项、outbound 3 项，0 失败 | 定向 |
+
+结论：S5-03 本地身份/占用/逆向 pass。AC-13/25 黑盒与真实设备仍 planned。不要把内存授权桩当跨服务 STARTED。

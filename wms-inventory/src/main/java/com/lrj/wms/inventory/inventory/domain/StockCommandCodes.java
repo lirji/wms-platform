@@ -12,6 +12,7 @@ public final class StockCommandCodes {
 
     public static final String PERMIT_PREPARED = "PREPARED";
     public static final String PERMIT_STARTED = "STARTED";
+    public static final String PERMIT_UNKNOWN = "UNKNOWN";
     public static final String PERMIT_POSTED = "POSTED";
     public static final String PERMIT_CANCELLED = "CANCELLED";
 

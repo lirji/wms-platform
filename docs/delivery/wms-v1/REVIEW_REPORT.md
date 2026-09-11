@@ -368,3 +368,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - UNKNOWN 回执保持 UNKNOWN，不标 COMPLETED。integration POM 无 Seata；`ContextIsolationIT` 已纳入。
 - 不写库存、不签发 permit、不派发物理动作。
 - 确认：无 critical/high；AC-25 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S5-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- `startPermit` 绑定 STARTED；`markUnknown` 不释放 permit。取消/安全关闭拒绝 STARTED/UNKNOWN。
+- 补偿先锁原 posting 再 CAS `reversed_qty+qty<=quantity`。
+- 出库 `action_id`/`device_command_id` 只生成一次。旧 `claim_epoch` 不能派发。UNKNOWN 回执后拒新派工。
+- outbound 不写库存表；IT 用 `ExecutionAuthorizationPort` 内存桩。真实跨库 STARTED 留给后续切片。
+- 确认：无 critical/high；AC-13/25 仍 planned；未到 S8 不创建 `wms-console/`。

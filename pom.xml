@@ -16,11 +16,11 @@
     <module>wms-contract</module>
     <module>wms-security</module>
     <module>wms-inbound</module>
+    <module>wms-integration</module>
     <module>wms-outbound</module>
     <module>wms-inventory</module>
     <module>wms-serial-registry</module>
     <module>wms-fulfillment</module>
-    <module>wms-integration</module>
     <module>wms-test-support</module>
   </modules>
   <properties>
