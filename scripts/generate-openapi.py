@@ -312,7 +312,7 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      schema: { type: string, minLength: 8, maxLength: 128 }
+      schema: { type: string, minLength: 1, maxLength: 64 }
       description: 与 clientOperationId 一致；同键同内容返回原结果，同键异内容 409
     XRequestId:
       name: X-Request-Id
@@ -325,6 +325,7 @@ components:
       required: false
       schema: { type: string }
     Cursor:
+      description: 不透明游标，绑定原查询条件；更换筛选或投影世代后从第一页重新读取。
       name: cursor
       in: query
       required: false
@@ -460,11 +461,14 @@ components:
       required: false
       schema: { type: string }
     WarehouseIdsQuery:
+      description: 当前单次查询只支持一个仓库；跨仓分别读取并保留各仓水位。
       name: warehouseIds
       in: query
-      required: false
+      required: true
       schema:
         type: array
+        minItems: 1
+        maxItems: 1
         items: { $ref: '#/components/schemas/Id' }
   responses:
     Ok:
@@ -525,6 +529,13 @@ components:
             - STALE_EXECUTION_ATTEMPT
             - EFFECT_ALREADY_APPLIED
             - RECOVERY_PENDING
+            - INVALID_ARGUMENT
+            - INVALID_PAGE
+            - DATABASE_UNAVAILABLE
+            - QUERY_OVERLOADED
+            - RATE_LIMITED
+            - DUPLICATE_DOCUMENT
+            - DUPLICATE_INSPECTION
         message: { type: string }
         requestId: { type: string }
         operationId: { $ref: '#/components/schemas/Id' }
@@ -605,335 +616,486 @@ components:
         expectedVersion: { $ref: '#/components/schemas/Version' }
         clientOperationId: { $ref: '#/components/schemas/Id' }
     FulfillmentCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [sourceSystem, sourceOrderNo, strategyVersion, lines]
+      required: ["sourceSystem","sourceOrderNo","lines"]
       properties:
-        sourceSystem: { type: string }
-        sourceOrderNo: { $ref: '#/components/schemas/Id' }
-        strategyVersion: { $ref: '#/components/schemas/Version' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        sourceSystem:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        sourceOrderNo:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        digest:
+          type: "string"
+          maxLength: 64
         lines:
-          type: array
+          type: "array"
+          items:
+            $ref: "#/components/schemas/FulfillmentLine"
           minItems: 1
           maxItems: 200
-          items:
-            type: object
-            additionalProperties: false
-            required: [sourceLineId, skuId, quantity, unit]
-            properties:
-              sourceLineId: { $ref: '#/components/schemas/Id' }
-              skuId: { $ref: '#/components/schemas/Id' }
-              quantity: { $ref: '#/components/schemas/Quantity' }
-              unit: { type: string }
-              minRemainingDays: { type: integer, minimum: 0 }
+        strategyVersion:
+          type: "integer"
+          minimum: 0
     ExecutionAuthorizationRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [attemptId, authorizationId, xid, tcTerminalEvidenceRef, participantSetHash]
+      required: ["attemptId","authorizationId","xid","tcTerminalEvidenceRef","participantSetHash"]
       properties:
-        attemptId: { $ref: '#/components/schemas/Id' }
-        authorizationId: { $ref: '#/components/schemas/Id' }
-        xid: { type: string }
-        tcTerminalEvidenceRef: { type: string }
-        participantSetHash: { type: string }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        attemptId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        authorizationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        xid:
+          type: "string"
+          maxLength: 128
+          minLength: 1
+        tcTerminalEvidenceRef:
+          type: "string"
+          maxLength: 256
+          minLength: 1
+        participantSetHash:
+          type: "string"
+          maxLength: 64
+          minLength: 1
     InboundOrderCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [sourceSystem, externalNo, ownerId, lines]
+      required: ["sourceSystem","externalNo","ownerId","lines"]
       properties:
-        sourceSystem: { type: string }
-        externalNo: { $ref: '#/components/schemas/Id' }
-        ownerId: { $ref: '#/components/schemas/Id' }
-        expectedAt: { type: string, format: date-time }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        inboundOrderId:
+          type: "string"
+          maxLength: 64
+        sourceSystem:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        externalNo:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        ownerId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
         lines:
-          type: array
+          type: "array"
+          items:
+            $ref: "#/components/schemas/InboundLine"
           minItems: 1
           maxItems: 200
-          items:
-            type: object
-            additionalProperties: false
-            required: [externalLineId, skuId, expectedQty, unit]
-            properties:
-              externalLineId: { $ref: '#/components/schemas/Id' }
-              skuId: { $ref: '#/components/schemas/Id' }
-              expectedQty: { $ref: '#/components/schemas/Quantity' }
-              unit: { type: string }
     ReceiptRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [clientOperationId, effectId, executionAttemptId, receiptSessionId, receiptPartId, lineId, qty, unit, locationId]
+      required: ["lineId","qty"]
       properties:
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        effectId: { $ref: '#/components/schemas/Id' }
-        executionAttemptId: { $ref: '#/components/schemas/Id' }
-        receiptSessionId: { $ref: '#/components/schemas/Id' }
-        receiptPartId: { $ref: '#/components/schemas/Id' }
-        lineId: { $ref: '#/components/schemas/Id' }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        unit: { type: string }
-        locationId: { $ref: '#/components/schemas/Id' }
-        lot: { $ref: '#/components/schemas/LotInput' }
-        serialNumbers:
-          type: array
-          maxItems: 1000
-          items: { type: string }
-        deviceContext: { $ref: '#/components/schemas/DeviceContext' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        receiptPartId:
+          type: "string"
+          maxLength: 64
+        receiptSessionId:
+          type: "string"
+          maxLength: 64
+        deviceId:
+          type: "string"
+          maxLength: 64
+        deviceSessionId:
+          type: "string"
+          maxLength: 64
+        scanSequence:
+          type: "integer"
+          minimum: 0
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     QualityResultRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [resultCode, acceptedQty, rejectedQty]
+      required: ["lineId","acceptedQty","rejectedQty"]
       properties:
-        resultCode: { type: string }
-        acceptedQty: { $ref: '#/components/schemas/Quantity' }
-        rejectedQty: { $ref: '#/components/schemas/Quantity' }
-        evidenceRefs:
-          type: array
-          items: { type: string }
-        reason: { type: string }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        acceptedQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；不得小于0"
+        rejectedQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；不得小于0"
+        sourceVersion:
+          type: "integer"
+          minimum: 1
     PutawayRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [clientOperationId, effectId, executionAttemptId, subActionId, claimEpoch, targetLocationId, qty, unit]
+      required: ["inboundOrderId","lineId","qty"]
       properties:
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        effectId: { $ref: '#/components/schemas/Id' }
-        executionAttemptId: { $ref: '#/components/schemas/Id' }
-        subActionId: { $ref: '#/components/schemas/Id' }
-        claimEpoch: { $ref: '#/components/schemas/Version' }
-        targetLocationId: { $ref: '#/components/schemas/Id' }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        unit: { type: string }
-        serialIds:
-          type: array
-          maxItems: 1000
-          items: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        inboundOrderId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        locationId:
+          type: "string"
+          maxLength: 64
+        targetLocationId:
+          type: "string"
+          maxLength: 64
+        locationType:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        clientOperationId:
+          type: "string"
+          maxLength: 64
     PickRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [clientOperationId, effectId, executionAttemptId, subActionId, claimEpoch, sourceLocationId, stagingLocationId, qty]
+      required: ["qty"]
       properties:
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        effectId: { $ref: '#/components/schemas/Id' }
-        executionAttemptId: { $ref: '#/components/schemas/Id' }
-        subActionId: { $ref: '#/components/schemas/Id' }
-        claimEpoch: { $ref: '#/components/schemas/Version' }
-        sourceLocationId: { $ref: '#/components/schemas/Id' }
-        stagingLocationId: { $ref: '#/components/schemas/Id' }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        serialIds:
-          type: array
-          maxItems: 1000
-          items: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     PackingRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [packageId, lines]
+      required: ["orderLineId","qty"]
       properties:
-        packageId: { $ref: '#/components/schemas/Id' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        lines:
-          type: array
-          minItems: 1
-          maxItems: 200
-          items:
-            type: object
-            additionalProperties: false
-            required: [outboundLineId, qty]
-            properties:
-              outboundLineId: { $ref: '#/components/schemas/Id' }
-              qty: { $ref: '#/components/schemas/Quantity' }
-        weight: { $ref: '#/components/schemas/Quantity' }
-        weightUnit: { type: string }
-        serialIds:
-          type: array
-          maxItems: 1000
-          items: { $ref: '#/components/schemas/Id' }
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        packageNo:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     ShipmentRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [shipmentId, shipmentPartId, effectId, executionAttemptId, manifestRevision, packageIds, clientOperationId]
+      required: ["orderLineId","qty"]
       properties:
-        shipmentId: { $ref: '#/components/schemas/Id' }
-        shipmentPartId: { $ref: '#/components/schemas/Id' }
-        effectId: { $ref: '#/components/schemas/Id' }
-        executionAttemptId: { $ref: '#/components/schemas/Id' }
-        manifestRevision: { $ref: '#/components/schemas/Version' }
-        packageIds:
-          type: array
-          minItems: 1
-          items: { $ref: '#/components/schemas/Id' }
-        carrierRef: { $ref: '#/components/schemas/Id' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     MoveRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [clientOperationId, effectId, executionAttemptId, subActionId, sourceBalanceId, targetLocationId, qty, unit, reason]
+      required: ["sourceBalanceId","targetLocationId","qty","reason"]
       properties:
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        effectId: { $ref: '#/components/schemas/Id' }
-        executionAttemptId: { $ref: '#/components/schemas/Id' }
-        subActionId: { $ref: '#/components/schemas/Id' }
-        sourceBalanceId: { $ref: '#/components/schemas/Id' }
-        targetLocationId: { $ref: '#/components/schemas/Id' }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        unit: { type: string }
-        reason: { type: string }
-        serialIds:
-          type: array
-          items: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        sourceBalanceId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        targetLocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        unit:
+          type: "string"
+          maxLength: 64
+        reason:
+          type: "string"
+          maxLength: 128
+          minLength: 1
     StockHoldRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [scope, reason]
+      required: ["scope","reason"]
       properties:
-        scope: { type: object, additionalProperties: true }
-        reason: { type: string }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        scope:
+          $ref: "#/components/schemas/HoldScope"
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        reason:
+          type: "string"
+          maxLength: 128
+          minLength: 1
         evidenceRefs:
-          type: array
-          items: { type: string }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 512
+          maxItems: 200
     TransferCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [sourceWarehouseId, targetWarehouseId, lines, reason]
+      required: ["sourceWarehouseId","targetWarehouseId","lines"]
       properties:
-        sourceWarehouseId: { $ref: '#/components/schemas/Id' }
-        targetWarehouseId: { $ref: '#/components/schemas/Id' }
-        reason: { type: string }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        transferId:
+          type: "string"
+          maxLength: 64
+        sourceWarehouseId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        targetWarehouseId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
         lines:
-          type: array
+          type: "array"
+          items:
+            $ref: "#/components/schemas/TransferLine"
           minItems: 1
           maxItems: 200
-          items:
-            type: object
-            additionalProperties: false
-            required: [skuId, businessLotKey, plannedQty, unit]
-            properties:
-              skuId: { $ref: '#/components/schemas/Id' }
-              businessLotKey: { $ref: '#/components/schemas/Id' }
-              plannedQty: { $ref: '#/components/schemas/Quantity' }
-              unit: { type: string }
     ReceiptAuthorizationRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [transferLineId, targetWarehouseId, targetClientOperationId, quantity]
       properties:
-        transferLineId: { $ref: '#/components/schemas/Id' }
-        targetWarehouseId: { $ref: '#/components/schemas/Id' }
-        targetClientOperationId: { $ref: '#/components/schemas/Id' }
-        quantity: { $ref: '#/components/schemas/Quantity' }
+        lineId:
+          type: "string"
+          maxLength: 64
+        transferLineId:
+          type: "string"
+          maxLength: 64
+        targetClientOperationId:
+          type: "string"
+          maxLength: 64
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        quantity:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     TransferReceiptRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [transferId, sourceLineRef, authorizationId, tokenVersion, qty, businessLotKey, clientOperationId]
+      required: ["transferId","authorizationId","tokenVersion","qty"]
       properties:
-        transferId: { $ref: '#/components/schemas/Id' }
-        sourceLineRef: { $ref: '#/components/schemas/Id' }
-        authorizationId: { $ref: '#/components/schemas/Id' }
-        tokenVersion: { $ref: '#/components/schemas/Version' }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        businessLotKey: { $ref: '#/components/schemas/Id' }
-        lot: { $ref: '#/components/schemas/LotInput' }
-        serialIds:
-          type: array
-          items: { $ref: '#/components/schemas/Id' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        transferId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        lineId:
+          type: "string"
+          maxLength: 64
+        sourceLineRef:
+          type: "string"
+          maxLength: 64
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        authorizationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        tokenVersion:
+          type: "integer"
+          minimum: 0
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        targetLotId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
     CountPlanCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [locationIds, reason]
+      required: ["locationIds"]
       properties:
+        planId:
+          type: "string"
+          maxLength: 64
+        countPlanId:
+          type: "string"
+          maxLength: 64
+        reason:
+          type: "string"
+          maxLength: 32
         locationIds:
-          type: array
-          minItems: 1
-          items: { $ref: '#/components/schemas/Id' }
-        reason: { type: string }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-    CountObservationRequest:
-      type: object
-      additionalProperties: false
-      required: [observationId, lineId, roundNo, qty]
-      properties:
-        observationId: { $ref: '#/components/schemas/Id' }
-        lineId: { $ref: '#/components/schemas/Id' }
-        roundNo: { type: integer, minimum: 1 }
-        qty: { $ref: '#/components/schemas/Quantity' }
-        serialIds:
-          type: array
-          items: { $ref: '#/components/schemas/Id' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-    AdjustmentCreateRequest:
-      type: object
-      additionalProperties: false
-      required: [balanceId, deltaQty, reason]
-      properties:
-        countLineId: { $ref: '#/components/schemas/Id' }
-        balanceId: { $ref: '#/components/schemas/Id' }
-        deltaQty: { $ref: '#/components/schemas/Quantity' }
-        reason: { type: string }
-        evidenceRefs:
-          type: array
-          items: { type: string }
-        serialActions:
-          type: array
+          type: "array"
           items:
-            type: object
-            additionalProperties: false
-            required: [serialId, action]
-            properties:
-              serialId: { $ref: '#/components/schemas/Id' }
-              action: { type: string, enum: [FOUND, MISSING] }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+            type: "string"
+            minLength: 1
+            maxLength: 64
+          minItems: 1
+          maxItems: 200
+    CountObservationRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["lineId","qty"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        observationId:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；不得小于0"
+        roundNo:
+          type: "integer"
+          minimum: 1
+    AdjustmentCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["balanceId","deltaQty","reason"]
+      properties:
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        balanceId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        deltaQty:
+          type: "string"
+          pattern: "^-?[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；可正可负"
+        reason:
+          type: "string"
+          maxLength: 128
+          minLength: 1
+        countLineId:
+          type: "string"
+          maxLength: 64
+        evidenceRefs:
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 512
+          maxItems: 200
+        serialActions:
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 512
+          maxItems: 0
+          description: "独立调整不处理序列号身份；非空请求应走盘点流程。"
     AdjustmentApprovalRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [decision, expectedVersion]
+      required: ["decision","expectedVersion"]
       properties:
-        decision: { type: string, enum: [APPROVED, REJECTED] }
-        reason: { type: string }
-        expectedVersion: { $ref: '#/components/schemas/Version' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        decision:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        reason:
+          type: "string"
+          maxLength: 128
+        expectedVersion:
+          type: "integer"
+          minimum: 0
     AdjustmentApplyRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [clientOperationId, expectedVersion]
+      required: ["expectedVersion"]
       properties:
-        clientOperationId: { $ref: '#/components/schemas/Id' }
-        expectedVersion: { $ref: '#/components/schemas/Version' }
-        countPlanId: { $ref: '#/components/schemas/Id' }
-        gateEpoch: { $ref: '#/components/schemas/Version' }
-        approvalId: { $ref: '#/components/schemas/Id' }
-        digestVersion: { $ref: '#/components/schemas/Version' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        expectedVersion:
+          type: "integer"
+          minimum: 0
     JobRetryRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [failedShardIds, reason, expectedVersion]
       properties:
-        failedShardIds:
-          type: array
-          items: { $ref: '#/components/schemas/Id' }
-        reason: { type: string }
-        expectedVersion: { $ref: '#/components/schemas/Version' }
+        action:
+          type: "string"
+          maxLength: 64
+          pattern: "(?i)RECLAIM|CLAIM|TAKEOVER"
     ReconciliationSnapshotRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [warehouseIds, scenarioCode, cutoff, sourceWatermarks]
+      required: ["warehouseIds","cutoffId","cutoff"]
       properties:
         warehouseIds:
-          type: array
-          items: { $ref: '#/components/schemas/Id' }
-        scenarioCode: { type: string }
-        cutoff: { type: string }
-        sourceWatermarks: { type: object, additionalProperties: true }
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 64
+          minItems: 1
+          maxItems: 1
+        cutoffId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        cutoff:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+          format: "date-time"
+        sourceWatermark:
+          type: "string"
+          maxLength: 64
+        postingWatermark:
+          type: "string"
+          maxLength: 64
+        receiptWatermark:
+          type: "string"
+          maxLength: 64
     RemediationRequest:
       type: object
       additionalProperties: false
@@ -955,72 +1117,244 @@ components:
         digestVersion: { $ref: '#/components/schemas/Version' }
         clientOperationId: { $ref: '#/components/schemas/Id' }
     ExecutionAttemptRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [expectedEffectVersion, reason]
+      required: ["expectedEffectVersion"]
       properties:
-        previousCommandId: { $ref: '#/components/schemas/Id' }
-        expectedEffectVersion: { $ref: '#/components/schemas/Version' }
-        reason: { type: string }
-        digestVersion: { $ref: '#/components/schemas/Version' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        expectedEffectVersion:
+          type: "integer"
+          minimum: 0
+        digestVersion:
+          type: "integer"
+          minimum: 0
+        previousCommandId:
+          type: "string"
+          maxLength: 64
     WarehouseCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [code, name, timezone, clientOperationId]
+      required: ["code","name","timezone"]
       properties:
-        code: { type: string, maxLength: 32 }
-        name: { type: string, maxLength: 512 }
-        timezone: { type: string, description: IANA时区 }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        code:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        name:
+          type: "string"
+          maxLength: 128
+          minLength: 1
+        timezone:
+          type: "string"
+          maxLength: 64
+          minLength: 1
     LocationCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [code, zoneCode, locationType, clientOperationId]
+      required: ["code","zoneCode","locationType"]
       properties:
-        code: { type: string, maxLength: 32 }
-        zoneCode: { type: string, maxLength: 32 }
-        locationType: { type: string, maxLength: 32 }
-        capacityQty: { $ref: '#/components/schemas/Quantity' }
-        capacityUnit: { type: string }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        code:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        zoneCode:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        locationType:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        capacityQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；不得小于0"
+        capacityUnit:
+          type: "string"
+          maxLength: 32
     SkuCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [code, name, baseUnit, quantityScale, lotEnabled, serialEnabled, expiryEnabled, clientOperationId]
+      required: ["code","name","baseUnit","quantityScale"]
       properties:
-        code: { $ref: '#/components/schemas/Id' }
-        name: { type: string }
-        baseUnit: { type: string }
-        quantityScale: { type: integer, minimum: 0, maximum: 6 }
-        lotEnabled: { type: boolean }
-        serialEnabled: { type: boolean }
-        expiryEnabled: { type: boolean }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        code:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        name:
+          type: "string"
+          maxLength: 128
+          minLength: 1
+        baseUnit:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        quantityScale:
+          type: "integer"
+          minimum: 0
+          maximum: 6
+        lotEnabled:
+          type: "boolean"
+        serialEnabled:
+          type: "boolean"
+        expiryEnabled:
+          type: "boolean"
     SkuUnitCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [unitCode, numerator, denominator, clientOperationId]
+      required: ["unitCode","numerator","denominator"]
       properties:
-        unitCode: { type: string }
-        numerator: { type: string, pattern: '^[1-9]\d*$' }
-        denominator: { type: string, pattern: '^[1-9]\d*$' }
-        sampleQuantity: { $ref: '#/components/schemas/Quantity' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        unitCode:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+        numerator:
+          type: "string"
+          pattern: "^[0-9]{1,14}$"
+          description: "精确十进制；必须大于0"
+        denominator:
+          type: "string"
+          pattern: "^[0-9]{1,14}$"
+          description: "精确十进制；必须大于0"
+        sampleQuantity:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；不得小于0"
     LotCreateRequest:
-      type: object
+      type: "object"
       additionalProperties: false
-      required: [ownerId, skuId, lotCode, businessLotKey, clientOperationId]
+      required: ["ownerId","skuId","lotCode","businessLotKey"]
       properties:
-        ownerId: { $ref: '#/components/schemas/Id' }
-        skuId: { $ref: '#/components/schemas/Id' }
-        lotCode: { $ref: '#/components/schemas/Id' }
-        businessLotKey: { $ref: '#/components/schemas/Id' }
-        producedAt: { type: string, format: date-time }
-        expiresAt: { type: string, format: date-time }
-        sourceDate: { type: string }
-        expiryRuleVersion: { $ref: '#/components/schemas/Version' }
-        clientOperationId: { $ref: '#/components/schemas/Id' }
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        ownerId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        lotCode:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        businessLotKey:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        producedAt:
+          type: "string"
+          maxLength: 64
+          format: "date-time"
+        expiresAt:
+          type: "string"
+          maxLength: 64
+          format: "date-time"
+        sourceDate:
+          type: "string"
+          maxLength: 32
+        expiryRuleVersion:
+          type: "integer"
+          minimum: 0
+    InboundLine:
+      type: "object"
+      additionalProperties: false
+      required: ["externalLineId","skuId","expectedQty"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+        externalLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        expectedQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        unit:
+          type: "string"
+          maxLength: 32
+    FulfillmentLine:
+      type: "object"
+      additionalProperties: false
+      required: ["sourceLineId","skuId","requestedQty","baseUnit"]
+      properties:
+        sourceLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+          description: "兼容旧字段名 lineId"
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        requestedQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0；兼容旧字段名 qty"
+        baseUnit:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+          description: "兼容旧字段名 unit"
+    TransferLine:
+      type: "object"
+      additionalProperties: false
+      required: ["lineId","skuId","plannedQty"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+          description: "兼容旧字段名 sourceLineId"
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        plannedQty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0；兼容旧字段名 qty"
+        businessLotKey:
+          type: "string"
+          maxLength: 64
+        sourceLotId:
+          type: "string"
+          maxLength: 64
+    HoldScope:
+      type: "object"
+      additionalProperties: false
+      required: ["balanceId"]
+      properties:
+        balanceId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
     StockCommandRequest:
       type: object
       additionalProperties: false

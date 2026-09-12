@@ -24,3 +24,12 @@ com.lrj.wms.inventory.migrate.WarehouseMigrationIT#abortBeforeSwitchReopensSourc
 com.lrj.wms.inventory.migrate.IsolatedRestoreIT#restoreSecondDatabaseAndMeasureLocalRtoRpo
 # S9-05 AC-24 快照 HTTP
 com.lrj.wms.inventory.recon.SnapshotHttpIT#exportAndReadQuantitySnapshotThenRejectCrossWarehouse
+
+# 2026-09-12 后端评审 R16–R20，缺失或跳过必须失败。
+com.lrj.wms.runtime.DatabaseBudgetIT#boundsConnectionsAndRecoversWithoutLeaking
+com.lrj.wms.runtime.QueryCacheIT#twoInstancesShareRedisButNotTenantDataAndRecoverFromFailure
+com.lrj.wms.runtime.QueryCacheIT#blockedOriginCannotCreateUnboundedDifferentKeyLoads
+com.lrj.wms.inventory.query.BoundedPaginationIT#pagesEqualTimestampsWithoutDuplicatesAndFiltersUnauthorizedWarehouses
+com.lrj.wms.inventory.query.MapperXmlBindingTest#everyInventoryAndSourceMapperLoadsWithCorrectResultType
+com.lrj.wms.inbound.receipt.InboundRequestBoundaryTest#malformedQuantityMissingRequiredFieldAndOversizedPageAreRejectedBeforeSql
+com.lrj.wms.inbound.receipt.InboundRequestBoundaryTest#databaseFailureRemainsRetryable503AndRealDuplicateIs409

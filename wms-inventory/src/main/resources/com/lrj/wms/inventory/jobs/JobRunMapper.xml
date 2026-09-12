@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.jobs.JobRunMapper">
+
+    <!-- insertRunIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertRunIgnore">
+        INSERT INTO job_run (id, enterprise_id, warehouse_id, run_key, job_type, scope_code, window_id, input_version, state, planned_shards, succeeded_shards, failed_shards, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{runKey}, #{jobType}, #{scopeCode}, #{windowId}, #{inputVersion}, #{state}, #{plannedShards}, 0, 0, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- lockRunByKey：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockRunByKey" resultType="map">
+        SELECT id, run_key, job_type, state, planned_shards, succeeded_shards, failed_shards, version
+        FROM job_run
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND run_key=#{runKey} FOR UPDATE
+    </select>
+
+    <!-- lockRunById：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockRunById" resultType="map">
+        SELECT id, run_key, job_type, state, planned_shards, succeeded_shards, failed_shards, version
+        FROM job_run
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{runId} FOR UPDATE
+    </select>
+
+    <!-- casRunPlanned：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casRunPlanned">
+        UPDATE job_run
+        SET state=#{state}, planned_shards=#{plannedShards}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{runId}
+        AND version=#{version}
+    </update>
+
+    <!-- bumpRunCounts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bumpRunCounts">
+        UPDATE job_run
+        SET succeeded_shards=succeeded_shards+#{succeededDelta}, failed_shards=failed_shards+#{failedDelta}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{runId}
+    </update>
+
+    <!-- listShardKeys：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listShardKeys" resultType="string">
+        SELECT shard_key
+        FROM job_shard
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND run_id=#{runId}
+    </select>
+
+    <!-- insertShard：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertShard">
+        INSERT INTO job_shard (id, enterprise_id, warehouse_id, run_id, job_type, shard_key, state, claim_epoch, retry_count, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{runId}, #{jobType}, #{shardKey}, 'READY', 0, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockShard：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockShard" resultType="map">
+        SELECT id, run_id, job_type, shard_key, state, lease_owner, lease_until, claim_epoch, fence_token, cursor_key, retry_count, version
+        FROM job_shard
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId} FOR UPDATE
+    </select>
+
+    <!-- lockReadyShard：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockReadyShard" resultType="map">
+        SELECT id, run_id, job_type, shard_key, state, lease_owner, lease_until, claim_epoch, fence_token, cursor_key, retry_count, version
+        FROM job_shard
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND job_type=#{jobType}
+        AND state='READY'
+        AND (next_retry_at IS NULL OR next_retry_at&lt;=#{now})
+        ORDER BY id
+        LIMIT 1 FOR UPDATE
+    </select>
+
+    <!-- casClaim：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casClaim">
+        UPDATE job_shard
+        SET state='LEASED', lease_owner=#{owner}, lease_until=#{leaseUntil}, claim_epoch=claim_epoch+1, fence_token=#{fence}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId}
+        AND version=#{version}
+        AND state='READY'
+    </update>
+
+    <!-- casHeartbeat：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casHeartbeat">
+        UPDATE job_shard
+        SET lease_until=#{leaseUntil}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId}
+        AND claim_epoch=#{epoch}
+        AND fence_token=#{fence}
+        AND state='LEASED'
+    </update>
+
+    <!-- casCheckpoint：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casCheckpoint">
+        UPDATE job_shard
+        SET cursor_key=#{cursor}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId}
+        AND claim_epoch=#{epoch}
+        AND fence_token=#{fence}
+        AND state='LEASED'
+    </update>
+
+    <!-- casFinish：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casFinish">
+        UPDATE job_shard
+        SET state=#{state}, lease_owner=NULL, lease_until=NULL, fence_token=NULL, last_error=#{error}, retry_count=retry_count+#{retryDelta}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId}
+        AND claim_epoch=#{epoch}
+        AND fence_token=#{fence}
+        AND state='LEASED'
+    </update>
+
+    <!-- lockExpired：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockExpired" resultType="map">
+        SELECT id, run_id, claim_epoch, fence_token, version
+        FROM job_shard
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND state='LEASED'
+        AND lease_until&lt;#{now}
+        ORDER BY id
+        LIMIT #{limit} FOR UPDATE
+    </select>
+
+    <!-- casReclaim：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casReclaim">
+        UPDATE job_shard
+        SET state='READY', lease_owner=NULL, lease_until=NULL, fence_token=NULL, claim_epoch=claim_epoch+1, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{shardId}
+        AND version=#{version}
+        AND state='LEASED'
+    </update>
+
+    <!-- listRuns：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listRunsPage" resultType="map">
+        SELECT id, run_key, job_type, state, planned_shards, succeeded_shards, failed_shards, version, created_at
+        FROM job_run
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
+
+    <!-- listShards：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listShards" resultType="map">
+        SELECT id, shard_key, state, lease_owner, lease_until, claim_epoch, last_error
+        FROM job_shard
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND run_id=#{runId}
+        ORDER BY shard_key
+    </select>
+</mapper>

@@ -38,13 +38,13 @@ public class CountCommandController {
     @PostMapping("/count-plans")
     public ResponseEntity<Map<String, Object>> create(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody CountCommandRequests.CreateRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new CountService(session, Clock.systemUTC()).create(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    firstNonBlank(text(body, "planId"), text(body, "countPlanId"), idempotencyKey),
-                    firstNonBlank(text(body, "reason"), "CYCLE"), stringList(body.get("locationIds")));
+                    firstNonBlank(body.planId(), body.countPlanId(), idempotencyKey),
+                    firstNonBlank(body.reason(), "CYCLE"), body.locationIds());
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         }
@@ -52,9 +52,9 @@ public class CountCommandController {
 
     @PostMapping("/count-plans/{countPlanId}/freeze-requests")
     public Map<String, Object> freeze(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
-            @PathVariable String countPlanId, @RequestBody(required = false) Map<String, Object> body) {
+            @PathVariable String countPlanId, @jakarta.validation.Valid @RequestBody(required = false) CountCommandRequests.FreezeRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String phase = body == null ? null : text(body, "phase");
+        String phase = body == null ? null : body.phase();
         try (SqlSession session = sessions.openSession(false)) {
             CountService service = new CountService(session, Clock.systemUTC());
             String enterpriseId = WmsJwtAuthorities.enterpriseId(jwt);
@@ -74,13 +74,13 @@ public class CountCommandController {
     @PostMapping("/count-plans/{countPlanId}/observations")
     public Map<String, Object> observe(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String countPlanId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody CountCommandRequests.ObserveRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new CountService(session, Clock.systemUTC()).observe(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, text(body, "lineId"),
-                    firstNonBlank(text(body, "observationId"), idempotencyKey), String.valueOf(body.get("qty")),
-                    jwt.getSubject(), intValue(body.get("roundNo"), 1));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, body.lineId(),
+                    firstNonBlank(body.observationId(), idempotencyKey), String.valueOf(body.qty()),
+                    jwt.getSubject(), intValue(body.roundNo(), 1));
             session.commit();
             return result;
         }
@@ -101,12 +101,12 @@ public class CountCommandController {
     @PostMapping("/count-plans/{countPlanId}/approvals")
     public Map<String, Object> approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String countPlanId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody(required = false) CountCommandRequests.ApproveRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new CountService(session, Clock.systemUTC()).approve(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId,
-                    firstNonBlank(body == null ? null : text(body, "approvalId"), idempotencyKey), jwt.getSubject());
+                    firstNonBlank(body == null ? null : body.approvalId(), idempotencyKey), jwt.getSubject());
             session.commit();
             return result;
         }
@@ -115,12 +115,12 @@ public class CountCommandController {
     @PostMapping("/count-plans/{countPlanId}/applications")
     public ResponseEntity<Map<String, Object>> apply(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String countPlanId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody CountCommandRequests.ApplyRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new CountService(session, Clock.systemUTC()).applyLine(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, text(body, "lineId"),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), jwt.getSubject());
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, body.lineId(),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject());
             session.commit();
             return ResponseEntity.accepted().body(result);
         }
@@ -139,29 +139,9 @@ public class CountCommandController {
         return ResponseEntity.status(status).body(error(error.code(), error.getMessage()));
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<String> stringList(Object raw) {
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            throw new InventoryException("INVALID_SCOPE", "盘点范围不能为空");
-        }
-        List<String> values = new ArrayList<>();
-        for (Object item : list) {
-            if (item instanceof Map<?, ?> map) {
-                Object locationId = ((Map<String, Object>) map).get("locationId");
-                if (locationId != null) {
-                    values.add(String.valueOf(locationId));
-                    continue;
-                }
-            }
-            values.add(String.valueOf(item));
-        }
-        return values;
-    }
 
-    private static String text(Map<String, Object> body, String key) {
-        Object value = body == null ? null : body.get(key);
-        return value == null || String.valueOf(value).isBlank() ? null : String.valueOf(value);
-    }
+
+
 
     private static String firstNonBlank(String... values) {
         for (String value : values) {

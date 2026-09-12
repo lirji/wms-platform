@@ -77,19 +77,25 @@ public final class InventoryProjectionService {
         return Map.of("liveGeneration", next, "switched", true);
     }
 
+    /** 兼容内部第一页查询。 */
     public Map<String, Object> query(String enterpriseId, String warehouseId, String skuId, int limit) {
+        return query(enterpriseId, warehouseId, skuId, limit, null);
+    }
+
+    /** 游标绑定筛选与投影世代，重建切换后要求调用方重新读取。 */
+    public Map<String, Object> query(String enterpriseId, String warehouseId, String skuId, int limit, String cursor) {
         RootContext.unbind();
         require(enterpriseId, warehouseId, "x", "x");
         ProjectionMapper views = session.getMapper(ProjectionMapper.class);
         Timestamp now = Timestamp.from(clock.instant());
         ensureCheckpoint(views, enterpriseId, warehouseId, now);
         long generation = liveGeneration(views, enterpriseId, warehouseId);
+        var page = com.lrj.wms.runtime.web.CursorPage.parse(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("inventory", enterpriseId, warehouseId, blankToNull(skuId), generation));
         List<Map<String, Object>> items = views.listView(enterpriseId, warehouseId, generation, blankToNull(skuId),
-                limit <= 0 ? 50 : Math.min(limit, 200));
+                page);
         Timestamp asOf = timestampOf(views.maxAsOf(enterpriseId, warehouseId, generation));
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("items", items);
-        body.put("limit", items.size());
+        Map<String, Object> body = page.result(items, false);
         body.put("asOf", asOf == null ? null : asOf.toInstant().toString());
         body.put("lagSeconds", asOf == null ? 0 : Math.max(0, Duration.between(asOf.toInstant(), clock.instant()).toSeconds()));
         body.put("generation", generation);

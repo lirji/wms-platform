@@ -8,6 +8,7 @@
   </parent>
   <artifactId>wms-inventory</artifactId>
   <dependencies>
+    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>
       <artifactId>wms-security</artifactId>
@@ -104,6 +105,13 @@
     </dependency>
   </dependencies>
   <build>
+    <!-- 跨服务黑盒夹具编译了来源服务代码，必须同时携带其 XML；不混入其他服务迁移。 -->
+    <testResources>
+      <testResource><directory>src/test/resources</directory></testResource>
+      <testResource><directory>../wms-inbound/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
+      <testResource><directory>../wms-outbound/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
+      <testResource><directory>../wms-fulfillment/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
+    </testResources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>
@@ -159,6 +167,7 @@
     <profile>
       <id>tc-it</id>
       <build>
+
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>

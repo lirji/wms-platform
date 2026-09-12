@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.protocol.SourceMapper">
+
+    <!-- insertEffect：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertEffect">
+        INSERT INTO source_effect (id, enterprise_id, warehouse_id, source_service, action, fact_type, fact_parent_id, fact_part_id, fact_line_id, business_effect_key, active_command_id, applied_command_id, attempt_no, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{action}, #{factType}, #{factParentId}, #{factPartId}, #{factLineId}, #{id}, NULL, NULL, 0, #{state}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- findEffectId：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="findEffectId" resultType="string">
+        SELECT id
+        FROM source_effect
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND source_service=#{sourceService}
+        AND action=#{action}
+        AND fact_type=#{factType}
+        AND fact_parent_id=#{factParentId}
+        AND fact_part_id=#{factPartId}
+        AND fact_line_id=#{factLineId}
+    </select>
+
+    <!-- findEffectByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="findEffectByCommand" resultType="string">
+        SELECT id
+        FROM source_effect
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND (active_command_id=#{commandId} OR applied_command_id=#{commandId})
+    </select>
+
+    <!-- lockEffect：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockEffect" resultType="map">
+        SELECT id, active_command_id, applied_command_id, attempt_no, state, version
+        FROM source_effect
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{effectId} FOR UPDATE
+    </select>
+
+    <!-- casBindActive：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casBindActive">
+        UPDATE source_effect
+        SET active_command_id=#{commandId}, attempt_no=GREATEST(attempt_no, #{attemptNo}), state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{effectId}
+        AND applied_command_id IS NULL
+        AND (active_command_id IS NULL OR active_command_id=#{commandId})
+    </update>
+
+    <!-- casNextAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casNextAttempt">
+        UPDATE source_effect
+        SET attempt_no=#{attemptNo}, active_command_id=#{commandId}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{effectId}
+        AND version=#{expectedVersion}
+        AND applied_command_id IS NULL
+        AND state=#{fromState}
+    </update>
+
+    <!-- casSafeClose：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casSafeClose">
+        UPDATE source_effect
+        SET active_command_id=#{commandId}, state='SAFE_CLOSED', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{effectId}
+        AND applied_command_id IS NULL
+        AND state NOT IN ('STARTED','UNKNOWN','APPLIED')
+    </update>
+
+    <!-- insertCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertCommand">
+        INSERT IGNORE INTO source_command (id, enterprise_id, warehouse_id, command_id, source_operation_id, source_execution_id, business_effect_key, action, execution_attempt_id, attempt_no, previous_command_id, payload_digest, digest_version, payload_json, state, inventory_operation_id, posting_id, retry_at, compensates_command_id, safe_close_id, safe_close_version, safe_close_evidence, version, created_at, updated_at)
+        VALUES (#{commandId}, #{enterpriseId}, #{warehouseId}, #{commandId}, #{operationId}, #{executionId}, #{effectId}, #{action}, #{commandId}, #{attemptNo}, #{previousCommandId}, #{digest}, 1, CAST(#{payload} AS JSON), #{state}, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- findLatestCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="findLatestCommand" resultType="map">
+        SELECT command_id, state, payload_digest, posting_id, attempt_no
+        FROM source_command
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND business_effect_key=#{effectId}
+        ORDER BY attempt_no DESC
+        LIMIT 1
+    </select>
+
+    <!-- markSafeClose：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markSafeClose">
+        UPDATE source_command
+        SET safe_close_id=#{closeId}, safe_close_version=safe_close_version+1, safe_close_evidence=CAST(#{evidence} AS JSON), updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND command_id=#{commandId}
+    </update>
+
+    <!-- getCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getCommand" resultType="map">
+        SELECT command_id, state, payload_digest, posting_id, business_effect_key, safe_close_id
+        FROM source_command
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND command_id=#{commandId}
+    </select>
+
+    <!-- insertExecution：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertExecution">
+        INSERT INTO source_execution (id, enterprise_id, warehouse_id, command_id, action, physical_status, stock_sync_status, physical_qty, posted_qty, actor_id, executed_at, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{commandId}, #{action}, 'EXECUTED', 'PENDING', #{qty}, 0, #{actorId}, #{now}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertOutbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOutbox">
+        INSERT INTO source_outbox (event_id, enterprise_id, warehouse_id, command_id, event_type, payload, status, next_attempt_at, version, created_at, updated_at)
+        VALUES (#{eventId}, #{enterpriseId}, #{warehouseId}, #{commandId}, #{eventType}, CAST(#{payload} AS JSON), 'PENDING', #{now}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertInbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertInbox">
+        INSERT IGNORE INTO source_inbox (event_id, enterprise_id, warehouse_id, command_id, event_type, payload, consumed_at, version, created_at, updated_at)
+        VALUES (#{eventId}, #{enterpriseId}, #{warehouseId}, #{commandId}, #{eventType}, CAST(#{payload} AS JSON), #{now}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- updateCommandResult：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateCommandResult">
+        UPDATE source_command
+        SET state=#{state}, inventory_operation_id=#{operationId}, posting_id=#{postingId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND command_id=#{commandId}
+    </update>
+
+    <!-- updateExecutionSync：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateExecutionSync">
+        UPDATE source_execution
+        SET stock_sync_status=#{syncStatus}, posted_qty=#{postedQty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND command_id=#{commandId}
+    </update>
+
+    <!-- updateEffectApplied：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateEffectApplied">
+        UPDATE source_effect
+        SET applied_command_id=#{commandId}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{effectId}
+        AND (applied_command_id IS NULL
+        AND active_command_id=#{commandId} OR applied_command_id=#{commandId})
+    </update>
+</mapper>

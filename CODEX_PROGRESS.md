@@ -2,7 +2,7 @@
 
 ## 任务目标
 
-按已批准计划做到 S9 与 50 项 AC。未发明 OQ-03。
+按已批准计划做到 S9 与 50 项 AC；本轮先整改 R16–R20，再 R01–R04、R05–R12、R13–R15/R21/R24、R22–R23。未发明 OQ-03。
 
 ## 已完成
 
@@ -28,3 +28,43 @@
 ## 下一步
 
 S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main verify 并推送 `feat/contract-http-gaps` 到远程 main。已登录用户须重新登录拿含 `stock.move`/`stock.hold`/`fulfillment.cancel`/`adjustment.*` 的 JWT。硬刷新 `127.0.0.1:18180`。不把 F9 写成 50 AC 或 AC-26 accepted。
+
+
+## 当前整改执行
+
+- 用户已批准全部24项，按 R16–R20 → R01–R04 → R05–R12 → R13–R15/R21/R24 → R22–R23 连续完成；不要停在首批或等待“继续”。唯一清单为 DELIVERY_PLAN.md 的后端整改表。
+- 分支 `fix/backend-review-remediation`，基于远程 main `db02821`；原工作树干净，首批R16–R20已精确暂存，R01–R04改动保持未暂存；正在首批提交核对。尚未推送。保护其他 worktree。
+- R16–R20 已实现：稳定有界游标；主数据 SQL 权限过滤；单仓查询显式拒绝多仓；四服务 HikariCP 与查询/网络超时；验签后租户/全局并发与速率预算及1MiB请求体；355处注解SQL转同名XML；仓迁移XML化/每批200行；43个原HTTP Map请求体转DTO校验；错误分类；主数据L1/L2缓存/回源预算；Outbox类型化退避抖动。尚未验收完成。
+- 全模块编译和单元测试通过；定向集成验证通过：DatabaseBudgetIT、QueryCacheIT、BoundedPaginationIT、WarehouseMigrationIT、IsolatedRestoreIT。新增 MapperXmlBindingTest 拦截XML返回类型问题；InboundRequestBoundaryTest证明非法输入不访问DB且依赖故障503/真实重复409；ConfigurationBindingTest校验环境变量实际绑定。
+- 默认完整回归已结束，日志 `/tmp/wms-full-verify.log`，session24558已结束；唯一失败是FulfillmentHttpIT的targetLotId旧可选请求被误设必填。已恢复可选；`/tmp/wms-fulfillment-followup.log` BUILD SUCCESS（2项HTTP）。`/tmp/wms-batch-followup.log` 中生产装配事务1项、迁移2项通过；当次后续HTTP因新增scope检查拒绝旧测试令牌，补齐read scope后重跑通过。定向日志 `/tmp/wms-focused-it.log` 为 BUILD SUCCESS。
+- 测试只操作专属 Testcontainers（MySQL8.4.11、Redis7-alpine）；没有改共享数据或生产部署。一次误用浮动 mysql:8.4 的下载已中断，新增测试已改回项目锁定8.4.11。
+- 下一批源码只读已确认：R01 用例手动SqlSession需要JdbcTransactionFactory，TCC保留同数据源SpringManaged+SqlSessionTemplate；R04新版授权入口验证证据，但createFromAllocation仍接受任意非空authorizationId，requireAuthorization仍只判非空。R02还发现scope字符串格式未正确拆解，需要兼容标准JWT字符串scope并限制仅操作scope/permissions可授权（不能以组名碰撞冒充scope）。现已实现R01双事务工厂与生产装配IT（通过），R02标准scope字符串/组名隔离和79条公开契约权限过滤（单测通过），R03调拨SQL先权限后分页和详情参与仓强制校验（HTTP测试通过）；R04源码正在修改，未验证。
+
+## 已修改文件
+
+- pom.xml 与各后端模块pom；新增 wms-runtime（分页、池、入站预算、缓存、错误边界与回归测试）。
+- 各服务 Mapper.java 与对应 resources/com/**/*.xml；四服务 Persistence.java。
+- 入出库、履约、库存 Controllers 与新增 *Requests.java/RemediationRequest.java；仓迁移 infrastructure；OutboxBudget/Publisher。
+- 四服务追加 *bounded_query_indexes.sql；generate-openapi.py 与生成的 wms-v1.yaml。
+- compose.yaml、deploy/compose.local.yml、deploy/app.Dockerfile、.env.example；required-its 检查脚本/清单。
+- CODEX_PROGRESS.md、DELIVERY_PLAN.md、DELIVERY_STATUS.md；新增 docs/delivery/wms-v1/BACKEND_REMEDIATION.md。
+
+## 下一步建议
+
+1. 跟踪完整 verify 日志，修复真实回归，不能将失败标完成；不要并发启动另一次Maven写同target。
+2. 首批仍需确认全部HTTP/既有流程测试、OpenAPI与DTO实际字段差异同步、缓存指标接线和环境配置；生成更新SBOM/许可证/OSV；执行smoke、契约/文档检查；更新首批证据并按完整逻辑单元提交。
+3. 按已授权顺序实施 R01–R04（生产装配事务测试、所有公开路由scope测试、调拨仓范围、可信出库授权），再完成其余R项，不等待用户继续。
+4. 最终按 task-git-delivery 完成必要CI、普通合并推送main；不强推、不覆盖已有改动、不部署生产。
+
+## 恢复 Prompt
+
+请读取 CODEX_PROGRESS.md、docs/delivery/wms-v1/DELIVERY_PLAN.md 和 BACKEND_REMEDIATION.md，继续已批准的全部24项整改。先完成当前 R16–R20 验证与提交，再按既定顺序连续执行；不要只做首批就结束，不要要求输入“继续”。保持OQ-03、真实WCS设备与容量签署边界，不虚构验收。
+
+## 当前 Git 分批边界（恢复时务必注意）
+
+- 暂存区是已完成本地验证的R16–R20（140余文件），后续R01–R04刻意未暂存。`git diff --cached` 与 `git diff` 是不同批次，不能全量add混在一起。
+- R19兼容修复targetLotId已同步暂存DTO、暂存生成器及OpenAPI；生成器/OpenAPI工作树又含R02新增14入口/权限表，故通过hash-object/update-index精确更新首批版本，工作树后续改动保留。
+- R01新增 ProductionTransactionsIT，R02新增 OperationScopeFilter/TSV/完整路由校验单测，R03新增FulfillmentHttpIT第二测试；均为下一提交。
+- R04已修改OrderService拒绝裸授权（建单始终PENDING，执行查授权与Committed证据联结）、AuthorizationService全字段重放校验与只允许PENDING绑定、Mapper加入证据查询；旧测试尚须改为可信证据夹具，未跑R04测试。
+- SBOM生成已完成（/tmp/wms-sbom.log BUILD SUCCESS）：168组件/158 purl，Tomcat与fastjson既有依赖命中。产物与说明归入首批；随后提交首批。不要并发启动Maven写同target。
+- 四服务smoke日志/tmp/wms-smoke.log；控制台npm ci后build及33测试通过（/tmp/wms-console-build.log、/tmp/wms-console-test.log）。

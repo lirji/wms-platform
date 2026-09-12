@@ -65,13 +65,13 @@ public class EffectController {
     @PostMapping("/action-effects")
     public ResponseEntity<Map<String, Object>> register(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody EffectRequests.RegisterRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String clientOperationId = requireMatchingKey(idempotencyKey, text(body, "clientOperationId"));
+        String clientOperationId = requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> resource = new EffectService(session, clock).register(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, text(body, "action"), text(body, "factType"),
-                    text(body, "factParentId"), text(body, "factPartId"), text(body, "factLineId"), clientOperationId);
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.action(), body.factType(),
+                    body.factParentId(), body.factPartId(), body.factLineId(), clientOperationId);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(resource);
         }
@@ -91,18 +91,18 @@ public class EffectController {
     @PostMapping("/action-effects/{effectId}/execution-attempts")
     public ResponseEntity<Map<String, Object>> createAttempt(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @PathVariable String effectId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody EffectRequests.CreateAttemptRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String clientOperationId = requireMatchingKey(idempotencyKey, text(body, "clientOperationId"));
-        long expected = body.get("expectedEffectVersion") == null ? -1L
-                : ((Number) body.get("expectedEffectVersion")).longValue();
+        String clientOperationId = requireMatchingKey(idempotencyKey, body.clientOperationId());
+        long expected = body.expectedEffectVersion() == null ? -1L
+                : ((Number) body.expectedEffectVersion()).longValue();
         if (expected < 0) {
             throw new IllegalArgumentException("expectedEffectVersion不能为空");
         }
-        Long digestVersion = body.get("digestVersion") == null ? null : ((Number) body.get("digestVersion")).longValue();
+        Long digestVersion = body.digestVersion() == null ? null : ((Number) body.digestVersion()).longValue();
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> accepted = new EffectService(session, clock).createAttempt(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, effectId, text(body, "previousCommandId"), expected,
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, effectId, body.previousCommandId(), expected,
                     digestVersion, clientOperationId);
             session.commit();
             accepted.put("operationId", accepted.getOrDefault("executionAttemptId", accepted.get("id")));
@@ -143,10 +143,7 @@ public class EffectController {
         return key;
     }
 
-    private static String text(Map<String, Object> body, String field) {
-        Object value = body.get(field);
-        return value == null ? null : String.valueOf(value);
-    }
+
 
     private static Map<String, Object> errorBody(String code, String message) {
         Map<String, Object> body = new LinkedHashMap<>();

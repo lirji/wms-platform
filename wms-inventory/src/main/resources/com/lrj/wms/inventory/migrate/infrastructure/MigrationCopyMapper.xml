@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.migrate.infrastructure.MigrationCopyMapper">
+    <!-- 标识符来自固定允许列表或校验过的数据库元数据；业务值全部参数绑定。 -->
+    <select id="columns" resultType="map">
+        SELECT COLUMN_NAME AS column_name, DATA_TYPE AS data_type FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=#{table} AND EXTRA NOT LIKE '%GENERATED%'
+        ORDER BY ORDINAL_POSITION
+    </select>
+    <select id="page" resultType="map">
+        SELECT <foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>
+        FROM `${table}` WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+        <if test="since != null">AND `${watermark}` &gt;= #{since}</if>
+        <if test="cursor != null">AND `${key}` &gt; #{cursor}</if>
+        ORDER BY `${key}` LIMIT 200
+    </select>
+    <insert id="upsert">
+        INSERT <if test="immutable">IGNORE</if> INTO `${table}`
+        (<foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>)
+        VALUES (<foreach collection="columns" item="column" separator=",">
+            <choose><when test="column.json">CAST(#{row.${column.name}} AS JSON)</when>
+                <otherwise>#{row.${column.name}}</otherwise></choose>
+        </foreach>)
+        <if test="!immutable">
+            AS incoming ON DUPLICATE KEY UPDATE
+            <trim suffixOverrides=",">
+                <foreach collection="columns" item="column">
+                    <if test="column.name != 'id' and column.name != 'event_id'">
+                        `${column.name}`=incoming.`${column.name}`,
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+    </insert>
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM `${table}` WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+    </select>
+    <select id="quantities" resultType="map">
+        SELECT COALESCE(SUM(on_hand_qty),0) on_hand, COALESCE(SUM(reserved_qty),0) reserved,
+            COALESCE(SUM(free_execution_claim_qty),0) claimed FROM stock_balance
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+    </select>
+</mapper>

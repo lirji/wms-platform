@@ -2,46 +2,33 @@ package com.lrj.wms.inventory.masterdata.infrastructure;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
-import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 /** inventory 主数据写入与按作用域读取；调用方必须带企业/仓条件。 */
 public interface MasterdataMapper {
     /** 插入仓主数据。 */
     /** 幂等写入仓；唯一键冲突时保持原行。 */
-    @Insert("INSERT INTO warehouse (id, enterprise_id, warehouse_id, code, name, timezone, state, version, created_at, updated_at) "
-            + "VALUES (#{id}, #{enterpriseId}, #{id}, #{code}, #{name}, #{timezone}, #{state}, 0, #{now}, #{now}) "
-            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertWarehouse：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertWarehouse(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("code") String code,
             @Param("name") String name, @Param("timezone") String timezone, @Param("state") String state,
             @Param("now") Timestamp now);
 
     /** 插入库位主数据。 */
-    @Insert("INSERT INTO location (id, enterprise_id, warehouse_id, code, zone_code, location_type, capacity_qty, capacity_unit, "
-            + "state, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{code}, #{zoneCode}, "
-            + "#{locationType}, #{capacityQty}, #{capacityUnit}, #{state}, 0, #{now}, #{now}) "
-            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertLocation：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertLocation(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("code") String code, @Param("zoneCode") String zoneCode,
             @Param("locationType") String locationType, @Param("capacityQty") BigDecimal capacityQty,
             @Param("capacityUnit") String capacityUnit, @Param("state") String state, @Param("now") Timestamp now);
 
     /** 插入库位门禁，新建库位默认 OPEN 且 fence_epoch=0。 */
-    @Insert("INSERT INTO location_gate (id, enterprise_id, warehouse_id, location_id, state, reason_code, fence_epoch, "
-            + "count_plan_id, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{locationId}, "
-            + "#{state}, #{reasonCode}, #{fenceEpoch}, #{countPlanId}, 0, #{now}, #{now}) "
-            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertGate：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertGate(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("locationId") String locationId, @Param("state") String state,
             @Param("reasonCode") String reasonCode, @Param("fenceEpoch") long fenceEpoch,
             @Param("countPlanId") String countPlanId, @Param("now") Timestamp now);
 
     /** 插入商品主数据。 */
-    @Insert("INSERT INTO sku (id, enterprise_id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, "
-            + "expiry_enabled, policy_version, state, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{code}, "
-            + "#{name}, #{baseUnit}, #{quantityScale}, #{lotEnabled}, #{serialEnabled}, #{expiryEnabled}, #{policyVersion}, "
-            + "#{state}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertSku：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertSku(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("code") String code,
             @Param("name") String name, @Param("baseUnit") String baseUnit, @Param("quantityScale") int quantityScale,
             @Param("lotEnabled") int lotEnabled, @Param("serialEnabled") int serialEnabled,
@@ -49,19 +36,14 @@ public interface MasterdataMapper {
             @Param("state") String state, @Param("now") Timestamp now);
 
     /** 插入当前策略版本的单位换算。 */
-    @Insert("INSERT INTO sku_unit (id, enterprise_id, sku_id, unit_code, numerator, denominator, policy_version, version, "
-            + "created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{skuId}, #{unitCode}, #{numerator}, #{denominator}, "
-            + "#{policyVersion}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertSkuUnit：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertSkuUnit(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
             @Param("unitCode") String unitCode, @Param("numerator") BigDecimal numerator,
             @Param("denominator") BigDecimal denominator, @Param("policyVersion") long policyVersion,
             @Param("now") Timestamp now);
 
     /** 插入仓级批次；禁止写入 NO_LOT。 */
-    @Insert("INSERT INTO lot (id, enterprise_id, warehouse_id, owner_id, sku_id, lot_code, business_lot_key, produced_at, "
-            + "expires_at, source_date, expiry_rule_version, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, "
-            + "#{warehouseId}, #{ownerId}, #{skuId}, #{lotCode}, #{businessLotKey}, #{producedAt}, #{expiresAt}, #{sourceDate}, "
-            + "#{expiryRuleVersion}, 0, #{now}, #{now}) ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertLot：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertLot(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("ownerId") String ownerId, @Param("skuId") String skuId,
             @Param("lotCode") String lotCode, @Param("businessLotKey") String businessLotKey,
@@ -70,80 +52,82 @@ public interface MasterdataMapper {
             @Param("now") Timestamp now);
 
     /** 按企业读取商品精度与开关，找不到返回 null。 */
-    @Select("SELECT quantity_scale FROM sku WHERE enterprise_id=#{enterpriseId} AND id=#{skuId}")
+    /** skuQuantityScale：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Integer skuQuantityScale(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId);
 
     /** 读取指定库位门禁状态，找不到返回 null。 */
-    @Select("SELECT state FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND location_id=#{locationId}")
+    /** gateState：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     String gateState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("locationId") String locationId);
 
     /** 幂等写入种子权限映射。 */
-    @Insert("INSERT INTO operator_grant (id, enterprise_id, subject, warehouse_id, permission_code, version, created_at, updated_at) "
-            + "VALUES (#{id}, #{enterpriseId}, #{subject}, #{warehouseId}, #{permission}, 0, #{now}, #{now}) "
-            + "ON DUPLICATE KEY UPDATE updated_at=updated_at")
+    /** insertGrant：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertGrant(@Param("id") String id, @Param("enterpriseId") String enterpriseId, @Param("subject") String subject,
             @Param("warehouseId") String warehouseId, @Param("permission") String permission, @Param("now") Timestamp now);
 
     /** 统计企业下仓库数，用于种子复跑核对。 */
-    @Select("SELECT COUNT(*) FROM warehouse WHERE enterprise_id=#{enterpriseId}")
+    /** countWarehouses：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countWarehouses(@Param("enterpriseId") String enterpriseId);
 
     /** 统计商品数。 */
-    @Select("SELECT COUNT(*) FROM sku WHERE enterprise_id=#{enterpriseId}")
+    /** countSkus：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countSkus(@Param("enterpriseId") String enterpriseId);
 
     /** 统计批次。 */
-    @Select("SELECT COUNT(*) FROM lot WHERE enterprise_id=#{enterpriseId}")
+    /** countLots：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countLots(@Param("enterpriseId") String enterpriseId);
 
     /** 统计授权映射。 */
-    @Select("SELECT COUNT(*) FROM operator_grant WHERE enterprise_id=#{enterpriseId}")
+    /** countGrants：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countGrants(@Param("enterpriseId") String enterpriseId);
 
     /** 统计单位换算行，用于种子复跑核对。 */
-    @Select("SELECT COUNT(*) FROM sku_unit WHERE enterprise_id=#{enterpriseId}")
+    /** countSkuUnits：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countSkuUnits(@Param("enterpriseId") String enterpriseId);
 
     /** 企业内是否存在该商品。 */
-    @Select("SELECT COUNT(*) FROM sku WHERE enterprise_id=#{enterpriseId} AND id=#{skuId}")
+    /** countSku：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countSku(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId);
 
     /** 列出企业仓库。 */
-    @Select("SELECT id, code, name, timezone, state, version FROM warehouse WHERE enterprise_id=#{enterpriseId} ORDER BY code, id")
-    java.util.List<java.util.Map<String, Object>> listWarehouses(@Param("enterpriseId") String enterpriseId);
+    /** listWarehouses：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
+    java.util.List<java.util.Map<String, Object>> listWarehouses(@Param("enterpriseId") String enterpriseId,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page, @Param("allowed") java.util.Set<String> allowed);
 
     /** 列出企业商品。 */
-    @Select("SELECT id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, expiry_enabled, state, version "
-            + "FROM sku WHERE enterprise_id=#{enterpriseId} ORDER BY code, id")
-    java.util.List<java.util.Map<String, Object>> listSkus(@Param("enterpriseId") String enterpriseId);
+    /** listSkus：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
+    java.util.List<java.util.Map<String, Object>> listSkus(@Param("enterpriseId") String enterpriseId,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page);
 
     /** 列出仓内库位。 */
-    @Select("SELECT id, code, zone_code, location_type, state, version FROM location "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} ORDER BY code, id")
+    /** listLocations：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     java.util.List<java.util.Map<String, Object>> listLocations(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId);
+            @Param("warehouseId") String warehouseId,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page);
 
-    @Select("SELECT id, code, zone_code, location_type, state, version FROM location "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{locationId}")
+    /** getLocation：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     java.util.Map<String, Object> getLocation(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("locationId") String locationId);
 
-    @Select("SELECT id, sku_id, lot_code, produced_at, expires_at, expiry_rule_version FROM lot "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lotId}")
+    /** getLot：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     java.util.Map<String, Object> getLot(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("lotId") String lotId);
 
     /** 列出当前策略版本单位换算。 */
-    @Select("SELECT unit_code, numerator, denominator, policy_version FROM sku_unit "
-            + "WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} ORDER BY unit_code, id")
+    /** listSkuUnits：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     java.util.List<java.util.Map<String, Object>> listSkuUnits(@Param("enterpriseId") String enterpriseId,
-            @Param("skuId") String skuId);
+            @Param("skuId") String skuId,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page);
+
+    /** 详情最多内嵌 200 个单位；更多单位通过独立分页接口查询。 */
+    default java.util.List<java.util.Map<String, Object>> listSkuUnits(String enterpriseId, String skuId) {
+        return listSkuUnits(enterpriseId, skuId, com.lrj.wms.runtime.web.CursorPage.parse(200, null, "units"))
+                .stream().limit(200).toList();
+    }
 
     /** 列出仓级批次，含显式效期时刻。 */
-    @Select("SELECT id, sku_id, lot_code, produced_at, expires_at, expiry_rule_version FROM lot "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} ORDER BY sku_id, lot_code, id")
+    /** listLots：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     java.util.List<java.util.Map<String, Object>> listLots(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId);
+            @Param("warehouseId") String warehouseId,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page);
 }

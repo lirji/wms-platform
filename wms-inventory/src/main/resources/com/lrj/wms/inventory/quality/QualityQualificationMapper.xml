@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.quality.QualityQualificationMapper">
+
+    <!-- insert：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insert">
+        INSERT INTO quality_qualification (id, enterprise_id, warehouse_id, inspection_id, source_version, sku_id, lot_id, result_code, effective_state, command_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{inspectionId}, #{sourceVersion}, #{skuId}, #{lotId}, #{resultCode}, #{state}, #{commandId}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockByInspection：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockByInspection" resultType="map">
+        SELECT id, inspection_id, source_version, sku_id, lot_id, result_code, effective_state, command_id, version
+        FROM quality_qualification
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND inspection_id=#{inspectionId} FOR UPDATE
+    </select>
+
+    <!-- casNewerVersion：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casNewerVersion">
+        UPDATE quality_qualification
+        SET source_version=#{sourceVersion}, result_code=#{resultCode}, effective_state=#{state}, command_id=#{commandId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND inspection_id=#{inspectionId}
+        AND source_version&lt;#{sourceVersion}
+    </update>
+</mapper>

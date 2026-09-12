@@ -43,12 +43,14 @@ public class OperationsQueryController {
 
     @GetMapping("/jobs")
     public Map<String, Object> jobs(@AuthenticationPrincipal Jwt jwt, @RequestParam(name = "warehouseId") String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("jobs", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
         try (SqlSession session = sessions.openSession()) {
-            List<Map<String, Object>> runs = session.getMapper(JobRunMapper.class)
-                    .listRuns(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, limit == null ? 50 : limit);
-            return page(runs);
+            return InventoryHttpJson.body(page.result(session.getMapper(JobRunMapper.class)
+                    .listRunsPage(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), true));
         }
     }
 
@@ -70,11 +72,14 @@ public class OperationsQueryController {
 
     @GetMapping("/warehouses/{warehouseId}/count-plans")
     public Map<String, Object> counts(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("counts", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
         try (SqlSession session = sessions.openSession()) {
-            return page(session.getMapper(CountMapper.class).listPlans(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    limit == null ? 50 : limit));
+            return InventoryHttpJson.body(page.result(session.getMapper(CountMapper.class)
+                    .listPlansPage(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), true));
         }
     }
 

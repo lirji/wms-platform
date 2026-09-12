@@ -140,6 +140,10 @@ services:
       - everysec
       - --requirepass
       - ${WMS_REDIS_PASSWORD:?set WMS_REDIS_PASSWORD}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
     environment:
       REDIS_PASSWORD: ${WMS_REDIS_PASSWORD:?set WMS_REDIS_PASSWORD}
     ports:

@@ -37,17 +37,17 @@ public class DomainCommandController {
 
     @PostMapping("/moves")
     public ResponseEntity<Map<String, Object>> move(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody DomainCommandRequests.MoveRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "stock.move");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
+        String key = DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new WarehouseMoveService(session, Clock.systemUTC()).move(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, key, jwt.getSubject(),
-                    DomainHttp.requireText(body, "sourceBalanceId", "源库存桶"),
-                    DomainHttp.requireText(body, "targetLocationId", "目标库位"),
-                    DomainHttp.requireQty(body.get("qty"), "移库数量"),
-                    DomainHttp.text(body, "unit"), DomainHttp.requireText(body, "reason", "原因"));
+                    body.sourceBalanceId(),
+                    body.targetLocationId(),
+                    DomainHttp.requireQty(body.qty(), "移库数量"),
+                    body.unit(), body.reason());
             session.commit();
             Map<String, Object> accepted = DomainHttp.accepted(warehouseId, key,
                     "/api/wms/v1/warehouses/" + warehouseId + "/inventory/" + result.get("sourceBalanceId") + "/ledger",
@@ -59,17 +59,17 @@ public class DomainCommandController {
 
     @PostMapping("/stock-holds")
     public ResponseEntity<Map<String, Object>> hold(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody DomainCommandRequests.HoldRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "stock.hold");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
-        Map<String, Object> scope = DomainHttp.map(body.get("scope"));
+        String key = DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
+        var scope = body.scope();
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new StockHoldService(session, Clock.systemUTC()).create(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, key, jwt.getSubject(),
-                    DomainHttp.requireText(scope, "balanceId", "限制库存桶"),
-                    DomainHttp.requireQty(firstNonNull(scope.get("qty"), body.get("qty")), "限制数量"),
-                    DomainHttp.requireText(body, "reason", "原因"), DomainHttp.jsonArray(body.get("evidenceRefs")));
+                    scope.balanceId(),
+                    DomainHttp.requireQty(firstNonNull(scope.qty(), body.qty()), "限制数量"),
+                    body.reason(), DomainHttp.jsonArray(body.evidenceRefs()));
             session.commit();
             Map<String, Object> accepted = DomainHttp.accepted(warehouseId, key,
                     "/api/wms/v1/warehouses/" + warehouseId + "/inventory/" + result.get("balanceId") + "/ledger",
@@ -82,14 +82,14 @@ public class DomainCommandController {
     @PostMapping("/stock-holds/{holdId}/releases")
     public Map<String, Object> release(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String holdId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody DomainCommandRequests.ReleaseRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "stock.releaseHold");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
+        String key = DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new StockHoldService(session, Clock.systemUTC()).release(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, holdId, key, jwt.getSubject(),
-                    DomainHttp.text(body, "reason"), DomainHttp.requireVersion(body.get("expectedVersion")));
+                    body.reason(), DomainHttp.requireVersion(body.expectedVersion()));
             session.commit();
             return DomainHttp.row(result);
         }
@@ -98,20 +98,20 @@ public class DomainCommandController {
     @PostMapping("/adjustments")
     public ResponseEntity<Map<String, Object>> createAdjustment(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody DomainCommandRequests.CreateAdjustmentRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "adjustment.create");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        if (body.get("serialActions") instanceof List<?> actions && !actions.isEmpty()) {
+        if (body.serialActions() != null && !body.serialActions().isEmpty()) {
             throw new InventoryException("INVALID_ARGUMENT", "独立调整不处理序列号身份，请走盘点");
         }
-        String key = DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
+        String key = DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new WarehouseAdjustmentService(session, Clock.systemUTC()).create(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, key, jwt.getSubject(),
-                    DomainHttp.requireText(body, "balanceId", "调整库存桶"),
-                    DomainHttp.requireQty(body.get("deltaQty"), "调整增量"),
-                    DomainHttp.requireText(body, "reason", "原因"), DomainHttp.text(body, "countLineId"),
-                    DomainHttp.jsonArray(body.get("evidenceRefs")));
+                    body.balanceId(),
+                    DomainHttp.requireQty(body.deltaQty(), "调整增量"),
+                    body.reason(), body.countLineId(),
+                    DomainHttp.jsonArray(body.evidenceRefs()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(DomainHttp.row(created));
         }
@@ -143,15 +143,15 @@ public class DomainCommandController {
     @PostMapping("/adjustments/{adjustmentId}/approvals")
     public Map<String, Object> approve(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String adjustmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody DomainCommandRequests.ApproveRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "adjustment.approve");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
+        DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new WarehouseAdjustmentService(session, Clock.systemUTC()).decide(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, adjustmentId, jwt.getSubject(),
-                    DomainHttp.requireText(body, "decision", "审批结论"), DomainHttp.text(body, "reason"),
-                    DomainHttp.requireVersion(body.get("expectedVersion")));
+                    body.decision(), body.reason(),
+                    DomainHttp.requireVersion(body.expectedVersion()));
             session.commit();
             return DomainHttp.row(result);
         }
@@ -160,14 +160,14 @@ public class DomainCommandController {
     @PostMapping("/adjustments/{adjustmentId}/applications")
     public ResponseEntity<Map<String, Object>> apply(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String adjustmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody DomainCommandRequests.ApplyRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "adjustment.apply");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = DomainHttp.requireMatchingKey(idempotencyKey, DomainHttp.text(body, "clientOperationId"));
+        String key = DomainHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new WarehouseAdjustmentService(session, Clock.systemUTC()).apply(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, adjustmentId, key, jwt.getSubject(),
-                    DomainHttp.requireVersion(body.get("expectedVersion")));
+                    DomainHttp.requireVersion(body.expectedVersion()));
             session.commit();
             Map<String, Object> accepted = DomainHttp.accepted(warehouseId, key,
                     "/api/wms/v1/warehouses/" + warehouseId + "/adjustments/" + adjustmentId, "ADJUST_APPLIED",

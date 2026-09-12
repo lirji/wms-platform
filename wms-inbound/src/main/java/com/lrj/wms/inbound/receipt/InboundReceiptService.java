@@ -63,6 +63,7 @@ public final class InboundReceiptService {
         try {
             mapper.insertOrder(orderId, enterpriseId, warehouseId, externalSource, externalNo, ownerId, STATUS_APPROVED, now);
         } catch (RuntimeException ex) {
+            if (!com.lrj.wms.runtime.db.DatabaseErrors.duplicateKey(ex)) throw ex;
             throw new InboundException("DUPLICATE_DOCUMENT", "入库单已存在");
         }
         for (Map<String, Object> line : lines) {
@@ -71,6 +72,7 @@ public final class InboundReceiptService {
                         String.valueOf(line.get("externalLineId")), String.valueOf(line.get("skuId")),
                         decimal(line.get("expectedQty")), String.valueOf(line.getOrDefault("unit", "EA")), now);
             } catch (RuntimeException ex) {
+                if (!com.lrj.wms.runtime.db.DatabaseErrors.duplicateKey(ex)) throw ex;
                 // 行主键全局唯一，复用 LINE-1 不能冒成 500。
                 throw new InboundException("DUPLICATE_DOCUMENT", "入库行已存在");
             }
@@ -213,6 +215,7 @@ public final class InboundReceiptService {
             mapper().insertInspection(inspectionId, enterpriseId, warehouseId, lineId, inspected, accepted, rejected, result,
                     sourceVersion, actorId, now);
         } catch (RuntimeException ex) {
+            if (!com.lrj.wms.runtime.db.DatabaseErrors.duplicateKey(ex)) throw ex;
             throw new InboundException("DUPLICATE_INSPECTION", "同版本质检已存在");
         }
         Map<String, Object> body = new LinkedHashMap<>();

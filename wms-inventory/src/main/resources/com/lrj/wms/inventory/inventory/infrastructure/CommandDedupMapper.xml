@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO command_dedup (id, enterprise_id, warehouse_id, source_system, action, client_operation_id, operation_id, request_digest, digest_version, status, response_json, retain_until, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceSystem}, #{action}, #{clientOperationId}, #{operationId}, #{requestDigest}, #{digestVersion}, #{status}, NULL, #{retainUntil}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockByClient：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockByClient" resultType="map">
+        SELECT operation_id, request_digest, digest_version, status
+        FROM command_dedup
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND source_system=#{sourceSystem}
+        AND action=#{action}
+        AND client_operation_id=#{clientOperationId} FOR UPDATE
+    </select>
+</mapper>

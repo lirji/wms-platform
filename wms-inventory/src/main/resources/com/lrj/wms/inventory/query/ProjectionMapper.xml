@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.query.ProjectionMapper">
+
+    <!-- insertInboxIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertInboxIgnore">
+        INSERT INTO projection_inbox (id, enterprise_id, warehouse_id, consumer_name, event_id, aggregate_id, aggregate_version, event_type, payload, occurred_at, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{consumer}, #{eventId}, #{aggregateId}, #{aggregateVersion}, #{eventType}, #{payload}, #{occurredAt}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- countInbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countInbox" resultType="int">
+        SELECT COUNT(*)
+        FROM projection_inbox
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND consumer_name=#{consumer}
+        AND event_id=#{eventId}
+    </select>
+
+    <!-- findInboxVersion：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="findInboxVersion" resultType="map">
+        SELECT event_id, aggregate_id, aggregate_version, event_type, payload, occurred_at
+        FROM projection_inbox
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND consumer_name=#{consumer}
+        AND aggregate_id=#{aggregateId}
+        AND aggregate_version=#{aggregateVersion}
+    </select>
+
+    <!-- insertCheckpointIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertCheckpointIgnore">
+        INSERT INTO projection_checkpoint (id, enterprise_id, warehouse_id, projection_name, live_generation, rebuild_generation, last_event_id, last_event_time, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{name}, 0, NULL, NULL, NULL, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- lockCheckpoint：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockCheckpoint" resultType="map">
+        SELECT id, live_generation, rebuild_generation, last_event_id, last_event_time, version
+        FROM projection_checkpoint
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND projection_name=#{name} FOR UPDATE
+    </select>
+
+    <!-- casCheckpoint：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casCheckpoint">
+        UPDATE projection_checkpoint
+        SET live_generation=#{live}, rebuild_generation=#{rebuild}, last_event_id=#{eventId}, last_event_time=#{eventTime}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND projection_name=#{name}
+        AND version=#{version}
+    </update>
+
+    <!-- lockView：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockView" resultType="map">
+        SELECT id, source_version, on_hand_qty, reserved_qty, as_of
+        FROM inventory_view
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND generation=#{generation}
+        AND id=#{balanceId} FOR UPDATE
+    </select>
+
+    <!-- insertView：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertView">
+        INSERT INTO inventory_view (id, enterprise_id, warehouse_id, generation, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, source_version, as_of, eligible, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{generation}, #{ownerId}, #{locationId}, #{skuId}, #{lotId}, #{qualityCode}, #{onHand}, #{reserved}, #{claim}, #{sourceVersion}, #{asOf}, 1, 0, #{now}, #{now})
+    </insert>
+
+    <!-- casView：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casView">
+        UPDATE inventory_view
+        SET on_hand_qty=#{onHand}, reserved_qty=#{reserved}, source_version=#{sourceVersion}, as_of=#{asOf}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND generation=#{generation}
+        AND id=#{id}
+        AND source_version=#{expectedVersion}
+    </update>
+
+    <!-- copyBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="copyBalances">
+        INSERT INTO inventory_view (id, enterprise_id, warehouse_id, generation, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, source_version, as_of, eligible, version, created_at, updated_at) SELECT id, enterprise_id, warehouse_id, #{generation}, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version, #{now}, 1, 0, #{now}, #{now}
+        FROM stock_balance
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+    </insert>
+
+    <!-- listView：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listView" resultType="map">
+        SELECT id, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, source_version, as_of, version
+        FROM inventory_view
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND generation=#{generation}
+        AND (#{skuId} IS NULL OR sku_id=#{skuId})
+        <if test="page.id != null">AND id &gt; #{page.id}</if>
+        ORDER BY id
+        LIMIT #{page.fetchLimit}
+    </select>
+
+    <!-- maxAsOf：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="maxAsOf" resultType="java.lang.Object">
+        SELECT MAX(as_of) AS as_of
+        FROM inventory_view
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND generation=#{generation}
+    </select>
+
+    <!-- highWater：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="highWater" resultType="long">
+        SELECT MAX(source_version) AS high_water
+        FROM inventory_view
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND generation=#{generation}
+    </select>
+</mapper>

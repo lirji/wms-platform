@@ -8,6 +8,7 @@
   </parent>
   <artifactId>wms-inbound</artifactId>
   <dependencies>
+    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>
       <artifactId>wms-security</artifactId>

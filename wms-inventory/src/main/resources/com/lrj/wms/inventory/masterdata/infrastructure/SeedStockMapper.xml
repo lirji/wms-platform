@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.masterdata.infrastructure.SeedStockMapper">
+
+    <!-- insertBalanceIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertBalanceIgnore">
+        INSERT INTO stock_balance (id, enterprise_id, warehouse_id, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{ownerId}, #{locationId}, #{skuId}, #{lotId}, #{qualityCode}, #{onHand}, 0, 0, 1, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- insertLedgerIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLedgerIgnore">
+        INSERT IGNORE INTO stock_ledger (id, enterprise_id, warehouse_id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta, free_execution_claim_delta, on_hand_after, reserved_after, free_execution_claim_after, balance_version, reason_code, document_id, actor_id, occurred_at, created_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{operationId}, 1, #{balanceId}, #{onHand}, 0, 0, #{onHand}, 0, 0, 1, #{reason}, #{documentId}, #{actorId}, #{now}, #{now})
+    </insert>
+
+    <!-- insertViewIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertViewIgnore">
+        INSERT INTO inventory_view (id, enterprise_id, warehouse_id, generation, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, source_version, as_of, eligible, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{generation}, #{ownerId}, #{locationId}, #{skuId}, #{lotId}, #{qualityCode}, #{onHand}, 0, 0, 1, #{now}, 1, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- countBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countBalances" resultType="int">
+        SELECT COUNT(*)
+        FROM stock_balance
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countLedgers：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countLedgers" resultType="int">
+        SELECT COUNT(*)
+        FROM stock_ledger
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countViews：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countViews" resultType="int">
+        SELECT COUNT(*)
+        FROM inventory_view
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countPlans：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countPlans" resultType="int">
+        SELECT COUNT(*)
+        FROM count_plan
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+</mapper>

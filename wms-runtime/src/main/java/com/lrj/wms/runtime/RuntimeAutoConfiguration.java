@@ -1,0 +1,21 @@
+package com.lrj.wms.runtime;
+
+import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.web.AdmissionBudget;
+import com.lrj.wms.runtime.web.AdmissionGate;
+import com.lrj.wms.runtime.web.RuntimeErrors;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+
+/** 环境配置是当前唯一权威来源；非法预算启动失败，不默默套用默认值。 */
+@AutoConfiguration
+@EnableConfigurationProperties({DatabaseBudget.class, AdmissionBudget.class, com.lrj.wms.runtime.cache.QueryCacheProperties.class})
+public class RuntimeAutoConfiguration {
+    @Bean public AdmissionGate admissionGate(AdmissionBudget budget) { return new AdmissionGate(budget); }
+    @Bean(destroyMethod = "close")
+    public com.lrj.wms.runtime.cache.ReadQueryCache readQueryCache(com.lrj.wms.runtime.cache.QueryCacheProperties properties) {
+        return new com.lrj.wms.runtime.cache.ReadQueryCache(properties);
+    }
+    @Bean public RuntimeErrors runtimeErrors() { return new RuntimeErrors(); }
+}

@@ -40,11 +40,14 @@ public class OutboundWorkbenchController {
 
     @GetMapping("/outbound-orders")
     public Map<String, Object> list(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("outbound", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
         try (SqlSession session = sessions.openSession()) {
-            return HttpJson.page(new OutboundOrderService(session, Clock.systemUTC())
-                    .listOrders(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, limit == null ? 50 : limit));
+            return HttpJson.cursorPage(page.result(session.getMapper(OutboundOrderMapper.class)
+                    .listOrdersPage(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), true));
         }
     }
 
@@ -61,13 +64,13 @@ public class OutboundWorkbenchController {
     @PostMapping("/outbound-orders")
     public ResponseEntity<Map<String, Object>> create(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.CreateRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new OutboundOrderService(session, Clock.systemUTC()).createFromAllocation(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, text(body, "allocationId"),
-                    firstNonBlank(text(body, "attemptId"), idempotencyKey), text(body, "ownerId"),
-                    text(body, "authorizationId"), lines(body));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.allocationId(),
+                    firstNonBlank(body.attemptId(), idempotencyKey), body.ownerId(),
+                    body.authorizationId(), lines(body.lines()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -76,15 +79,15 @@ public class OutboundWorkbenchController {
     @PostMapping("/outbound-orders/{outboundOrderId}/execution-authorizations")
     public Map<String, Object> authorize(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String outboundOrderId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.AuthorizeRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "fulfillment.execute");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = firstNonBlank(text(body, "clientOperationId"), idempotencyKey);
+        String key = firstNonBlank(body.clientOperationId(), idempotencyKey);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundAuthorizationService(session, Clock.systemUTC()).authorize(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, key, jwt.getSubject(),
-                    text(body, "attemptId"), text(body, "authorizationId"), text(body, "xid"),
-                    text(body, "tcTerminalEvidenceRef"), text(body, "participantSetHash"));
+                    body.attemptId(), body.authorizationId(), body.xid(),
+                    body.tcTerminalEvidenceRef(), body.participantSetHash());
             session.commit();
             return HttpJson.row(result);
         }
@@ -93,13 +96,13 @@ public class OutboundWorkbenchController {
     @PostMapping("/outbound-orders/{outboundOrderId}/pick-tasks")
     public ResponseEntity<Map<String, Object>> planPick(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @PathVariable String outboundOrderId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.PlanPickRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).planPickTask(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, text(body, "orderLineId"),
-                    text(body, "sourceLocationId"), text(body, "stagingLocationId"), qty(body.get("qty")));
-            result.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
+                    body.sourceLocationId(), body.stagingLocationId(), qty(body.qty()));
+            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
         }
@@ -132,17 +135,17 @@ public class OutboundWorkbenchController {
     @PostMapping("/tasks/{taskId}/claims")
     public Map<String, Object> claim(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String taskId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.ClaimRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "task.claim");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        long expectedVersion = body.get("expectedVersion") instanceof Number number ? number.longValue() : -1L;
+        long expectedVersion = body.expectedVersion();
         if (expectedVersion < 0) {
             throw new OutboundException("INVALID_VERSION", "expectedVersion不能为空");
         }
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundTaskService(session, Clock.systemUTC()).claim(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId, jwt.getSubject(), expectedVersion);
-            result.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
             session.commit();
             return HttpJson.row(result);
         }
@@ -151,12 +154,12 @@ public class OutboundWorkbenchController {
     @PostMapping("/tasks/{taskId}/picks")
     public ResponseEntity<Map<String, Object>> pick(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String taskId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.PickRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).pickPartial(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId,
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), jwt.getSubject(), qty(body.get("qty")));
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject(), qty(body.qty()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "PICKED"));
         }
@@ -164,12 +167,12 @@ public class OutboundWorkbenchController {
 
     @PostMapping("/outbound-orders/{outboundOrderId}/packings")
     public ResponseEntity<Map<String, Object>> pack(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
-            @PathVariable String outboundOrderId, @RequestBody Map<String, Object> body) {
+            @PathVariable String outboundOrderId, @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.PackRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).pack(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, text(body, "orderLineId"),
-                    firstNonBlank(text(body, "packageNo"), outboundOrderId + "-PKG"), qty(body.get("qty")));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
+                    firstNonBlank(body.packageNo(), outboundOrderId + "-PKG"), qty(body.qty()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
         }
@@ -178,12 +181,12 @@ public class OutboundWorkbenchController {
     @PostMapping("/outbound-orders/{outboundOrderId}/shipments")
     public ResponseEntity<Map<String, Object>> ship(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String outboundOrderId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.ShipRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).shipPartial(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, text(body, "orderLineId"),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), jwt.getSubject(), qty(body.get("qty")));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject(), qty(body.qty()));
             session.commit();
             Map<String, Object> accepted = accepted(warehouseId, result, "SHIPPED");
             accepted.put("statusUrl", "/api/wms/v1/warehouses/" + warehouseId + "/outbound-orders/" + outboundOrderId);
@@ -194,12 +197,12 @@ public class OutboundWorkbenchController {
     @PostMapping("/outbound-orders/{outboundOrderId}/cancellations")
     public ResponseEntity<Map<String, Object>> cancel(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @PathVariable String outboundOrderId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.CancelRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).cancelUnpicked(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, text(body, "orderLineId"),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), jwt.getSubject());
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "CANCEL_REQUESTED"));
         }
@@ -236,23 +239,17 @@ public class OutboundWorkbenchController {
         return body;
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> lines(Map<String, Object> body) {
-        Object raw = body.get("lines");
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            throw new OutboundException("INVALID_LINE", "出库行不能为空");
-        }
-        List<Map<String, Object>> lines = new ArrayList<>();
-        for (Object item : list) {
-            lines.add(new LinkedHashMap<>((Map<String, Object>) item));
-        }
-        return lines;
+    /** 协议行映射到现有应用模型，精确数量不经过浮点数转换。 */
+    private static List<Map<String, Object>> lines(List<OutboundWorkbenchRequests.OutboundLine> values) {
+        return values.stream().map(value -> {
+            Map<String, Object> line = new LinkedHashMap<>();
+            line.put("orderLineId", value.orderLineId()); line.put("skuId", value.skuId());
+            line.put("qty", value.qty()); line.put("baseUnit", value.baseUnit() == null ? "EA" : value.baseUnit());
+            return line;
+        }).toList();
     }
 
-    private static String text(Map<String, Object> body, String key) {
-        Object value = body == null ? null : body.get(key);
-        return value == null || String.valueOf(value).isBlank() ? null : String.valueOf(value);
-    }
+
 
     private static String firstNonBlank(String... values) {
         for (String value : values) {

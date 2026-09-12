@@ -83,6 +83,9 @@ services:
       WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INVENTORY_DB_USER: wms_inventory_a
       WMS_INVENTORY_DB_PASSWORD: ${WMS_INVENTORY_A_DB_PASSWORD:?set WMS_INVENTORY_A_DB_PASSWORD}
+      WMS_RUNTIME_CACHE_REDISHOST: redis
+      WMS_RUNTIME_CACHE_REDISPASSWORD: ${WMS_REDIS_PASSWORD:?set WMS_REDIS_PASSWORD}
+      WMS_RUNTIME_CACHE_NAMESPACE: "wms:local:inventory:masterdata:v1:"
     depends_on:
       mysql-cell-a:
         condition: service_healthy

@@ -244,3 +244,24 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 | EG-05 外部集成与非功能 | 对应S8/S9 | 对账/设备/UI证据、量化容量/SLO/RTO/RPO和实测 | 标明阻塞，不将模拟通过等同真实验收 |
 
 v0.4幂等任务已并入各阶段。每项任务记录实现、验证、提交和剩余问题；全部业务AC默认planned，只有实际证据覆盖的子项才能更新。S0的测试夹具不等于生产库存或跨仓履约已实现。
+
+
+## 2026-09-12 后端评审整改（用户已批准）
+
+授权：先完成 R16–R20，再按 R01–R04 → R05–R12 → R13–R15/R21/R24 → R22–R23 连续实施、验证与 Git 交付。基线更新到 origin/main db02821，保留已合入的契约缺口改动。编号来自本轮评审，不替代原 50 AC。
+
+| 顺序 | 编号 | 范围 | 状态 / 验收 |
+| --- | --- | --- | --- |
+| 1 | R16 | 稳定游标、有界列表、明确多仓语义 | implemented / local targeted regressions passed; combined CI pending；定向分页、权限过滤通过 |
+| 1 | R17 | 有界连接池、超时、入口限流 | implemented / local targeted regressions passed; combined CI pending；真实MySQL连接预算和租户配额单测通过 |
+| 1 | R18 | SQL 归入 Mapper XML | implemented / local targeted regressions passed; combined CI pending；XML加载/迁移/恢复定向通过 |
+| 1 | R19 | 请求 DTO 与异常分类 | implemented / local targeted regressions passed; combined CI pending；DTO和400/409/503边界测试通过 |
+| 1 | R20 | 适用读路径 L1/L2、回源预算、重试配置 | implemented / local targeted regressions passed; combined CI pending；真实Redis跨实例/TTL/断连/回源预算通过 |
+| 2 | R01–R04 | 库存事务、操作权限、仓范围、可信执行授权 | in progress；R01生产装配回滚、R02/R03路由权限与仓范围定向通过，R04实现中 |
+| 3 | R05–R08/R12 | 重试、分批身份、整单状态、行归属、建任务幂等 | pending |
+| 3 | R09–R11 | 快照完整性/截点、JSON 与版本解析 | pending |
+| 4 | R13–R15 | 消息闭环、TC/序列号服务、恢复与清理任务 | pending；真实设备验收不得用 simulator 替代 |
+| 4 | R21/R24 | 就绪/观测、正式装配测试、容量执行器 | pending；容量目标未签署，不宣称达标 |
+| 5 | R22–R23 | UTC 序列化、操作者审计 | pending |
+
+实施规则：同批相关改动完整提交，先做首批；修改其他项仅允许为本批必要依赖并记录原因。TP99 沿用原契约目标，未实测路径标记 unverified。配置沿用首期环境变量方案，所有策略有类型/范围校验，不擅自新增配置中心。测试仅使用本地隔离目标，不修改共享 dev_infra。

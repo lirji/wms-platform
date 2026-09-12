@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.serial.LocalSerialMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO local_serial (id, enterprise_id, warehouse_id, serial_id, sku_id, lot_id, balance_id, state, owner_epoch, receipt_operation_id, registry_state, registry_error, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{serial}, #{skuId}, #{lotId}, #{balanceId}, #{state}, 0, #{operationId}, #{registryState}, #{registryError}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lock：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lock" resultType="map">
+        SELECT id, serial_id, sku_id, lot_id, balance_id, state, owner_epoch, receipt_operation_id, registry_state, registry_error, transfer_id, source_release_ref, version
+        FROM local_serial
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND serial_id=#{serial} FOR UPDATE
+    </select>
+
+    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="get" resultType="map">
+        SELECT id, serial_id, sku_id, lot_id, balance_id, state, owner_epoch, receipt_operation_id, registry_state, registry_error, transfer_id, source_release_ref, version
+        FROM local_serial
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND serial_id=#{serial}
+    </select>
+
+    <!-- casSeal：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casSeal">
+        UPDATE local_serial
+        SET state=#{state}, transfer_id=#{transferId}, source_release_ref=#{releaseRef}, registry_state=#{registryState}, owner_epoch=#{epoch}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND serial_id=#{serial}
+        AND state=#{fromState}
+        AND owner_epoch=#{epoch}
+    </update>
+
+    <!-- bindTransfer：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindTransfer">
+        UPDATE local_serial
+        SET transfer_id=#{transferId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND serial_id=#{serial}
+    </update>
+
+    <!-- updateState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateState">
+        UPDATE local_serial
+        SET balance_id=#{balanceId}, state=#{state}, registry_state=#{registryState}, registry_error=#{registryError}, owner_epoch=#{epoch}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND serial_id=#{serial}
+    </update>
+
+    <!-- lockActiveByBalance：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockActiveByBalance" resultType="map">
+        SELECT serial_id, state, owner_epoch, sku_id, lot_id
+        FROM local_serial
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND balance_id=#{balanceId}
+        AND state IN ('AUTHORIZED','SEALED')
+        ORDER BY serial_id FOR UPDATE
+    </select>
+
+    <!-- countMissingPending：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countMissingPending" resultType="int">
+        SELECT COUNT(*)
+        FROM local_serial s JOIN count_line l ON l.enterprise_id=s.enterprise_id
+        AND l.warehouse_id=s.warehouse_id
+        AND l.balance_id=s.balance_id
+        WHERE s.enterprise_id=#{enterpriseId}
+        AND s.warehouse_id=#{warehouseId}
+        AND l.count_plan_id=#{planId}
+        AND s.state='MISSING_PENDING'
+    </select>
+</mapper>

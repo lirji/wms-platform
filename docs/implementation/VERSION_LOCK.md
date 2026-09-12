@@ -11,7 +11,7 @@
 | Maven / Wrapper | 3.9.12 / 3.3.4 only-script | Wrapper生成并用于构建；分发URL为Maven Central |
 | Spring Boot | 4.1.1 | 三个独立进程启动，健康端点及默认拒绝业务访问 |
 | MyBatis starter | 4.1.0 | 依赖可解析；MyBatis原生会话+Mapper真实MySQL条件更新；Boot的MyBatis自动配置连接ShardingSphere通过 |
-| MyBatis core | 3.5.19 | 与 starter 4.1.0 BOM 一致；inventory 主数据 Mapper 注解编译。进程仍不启用 JDBC/Flyway 自动配置 |
+| MyBatis core | 3.5.19 | 与 starter 4.1.0 BOM 一致；同名 Mapper XML 加载与方法/结果类型校验。进程仍不启用 JDBC/Flyway 自动配置 |
 | ShardingSphere JDBC及插件 | 5.5.3 | 双物理数据源、确切仓路由、缺仓拒写、本地回滚 |
 | Seata client | 2.6.0 | 原生SpringFenceHandler单物理数据源事务、二阶段重复/空回滚；不是两仓全局事务验证 |
 | Seata Server | 2.6.0 | 真实TC提交/回滚及清理后查询探针通过；两者清理后均为Finished，不能直接作为恢复成功证据 |
@@ -22,7 +22,8 @@
 | XXL-JOB admin | xuxueli/xxl-job-admin:3.4.2 | 隔离 compose 可启动；warehouse-it 对官方镜像做 `/auth/doLogin` + `/jobinfo/trigger`。官方镜像 linux/amd64，本机 arm64 经模拟。不是集群/分片/生产调度 |
 | Kafka broker | apache/kafka:3.8.0 | 与 dev-infra 同标签；隔离 compose 可启动；warehouse-it 用同标签 Testcontainers 验证生产/消费且消费不 bind XID |
 | Kafka client | kafka-clients 3.8.0 | 与 broker 对齐；仅测试探针使用，未做事务消息/生产 Outbox |
-| Redis | redis:7-alpine | 与 dev-infra 同标签；仅本地缓存编排，未做业务缓存验收 |
+| HikariCP / Caffeine / Lettuce | 7.0.2 / 3.2.4 / 7.5.2.RELEASE | Boot BOM；真实连接池耗尽/超时及缓存故障回归。HikariCP/Caffeine Apache-2.0，Lettuce MIT；2026-09-12 OSV 三项直接依赖未命中（不代表无漏洞） |
+| Redis | redis:7-alpine | 与 dev-infra 同标签；主数据展示 L2 跨实例、过期、断连降级已通过专属 Redis 集成测试；最大陈旧5s，不用于业务写决策 |
 
 ## 关键装配决定
 
@@ -50,9 +51,9 @@
 
 生成命令：`./scripts/generate-sbom.sh`（Maven profile `-Psbom`，不加入默认 `mvn verify`）。产物：
 
-- CycloneDX 聚合 BOM：`docs/implementation/sbom/wms-platform.json`（75 个组件）
+- CycloneDX 聚合 BOM：`docs/implementation/sbom/wms-platform.json`（168 个组件；2026-09-12重新生成）
 - 第三方许可证清单：`docs/implementation/sbom/THIRD-PARTY.txt`（license-maven-plugin 285 条，含测试传递依赖）
-- OSV 快照：`docs/implementation/sbom/osv-findings.md`（2026-09-11，67 个 purl，1 次命中）
+- OSV 快照：`docs/implementation/sbom/osv-findings.md`（2026-09-12，158 个 purl，2 个组件命中）
 
 许可证观察（不是法务签署）：
 
@@ -70,3 +71,5 @@ OSV 命中（未升级 Boot/Tomcat，不把空扫描当成目标）：
 本文件仍不是生产版本锁定。EG-02、维护窗口、CVE 例外签署均未通过。
 
 TC DB终态审计隔离候选已实测提交/回滚清理、重启与审计写入故障恢复，详见[候选说明](TC_TERMINAL_EVIDENCE.md)；不改变当前生产版本门禁未通过的结论。
+
+2026-09-12 R16–R20：完整聚合BOM另报告既有 `com.alibaba:fastjson:1.2.83` 的 GHSA-crf3-v9rr-v7hj；Tomcat三项仍存在。此次没有升级Seata或Boot，也没有安全例外签署。新增HikariCP/Caffeine/Lettuce未命中；未命中不代表不存在漏洞。

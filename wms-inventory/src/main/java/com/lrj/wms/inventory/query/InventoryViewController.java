@@ -37,15 +37,16 @@ public class InventoryViewController {
     public Map<String, Object> inventory(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(name = "warehouseIds", required = false) List<String> warehouseIds,
             @RequestParam(name = "skuId", required = false) String skuId,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
-        if (warehouseIds == null || warehouseIds.isEmpty()) {
-            throw new IllegalArgumentException("查询必须带仓库");
+        if (warehouseIds == null || warehouseIds.size() != 1) {
+            throw new IllegalArgumentException("当前查询必须且只能指定一个仓库；跨仓须分别读取各仓水位");
         }
         String warehouseId = warehouseIds.getFirst();
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             return InventoryHttpJson.body(new InventoryProjectionService(session, Clock.systemUTC())
-                    .query(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, skuId, limit == null ? 50 : limit));
+                    .query(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, skuId, limit == null ? 50 : limit, cursor));
         }
     }
 

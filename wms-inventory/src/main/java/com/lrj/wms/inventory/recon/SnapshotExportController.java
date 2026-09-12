@@ -40,18 +40,18 @@ public class SnapshotExportController {
 
     @PostMapping("/reconciliation-snapshots")
     public ResponseEntity<Map<String, Object>> create(@AuthenticationPrincipal Jwt jwt,
-            @RequestBody Map<String, Object> body) {
-        List<String> warehouseIds = warehouseIds(body.get("warehouseIds"));
-        if (warehouseIds.isEmpty()) {
-            throw new IllegalArgumentException("导出必须带仓库");
+            @jakarta.validation.Valid @RequestBody SnapshotExportRequests.CreateRequest body) {
+        List<String> warehouseIds = body.warehouseIds();
+        if (warehouseIds.size() != 1) {
+            throw new IllegalArgumentException("当前单次快照导出必须且只能指定一个仓库");
         }
         String warehouseId = warehouseIds.getFirst();
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             Map<String, Object> result = new SnapshotExportService(session, Clock.systemUTC()).export(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, text(body, "cutoffId"),
-                    closedAt(body.get("cutoff")), text(body, "sourceWatermark"), text(body, "postingWatermark"),
-                    text(body, "receiptWatermark"));
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.cutoffId(),
+                    closedAt(body.cutoff()), body.sourceWatermark(), body.postingWatermark(),
+                    body.receiptWatermark());
             session.commit();
             return ResponseEntity.accepted().body(Map.of("snapshotJobId", result.get("snapshotId"), "state",
                     result.get("state")));
@@ -96,10 +96,7 @@ public class SnapshotExportController {
         return Timestamp.from(ExpiryPolicy.instantOf(value));
     }
 
-    private static String text(Map<String, Object> body, String key) {
-        Object value = body == null ? null : body.get(key);
-        return value == null ? null : String.valueOf(value);
-    }
+
 
     private static Map<String, Object> errorBody(String code, String message) {
         Map<String, Object> body = new LinkedHashMap<>();

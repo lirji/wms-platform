@@ -23,8 +23,15 @@ public final class OutboxPublisher {
     private final SqlSessionFactory sessions;
     private final OutboxTransport transport;
     private final Clock clock;
+    private final OutboxBudget budget;
 
     public OutboxPublisher(SqlSessionFactory sessions, OutboxTransport transport, Clock clock) {
+        this(sessions, transport, clock, OutboxBudget.defaults());
+    }
+
+    /** 配置在启动时校验并作为一次执行的不可变快照。 */
+    public OutboxPublisher(SqlSessionFactory sessions, OutboxTransport transport, Clock clock, OutboxBudget budget) {
+        this.budget = budget;
         this.sessions = sessions;
         this.transport = transport;
         this.clock = clock;
@@ -35,7 +42,7 @@ public final class OutboxPublisher {
         List<Claimed> claimed = claimDue();
         int published = 0;
         for (Claimed item : claimed) {
-            if (item.claimEpoch() >= MAX_CLAIMS) {
+            if (item.claimEpoch() >= budget.maxClaims()) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
                 continue;
             }
@@ -46,8 +53,7 @@ public final class OutboxPublisher {
             } catch (OutboxIsolateException isolated) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
             } catch (RuntimeException retryable) {
-                long delaySeconds = Math.min(60, 1L << Math.min(item.claimEpoch(), 6));
-                finish(item, InventoryCodes.OUTBOX_PENDING, Duration.ofSeconds(delaySeconds));
+                finish(item, InventoryCodes.OUTBOX_PENDING, budget.retryDelay(item.claimEpoch()));
             }
         }
         return published;
@@ -55,11 +61,11 @@ public final class OutboxPublisher {
 
     private List<Claimed> claimDue() {
         Timestamp now = Timestamp.from(clock.instant());
-        Timestamp leaseUntil = Timestamp.from(clock.instant().plus(LEASE));
+        Timestamp leaseUntil = Timestamp.from(clock.instant().plusSeconds(budget.leaseSeconds()));
         List<Claimed> claimed = new ArrayList<>();
         try (SqlSession session = sessions.openSession(false)) {
             OutboxMapper mapper = session.getMapper(OutboxMapper.class);
-            for (Map<String, Object> row : mapper.lockDue(now, BATCH_SIZE)) {
+            for (Map<String, Object> row : mapper.lockDue(now, budget.batchSize())) {
                 long epoch = ((Number) row.get("claim_epoch")).longValue();
                 if (mapper.claim(String.valueOf(row.get("event_id")), epoch, leaseUntil, now) != 1) {
                     continue;

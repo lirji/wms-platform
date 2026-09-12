@@ -1,6 +1,8 @@
 package com.lrj.wms.fulfillment;
 
-import com.mysql.cj.jdbc.MysqlDataSource;
+import com.zaxxer.hikari.HikariDataSource;
+import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.RuntimeDataSources;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
@@ -17,13 +19,10 @@ import org.springframework.context.annotation.Conditional;
 @Conditional(OnFulfillmentJdbcConfigured.class)
 @EnableConfigurationProperties(FulfillmentDatasourceProperties.class)
 class FulfillmentPersistence {
-    @Bean
-    DataSource dataSource(FulfillmentDatasourceProperties properties) {
-        MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(properties.url());
-        source.setUser(properties.username());
-        source.setPassword(properties.password());
-        return source;
+    /** 有界连接池由 Spring 关闭，避免停机留下连接和维护线程。 */
+    @Bean(destroyMethod = "close")
+    HikariDataSource dataSource(FulfillmentDatasourceProperties properties, DatabaseBudget budget) {
+        return RuntimeDataSources.create("fulfillment", properties.url(), properties.username(), properties.password(), budget);
     }
 
     @Bean
@@ -34,8 +33,9 @@ class FulfillmentPersistence {
     }
 
     @Bean
-    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
+    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("fulfillment", new JdbcTransactionFactory(), dataSource));
+        config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(FulfillmentMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);

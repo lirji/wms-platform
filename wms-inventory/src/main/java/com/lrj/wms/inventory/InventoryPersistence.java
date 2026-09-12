@@ -3,7 +3,9 @@ package com.lrj.wms.inventory;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.lrj.wms.inventory.tcc.InventoryTccFence;
 import com.lrj.wms.inventory.tcc.ReservationTccAction;
-import com.mysql.cj.jdbc.MysqlDataSource;
+import com.zaxxer.hikari.HikariDataSource;
+import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.RuntimeDataSources;
 import java.time.Clock;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
@@ -23,15 +25,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 /** 仅在显式配置非空 JDBC 时接库并迁移；smoke 无 URL 时不启动数据源。 */
 @org.springframework.context.annotation.Configuration
 @Conditional(OnInventoryJdbcConfigured.class)
-@EnableConfigurationProperties(InventoryDatasourceProperties.class)
+@EnableConfigurationProperties({InventoryDatasourceProperties.class, com.lrj.wms.inventory.inventory.OutboxBudget.class})
 class InventoryPersistence {
-    @Bean
-    DataSource dataSource(InventoryDatasourceProperties properties) {
-        MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(properties.url());
-        source.setUser(properties.username());
-        source.setPassword(properties.password());
-        return source;
+    /** 有界连接池由 Spring 关闭，避免停机留下连接和维护线程。 */
+    @Bean(destroyMethod = "close")
+    HikariDataSource dataSource(InventoryDatasourceProperties properties, DatabaseBudget budget) {
+        return RuntimeDataSources.create("inventory", properties.url(), properties.username(), properties.password(), budget);
     }
 
     @Bean
@@ -42,9 +41,10 @@ class InventoryPersistence {
     }
 
     @Bean
-    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
+    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(
                 new Environment("inventory", new SpringManagedTransactionFactory(), dataSource));
+        config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);

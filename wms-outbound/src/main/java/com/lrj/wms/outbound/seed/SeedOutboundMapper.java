@@ -1,13 +1,12 @@
 package com.lrj.wms.outbound.seed;
 
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 /** 出库演示单计数。 */
 public interface SeedOutboundMapper {
-    @Select("SELECT COUNT(*) FROM outbound_order WHERE enterprise_id=#{enterpriseId}")
+    /** countOrders：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countOrders(@Param("enterpriseId") String enterpriseId);
 
-    @Select("SELECT COUNT(*) FROM outbound_line WHERE enterprise_id=#{enterpriseId}")
+    /** countLines：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countLines(@Param("enterpriseId") String enterpriseId);
 }

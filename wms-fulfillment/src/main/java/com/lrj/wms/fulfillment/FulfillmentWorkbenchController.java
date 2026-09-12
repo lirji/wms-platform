@@ -44,10 +44,13 @@ public class FulfillmentWorkbenchController {
 
     @GetMapping("/fulfillments")
     public Map<String, Object> listFulfillments(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
+        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("Fulfillment", WmsJwtAuthorities.enterpriseId(jwt)));
         try (SqlSession session = sessions.openSession()) {
-            return HttpJson.page(new FulfillmentService(session, Clock.systemUTC())
-                    .list(WmsJwtAuthorities.enterpriseId(jwt), limit == null ? 50 : limit));
+            return HttpJson.row(page.result(session.getMapper(FulfillmentMapper.class)
+                    .listOrdersPage(WmsJwtAuthorities.enterpriseId(jwt), page), true));
         }
     }
 
@@ -61,12 +64,12 @@ public class FulfillmentWorkbenchController {
 
     @PostMapping("/fulfillments")
     public ResponseEntity<Map<String, Object>> createFulfillment(@AuthenticationPrincipal Jwt jwt,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.CreateFulfillmentRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createOrder(
-                    WmsJwtAuthorities.enterpriseId(jwt), text(body, "sourceSystem"), text(body, "sourceOrderNo"),
-                    digest(body, idempotencyKey), lines(body, "requestedQty", "baseUnit"),
-                    longValue(body.get("strategyVersion"), 1));
+                    WmsJwtAuthorities.enterpriseId(jwt), body.sourceSystem(), body.sourceOrderNo(),
+                    digest(body, idempotencyKey), body.lines().stream().map(FulfillmentWorkbenchRequests.FulfillmentLine::toModel).toList(),
+                    longValue(body.strategyVersion(), 1));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -75,13 +78,13 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/fulfillments/{fulfillmentId}/cancellations")
     public ResponseEntity<Map<String, Object>> cancelFulfillment(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String fulfillmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.CancelFulfillmentRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "fulfillment.cancel");
-        String key = firstNonBlank(text(body, "clientOperationId"), idempotencyKey);
+        String key = firstNonBlank(body.clientOperationId(), idempotencyKey);
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new FulfillmentService(session, Clock.systemUTC()).requestCancel(
-                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, key, text(body, "reason"),
-                    body.get("expectedVersion") == null ? null : longValue(body.get("expectedVersion"), 0),
+                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, key, body.reason(),
+                    body.expectedVersion() == null ? null : longValue(body.expectedVersion(), 0),
                     jwt.getSubject());
             session.commit();
             Map<String, Object> accepted = accepted(result, "CANCEL_REQUESTED");
@@ -94,13 +97,13 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/fulfillments/{fulfillmentId}/attempts")
     public ResponseEntity<Map<String, Object>> prepareAttempt(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String fulfillmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.PrepareAttemptRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
-            List<Map<String, Object>> participants = participantLines(body);
+            List<Map<String, Object>> participants = body.lines().stream().map(FulfillmentWorkbenchRequests.AttemptLine::toModel).toList();
             Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createAttempt(
-                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.get("deadline")),
-                    warehousesOf(body, participants), participants);
-            created.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.deadline()),
+                    warehousesOf(body.warehouses(), participants), participants);
+            created.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -108,10 +111,13 @@ public class FulfillmentWorkbenchController {
 
     @GetMapping("/transfers")
     public Map<String, Object> listTransfers(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
+        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("Transfer", WmsJwtAuthorities.enterpriseId(jwt)));
         try (SqlSession session = sessions.openSession()) {
-            return HttpJson.page(new TransferService(session, Clock.systemUTC())
-                    .list(WmsJwtAuthorities.enterpriseId(jwt), limit == null ? 50 : limit));
+            return HttpJson.row(page.result(session.getMapper(TransferMapper.class)
+                    .listOrdersPage(WmsJwtAuthorities.enterpriseId(jwt), page), true));
         }
     }
 
@@ -135,14 +141,14 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/transfers/{transferId}/issues")
     public ResponseEntity<Map<String, Object>> issueTransfer(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.IssueTransferRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
             TransferService service = new TransferService(session, Clock.systemUTC());
             Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
             WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
             Map<String, Object> result = service.issue(WmsJwtAuthorities.enterpriseId(jwt), transferId,
-                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), qty(body.get("qty")));
+                    firstNonBlank(body.lineId(), body.transferLineId()),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), qty(body.qty()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "ISSUED"));
         }
@@ -151,15 +157,15 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/transfers/{transferId}/receipt-authorizations")
     public ResponseEntity<Map<String, Object>> authorizeTransferReceipt(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.AuthorizeTransferReceiptRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
             TransferService service = new TransferService(session, Clock.systemUTC());
             Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
             WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("targetWarehouseId")));
             Map<String, Object> result = service.authorizeReceipt(WmsJwtAuthorities.enterpriseId(jwt), transferId,
-                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
-                    firstNonBlank(text(body, "targetClientOperationId"), text(body, "clientOperationId"), idempotencyKey),
-                    qty(firstNonNull(body.get("quantity"), body.get("qty"))));
+                    firstNonBlank(body.lineId(), body.transferLineId()),
+                    firstNonBlank(body.targetClientOperationId(), body.clientOperationId(), idempotencyKey),
+                    qty(firstNonNull(body.quantity(), body.qty())));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
         }
@@ -168,18 +174,18 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/warehouses/{warehouseId}/transfer-receipts")
     public ResponseEntity<Map<String, Object>> receiveTransfer(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.ReceiveTransferRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             TransferService service = new TransferService(session, Clock.systemUTC());
-            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), text(body, "transferId"));
+            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), body.transferId());
             if (!warehouseId.equals(String.valueOf(transfer.get("targetWarehouseId")))) {
                 throw new WarehouseForbiddenException(warehouseId);
             }
-            Map<String, Object> result = service.receive(WmsJwtAuthorities.enterpriseId(jwt), text(body, "transferId"),
-                    firstNonBlank(text(body, "lineId"), text(body, "sourceLineRef")),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), text(body, "authorizationId"),
-                    longValue(body.get("tokenVersion"), 0), qty(body.get("qty")), text(body, "targetLotId"));
+            Map<String, Object> result = service.receive(WmsJwtAuthorities.enterpriseId(jwt), body.transferId(),
+                    firstNonBlank(body.lineId(), body.sourceLineRef()),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), body.authorizationId(),
+                    longValue(body.tokenVersion(), 0), qty(body.qty()), body.targetLotId());
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "RECEIVED"));
         }
@@ -188,14 +194,14 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/transfers/{transferId}/losses")
     public ResponseEntity<Map<String, Object>> confirmTransferLoss(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.ConfirmTransferLossRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
             TransferService service = new TransferService(session, Clock.systemUTC());
             Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
             WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
             Map<String, Object> result = service.confirmLoss(WmsJwtAuthorities.enterpriseId(jwt), transferId,
-                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
-                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), qty(body.get("qty")));
+                    firstNonBlank(body.lineId(), body.transferLineId()),
+                    firstNonBlank(body.clientOperationId(), idempotencyKey), qty(body.qty()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "LOSS_CONFIRMED"));
         }
@@ -203,13 +209,13 @@ public class FulfillmentWorkbenchController {
 
     @PostMapping("/transfers")
     public ResponseEntity<Map<String, Object>> createTransfer(@AuthenticationPrincipal Jwt jwt,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
-        WmsJwtAuthorities.requireWarehouse(jwt, text(body, "sourceWarehouseId"));
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.CreateTransferRequest body) {
+        WmsJwtAuthorities.requireWarehouse(jwt, body.sourceWarehouseId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new TransferService(session, Clock.systemUTC()).create(
-                    WmsJwtAuthorities.enterpriseId(jwt), firstNonBlank(text(body, "transferId"), idempotencyKey),
-                    text(body, "sourceWarehouseId"), text(body, "targetWarehouseId"),
-                    lines(body, "plannedQty", "unit"));
+                    WmsJwtAuthorities.enterpriseId(jwt), firstNonBlank(body.transferId(), idempotencyKey),
+                    body.sourceWarehouseId(), body.targetWarehouseId(),
+                    body.lines().stream().map(FulfillmentWorkbenchRequests.TransferLine::toModel).toList());
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -238,47 +244,21 @@ public class FulfillmentWorkbenchController {
         return ResponseEntity.status(status).body(HttpJson.error(code, error.getMessage()));
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> lines(Map<String, Object> body, String qtyKey, String unitKey) {
-        Object raw = body.get("lines");
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            throw new FulfillmentException("INVALID_LINE", "行不能为空");
-        }
-        List<Map<String, Object>> lines = new ArrayList<>();
-        for (Object item : list) {
-            Map<String, Object> line = new LinkedHashMap<>((Map<String, Object>) item);
-            if (line.get(qtyKey) == null && line.get("qty") != null) {
-                line.put(qtyKey, line.get("qty"));
-            }
-            if (line.get(unitKey) == null && line.get("unit") != null) {
-                line.put(unitKey, line.get("unit"));
-            }
-            if (line.get("lineId") == null && line.get("sourceLineId") != null) {
-                line.put("lineId", line.get("sourceLineId"));
-            }
-            lines.add(line);
-        }
-        return lines;
-    }
-
-    private static String digest(Map<String, Object> body, String fallback) {
-        String provided = text(body, "digest");
+    private static String digest(FulfillmentWorkbenchRequests.CreateFulfillmentRequest body, String fallback) {
+        String provided = body.digest();
         if (provided != null) {
             return provided;
         }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest((fallback + '|' + body.get("sourceOrderNo") + '|' + body.get("lines"))
+                    .digest((fallback + '|' + body.sourceOrderNo() + '|' + body.lines())
                             .getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("缺少SHA-256", ex);
         }
     }
 
-    private static String text(Map<String, Object> body, String key) {
-        Object value = body == null ? null : body.get(key);
-        return value == null || String.valueOf(value).isBlank() ? null : String.valueOf(value);
-    }
+
 
     private static String firstNonBlank(String... values) {
         for (String value : values) {
@@ -300,32 +280,10 @@ public class FulfillmentWorkbenchController {
         return Instant.parse(String.valueOf(value));
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<String> stringList(Object raw) {
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            return List.of();
-        }
-        List<String> values = new ArrayList<>();
-        for (Object item : list) {
-            if (item != null && !String.valueOf(item).isBlank()) {
-                values.add(String.valueOf(item));
-            }
-        }
-        return values;
-    }
 
-    private static List<Map<String, Object>> participantLines(Map<String, Object> body) {
-        List<Map<String, Object>> lines = lines(body, "qty", "baseUnit");
-        for (Map<String, Object> line : lines) {
-            if (line.get("orderLineId") == null && line.get("sourceLineId") != null) {
-                line.put("orderLineId", line.get("sourceLineId"));
-            }
-        }
-        return lines;
-    }
 
-    private static List<String> warehousesOf(Map<String, Object> body, List<Map<String, Object>> lines) {
-        List<String> warehouses = new ArrayList<>(stringList(body.get("warehouses")));
+    private static List<String> warehousesOf(List<String> requested, List<Map<String, Object>> lines) {
+        List<String> warehouses = new ArrayList<>(requested == null ? List.of() : requested);
         for (Map<String, Object> line : lines) {
             Object warehouseId = line.get("warehouseId");
             if (warehouseId != null && !warehouses.contains(String.valueOf(warehouseId))) {

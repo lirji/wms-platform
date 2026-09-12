@@ -53,11 +53,14 @@ public class WmsSecurityAutoConfiguration {
     /** Casdoor 资源服务器。 */
     @Bean
     @Conditional(OnWmsOidcEnabled.class)
-    SecurityFilterChain oidcResourceServer(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+    SecurityFilterChain oidcResourceServer(HttpSecurity http, JwtDecoder jwtDecoder,
+            com.lrj.wms.runtime.web.AdmissionGate admissionGate) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())
+                .addFilterAfter(new TenantAdmissionFilter(admissionGate),
+                        org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(jwtDecoder)
                         .jwtAuthenticationConverter(WmsJwtAuthorities.converter())))
                 .build();

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.jobs.ExpiryEligibilityMapper">
+
+    <!-- listExpiredLots：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listExpiredLots" resultType="map">
+        SELECT id, expires_at
+        FROM lot
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND expires_at IS NOT NULL
+        AND expires_at&lt;=#{now}
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <!-- countOpenReservations：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countOpenReservations" resultType="int">
+        SELECT COUNT(*)
+        FROM reservation r JOIN reservation_line l ON r.enterprise_id=l.enterprise_id
+        AND r.warehouse_id=l.warehouse_id
+        AND r.id=l.reservation_id JOIN stock_balance b ON l.enterprise_id=b.enterprise_id
+        AND l.warehouse_id=b.warehouse_id
+        AND l.balance_id=b.id
+        WHERE r.enterprise_id=#{enterpriseId}
+        AND r.warehouse_id=#{warehouseId}
+        AND b.lot_id=#{lotId}
+        AND r.state IN ('TRIED','CONFIRMED')
+        AND l.remaining_qty&gt;0
+    </select>
+
+    <!-- upsertNotice：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="upsertNotice">
+        INSERT INTO expiry_notice (id, enterprise_id, warehouse_id, lot_id, window_id, expires_at, open_reservations, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{lotId}, #{windowId}, #{expiresAt}, #{openReservations}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE open_reservations=VALUES(open_reservations), updated_at=#{now}
+    </insert>
+
+    <!-- countNotice：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countNotice" resultType="int">
+        SELECT COUNT(*)
+        FROM expiry_notice
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND lot_id=#{lotId}
+        AND window_id=#{windowId}
+    </select>
+</mapper>

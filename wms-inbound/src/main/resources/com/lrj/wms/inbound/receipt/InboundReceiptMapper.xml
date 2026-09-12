@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.receipt.InboundReceiptMapper">
+
+    <!-- insertOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOrder">
+        INSERT INTO inbound_order (id, enterprise_id, warehouse_id, external_source, external_no, owner_id, status, expected_at, source_version, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{externalSource}, #{externalNo}, #{ownerId}, #{status}, NULL, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLine">
+        INSERT INTO inbound_line (id, enterprise_id, warehouse_id, order_id, external_line_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, base_unit, stock_sync_status, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{orderId}, #{externalLineId}, #{skuId}, #{expectedQty}, 0, 0, 0, 0, 0, #{unit}, 'PENDING', 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockLine" resultType="map">
+        SELECT id, order_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, stock_sync_status, version
+        FROM inbound_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId} FOR UPDATE
+    </select>
+
+    <!-- addReceivedPhysical：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addReceivedPhysical">
+        UPDATE inbound_line
+        SET received_physical_qty=received_physical_qty+#{qty}, stock_sync_status='PENDING', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+    </update>
+
+    <!-- addReceivedPosted：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addReceivedPosted">
+        UPDATE inbound_line
+        SET received_posted_qty=received_posted_qty+#{qty}, stock_sync_status=#{syncStatus}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+        AND received_posted_qty+#{qty}&lt;=received_physical_qty
+    </update>
+
+    <!-- addPutawayPhysical：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addPutawayPhysical">
+        UPDATE inbound_line
+        SET putaway_physical_qty=putaway_physical_qty+#{qty}, stock_sync_status='PENDING', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+    </update>
+
+    <!-- addPutawayPosted：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addPutawayPosted">
+        UPDATE inbound_line
+        SET putaway_posted_qty=putaway_posted_qty+#{qty}, stock_sync_status=#{syncStatus}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+        AND putaway_posted_qty+#{qty}&lt;=putaway_physical_qty
+    </update>
+
+    <!-- updateOrderStatus：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateOrderStatus">
+        UPDATE inbound_order
+        SET status=#{status}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{orderId}
+    </update>
+
+    <!-- latestInspection：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="latestInspection" resultType="map">
+        SELECT id, result_code, accepted_qty, rejected_qty, source_version
+        FROM quality_inspection
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND inbound_line_id=#{lineId}
+        ORDER BY source_version DESC
+        LIMIT 1
+    </select>
+
+    <!-- insertInspection：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertInspection">
+        INSERT INTO quality_inspection (id, enterprise_id, warehouse_id, inbound_line_id, inspected_qty, accepted_qty, rejected_qty, result_code, source_version, actor_id, evidence_refs, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{lineId}, #{inspected}, #{accepted}, #{rejected}, #{result}, #{sourceVersion}, #{actorId}, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertTask：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertTask">
+        INSERT INTO inbound_task (id, enterprise_id, warehouse_id, task_type, document_id, document_line_id, source_location_id, target_location_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{taskType}, #{orderId}, #{lineId}, #{sourceLocationId}, #{targetLocationId}, #{planned}, 0, #{state}, NULL, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- addTaskCompleted：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addTaskCompleted">
+        UPDATE inbound_task
+        SET completed_qty=completed_qty+#{qty}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{taskId}
+    </update>
+
+    <!-- insertPartIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertPartIgnore">
+        INSERT IGNORE INTO inbound_receipt_part (id, enterprise_id, warehouse_id, receipt_session_id, inbound_order_id, inbound_line_id, part_id, qty, command_id, actor_id, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sessionId}, #{orderId}, #{lineId}, #{partId}, #{qty}, #{commandId}, #{actorId}, 'REGISTERED', 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockPart：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockPart" resultType="map">
+        SELECT id, part_id, qty, command_id, state
+        FROM inbound_receipt_part
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND receipt_session_id=#{sessionId}
+        AND part_id=#{partId}
+        AND inbound_line_id=#{lineId} FOR UPDATE
+    </select>
+
+    <!-- insertObservationIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertObservationIgnore">
+        INSERT IGNORE INTO device_observation_binding (id, enterprise_id, warehouse_id, device_id, session_id, sequence_no, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, digest_version, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{deviceId}, #{deviceSessionId}, #{sequenceNo}, #{effectKey}, #{receiptSessionId}, #{partId}, #{lineId}, #{commandId}, #{digest}, 1, #{state}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockObservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockObservation" resultType="map">
+        SELECT id, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, digest_version, state
+        FROM device_observation_binding
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND device_id=#{deviceId}
+        AND session_id=#{deviceSessionId}
+        AND sequence_no=#{sequenceNo} FOR UPDATE
+    </select>
+
+    <!-- getObservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getObservation" resultType="map">
+        SELECT id, business_effect_key, receipt_session_id, part_id, inbound_line_id, command_id, payload_digest, digest_version, state
+        FROM device_observation_binding
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND device_id=#{deviceId}
+        AND session_id=#{deviceSessionId}
+        AND sequence_no=#{sequenceNo}
+    </select>
+
+    <!-- bindObservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindObservation">
+        UPDATE device_observation_binding
+        SET business_effect_key=#{effectKey}, command_id=#{commandId}, state='BOUND', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{id}
+    </update>
+
+    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listOrdersPage" resultType="map">
+        SELECT id, external_source, external_no, owner_id, status, version, created_at, updated_at
+        FROM inbound_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
+
+    <!-- getOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getOrder" resultType="map">
+        SELECT id, external_source, external_no, owner_id, status, version, created_at, updated_at
+        FROM inbound_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{orderId}
+    </select>
+
+    <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listLines" resultType="map">
+        SELECT id, external_line_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, base_unit, stock_sync_status, version
+        FROM inbound_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND order_id=#{orderId}
+        ORDER BY id
+    </select>
+
+    <!-- listTasks：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listTasks" resultType="map">
+        SELECT id, task_type, document_id, document_line_id, planned_qty, completed_qty, state
+        FROM inbound_task
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND document_id=#{orderId}
+        ORDER BY created_at
+    </select>
+</mapper>

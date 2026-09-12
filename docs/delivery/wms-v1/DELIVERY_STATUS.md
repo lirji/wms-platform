@@ -47,3 +47,12 @@
 - S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。用户已要求取消进行中的 main verify 并推送本分支。
 
 无生产部署。
+
+
+## 后端评审整改
+
+2026-09-12：用户批准先 R16–R20，其余按 DELIVERY_PLAN.md 末尾顺序执行。当前分支 fix/backend-review-remediation，基线 db02821；R16 running，其余 pending。未宣称任一整改完成或原 50 AC 通过。
+
+- 后端整改 R16–R20 实现与定向测试通过，完整 Maven verify 执行中，尚未提交。证据和配置边界见 [BACKEND_REMEDIATION.md](BACKEND_REMEDIATION.md)。后续R项未修改。
+
+- 2026-09-12 后端 R16–R20 首批本地验证完成：默认回归唯一 DTO 兼容性失败已修复并定向通过，必需24测试/四服务smoke/控制台33测试通过；详细限制见 BACKEND_REMEDIATION.md。R01–R04继续实施，完整配置组合与远程CI待执行。

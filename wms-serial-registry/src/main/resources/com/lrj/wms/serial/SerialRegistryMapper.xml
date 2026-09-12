@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.serial.SerialRegistryMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO serial_registry (id, enterprise_id, sku_id, normalized_serial, state, owner_warehouse_id, owner_epoch, claim_operation_id, route_bucket, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{skuId}, #{serial}, #{state}, #{warehouseId}, 1, #{operationId}, #{bucket}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockIdentity：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockIdentity" resultType="map">
+        SELECT id, sku_id, normalized_serial, state, owner_warehouse_id, owner_epoch, claim_operation_id, transfer_id, receipt_operation_id, route_bucket, version
+        FROM serial_registry
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial} FOR UPDATE
+    </select>
+
+    <!-- getIdentity：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getIdentity" resultType="map">
+        SELECT id, sku_id, normalized_serial, state, owner_warehouse_id, owner_epoch, claim_operation_id, transfer_id, receipt_operation_id, route_bucket, version
+        FROM serial_registry
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+    </select>
+
+    <!-- casTransferState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casTransferState">
+        UPDATE serial_registry
+        SET state=#{toState}, transfer_id=#{transferId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state=#{fromState}
+        AND owner_epoch=#{epoch}
+    </update>
+
+    <!-- casConfirmDestination：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casConfirmDestination">
+        UPDATE serial_registry
+        SET state='ACTIVE', owner_warehouse_id=#{warehouseId}, owner_epoch=#{toEpoch}, transfer_id=#{transferId}, receipt_operation_id=#{receiptOp}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state='RECEIVING'
+        AND transfer_id=#{transferId}
+    </update>
+
+    <!-- activateClaimed：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="activateClaimed">
+        UPDATE serial_registry
+        SET state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state='CLAIMED'
+    </update>
+
+    <!-- casMissing：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casMissing">
+        UPDATE serial_registry
+        SET state='MISSING', receipt_operation_id=#{factRef}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state='ACTIVE'
+        AND owner_warehouse_id=#{warehouseId}
+        AND owner_epoch=#{epoch}
+    </update>
+
+    <!-- casFound：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casFound">
+        UPDATE serial_registry
+        SET state='FOUND_CLAIMED', owner_warehouse_id=#{warehouseId}, owner_epoch=owner_epoch+1, claim_operation_id=#{operationId}, receipt_operation_id=#{operationId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state='MISSING'
+    </update>
+
+    <!-- activateFound：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="activateFound">
+        UPDATE serial_registry
+        SET state='ACTIVE', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND state='FOUND_CLAIMED'
+        AND claim_operation_id=#{operationId}
+    </update>
+</mapper>

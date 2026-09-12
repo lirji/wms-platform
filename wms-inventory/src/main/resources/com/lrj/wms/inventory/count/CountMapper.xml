@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.count.CountMapper">
+
+    <!-- insertPlan：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertPlan">
+        INSERT INTO count_plan (id, enterprise_id, warehouse_id, status, reason_code, scope_version, approved_by, approved_at, approval_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{status}, #{reason}, 1, NULL, NULL, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockPlan：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockPlan" resultType="map">
+        SELECT id, status, reason_code, scope_version, approved_by, approval_id, version
+        FROM count_plan
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{planId} FOR UPDATE
+    </select>
+
+    <!-- getPlan：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getPlan" resultType="map">
+        SELECT id, status, reason_code, scope_version, approved_by, approval_id, version
+        FROM count_plan
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{planId}
+    </select>
+
+    <!-- listPlans：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listPlansPage" resultType="map">
+        SELECT id, status, reason_code, scope_version, approved_by, approval_id, version, created_at
+        FROM count_plan
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
+
+    <!-- casPlanStatus：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casPlanStatus">
+        UPDATE count_plan
+        SET status=#{toStatus}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{planId}
+        AND status=#{fromStatus}
+    </update>
+
+    <!-- casApprove：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casApprove">
+        UPDATE count_plan
+        SET status='APPROVED', approved_by=#{actor}, approved_at=#{now}, approval_id=#{approvalId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{planId}
+        AND status='REVIEWING'
+    </update>
+
+    <!-- insertScope：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertScope">
+        INSERT INTO count_scope (id, enterprise_id, warehouse_id, count_plan_id, location_id, gate_epoch, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{planId}, #{locationId}, #{gateEpoch}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- listScope：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listScope" resultType="map">
+        SELECT location_id, gate_epoch
+        FROM count_scope
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_plan_id=#{planId}
+        ORDER BY location_id
+    </select>
+
+    <!-- casGate：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casGate">
+        UPDATE location_gate
+        SET state=#{toState}, count_plan_id=#{planId}, reason_code=#{reason}, fence_epoch=fence_epoch+#{epochDelta}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND location_id=#{locationId}
+        AND state=#{fromState}
+        AND (count_plan_id IS NULL OR count_plan_id=#{planId})
+    </update>
+
+    <!-- casUnfreeze：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casUnfreeze">
+        UPDATE location_gate
+        SET state='OPEN', count_plan_id=NULL, reason_code=NULL, fence_epoch=fence_epoch+1, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND location_id=#{locationId}
+        AND state='FROZEN'
+        AND count_plan_id=#{planId}
+    </update>
+
+    <!-- listBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listBalances" resultType="map">
+        SELECT id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version
+        FROM stock_balance
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND location_id=#{locationId}
+        ORDER BY id
+    </select>
+
+    <!-- countFreeClaims：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countFreeClaims" resultType="int">
+        SELECT COUNT(*)
+        FROM stock_balance
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND location_id=#{locationId}
+        AND free_execution_claim_qty&gt;0
+    </select>
+
+    <!-- countInflightPermits：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countInflightPermits" resultType="int">
+        SELECT COUNT(*)
+        FROM execution_permit p JOIN execution_claim c ON c.enterprise_id=p.enterprise_id
+        AND c.warehouse_id=p.warehouse_id
+        AND c.permit_id=p.permit_id JOIN stock_balance b ON b.enterprise_id=c.enterprise_id
+        AND b.warehouse_id=c.warehouse_id
+        AND b.id=c.balance_id
+        WHERE p.enterprise_id=#{enterpriseId}
+        AND p.warehouse_id=#{warehouseId}
+        AND b.location_id=#{locationId}
+        AND p.state IN ('STARTED','UNKNOWN')
+    </select>
+
+    <!-- insertLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLine">
+        INSERT INTO count_line (id, enterprise_id, warehouse_id, count_plan_id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{planId}, #{balanceId}, #{locationId}, #{snapshotVersion}, #{snapshotQty}, #{reservedQty}, NULL, #{status}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockLine" resultType="map">
+        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version
+        FROM count_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_plan_id=#{planId}
+        AND id=#{lineId} FOR UPDATE
+    </select>
+
+    <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listLines" resultType="map">
+        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version
+        FROM count_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_plan_id=#{planId}
+        ORDER BY id
+    </select>
+
+    <!-- updateCounted：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateCounted">
+        UPDATE count_line
+        SET counted_qty=#{qty}, status=#{status}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+    </update>
+
+    <!-- casLineStatus：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casLineStatus">
+        UPDATE count_line
+        SET status=#{status}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{lineId}
+        AND status=#{fromStatus}
+    </update>
+
+    <!-- insertObservationIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertObservationIgnore">
+        INSERT IGNORE INTO count_observation (id, enterprise_id, warehouse_id, count_plan_id, count_line_id, observation_id, qty, actor_id, round_no, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{planId}, #{lineId}, #{observationId}, #{qty}, #{actorId}, #{roundNo}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockObservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockObservation" resultType="map">
+        SELECT observation_id, count_line_id, qty, actor_id, round_no
+        FROM count_observation
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND observation_id=#{observationId} FOR UPDATE
+    </select>
+
+    <!-- countObservations：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countObservations" resultType="int">
+        SELECT COUNT(*)
+        FROM count_observation
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_line_id=#{lineId}
+    </select>
+
+    <!-- updateScopeEpoch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateScopeEpoch">
+        UPDATE count_scope
+        SET gate_epoch=#{epoch}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_plan_id=#{planId}
+        AND location_id=#{locationId}
+    </update>
+
+    <!-- scopeEpoch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="scopeEpoch" resultType="long">
+        SELECT gate_epoch
+        FROM count_scope
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_plan_id=#{planId}
+        AND location_id=#{locationId}
+    </select>
+
+    <!-- insertObservationSerialIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertObservationSerialIgnore">
+        INSERT IGNORE INTO count_observation_serial (id, enterprise_id, warehouse_id, observation_id, normalized_serial, serial_id, presence_code, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{observationId}, #{serial}, #{serialId}, #{presence}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- listObservationSerials：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listObservationSerials" resultType="map">
+        SELECT normalized_serial, presence_code
+        FROM count_observation_serial
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND observation_id=#{observationId}
+        ORDER BY normalized_serial
+    </select>
+
+    <!-- countLineSerials：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countLineSerials" resultType="int">
+        SELECT COUNT(*)
+        FROM count_observation_serial s JOIN count_observation o ON o.enterprise_id=s.enterprise_id
+        AND o.warehouse_id=s.warehouse_id
+        AND o.observation_id=s.observation_id
+        WHERE o.enterprise_id=#{enterpriseId}
+        AND o.warehouse_id=#{warehouseId}
+        AND o.count_line_id=#{lineId}
+    </select>
+
+    <!-- latestObservationId：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="latestObservationId" resultType="string">
+        SELECT observation_id
+        FROM count_observation
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND count_line_id=#{lineId}
+        ORDER BY round_no DESC, created_at DESC
+        LIMIT 1
+    </select>
+</mapper>

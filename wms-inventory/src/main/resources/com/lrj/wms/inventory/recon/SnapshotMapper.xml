@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.recon.SnapshotMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT INTO reconciliation_snapshot (id, enterprise_id, warehouse_id, scenario_code, cutoff_id, closed_at, scope_digest, scope_json, source_watermarks, schema_version, state, manifest_json, completed_at, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{scenario}, #{cutoffId}, #{closedAt}, #{digest}, #{scopeJson}, #{watermarks}, #{schemaVersion}, 'EXPORTING', NULL, NULL, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- lockByKey：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockByKey" resultType="map">
+        SELECT *
+        FROM reconciliation_snapshot
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND scenario_code=#{scenario}
+        AND cutoff_id=#{cutoffId}
+        AND scope_digest=#{digest} FOR UPDATE
+    </select>
+
+    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="get" resultType="map">
+        SELECT *
+        FROM reconciliation_snapshot
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{id}
+    </select>
+
+    <!-- casComplete：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casComplete">
+        UPDATE reconciliation_snapshot
+        SET state=#{state}, manifest_json=#{manifest}, completed_at=#{completedAt}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND id=#{id}
+        AND state='EXPORTING'
+    </update>
+
+    <!-- insertPartIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertPartIgnore">
+        INSERT INTO snapshot_part (id, enterprise_id, warehouse_id, snapshot_id, part_no, payload, row_count, sha256, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{snapshotId}, #{partNo}, #{payload}, #{rowCount}, #{sha256}, 'READY', 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- listParts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listParts" resultType="map">
+        SELECT part_no, row_count, sha256, payload
+        FROM snapshot_part
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND snapshot_id=#{snapshotId}
+        ORDER BY part_no
+    </select>
+
+    <!-- listBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listBalances" resultType="map">
+        SELECT b.id, b.owner_id, b.sku_id, b.lot_id, b.on_hand_qty, k.base_unit
+        FROM stock_balance b JOIN sku k ON k.enterprise_id=b.enterprise_id
+        AND k.id=b.sku_id
+        WHERE b.enterprise_id=#{enterpriseId}
+        AND b.warehouse_id=#{warehouseId}
+        AND b.updated_at&lt;#{cutoff}
+        ORDER BY b.id
+        LIMIT #{limit}
+    </select>
+</mapper>

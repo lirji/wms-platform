@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.seed.SeedInboundMapper">
+
+    <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOrderIgnore">
+        INSERT IGNORE INTO inbound_order (id, enterprise_id, warehouse_id, external_source, external_no, owner_id, status, expected_at, source_version, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{externalSource}, #{externalNo}, #{ownerId}, #{status}, NULL, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertLineIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLineIgnore">
+        INSERT IGNORE INTO inbound_line (id, enterprise_id, warehouse_id, order_id, external_line_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, base_unit, stock_sync_status, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{orderId}, #{externalLineId}, #{skuId}, #{expectedQty}, #{receivedPhysical}, 0, 0, 0, 0, #{unit}, 'PENDING', 0, #{now}, #{now})
+    </insert>
+
+    <!-- countOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countOrders" resultType="int">
+        SELECT COUNT(*)
+        FROM inbound_order
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countLines" resultType="int">
+        SELECT COUNT(*)
+        FROM inbound_line
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+</mapper>

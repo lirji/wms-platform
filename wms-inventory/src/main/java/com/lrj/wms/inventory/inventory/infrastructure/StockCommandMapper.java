@@ -3,60 +3,36 @@ package com.lrj.wms.inventory.inventory.infrastructure;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.Map;
-import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 /** 库存命令、凭证与授权。调用方必须带企业/仓条件。 */
 public interface StockCommandMapper {
-    @Insert("INSERT IGNORE INTO stock_command (id, enterprise_id, warehouse_id, source_service, command_id, action, "
-            + "business_effect_key, execution_attempt_id, attempt_no, previous_command_id, payload_digest, digest_version, "
-            + "state, settlement_digest, result_json, compensates_command_id, safe_close_id, safe_close_version, "
-            + "safe_close_evidence, version, created_at, updated_at) VALUES (#{commandId}, #{enterpriseId}, #{warehouseId}, "
-            + "#{sourceService}, #{commandId}, #{action}, #{effectId}, #{attemptId}, #{attemptNo}, #{previousCommandId}, "
-            + "#{digest}, #{digestVersion}, #{state}, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})")
+    /** insertIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertIgnore(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId, @Param("action") String action,
             @Param("effectId") String effectId, @Param("attemptId") String attemptId, @Param("attemptNo") long attemptNo,
             @Param("previousCommandId") String previousCommandId, @Param("digest") String digest,
             @Param("digestVersion") int digestVersion, @Param("state") String state, @Param("now") Timestamp now);
 
-    @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
-            + "digest_version, state, safe_close_id, previous_command_id FROM stock_command "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND source_service=#{sourceService} AND command_id=#{commandId} FOR UPDATE")
+    /** lockByCommand：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockByCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId);
 
-    @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
-            + "digest_version, state, safe_close_id, previous_command_id FROM stock_command "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND source_service=#{sourceService} AND command_id=#{commandId}")
+    /** getByCommand：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> getByCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId);
 
-    @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
-            + "digest_version, state FROM stock_command WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND source_service=#{sourceService} AND business_effect_key=#{effectId} AND action=#{action} "
-            + "ORDER BY attempt_no DESC LIMIT 1")
+    /** findLatestByEffect：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> findLatestByEffect(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("effectId") String effectId, @Param("action") String action);
 
-    @Update("UPDATE stock_command SET safe_close_id=#{closeId}, safe_close_version=safe_close_version+1, "
-            + "safe_close_evidence=CAST(#{evidence} AS JSON), updated_at=#{now} WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND source_service=#{sourceService} AND command_id=#{commandId}")
+    /** markSafeClose：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int markSafeClose(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId,
             @Param("closeId") String closeId, @Param("evidence") String evidence, @Param("now") Timestamp now);
 
-    @Insert("INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, "
-            + "action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, "
-            + "ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at) "
-            + "VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, "
-            + "#{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, "
-            + "CAST(#{manifest} AS JSON), 1, #{originalPostingId}, 0, 0, #{now}, #{now})")
+    /** insertCompensationPosting：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertCompensationPosting(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("commandId") String commandId, @Param("effectId") String effectId, @Param("action") String action,
@@ -65,20 +41,13 @@ public interface StockCommandMapper {
             @Param("sourceDocumentId") String sourceDocumentId, @Param("manifest") String manifest,
             @Param("originalPostingId") String originalPostingId, @Param("now") Timestamp now);
 
-    @Update("UPDATE stock_command SET state=#{toState}, result_json=CAST(#{resultJson} AS JSON), version=version+1, "
-            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND source_service=#{sourceService} AND command_id=#{commandId} AND state=#{fromState}")
+    /** casState：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int casState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId,
             @Param("fromState") String fromState, @Param("toState") String toState, @Param("resultJson") String resultJson,
             @Param("now") Timestamp now);
 
-    @Insert("INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, "
-            + "action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, "
-            + "ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at) "
-            + "VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, "
-            + "#{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, "
-            + "CAST(#{manifest} AS JSON), 1, NULL, 0, 0, #{now}, #{now})")
+    /** insertPosting：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertPosting(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("commandId") String commandId, @Param("effectId") String effectId, @Param("action") String action,
@@ -86,13 +55,7 @@ public interface StockCommandMapper {
             @Param("sourceExecutionId") String sourceExecutionId, @Param("sourceDocumentId") String sourceDocumentId,
             @Param("manifest") String manifest, @Param("now") Timestamp now);
 
-    @Insert("INSERT IGNORE INTO execution_permit (id, enterprise_id, warehouse_id, source_service, permit_id, command_id, "
-            + "business_effect_key, execution_attempt_id, attempt_no, source_task_id, source_task_epoch, gate_epoch, action, "
-            + "payload_digest, quantity, actual_qty, not_executed_qty, settlement_digest, state, started_at, posted_at, "
-            + "version, created_at, updated_at) VALUES (#{permitId}, #{enterpriseId}, #{warehouseId}, #{sourceService}, "
-            + "#{permitId}, #{commandId}, #{effectId}, #{attemptId}, #{attemptNo}, #{taskId}, #{taskEpoch}, 0, #{action}, "
-            + "#{digest}, #{quantity}, #{actualQty}, #{notExecutedQty}, NULL, #{state}, #{startedAt}, #{postedAt}, 0, #{now}, "
-            + "#{now})")
+    /** insertPermit：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertPermit(@Param("permitId") String permitId, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("commandId") String commandId, @Param("effectId") String effectId, @Param("attemptId") String attemptId,
@@ -102,28 +65,21 @@ public interface StockCommandMapper {
             @Param("state") String state, @Param("startedAt") Timestamp startedAt, @Param("postedAt") Timestamp postedAt,
             @Param("now") Timestamp now);
 
-    @Select("SELECT permit_id, command_id, state, quantity, source_task_id, source_task_epoch FROM execution_permit "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND source_service=#{sourceService} AND command_id=#{commandId} FOR UPDATE")
+    /** lockPermitByCommand：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockPermitByCommand(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
             @Param("commandId") String commandId);
 
-    @Update("UPDATE execution_permit SET state=#{toState}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND source_service=#{sourceService} "
-            + "AND command_id=#{commandId} AND state=#{fromState}")
+    /** casPermitState：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int casPermitState(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId,
             @Param("fromState") String fromState, @Param("toState") String toState, @Param("now") Timestamp now);
 
-    @Select("SELECT id, quantity, reversed_qty, command_id FROM stock_posting "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} FOR UPDATE")
+    /** lockPosting：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockPosting(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id);
 
-    @Update("UPDATE stock_posting SET reversed_qty=reversed_qty+#{qty}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} "
-            + "AND reversed_qty+#{qty}<=quantity")
+    /** addReversed：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addReversed(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 }

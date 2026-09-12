@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.serial.SerialTransferMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO serial_transfer (id, enterprise_id, sku_id, normalized_serial, serial_id, transfer_id, source_warehouse_id, target_warehouse_id, from_epoch, to_epoch, state, source_release_ref, target_receipt_ref, prepare_operation_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{skuId}, #{serial}, #{serialId}, #{transferId}, #{sourceWarehouseId}, #{targetWarehouseId}, #{fromEpoch}, NULL, #{state}, NULL, NULL, #{operationId}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lock：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lock" resultType="map">
+        SELECT id, serial_id, transfer_id, source_warehouse_id, target_warehouse_id, from_epoch, to_epoch, state, source_release_ref, target_receipt_ref, prepare_operation_id, version
+        FROM serial_transfer
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND transfer_id=#{transferId} FOR UPDATE
+    </select>
+
+    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="get" resultType="map">
+        SELECT id, serial_id, transfer_id, source_warehouse_id, target_warehouse_id, from_epoch, to_epoch, state, source_release_ref, target_receipt_ref, prepare_operation_id, version
+        FROM serial_transfer
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND transfer_id=#{transferId}
+    </select>
+
+    <!-- casRelease：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casRelease">
+        UPDATE serial_transfer
+        SET state=#{state}, source_release_ref=#{releaseRef}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND transfer_id=#{transferId}
+        AND state=#{fromState}
+    </update>
+
+    <!-- casReceiving：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casReceiving">
+        UPDATE serial_transfer
+        SET state=#{state}, target_receipt_ref=#{receiptRef}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND transfer_id=#{transferId}
+        AND state=#{fromState}
+    </update>
+
+    <!-- casComplete：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casComplete">
+        UPDATE serial_transfer
+        SET state='COMPLETED', target_receipt_ref=#{receiptRef}, to_epoch=#{toEpoch}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND sku_id=#{skuId}
+        AND normalized_serial=#{serial}
+        AND transfer_id=#{transferId}
+        AND state='RECEIVING'
+    </update>
+</mapper>

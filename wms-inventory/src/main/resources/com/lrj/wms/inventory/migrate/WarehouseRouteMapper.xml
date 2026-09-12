@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.migrate.WarehouseRouteMapper">
+
+    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertIgnore">
+        INSERT INTO warehouse_route (id, enterprise_id, warehouse_id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cellId}, #{targetCellId}, #{epoch}, #{state}, #{cutoff}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at=updated_at
+    </insert>
+
+    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="get" resultType="map">
+        SELECT id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version
+        FROM warehouse_route
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+    </select>
+
+    <!-- lock：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lock" resultType="map">
+        SELECT id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version
+        FROM warehouse_route
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId} FOR UPDATE
+    </select>
+
+    <!-- casState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casState">
+        UPDATE warehouse_route
+        SET state=#{state}, target_cell_id=#{targetCellId}, cutoff_at=#{cutoff}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND version=#{expected}
+        AND state=#{fromState}
+    </update>
+
+    <!-- casSwitch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casSwitch">
+        UPDATE warehouse_route
+        SET route_epoch=#{epoch}, state=#{state}, cell_id=#{cellId}, target_cell_id=#{targetCellId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND version=#{expected}
+    </update>
+
+    <!-- markGates：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markGates">
+        UPDATE location_gate
+        SET state=#{state}, reason_code=#{reason}, fence_epoch=fence_epoch+1, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+    </update>
+</mapper>

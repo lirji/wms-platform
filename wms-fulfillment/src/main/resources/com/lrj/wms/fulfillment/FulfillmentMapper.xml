@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.FulfillmentMapper">
+
+    <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOrderIgnore">
+        INSERT IGNORE INTO fulfillment_order (id, enterprise_id, source_system, source_order_no, request_digest, status, strategy_version, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{sourceSystem}, #{sourceOrderNo}, #{digest}, #{status}, #{strategyVersion}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockOrderBySource：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockOrderBySource" resultType="map">
+        SELECT id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
+        FROM fulfillment_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND source_system=#{sourceSystem}
+        AND source_order_no=#{sourceOrderNo} FOR UPDATE
+    </select>
+
+    <!-- lockOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockOrder" resultType="map">
+        SELECT id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
+        FROM fulfillment_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id} FOR UPDATE
+    </select>
+
+    <!-- insertLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLine">
+        INSERT INTO fulfillment_line (id, enterprise_id, fulfillment_id, source_line_id, sku_id, requested_qty, base_unit, min_remaining_days, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{fulfillmentId}, #{sourceLineId}, #{skuId}, #{qty}, #{unit}, #{minDays}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- casActiveAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casActiveAttempt">
+        UPDATE fulfillment_order
+        SET active_attempt_id=#{attemptId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{orderId}
+        AND version=#{version}
+        AND (active_attempt_id IS NULL OR active_attempt_id=#{expectedActive})
+    </update>
+
+    <!-- lockLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockLines" resultType="map">
+        SELECT source_line_id, sku_id, requested_qty, base_unit
+        FROM fulfillment_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND fulfillment_id=#{fulfillmentId}
+        ORDER BY source_line_id FOR UPDATE
+    </select>
+
+    <!-- insertAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertAttempt">
+        INSERT INTO allocation_attempt (id, enterprise_id, fulfillment_id, state, deadline, participant_set_hash, allocation_digest, cancel_requested, launch_epoch, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{fulfillmentId}, #{state}, #{deadline}, #{hash}, #{digest}, 0, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockAttempt" resultType="map">
+        SELECT id, fulfillment_id, state, deadline, xid, tc_observed_status, tc_terminal_evidence, participant_set_hash, allocation_digest, cancel_requested, launch_epoch, launch_owner, launch_lease_until, xid_bound_at, version
+        FROM allocation_attempt
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id} FOR UPDATE
+    </select>
+
+    <!-- claimLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="claimLaunch">
+        UPDATE allocation_attempt
+        SET launch_owner=#{owner}, launch_lease_until=#{leaseUntil}, launch_epoch=launch_epoch+1, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+        AND xid IS NULL
+        AND launch_epoch=#{epoch}
+        AND version=#{version}
+        AND state IN ('PLANNED','TCC_STARTING')
+        AND (launch_owner IS NULL OR launch_owner=#{owner})
+    </update>
+
+    <!-- bindXid：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindXid">
+        UPDATE allocation_attempt
+        SET xid=#{xid}, xid_bound_at=#{now}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+        AND xid IS NULL
+        AND launch_owner=#{owner}
+        AND launch_epoch=#{epoch}
+        AND state='TCC_STARTING'
+    </update>
+
+    <!-- observeTc：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="observeTc">
+        UPDATE allocation_attempt
+        SET tc_observed_status=#{status}, tc_terminal_evidence=#{evidence}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+    </update>
+
+    <!-- casAttemptState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casAttemptState">
+        UPDATE allocation_attempt
+        SET state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+        AND state=#{expected}
+    </update>
+
+    <!-- insertParticipant：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertParticipant">
+        INSERT INTO allocation_participant (id, enterprise_id, attempt_id, warehouse_id, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{attemptId}, #{warehouseId}, #{state}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockParticipants：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockParticipants" resultType="map">
+        SELECT id, warehouse_id, reservation_id, xid, branch_id, action_name, route_epoch, observed_branch_state, state, last_error, confirmed_version, version
+        FROM allocation_participant
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        ORDER BY warehouse_id FOR UPDATE
+    </select>
+
+    <!-- observeParticipant：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="observeParticipant">
+        UPDATE allocation_participant
+        SET state=#{state}, confirmed_version=#{confirmedVersion}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND warehouse_id=#{warehouseId}
+    </update>
+
+    <!-- bindParticipantBranch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindParticipantBranch">
+        UPDATE allocation_participant
+        SET xid=#{xid}, branch_id=#{branchId}, action_name=#{actionName}, reservation_id=#{reservationId}, route_epoch=#{routeEpoch}, observed_branch_state=#{branchState}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND warehouse_id=#{warehouseId}
+        AND (xid IS NULL OR (xid=#{xid}
+        AND branch_id=#{branchId}
+        AND action_name=#{actionName}))
+    </update>
+
+    <!-- insertParticipantLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertParticipantLine">
+        INSERT INTO participant_line (id, enterprise_id, participant_id, order_line_id, sku_id, qty, base_unit, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{participantId}, #{orderLineId}, #{skuId}, #{qty}, #{unit}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLaunch">
+        INSERT INTO allocation_launch (id, enterprise_id, attempt_id, launch_epoch, executor_id, state, cleanup_state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{attemptId}, #{epoch}, #{executorId}, #{state}, #{cleanup}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- bindLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindLaunch">
+        UPDATE allocation_launch
+        SET xid=#{xid}, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND launch_epoch=#{epoch}
+        AND executor_id=#{executorId}
+        AND xid IS NULL
+    </update>
+
+    <!-- lockLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockLaunch" resultType="map">
+        SELECT id, attempt_id, launch_epoch, executor_id, xid, state, cleanup_state, error_code, version
+        FROM allocation_launch
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND launch_epoch=#{epoch} FOR UPDATE
+    </select>
+
+    <!-- markLaunchUnknown：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markLaunchUnknown">
+        UPDATE allocation_launch
+        SET state=#{state}, cleanup_state=#{cleanup}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND launch_epoch=#{epoch}
+        AND state='CLAIMED'
+    </update>
+
+    <!-- recordEmptyXid：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="recordEmptyXid">
+        UPDATE allocation_launch
+        SET xid=#{xid}, state=#{state}, cleanup_state=#{cleanup}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND launch_epoch=#{epoch}
+        AND xid IS NULL
+        AND state IN ('CLAIMED','UNKNOWN')
+    </update>
+
+    <!-- cleanupLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="cleanupLaunch">
+        UPDATE allocation_launch
+        SET cleanup_state=#{cleanup}, error_code=#{errorCode}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        AND launch_epoch=#{epoch}
+        AND cleanup_state IN ('NONE','PENDING')
+    </update>
+
+    <!-- isolateEmptyLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="isolateEmptyLaunch">
+        UPDATE allocation_attempt
+        SET launch_owner=#{owner}, launch_lease_until=#{leaseUntil}, launch_epoch=launch_epoch+1, state=#{state}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+        AND xid IS NULL
+        AND launch_epoch=#{epoch}
+        AND version=#{version}
+        AND state IN ('PLANNED','TCC_STARTING')
+        AND EXISTS (SELECT 1
+        FROM allocation_launch l
+        WHERE l.enterprise_id=#{enterpriseId}
+        AND l.attempt_id=#{id}
+        AND l.launch_epoch=#{epoch}
+        AND l.state='UNKNOWN')
+        AND NOT EXISTS (SELECT 1
+        FROM allocation_participant p
+        WHERE p.enterprise_id=#{enterpriseId}
+        AND p.attempt_id=#{id}
+        AND p.reservation_id IS NOT NULL)
+    </update>
+
+    <!-- listParticipantLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listParticipantLines" resultType="map">
+        SELECT p.warehouse_id, p.reservation_id, l.order_line_id, l.sku_id, l.qty, l.base_unit
+        FROM allocation_participant p JOIN participant_line l ON l.enterprise_id=p.enterprise_id
+        AND l.participant_id=p.id
+        WHERE p.enterprise_id=#{enterpriseId}
+        AND p.attempt_id=#{attemptId}
+        ORDER BY p.warehouse_id, l.order_line_id
+    </select>
+
+    <!-- listOpenBoundAttempts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listOpenBoundAttempts" resultType="map">
+        SELECT id, xid, state, tc_observed_status, tc_terminal_evidence
+        FROM allocation_attempt
+        WHERE enterprise_id=#{enterpriseId}
+        AND xid IS NOT NULL
+        AND state IN ('TCC_TRYING','TCC_COMPLETING')
+        ORDER BY id
+        LIMIT 100
+    </select>
+
+    <!-- listReadyBarrierAttempts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listReadyBarrierAttempts" resultType="string">
+        SELECT id
+        FROM allocation_attempt
+        WHERE enterprise_id=#{enterpriseId}
+        AND tc_observed_status='Committed'
+        AND tc_terminal_evidence IS NOT NULL
+        AND tc_terminal_evidence&lt;&gt;''
+        AND state IN ('TCC_TRYING','TCC_COMPLETING','ALLOCATED')
+        ORDER BY id FOR UPDATE
+    </select>
+
+    <!-- insertOutboxIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOutboxIgnore">
+        INSERT IGNORE INTO fulfillment_outbox (event_id, enterprise_id, attempt_id, warehouse_id, event_type, operation_id, payload, status, version, created_at, updated_at)
+        VALUES (#{eventId}, #{enterpriseId}, #{attemptId}, #{warehouseId}, #{eventType}, #{operationId}, CAST(#{payload} AS JSON), 'PENDING', 0, #{now}, #{now})
+    </insert>
+
+    <!-- countOutbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countOutbox" resultType="int">
+        SELECT COUNT(*)
+        FROM fulfillment_outbox
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+    </select>
+
+    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listOrdersPage" resultType="map">
+        SELECT id, source_system, source_order_no, status, strategy_version, active_attempt_id, version, created_at
+        FROM fulfillment_order
+        WHERE enterprise_id=#{enterpriseId}
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
+
+    <!-- listParticipants：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listParticipants" resultType="map">
+        SELECT id, warehouse_id, reservation_id, xid, branch_id, observed_branch_state
+        FROM allocation_participant
+        WHERE enterprise_id=#{enterpriseId}
+        AND attempt_id=#{attemptId}
+        ORDER BY warehouse_id
+    </select>
+</mapper>

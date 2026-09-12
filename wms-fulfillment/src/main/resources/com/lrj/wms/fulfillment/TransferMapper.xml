@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.TransferMapper">
+
+    <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOrderIgnore">
+        INSERT IGNORE INTO transfer_order (id, enterprise_id, source_warehouse_id, target_warehouse_id, status, source_document_id, target_document_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{sourceWarehouseId}, #{targetWarehouseId}, #{status}, NULL, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockOrder" resultType="map">
+        SELECT id, source_warehouse_id, target_warehouse_id, status, source_document_id, target_document_id, version
+        FROM transfer_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id} FOR UPDATE
+    </select>
+
+    <!-- insertLeg：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLeg">
+        INSERT INTO transfer_leg (id, enterprise_id, transfer_id, warehouse_id, role, status, document_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{warehouseId}, #{role}, #{status}, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLine">
+        INSERT INTO transfer_line (id, enterprise_id, transfer_id, sku_id, business_lot_key, source_lot_id, target_lot_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{skuId}, #{businessLotKey}, #{sourceLotId}, NULL, #{plannedQty}, 0, 0, 0, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockLine" resultType="map">
+        SELECT id, sku_id, business_lot_key, source_lot_id, target_lot_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota, version
+        FROM transfer_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId} FOR UPDATE
+    </select>
+
+    <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listLines" resultType="map">
+        SELECT id, sku_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota
+        FROM transfer_line
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+    </select>
+
+    <!-- listLegs：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listLegs" resultType="map">
+        SELECT id, warehouse_id, role, status
+        FROM transfer_leg
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+    </select>
+
+    <!-- insertFactIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertFactIgnore">
+        INSERT IGNORE INTO transfer_fact (id, enterprise_id, transfer_id, line_id, warehouse_id, action, operation_id, quantity, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{lineId}, #{warehouseId}, #{action}, #{operationId}, #{qty}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- getFact：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="getFact" resultType="map">
+        SELECT transfer_id, line_id, warehouse_id, action, operation_id, quantity
+        FROM transfer_fact
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND action=#{action}
+        AND operation_id=#{operationId}
+    </select>
+
+    <!-- addIssued：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addIssued">
+        UPDATE transfer_line
+        SET issued_qty=issued_qty+#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND issued_qty+#{qty}&lt;=planned_qty
+    </update>
+
+    <!-- addReceived：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addReceived">
+        UPDATE transfer_line
+        SET received_qty=received_qty+#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND received_qty+loss_confirmed_qty+active_receipt_quota+#{qty}&lt;=issued_qty
+    </update>
+
+    <!-- updateOrderStatus：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateOrderStatus">
+        UPDATE transfer_order
+        SET status=#{status}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{transferId}
+    </update>
+
+    <!-- updateLegStatus：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="updateLegStatus">
+        UPDATE transfer_leg
+        SET status=#{status}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND warehouse_id=#{warehouseId}
+    </update>
+
+    <!-- insertAuthIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertAuthIgnore">
+        INSERT IGNORE INTO receipt_authorization (id, enterprise_id, transfer_id, transfer_line_id, target_warehouse_id, target_client_operation_id, quantity, state, token_version, target_result_ref, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{lineId}, #{warehouseId}, #{clientOperationId}, #{qty}, 'OPEN', 1, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockAuthByClient：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockAuthByClient" resultType="map">
+        SELECT id, transfer_id, transfer_line_id, target_warehouse_id, target_client_operation_id, quantity, state, token_version, target_result_ref
+        FROM receipt_authorization
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_line_id=#{lineId}
+        AND target_client_operation_id=#{clientOperationId} FOR UPDATE
+    </select>
+
+    <!-- lockAuth：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockAuth" resultType="map">
+        SELECT id, transfer_id, transfer_line_id, target_warehouse_id, target_client_operation_id, quantity, state, token_version, target_result_ref
+        FROM receipt_authorization
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id} FOR UPDATE
+    </select>
+
+    <!-- addQuota：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addQuota">
+        UPDATE transfer_line
+        SET active_receipt_quota=active_receipt_quota+#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND received_qty+loss_confirmed_qty+active_receipt_quota+#{qty}&lt;=issued_qty
+    </update>
+
+    <!-- consumeQuota：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="consumeQuota">
+        UPDATE transfer_line
+        SET received_qty=received_qty+#{qty}, active_receipt_quota=active_receipt_quota-#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND active_receipt_quota&gt;=#{qty}
+    </update>
+
+    <!-- releaseQuota：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="releaseQuota">
+        UPDATE transfer_line
+        SET active_receipt_quota=active_receipt_quota-#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND active_receipt_quota&gt;=#{qty}
+    </update>
+
+    <!-- addLoss：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="addLoss">
+        UPDATE transfer_line
+        SET loss_confirmed_qty=loss_confirmed_qty+#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND received_qty+loss_confirmed_qty+active_receipt_quota+#{qty}&lt;=issued_qty
+    </update>
+
+    <!-- casAuthState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casAuthState">
+        UPDATE receipt_authorization
+        SET state=#{toState}, target_result_ref=#{resultRef}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id}
+        AND state=#{fromState}
+        AND token_version=#{tokenVersion}
+    </update>
+
+    <!-- bindTargetLot：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="bindTargetLot">
+        UPDATE transfer_line
+        SET target_lot_id=#{targetLotId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND transfer_id=#{transferId}
+        AND id=#{lineId}
+        AND (target_lot_id IS NULL OR target_lot_id=#{targetLotId})
+    </update>
+
+    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="listOrdersPage" resultType="map">
+        SELECT id, source_warehouse_id, target_warehouse_id, status, version, created_at
+        FROM transfer_order
+        WHERE enterprise_id=#{enterpriseId}
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
+</mapper>

@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.lrj.wms.runtime.web.CursorPage;
+import com.lrj.wms.inventory.query.InventoryHttpJson;
 
 /** 主数据查询；列表与按标识读取。写入走 MasterdataCommandController。 */
 @RestController
@@ -27,62 +30,94 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnBean(SqlSessionFactory.class)
 public class MasterdataQueryController {
     private final SqlSessionFactory sessions;
+    private final com.lrj.wms.runtime.cache.ReadQueryCache cache;
 
-    public MasterdataQueryController(SqlSessionFactory sessions) {
+    public MasterdataQueryController(SqlSessionFactory sessions, com.lrj.wms.runtime.cache.ReadQueryCache cache) {
         this.sessions = sessions;
+        this.cache = cache;
     }
 
     /** 当前身份可见仓库列表。 */
     @GetMapping("/warehouses")
-    public Map<String, Object> warehouses(@AuthenticationPrincipal Jwt jwt) {
+    public Map<String, Object> warehouses(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
         String enterprise = WmsJwtAuthorities.enterpriseId(jwt);
         Set<String> allowed = WmsJwtAuthorities.warehouses(jwt);
-        try (SqlSession session = sessions.openSession()) {
-            List<Map<String, Object>> items = session.getMapper(MasterdataMapper.class).listWarehouses(enterprise)
-                    .stream().filter(row -> allowed.contains(String.valueOf(row.get("id")))).toList();
-            return page(items);
-        }
+        var page = CursorPage.parse(limit, cursor, com.lrj.wms.runtime.web.CursorPage.scope("warehouses", WmsJwtAuthorities.enterpriseId(jwt)));
+        return cache.read(CursorPage.scope(page.scope(), page.limit(), page.id(),
+                jwt.getSubject(), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))), () -> {
+            try (SqlSession session = sessions.openSession()) {
+                return InventoryHttpJson.body(page.result(session.getMapper(MasterdataMapper.class)
+                        .listWarehouses(enterprise, page, allowed), false));
+            }
+        });
     }
 
     /** 库位列表，越仓拒绝。 */
     @GetMapping("/warehouses/{warehouseId}/locations")
-    public Map<String, Object> locations(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId) {
+    public Map<String, Object> locations(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        try (SqlSession session = sessions.openSession()) {
-            return page(session.getMapper(MasterdataMapper.class)
-                    .listLocations(WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
-        }
+        var page = CursorPage.parse(limit, cursor, com.lrj.wms.runtime.web.CursorPage.scope("locations", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
+        return cache.read(CursorPage.scope(page.scope(), page.limit(), page.id(),
+                jwt.getSubject(), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))), () -> {
+            try (SqlSession session = sessions.openSession()) {
+                return InventoryHttpJson.body(page.result(session.getMapper(MasterdataMapper.class)
+                        .listLocations(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), false));
+            }
+        });
     }
 
     /** 商品列表。 */
     @GetMapping("/skus")
-    public Map<String, Object> skus(@AuthenticationPrincipal Jwt jwt) {
-        try (SqlSession session = sessions.openSession()) {
-            return page(session.getMapper(MasterdataMapper.class).listSkus(WmsJwtAuthorities.enterpriseId(jwt)));
-        }
+    public Map<String, Object> skus(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        var page = CursorPage.parse(limit, cursor, com.lrj.wms.runtime.web.CursorPage.scope("skus", WmsJwtAuthorities.enterpriseId(jwt)));
+        return cache.read(CursorPage.scope(page.scope(), page.limit(), page.id(),
+                jwt.getSubject(), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))), () -> {
+            try (SqlSession session = sessions.openSession()) {
+                return InventoryHttpJson.body(page.result(session.getMapper(MasterdataMapper.class)
+                        .listSkus(WmsJwtAuthorities.enterpriseId(jwt), page), false));
+            }
+        });
     }
 
     /** 当前策略版本单位换算；商品必须属于令牌企业。 */
     @GetMapping("/skus/{skuId}/units")
-    public Map<String, Object> skuUnits(@AuthenticationPrincipal Jwt jwt, @PathVariable String skuId) {
+    public Map<String, Object> skuUnits(@AuthenticationPrincipal Jwt jwt, @PathVariable String skuId,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
         String enterprise = WmsJwtAuthorities.enterpriseId(jwt);
-        try (SqlSession session = sessions.openSession()) {
-            MasterdataMapper mapper = session.getMapper(MasterdataMapper.class);
-            if (mapper.countSku(enterprise, skuId) == 0) {
-                throw new NoSuchElementException("商品不存在");
+        var page = CursorPage.parse(limit, cursor, com.lrj.wms.runtime.web.CursorPage.scope("skuUnits", WmsJwtAuthorities.enterpriseId(jwt), skuId));
+        return cache.read(CursorPage.scope(page.scope(), page.limit(), page.id(),
+                jwt.getSubject(), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))), () -> {
+            try (SqlSession session = sessions.openSession()) {
+                MasterdataMapper mapper = session.getMapper(MasterdataMapper.class);
+                if (mapper.countSku(enterprise, skuId) == 0) {
+                    throw new NoSuchElementException("商品不存在");
+                }
+                return InventoryHttpJson.body(page.result(mapper.listSkuUnits(enterprise, skuId, page), false));
             }
-            return page(mapper.listSkuUnits(enterprise, skuId));
-        }
+        });
     }
 
     /** 仓级批次列表，越仓拒绝。 */
     @GetMapping("/warehouses/{warehouseId}/lots")
-    public Map<String, Object> lots(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId) {
+    public Map<String, Object> lots(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        try (SqlSession session = sessions.openSession()) {
-            return MasterdataHttp.page(session.getMapper(MasterdataMapper.class)
-                    .listLots(WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
-        }
+        var page = CursorPage.parse(limit, cursor, com.lrj.wms.runtime.web.CursorPage.scope("lots", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
+        return cache.read(CursorPage.scope(page.scope(), page.limit(), page.id(),
+                jwt.getSubject(), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))), () -> {
+            try (SqlSession session = sessions.openSession()) {
+                return InventoryHttpJson.body(page.result(session.getMapper(MasterdataMapper.class)
+                        .listLots(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), false));
+            }
+        });
     }
 
     @GetMapping("/warehouses/{warehouseId}")

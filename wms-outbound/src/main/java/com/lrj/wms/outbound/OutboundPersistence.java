@@ -4,7 +4,9 @@ import com.lrj.wms.outbound.order.OutboundAuthorizationMapper;
 import com.lrj.wms.outbound.order.OutboundOrderMapper;
 import com.lrj.wms.outbound.order.OutboundTaskMapper;
 import com.lrj.wms.outbound.protocol.SourceMapper;
-import com.mysql.cj.jdbc.MysqlDataSource;
+import com.zaxxer.hikari.HikariDataSource;
+import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.RuntimeDataSources;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
@@ -21,13 +23,10 @@ import org.springframework.context.annotation.Conditional;
 @Conditional(OnOutboundJdbcConfigured.class)
 @EnableConfigurationProperties(OutboundDatasourceProperties.class)
 class OutboundPersistence {
-    @Bean
-    DataSource dataSource(OutboundDatasourceProperties properties) {
-        MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(properties.url());
-        source.setUser(properties.username());
-        source.setPassword(properties.password());
-        return source;
+    /** 有界连接池由 Spring 关闭，避免停机留下连接和维护线程。 */
+    @Bean(destroyMethod = "close")
+    HikariDataSource dataSource(OutboundDatasourceProperties properties, DatabaseBudget budget) {
+        return RuntimeDataSources.create("outbound", properties.url(), properties.username(), properties.password(), budget);
     }
 
     @Bean
@@ -38,8 +37,9 @@ class OutboundPersistence {
     }
 
     @Bean
-    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
+    SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("outbound", new JdbcTransactionFactory(), dataSource));
+        config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(SourceMapper.class);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(OutboundTaskMapper.class);

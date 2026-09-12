@@ -4,167 +4,121 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
-import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 /** 出库单/行/任务/包裹。必须带企业/仓条件。 */
 public interface OutboundOrderMapper {
-    @Insert("INSERT IGNORE INTO outbound_order (id, enterprise_id, warehouse_id, allocation_id, attempt_id, owner_id, "
-            + "execution_authorization_id, status, version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, "
-            + "#{warehouseId}, #{allocationId}, #{attemptId}, #{ownerId}, #{authId}, #{status}, 0, #{now}, #{now})")
+    /** insertOrderIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertOrderIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
             @Param("attemptId") String attemptId, @Param("ownerId") String ownerId, @Param("authId") String authId,
             @Param("status") String status, @Param("now") Timestamp now);
 
-    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version "
-            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND allocation_id=#{allocationId} AND attempt_id=#{attemptId} FOR UPDATE")
+    /** lockOrderByAttempt：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockOrderByAttempt(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,
             @Param("attemptId") String attemptId);
 
-    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version "
-            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id} "
-            + "FOR UPDATE")
+    /** lockOrder：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockOrder(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id);
 
-    @Insert("INSERT IGNORE INTO outbound_line (id, enterprise_id, warehouse_id, order_id, order_line_id, sku_id, "
-            + "allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, "
-            + "shipped_physical_qty, shipped_posted_qty, cancelled_qty, base_unit, stock_sync_status, version, "
-            + "created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{orderId}, #{orderLineId}, "
-            + "#{skuId}, #{qty}, 0, 0, 0, 0, 0, 0, 0, #{unit}, 'PENDING', 0, #{now}, #{now})")
+    /** insertLineIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertLineIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId,
             @Param("orderLineId") String orderLineId, @Param("skuId") String skuId, @Param("qty") BigDecimal qty,
             @Param("unit") String unit, @Param("now") Timestamp now);
 
-    @Select("SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, "
-            + "packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, "
-            + "stock_sync_status, version FROM outbound_line WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND id=#{lineId} FOR UPDATE")
+    /** lockLine：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockLine(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId);
 
-    @Select("SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, "
-            + "packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, "
-            + "stock_sync_status, version FROM outbound_line WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND order_id=#{orderId} AND order_line_id=#{orderLineId} FOR UPDATE")
+    /** lockLineByOrderLine：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockLineByOrderLine(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId,
             @Param("orderLineId") String orderLineId);
 
-    @Update("UPDATE outbound_order SET status=#{status}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{orderId}")
+    /** updateOrderStatus：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int updateOrderStatus(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("orderId") String orderId, @Param("status") String status, @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET picked_physical_qty=picked_physical_qty+#{qty}, stock_sync_status='PENDING', "
-            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND id=#{lineId}")
+    /** addPickedPhysical：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addPickedPhysical(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET picked_posted_qty=picked_posted_qty+#{qty}, stock_sync_status=#{syncStatus}, "
-            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND id=#{lineId} AND picked_posted_qty+#{qty}<=picked_physical_qty")
+    /** addPickedPosted：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addPickedPosted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("syncStatus") String syncStatus,
             @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET packed_physical_qty=packed_physical_qty+#{qty}, stock_sync_status='PENDING', "
-            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND id=#{lineId}")
+    /** addPackedPhysical：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addPackedPhysical(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET shipped_physical_qty=shipped_physical_qty+#{qty}, stock_sync_status='PENDING', "
-            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND id=#{lineId} AND shipped_physical_qty+#{qty}<=packed_physical_qty")
+    /** addShippedPhysical：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addShippedPhysical(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET shipped_posted_qty=shipped_posted_qty+#{qty}, stock_sync_status=#{syncStatus}, "
-            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND id=#{lineId} AND shipped_posted_qty+#{qty}<=shipped_physical_qty")
+    /** addShippedPosted：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addShippedPosted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("syncStatus") String syncStatus,
             @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_line SET cancelled_qty=cancelled_qty+#{qty}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}")
+    /** addCancelled：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addCancelled(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
-    @Insert("INSERT INTO outbound_task (id, enterprise_id, warehouse_id, task_type, document_id, document_line_id, "
-            + "source_location_id, target_location_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, "
-            + "version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{taskType}, "
-            + "#{documentId}, #{lineId}, #{sourceLocationId}, #{targetLocationId}, #{plannedQty}, 0, #{state}, NULL, "
-            + "0, 0, #{now}, #{now})")
+    /** insertTask：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertTask(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("taskType") String taskType,
             @Param("documentId") String documentId, @Param("lineId") String lineId,
             @Param("sourceLocationId") String sourceLocationId, @Param("targetLocationId") String targetLocationId,
             @Param("plannedQty") BigDecimal plannedQty, @Param("state") String state, @Param("now") Timestamp now);
 
-    @Select("SELECT id, document_id, document_line_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, "
-            + "action_id, device_command_id, version FROM outbound_task WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND id=#{id} FOR UPDATE")
+    /** lockTask：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> lockTask(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id);
 
-    @Update("UPDATE outbound_task SET assignee_id=#{workerId}, claim_epoch=#{epoch}, action_id=#{actionId}, "
-            + "device_command_id=#{deviceCommandId}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")
+    /** claimTask：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int claimTask(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id, @Param("workerId") String workerId, @Param("epoch") long epoch,
             @Param("actionId") String actionId, @Param("deviceCommandId") String deviceCommandId,
             @Param("now") Timestamp now);
 
-    @Update("UPDATE outbound_task SET completed_qty=completed_qty+#{qty}, state=#{state}, version=version+1, "
-            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")
+    /** addTaskCompleted：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int addTaskCompleted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id, @Param("qty") BigDecimal qty, @Param("state") String state,
             @Param("now") Timestamp now);
 
-    @Insert("INSERT INTO outbound_package (id, enterprise_id, warehouse_id, order_id, package_no, status, version, "
-            + "created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{orderId}, #{packageNo}, "
-            + "#{status}, 0, #{now}, #{now})")
+    /** insertPackage：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertPackage(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId,
             @Param("packageNo") String packageNo, @Param("status") String status, @Param("now") Timestamp now);
 
-    @Insert("INSERT INTO package_line (id, enterprise_id, warehouse_id, package_id, outbound_line_id, qty, version, "
-            + "created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{packageId}, #{lineId}, #{qty}, "
-            + "0, #{now}, #{now})")
+    /** insertPackageLine：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertPackageLine(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("packageId") String packageId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
-    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at "
-            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "ORDER BY created_at DESC LIMIT #{limit}")
-    List<Map<String, Object>> listOrders(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+    /** listOrders：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
+    /** 兼容内部首屏读取，仍强制页大小边界。 */
+    default List<Map<String, Object>> listOrders(String enterpriseId, String warehouseId, int limit) {
+        return listOrdersPage(enterpriseId, warehouseId, com.lrj.wms.runtime.web.CursorPage.parse(limit, null, "internal"))
+                .stream().limit(limit).toList();
+    }
 
-    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at "
-            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")
+    /** 同时间戳以主键打破平局，数据库最多读取一页加一条。 */
+    List<Map<String, Object>> listOrdersPage(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId, @Param("page") com.lrj.wms.runtime.web.CursorPage page);
+
+    /** getOrder：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     Map<String, Object> getOrder(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id);
 
-    @Select("SELECT id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, "
-            + "packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, "
-            + "base_unit, stock_sync_status, version FROM outbound_line WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND order_id=#{orderId} ORDER BY order_line_id")
+    /** listLines：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listLines(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
 
-    @Select("SELECT id, task_type, document_id, document_line_id, planned_qty, completed_qty, state, action_id, "
-            + "device_command_id FROM outbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
-            + "AND document_id=#{orderId} ORDER BY created_at")
+    /** listTasks：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listTasks(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
 }

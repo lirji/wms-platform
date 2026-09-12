@@ -7,6 +7,7 @@ ENV MAVEN_OPTS="-Xmx2g"
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
 COPY wms-contract/pom.xml wms-contract/pom.xml
+COPY wms-runtime/pom.xml wms-runtime/pom.xml
 COPY wms-security/pom.xml wms-security/pom.xml
 COPY wms-inbound/pom.xml wms-inbound/pom.xml
 COPY wms-outbound/pom.xml wms-outbound/pom.xml

@@ -37,9 +37,9 @@ public class JobCommandController {
     @PostMapping("/retries")
     public Map<String, Object> retry(@AuthenticationPrincipal Jwt jwt, @PathVariable String jobId,
             @RequestParam(name = "warehouseId") String warehouseId,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody(required = false) JobCommandRequests.RetryRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String action = body == null || body.get("action") == null ? "RECLAIM" : String.valueOf(body.get("action"));
+        String action = body == null || body.action() == null ? "RECLAIM" : String.valueOf(body.action());
         try (SqlSession session = sessions.openSession(false)) {
             String enterpriseId = WmsJwtAuthorities.enterpriseId(jwt);
             JobRunMapper mapper = session.getMapper(JobRunMapper.class);

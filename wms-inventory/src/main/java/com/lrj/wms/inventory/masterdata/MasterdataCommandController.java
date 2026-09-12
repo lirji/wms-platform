@@ -34,14 +34,14 @@ public class MasterdataCommandController {
 
     @PostMapping("/warehouses")
     public ResponseEntity<Map<String, Object>> createWarehouse(@AuthenticationPrincipal Jwt jwt,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody MasterdataCommandRequests.CreateWarehouseRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "masterdata.write");
-        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, MasterdataHttp.text(body, "clientOperationId"));
+        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new MasterdataCommandService(session, Clock.systemUTC()).createWarehouse(
-                    WmsJwtAuthorities.enterpriseId(jwt), MasterdataHttp.requireText(body, "code", "仓编码"),
-                    MasterdataHttp.requireText(body, "name", "仓名称"),
-                    MasterdataHttp.requireText(body, "timezone", "时区"), key);
+                    WmsJwtAuthorities.enterpriseId(jwt), body.code(),
+                    body.name(),
+                    body.timezone(), key);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(MasterdataHttp.row(created));
         }
@@ -50,17 +50,17 @@ public class MasterdataCommandController {
     @PostMapping("/warehouses/{warehouseId}/locations")
     public ResponseEntity<Map<String, Object>> createLocation(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody MasterdataCommandRequests.CreateLocationRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "masterdata.write");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, MasterdataHttp.text(body, "clientOperationId"));
+        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new MasterdataCommandService(session, Clock.systemUTC()).createLocation(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    MasterdataHttp.requireText(body, "code", "库位编码"),
-                    MasterdataHttp.requireText(body, "zoneCode", "库区编码"),
-                    MasterdataHttp.requireText(body, "locationType", "库位类型"),
-                    MasterdataHttp.decimal(body.get("capacityQty")), MasterdataHttp.text(body, "capacityUnit"), key);
+                    body.code(),
+                    body.zoneCode(),
+                    body.locationType(),
+                    MasterdataHttp.decimal(body.capacityQty()), body.capacityUnit(), key);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(MasterdataHttp.row(created));
         }
@@ -68,16 +68,16 @@ public class MasterdataCommandController {
 
     @PostMapping("/skus")
     public ResponseEntity<Map<String, Object>> createSku(@AuthenticationPrincipal Jwt jwt,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody MasterdataCommandRequests.CreateSkuRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "masterdata.write");
-        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, MasterdataHttp.text(body, "clientOperationId"));
+        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new MasterdataCommandService(session, Clock.systemUTC()).createSku(
-                    WmsJwtAuthorities.enterpriseId(jwt), MasterdataHttp.requireText(body, "code", "商品编码"),
-                    MasterdataHttp.requireText(body, "name", "商品名称"),
-                    MasterdataHttp.requireText(body, "baseUnit", "基础单位"), MasterdataHttp.integer(body, "quantityScale"),
-                    MasterdataHttp.bool(body, "lotEnabled"), MasterdataHttp.bool(body, "serialEnabled"),
-                    MasterdataHttp.bool(body, "expiryEnabled"), key);
+                    WmsJwtAuthorities.enterpriseId(jwt), body.code(),
+                    body.name(),
+                    body.baseUnit(), body.quantityScale(),
+                    Boolean.TRUE.equals(body.lotEnabled()), Boolean.TRUE.equals(body.serialEnabled()),
+                    Boolean.TRUE.equals(body.expiryEnabled()), key);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(MasterdataHttp.row(created));
         }
@@ -85,15 +85,15 @@ public class MasterdataCommandController {
 
     @PostMapping("/skus/{skuId}/units")
     public ResponseEntity<Map<String, Object>> addSkuUnit(@AuthenticationPrincipal Jwt jwt, @PathVariable String skuId,
-            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody MasterdataCommandRequests.AddSkuUnitRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "masterdata.write");
-        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, MasterdataHttp.text(body, "clientOperationId"));
+        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new MasterdataCommandService(session, Clock.systemUTC()).addSkuUnit(
-                    WmsJwtAuthorities.enterpriseId(jwt), skuId, MasterdataHttp.requireText(body, "unitCode", "单位编码"),
-                    MasterdataHttp.decimal(MasterdataHttp.requireText(body, "numerator", "换算分子")),
-                    MasterdataHttp.decimal(MasterdataHttp.requireText(body, "denominator", "换算分母")),
-                    MasterdataHttp.decimal(body.get("sampleQuantity")), key);
+                    WmsJwtAuthorities.enterpriseId(jwt), skuId, body.unitCode(),
+                    MasterdataHttp.decimal(body.numerator()),
+                    MasterdataHttp.decimal(body.denominator()),
+                    MasterdataHttp.decimal(body.sampleQuantity()), key);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(MasterdataHttp.row(created));
         }
@@ -102,19 +102,19 @@ public class MasterdataCommandController {
     @PostMapping("/warehouses/{warehouseId}/lots")
     public ResponseEntity<Map<String, Object>> createLot(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody MasterdataCommandRequests.CreateLotRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "masterdata.write");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, MasterdataHttp.text(body, "clientOperationId"));
+        String key = MasterdataHttp.requireMatchingKey(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new MasterdataCommandService(session, Clock.systemUTC()).createLot(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    MasterdataHttp.requireText(body, "ownerId", "货权主体"),
-                    MasterdataHttp.requireText(body, "skuId", "商品标识"),
-                    MasterdataHttp.requireText(body, "lotCode", "批次编码"),
-                    MasterdataHttp.requireText(body, "businessLotKey", "跨仓批次键"),
-                    instant(MasterdataHttp.text(body, "producedAt")), instant(MasterdataHttp.text(body, "expiresAt")),
-                    MasterdataHttp.text(body, "sourceDate"), MasterdataHttp.longValue(body, "expiryRuleVersion", 0L),
+                    body.ownerId(),
+                    body.skuId(),
+                    body.lotCode(),
+                    body.businessLotKey(),
+                    instant(body.producedAt()), instant(body.expiresAt()),
+                    body.sourceDate(), body.expiryRuleVersion() == null ? 0L : body.expiryRuleVersion(),
                     key);
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(MasterdataHttp.row(created));

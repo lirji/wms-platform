@@ -9,6 +9,7 @@
   <artifactId>wms-security</artifactId>
   <description>OIDC资源服务器与无issuer时的默认拒绝，不含业务实体</description>
   <dependencies>
+    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>

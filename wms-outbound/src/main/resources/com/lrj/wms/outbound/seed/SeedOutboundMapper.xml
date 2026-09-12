@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.outbound.seed.SeedOutboundMapper">
+
+    <!-- countOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countOrders" resultType="int">
+        SELECT COUNT(*)
+        FROM outbound_order
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countLines" resultType="int">
+        SELECT COUNT(*)
+        FROM outbound_line
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+</mapper>

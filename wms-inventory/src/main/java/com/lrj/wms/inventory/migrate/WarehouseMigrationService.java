@@ -22,23 +22,14 @@ public final class WarehouseMigrationService {
     public static final String QUIESCING = "QUIESCING";
     public static final String RETIRED = "RETIRED";
     public static final String REASON_MIGRATION = "WAREHOUSE_MIGRATION";
-    private static final List<String> IMMUTABLE_TABLES = List.of("stock_ledger");
-
-    static final List<String> COPY_TABLES = List.of("warehouse", "location", "location_gate", "lot", "stock_balance",
-            "stock_ledger", "reservation", "reservation_line", "outbox_event", "command_dedup", "write_idempotency",
-            "stock_effect", "stock_effect_attempt", "stock_command", "stock_posting", "execution_permit",
-            "execution_claim", "local_serial", "quality_qualification", "job_run", "job_shard",
-            "warehouse_move", "stock_hold", "warehouse_adjustment");
-
     private final SqlSession source;
-    private final JdbcTemplate sourceJdbc;
-    private final JdbcTemplate targetJdbc;
+    private final com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore copies;
     private final Clock clock;
 
     public WarehouseMigrationService(SqlSession source, JdbcTemplate sourceJdbc, JdbcTemplate targetJdbc, Clock clock) {
         this.source = source;
-        this.sourceJdbc = sourceJdbc;
-        this.targetJdbc = targetJdbc;
+        this.copies = new com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore(
+                sourceJdbc.getDataSource(), targetJdbc.getDataSource());
         this.clock = clock;
     }
 
@@ -56,7 +47,7 @@ public final class WarehouseMigrationService {
             if (isAbsentRouteControl(error)) {
                 return;
             }
-            throw new InventoryException("STALE_ROUTE", "读取仓路由失败: " + rootMessage(error));
+            throw new InventoryException("STALE_ROUTE", "读取仓路由失败，请通过服务日志排查");
         }
         if (state == null || state.isBlank() || "null".equals(state)) {
             return;
@@ -68,18 +59,14 @@ public final class WarehouseMigrationService {
 
     private static String readRouteState(SqlSession session, String enterpriseId, String warehouseId)
             throws Exception {
-        if (session.getConfiguration().hasMapper(WarehouseRouteMapper.class)) {
-            Map<String, Object> row = session.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId);
-            return row == null ? null : string(row.get("state"));
-        }
-        try (var statement = session.getConnection().prepareStatement(
-                "SELECT state FROM warehouse_route WHERE enterprise_id=? AND warehouse_id=?")) {
-            statement.setString(1, enterpriseId);
-            statement.setString(2, warehouseId);
-            try (var rows = statement.executeQuery()) {
-                return rows.next() ? rows.getString(1) : null;
+        // 兼容独立内核会话；注册同名 XML，所有路径使用同一套租户条件。
+        synchronized (session.getConfiguration()) {
+            if (!session.getConfiguration().hasMapper(WarehouseRouteMapper.class)) {
+                session.getConfiguration().addMapper(WarehouseRouteMapper.class);
             }
         }
+        Map<String, Object> row = session.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId);
+        return row == null ? null : string(row.get("state"));
     }
 
     static boolean isAbsentRouteControl(Throwable error) {
@@ -95,15 +82,6 @@ public final class WarehouseMigrationService {
             }
         }
         return false;
-    }
-
-    private static String rootMessage(Throwable error) {
-        Throwable current = error;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        String message = current.getMessage();
-        return message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
     }
 
     public Map<String, Object> prepare(String enterpriseId, String warehouseId, String sourceCell, String targetCell) {
@@ -122,18 +100,15 @@ public final class WarehouseMigrationService {
                 now) != 1 && routes.get(enterpriseId, warehouseId) == null) {
             throw new InventoryException("VERSION_CONFLICT", "准备迁移冲突");
         }
-        targetJdbc.update("INSERT INTO warehouse_route (id, enterprise_id, warehouse_id, cell_id, target_cell_id, "
-                + "route_epoch, state, cutoff_at, version, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,0,?,?) "
-                + "ON DUPLICATE KEY UPDATE updated_at=updated_at", UUID.randomUUID().toString(), enterpriseId,
-                warehouseId, targetCell, sourceCell, 1L, COPYING, now, now, now);
+        copies.prepareTarget(enterpriseId, warehouseId, targetCell, sourceCell, now);
         return view(routes.get(enterpriseId, warehouseId));
     }
 
     public Map<String, Object> copyFull(String enterpriseId, String warehouseId) {
         Timestamp cutoff = Timestamp.from(clock.instant());
         int rows = 0;
-        for (String table : COPY_TABLES) {
-            rows += copyTable(table, enterpriseId, warehouseId, null);
+        for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
+            rows += copies.copyTable(table, enterpriseId, warehouseId, null);
         }
         stampCutoff(enterpriseId, warehouseId, ACTIVE, cutoff);
         Map<String, Object> body = view(source.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId));
@@ -147,8 +122,8 @@ public final class WarehouseMigrationService {
         Timestamp since = timestampOf(route.get("cutoff_at"));
         Timestamp cutoff = Timestamp.from(clock.instant());
         int rows = 0;
-        for (String table : COPY_TABLES) {
-            rows += copyTable(table, enterpriseId, warehouseId, since);
+        for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
+            rows += copies.copyTable(table, enterpriseId, warehouseId, since);
         }
         stampCutoff(enterpriseId, warehouseId, String.valueOf(route.get("state")), cutoff);
         Map<String, Object> body = view(source.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId));
@@ -171,27 +146,15 @@ public final class WarehouseMigrationService {
 
     public Map<String, Object> validate(String enterpriseId, String warehouseId) {
         Map<String, Object> diffs = new LinkedHashMap<>();
-        for (String table : COPY_TABLES) {
-            Integer sourceCount = sourceJdbc.queryForObject(
-                    "SELECT COUNT(*) FROM " + table + " WHERE enterprise_id=? AND warehouse_id=?", Integer.class,
-                    enterpriseId, warehouseId);
-            Integer targetCount = targetJdbc.queryForObject(
-                    "SELECT COUNT(*) FROM " + table + " WHERE enterprise_id=? AND warehouse_id=?", Integer.class,
-                    enterpriseId, warehouseId);
+        for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
+            Long sourceCount = copies.count(false, table, enterpriseId, warehouseId);
+            Long targetCount = copies.count(true, table, enterpriseId, warehouseId);
             if (sourceCount == null || targetCount == null || !sourceCount.equals(targetCount)) {
                 diffs.put(table, Map.of("source", sourceCount, "target", targetCount));
             }
         }
-        Map<String, Object> sourceQty = sourceJdbc.queryForMap(
-                "SELECT COALESCE(SUM(on_hand_qty),0) on_hand, COALESCE(SUM(reserved_qty),0) reserved, "
-                        + "COALESCE(SUM(free_execution_claim_qty),0) claimed FROM stock_balance "
-                        + "WHERE enterprise_id=? AND warehouse_id=?",
-                enterpriseId, warehouseId);
-        Map<String, Object> targetQty = targetJdbc.queryForMap(
-                "SELECT COALESCE(SUM(on_hand_qty),0) on_hand, COALESCE(SUM(reserved_qty),0) reserved, "
-                        + "COALESCE(SUM(free_execution_claim_qty),0) claimed FROM stock_balance "
-                        + "WHERE enterprise_id=? AND warehouse_id=?",
-                enterpriseId, warehouseId);
+        Map<String, Object> sourceQty = copies.quantities(false, enterpriseId, warehouseId);
+        Map<String, Object> targetQty = copies.quantities(true, enterpriseId, warehouseId);
         if (quantityMismatch(sourceQty, targetQty)) {
             diffs.put("stock_balance_qty", Map.of("source", sourceQty, "target", targetQty));
         }
@@ -214,12 +177,7 @@ public final class WarehouseMigrationService {
                 asLong(route.get("version")), now) != 1) {
             throw new InventoryException("VERSION_CONFLICT", "切 epoch 冲突");
         }
-        targetJdbc.update("UPDATE warehouse_route SET route_epoch=?, state=?, cell_id=?, target_cell_id=?, "
-                + "version=version+1, updated_at=? WHERE enterprise_id=? AND warehouse_id=?", next, ACTIVE, targetCell,
-                sourceCell, now, enterpriseId, warehouseId);
-        targetJdbc.update("UPDATE location_gate SET state=?, reason_code=NULL, fence_epoch=fence_epoch+1, "
-                + "version=version+1, updated_at=? WHERE enterprise_id=? AND warehouse_id=?", MasterdataCodes.GATE_OPEN,
-                now, enterpriseId, warehouseId);
+        copies.activateTarget(enterpriseId, warehouseId, next, targetCell, sourceCell, now);
         Map<String, Object> body = view(routes.get(enterpriseId, warehouseId));
         body.put("switchedEpoch", next);
         return body;
@@ -265,52 +223,6 @@ public final class WarehouseMigrationService {
                 string(route.get("target_cell_id")), cutoff, asLong(route.get("version")), cutoff);
     }
 
-    private int copyTable(String table, String enterpriseId, String warehouseId, Timestamp since) {
-        List<String> columns = writableColumns(table);
-        String watermark = watermarkColumn(table, columns);
-        String sql = "SELECT " + String.join(",", columns) + " FROM " + table
-                + " WHERE enterprise_id=? AND warehouse_id=?";
-        List<Map<String, Object>> rows = since == null
-                ? sourceJdbc.queryForList(sql, enterpriseId, warehouseId)
-                : sourceJdbc.queryForList(sql + " AND " + watermark + ">?", enterpriseId, warehouseId, since);
-        int copied = 0;
-        for (Map<String, Object> row : rows) {
-            String inserts = String.join(",", columns);
-            String placeholders = String.join(",", columns.stream()
-                    .map(column -> jsonColumn(column) ? "CAST(? AS JSON)" : "?")
-                    .toList());
-            Object[] values = columns.stream().map(row::get).toArray();
-            String insert = "INSERT INTO " + table + " (" + inserts + ") VALUES (" + placeholders + ")";
-            if (!IMMUTABLE_TABLES.contains(table)) {
-                insert += " AS incoming ON DUPLICATE KEY UPDATE " + String.join(",", columns.stream()
-                        .filter(column -> !"id".equalsIgnoreCase(column) && !"event_id".equalsIgnoreCase(column))
-                        .map(column -> column + "=incoming." + column)
-                        .toList());
-            } else {
-                insert = "INSERT IGNORE INTO " + table + " (" + inserts + ") VALUES (" + placeholders + ")";
-            }
-            copied += targetJdbc.update(insert, values);
-        }
-        return copied;
-    }
-
-    private List<String> writableColumns(String table) {
-        return sourceJdbc.query(
-                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? "
-                        + "AND EXTRA NOT LIKE '%GENERATED%' ORDER BY ORDINAL_POSITION",
-                (rs, rowNum) -> rs.getString(1), table);
-    }
-
-    private static String watermarkColumn(String table, List<String> columns) {
-        if (columns.stream().anyMatch(column -> "updated_at".equalsIgnoreCase(column))) {
-            return "updated_at";
-        }
-        if (columns.stream().anyMatch(column -> "created_at".equalsIgnoreCase(column))) {
-            return "created_at";
-        }
-        throw new InventoryException("MIGRATION_MISMATCH", "表缺少水位列：" + table);
-    }
-
     private static boolean quantityMismatch(Map<String, Object> sourceQty, Map<String, Object> targetQty) {
         return !decimal(sourceQty, "on_hand").equals(decimal(targetQty, "on_hand"))
                 || !decimal(sourceQty, "reserved").equals(decimal(targetQty, "reserved"))
@@ -323,11 +235,6 @@ public final class WarehouseMigrationService {
             return decimal;
         }
         return new java.math.BigDecimal(String.valueOf(value));
-    }
-
-    private static boolean jsonColumn(String column) {
-        return "payload".equalsIgnoreCase(column) || column.toLowerCase().endsWith("_json")
-                || "watermarks".equalsIgnoreCase(column) || "ledger_manifest".equalsIgnoreCase(column);
     }
 
     private Map<String, Object> view(Map<String, Object> row) {

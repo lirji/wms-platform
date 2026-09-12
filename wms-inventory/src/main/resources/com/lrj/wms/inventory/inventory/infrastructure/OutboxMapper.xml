@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper">
+
+    <!-- insertPending：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertPending">
+        INSERT INTO outbox_event (event_id, enterprise_id, warehouse_id, aggregate_type, aggregate_id, aggregate_version, event_type, operation_id, payload, status, claim_epoch, lease_until, next_attempt_at, published_at, version, created_at, updated_at)
+        VALUES (#{eventId}, #{enterpriseId}, #{warehouseId}, #{aggregateType}, #{aggregateId}, #{aggregateVersion}, #{eventType}, #{operationId}, CAST(#{payload} AS JSON), 'PENDING', 0, NULL, #{now}, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- countByOperation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countByOperation" resultType="int">
+        SELECT COUNT(*)
+        FROM outbox_event
+        WHERE enterprise_id=#{enterpriseId}
+        AND warehouse_id=#{warehouseId}
+        AND operation_id=#{operationId}
+    </select>
+
+    <!-- lockDue：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockDue" resultType="map">
+        SELECT event_id, enterprise_id, warehouse_id, aggregate_type, aggregate_id, aggregate_version, event_type, operation_id, CAST(payload AS CHAR) AS payload, status, claim_epoch, version
+        FROM outbox_event
+        WHERE (status='PENDING'
+        AND next_attempt_at&lt;=#{now}) OR (status='CLAIMED'
+        AND lease_until IS NOT NULL
+        AND lease_until&lt;#{now})
+        ORDER BY next_attempt_at, event_id
+        LIMIT #{limit} FOR UPDATE SKIP LOCKED
+    </select>
+
+    <!-- claim：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="claim">
+        UPDATE outbox_event
+        SET status='CLAIMED', claim_epoch=claim_epoch+1, lease_until=#{leaseUntil}, version=version+1, updated_at=#{now}
+        WHERE event_id=#{eventId}
+        AND claim_epoch=#{claimEpoch}
+        AND (status='PENDING' OR (status='CLAIMED'
+        AND lease_until&lt;#{now}))
+    </update>
+
+    <!-- markPublished：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markPublished">
+        UPDATE outbox_event
+        SET status='PUBLISHED', published_at=#{now}, lease_until=NULL, next_attempt_at=#{now}, version=version+1, updated_at=#{now}
+        WHERE event_id=#{eventId}
+        AND claim_epoch=#{claimEpoch}
+        AND status='CLAIMED'
+    </update>
+
+    <!-- markRetry：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markRetry">
+        UPDATE outbox_event
+        SET status='PENDING', lease_until=NULL, next_attempt_at=#{nextAttemptAt}, version=version+1, updated_at=#{now}
+        WHERE event_id=#{eventId}
+        AND claim_epoch=#{claimEpoch}
+        AND status='CLAIMED'
+    </update>
+
+    <!-- markIsolated：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="markIsolated">
+        UPDATE outbox_event
+        SET status='ISOLATED', lease_until=NULL, version=version+1, updated_at=#{now}
+        WHERE event_id=#{eventId}
+        AND claim_epoch=#{claimEpoch}
+        AND status='CLAIMED'
+    </update>
+</mapper>

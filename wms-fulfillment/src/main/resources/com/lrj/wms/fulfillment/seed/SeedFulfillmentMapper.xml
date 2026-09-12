@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.seed.SeedFulfillmentMapper">
+
+    <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertOrderIgnore">
+        INSERT IGNORE INTO fulfillment_order (id, enterprise_id, source_system, source_order_no, request_digest, status, strategy_version, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{sourceSystem}, #{sourceOrderNo}, #{digest}, #{status}, #{strategyVersion}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertLineIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertLineIgnore">
+        INSERT IGNORE INTO fulfillment_line (id, enterprise_id, fulfillment_id, source_line_id, sku_id, requested_qty, base_unit, min_remaining_days, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{fulfillmentId}, #{sourceLineId}, #{skuId}, #{qty}, #{unit}, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertAttemptIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertAttemptIgnore">
+        INSERT IGNORE INTO allocation_attempt (id, enterprise_id, fulfillment_id, state, deadline, participant_set_hash, allocation_digest, cancel_requested, launch_epoch, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{fulfillmentId}, #{state}, #{deadline}, #{hash}, #{digest}, 0, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertParticipantIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertParticipantIgnore">
+        INSERT IGNORE INTO allocation_participant (id, enterprise_id, attempt_id, warehouse_id, state, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{attemptId}, #{warehouseId}, #{state}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertParticipantLineIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertParticipantLineIgnore">
+        INSERT IGNORE INTO participant_line (id, enterprise_id, participant_id, order_line_id, sku_id, qty, base_unit, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{participantId}, #{orderLineId}, #{skuId}, #{qty}, #{unit}, 0, #{now}, #{now})
+    </insert>
+
+    <!-- lockOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="lockOrder" resultType="map">
+        SELECT id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
+        FROM fulfillment_order
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{id} FOR UPDATE
+    </select>
+
+    <!-- casActiveAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <update id="casActiveAttempt">
+        UPDATE fulfillment_order
+        SET active_attempt_id=#{attemptId}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId}
+        AND id=#{orderId}
+        AND version=#{version}
+        AND (active_attempt_id IS NULL OR active_attempt_id=#{expectedActive})
+    </update>
+
+    <!-- insertTransferIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertTransferIgnore">
+        INSERT IGNORE INTO transfer_order (id, enterprise_id, source_warehouse_id, target_warehouse_id, status, source_document_id, target_document_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{sourceWarehouseId}, #{targetWarehouseId}, #{status}, NULL, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertTransferLegIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertTransferLegIgnore">
+        INSERT IGNORE INTO transfer_leg (id, enterprise_id, transfer_id, warehouse_id, role, status, document_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{warehouseId}, #{role}, #{status}, NULL, 0, #{now}, #{now})
+    </insert>
+
+    <!-- insertTransferLineIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <insert id="insertTransferLineIgnore">
+        INSERT IGNORE INTO transfer_line (id, enterprise_id, transfer_id, sku_id, business_lot_key, source_lot_id, target_lot_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{transferId}, #{skuId}, #{businessLotKey}, #{sourceLotId}, NULL, #{plannedQty}, 0, 0, 0, 0, 0, #{now}, #{now})
+    </insert>
+
+    <!-- countOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countOrders" resultType="int">
+        SELECT COUNT(*)
+        FROM fulfillment_order
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countAttempts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countAttempts" resultType="int">
+        SELECT COUNT(*)
+        FROM allocation_attempt
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+
+    <!-- countTransfers：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <select id="countTransfers" resultType="int">
+        SELECT COUNT(*)
+        FROM transfer_order
+        WHERE enterprise_id=#{enterpriseId}
+    </select>
+</mapper>
