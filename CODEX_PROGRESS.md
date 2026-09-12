@@ -2,27 +2,29 @@
 
 ## 任务目标
 
-按已批准计划把整个 WMS v1 做到 S9 与 50 项 AC。切片完成后自动下一片，不要等「继续」。当前切片 S7-02 本地已通过。等待 timeout-fix main CI 后按 merge（不能 FF）发布 S6-01…S7-02。未发明 OQ-03。未到计划 S8 前不创建 `wms-console/`。
+按已批准计划把整个 WMS v1 做到 S9 与 50 项 AC。当前已完成本地 S7-03…S7-05。未发明 OQ-03。未到 S8 不创建 `wms-console/`。
 
 ## 已完成
 
-- S0、S4-01…S5-06 已在 remote main `97e35fa`；timeout-fix `8d4ca21` 已在 main。
-- S6-01…S7-01 已推任务分支。S7-02 本地：`job_run`/`job_shard`、活跃唯一、心跳与回收。
+- S0、S4-01…S7-02 在 remote main `a57f366`。
+- 计划 S7-03/S7-04 已提交并推任务分支。
+- 计划 S7-05 中断续跑、旧 worker 拒绝、Outbox 有界恢复本地通过。
 
 ## 已修改文件（本轮）
 
-- 四库 `job_run`/`job_shard` 迁移
-- `JobRunMapper` / `JobRunService` / `JobRunIT`
+- `JobRunService` 领取返回 `cursorKey`
+- `JobInterruptRecoveryIT` / `OutboxRecoveryLoadIT`
+- `MasterdataMigrationIT` 不再写死表数量
 
 ## 未完成
 
-- 等 CI 后 merge 发布 S6-01…S7-02。S7-03…S9。50 项 AC。OQ-03。S8 才做 `wms-console/`。
+- merge 发布 remote main。S8–S9。50 项 AC。OQ-03。
 
 ## 下一步建议
 
-1. 等 timeout-fix CI 成功后，在 `.local/main-integration` 从 `origin/main` merge `feat/wms-s6-01`（不要 FF）。
-2. 立刻做 S7-03 租约抢占。不要把目标缩成只做 S7-02。
+1. 提交 S7-05，在 `.local/main-integration` merge `origin/main` 后推 main。
+2. 立刻开始 S8（先 S8-01 WarehouseQuantityFact，S8-04 才建 wms-console）。
 
 ## 恢复 Prompt
 
-读取 CODEX_PROGRESS.md。从第一个未完成切片继续，不要要求反复输入继续。不要发明 OQ-03。未到 S8 不要创建 wms-console。
+读取 CODEX_PROGRESS.md。从第一个未完成切片继续。不要发明 OQ-03。未到 S8 不要创建 wms-console。
