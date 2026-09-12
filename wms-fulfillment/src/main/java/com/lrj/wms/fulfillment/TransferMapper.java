@@ -146,4 +146,8 @@ public interface TransferMapper {
             + "AND (target_lot_id IS NULL OR target_lot_id=#{targetLotId})")
     int bindTargetLot(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
             @Param("lineId") String lineId, @Param("targetLotId") String targetLotId, @Param("now") Timestamp now);
+
+    @Select("SELECT id, source_warehouse_id, target_warehouse_id, status, version, created_at "
+            + "FROM transfer_order WHERE enterprise_id=#{enterpriseId} ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listOrders(@Param("enterpriseId") String enterpriseId, @Param("limit") int limit);
 }

@@ -1,6 +1,8 @@
 package com.lrj.wms.inventory.inventory;
 
+import com.lrj.wms.inventory.compat.CompatibilityGate;
 import com.lrj.wms.inventory.inventory.domain.CommandDigest;
+import com.lrj.wms.inventory.migrate.WarehouseMigrationService;
 import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.InventoryPolicy;
@@ -41,6 +43,7 @@ public final class InventoryApplicationService {
             StockBucketKey bucket, Quantity qty) {
         requireSameScope(enterpriseId, warehouseId, bucket);
         requirePositive(qty);
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RECEIVE, operationId,
                 CommandDigest.v1(InventoryCodes.REASON_RECEIVE, documentId, bucket, qty.toPlainString()))) {
             return operationId;
@@ -93,6 +96,7 @@ public final class InventoryApplicationService {
             requirePositive(line.qty());
             InventoryCodes.requireQuality(line.bucket().qualityCode());
         }
+        requireWritable(enterpriseId, warehouseId);
         InventoryMapper mapper = mapper();
         if (mapper.findReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId) != null) {
             Map<String, Object> existing = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId,
@@ -191,6 +195,7 @@ public final class InventoryApplicationService {
      */
     public void confirmTried(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             String allocationId, String attemptId, String xid, long branchId, String actionName) {
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_CONFIRM, operationId,
                 CommandDigest.v1Parts(InventoryCodes.REASON_CONFIRM, documentId, allocationId, attemptId, xid,
                         Long.toString(branchId), actionName))) {
@@ -220,8 +225,8 @@ public final class InventoryApplicationService {
             throw new InventoryException("VERSION_CONFLICT", "预占头状态冲突");
         }
         Map<String, Object> after = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
-        String payload = "{\"reservationId\":\"" + after.get("id") + "\",\"state\":\"" + ReservationState.CONFIRMED
-                + "\",\"xid\":\"" + xid + "\",\"branchId\":" + branchId + "}";
+        String payload = CompatibilityGate.decorateEvent("{\"reservationId\":\"" + after.get("id") + "\",\"state\":\""
+                + ReservationState.CONFIRMED + "\",\"xid\":\"" + xid + "\",\"branchId\":" + branchId + "}");
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_RESERVATION, String.valueOf(after.get("id")), longValue(after.get("version")),
                 InventoryCodes.EVENT_RESERVATION_CONFIRMED, operationId, payload, now);
@@ -237,6 +242,7 @@ public final class InventoryApplicationService {
     /** TCC Cancel：校验 XID/branch/action 所有者后释放；缺预占视为空回滚。 */
     public void cancelTried(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             String allocationId, String attemptId, String xid, Long branchId, String actionName) {
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RELEASE, operationId,
                 CommandDigest.v1Parts(InventoryCodes.REASON_RELEASE, documentId, allocationId, attemptId,
                         xid == null ? "" : xid, branchId == null ? "" : Long.toString(branchId),
@@ -305,6 +311,7 @@ public final class InventoryApplicationService {
         if (source.equals(target)) {
             throw new InventoryException("INVALID_QUANTITY", "移库源与目标不能相同");
         }
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_MOVE_OUT, operationId,
                 CommandDigest.v1(InventoryCodes.REASON_MOVE_OUT, documentId, source, qty.toPlainString(),
                         target.locationId(), target.skuId(), target.lotId(), target.qualityCode(),
@@ -357,6 +364,7 @@ public final class InventoryApplicationService {
         if (source.equals(target)) {
             throw new InventoryException("INVALID_QUANTITY", "拣货源与目标不能相同");
         }
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_MOVE_OUT, operationId,
                 CommandDigest.v1(InventoryCodes.REASON_MOVE_OUT, documentId, source, qty.toPlainString(),
                         target.locationId(), allocationId, attemptId))) {
@@ -414,6 +422,7 @@ public final class InventoryApplicationService {
             String actorId, String allocationId, String attemptId, StockBucketKey source, Quantity qty) {
         requireSameScope(enterpriseId, warehouseId, source);
         requirePositive(qty);
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RELEASE, operationId,
                 CommandDigest.v1Parts(InventoryCodes.REASON_RELEASE, documentId, allocationId, attemptId,
                         source.locationId(), qty.toPlainString()))) {
@@ -475,6 +484,7 @@ public final class InventoryApplicationService {
             StockBucketKey bucket, Quantity qty) {
         requireSameScope(enterpriseId, warehouseId, bucket);
         requirePositive(qty);
+        requireWritable(enterpriseId, warehouseId);
         if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_SHIP, operationId,
                 CommandDigest.v1(InventoryCodes.REASON_SHIP, documentId, bucket, qty.toPlainString()))) {
             return;
@@ -544,9 +554,10 @@ public final class InventoryApplicationService {
         mapper.insertLedger(ledgerId, enterpriseId, warehouseId, operationId, entryNo, balanceId, onHandDelta, reservedDelta,
                 BigDecimal.ZERO, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason, documentId, actorId, now,
                 now);
-        String payload = "{\"onHandDelta\":\"" + onHandDelta.toPlainString() + "\",\"reservedDelta\":\""
-                + reservedDelta.toPlainString() + "\",\"onHandAfter\":\"" + onHandAfter.toPlainString()
-                + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString() + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}";
+        String payload = CompatibilityGate.decorateEvent("{\"onHandDelta\":\"" + onHandDelta.toPlainString()
+                + "\",\"reservedDelta\":\"" + reservedDelta.toPlainString() + "\",\"onHandAfter\":\""
+                + onHandAfter.toPlainString() + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString()
+                + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}");
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_STOCK_BALANCE, balanceId, balanceVersion, InventoryCodes.EVENT_BALANCE_CHANGED,
                 operationId, payload, now);
@@ -580,6 +591,10 @@ public final class InventoryApplicationService {
         if (!ExpiryPolicy.satisfied(ExpiryPolicy.instantOf(lot.get("expires_at")), clock.instant())) {
             throw new InventoryException("LOT_EXPIRED", "批次已过期，不能新预占");
         }
+    }
+
+    private void requireWritable(String enterpriseId, String warehouseId) {
+        WarehouseMigrationService.requireWritable(session, enterpriseId, warehouseId);
     }
 
     private void requireGate(InventoryMapper mapper, String enterpriseId, String warehouseId, String locationId,

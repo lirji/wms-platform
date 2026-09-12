@@ -113,4 +113,16 @@ public interface JobRunMapper {
             + "AND version=#{version} AND state='LEASED'")
     int casReclaim(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("shardId") String shardId, @Param("version") long version, @Param("now") Timestamp now);
+
+    @Select("SELECT id, run_key, job_type, state, planned_shards, succeeded_shards, failed_shards, version, created_at "
+            + "FROM job_run WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listRuns(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+
+    @Select("SELECT id, shard_key, state, lease_owner, lease_until, claim_epoch, last_error "
+            + "FROM job_shard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND run_id=#{runId} "
+            + "ORDER BY shard_key")
+    List<Map<String, Object>> listShards(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("runId") String runId);
 }

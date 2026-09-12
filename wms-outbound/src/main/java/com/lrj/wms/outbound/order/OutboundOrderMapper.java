@@ -2,6 +2,7 @@ package com.lrj.wms.outbound.order;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -142,4 +143,28 @@ public interface OutboundOrderMapper {
     int insertPackageLine(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("packageId") String packageId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at "
+            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listOrders(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+
+    @Select("SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at "
+            + "FROM outbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}")
+    Map<String, Object> getOrder(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id);
+
+    @Select("SELECT id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, "
+            + "packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, "
+            + "base_unit, stock_sync_status, version FROM outbound_line WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND order_id=#{orderId} ORDER BY order_line_id")
+    List<Map<String, Object>> listLines(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
+
+    @Select("SELECT id, task_type, document_id, document_line_id, planned_qty, completed_qty, state, action_id, "
+            + "device_command_id FROM outbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND document_id=#{orderId} ORDER BY created_at")
+    List<Map<String, Object>> listTasks(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
 }

@@ -20,13 +20,16 @@ jobs:
           java-version: '21'
           cache: maven
       - run: python3 scripts/check-docs.py
+      - run: ./scripts/verify-contracts.sh
       - run: ./mvnw -B -ntp verify
+      - run: python3 scripts/check-required-its.py --suite default
       - run: python3 scripts/smoke-services.py
       - run: ./mvnw -B -ntp -Pwarehouse-it verify
       - run: mkdir -p .local/reports/warehouse && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/warehouse/
       - run: ./mvnw -B -ntp -Ptc-it verify
       - run: mkdir -p .local/reports/tc && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/tc/
       - run: ./mvnw -B -ntp -Pfailure-it verify
+      - run: python3 scripts/check-required-its.py --suite failure
       - run: mkdir -p .local/reports/failure && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/failure/
       - uses: actions/upload-artifact@v4
         if: always()
@@ -37,3 +40,21 @@ jobs:
             .local/reports/**/*.xml
           include-hidden-files: true
           if-no-files-found: error
+  console:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: wms-console/package-lock.json
+      - run: npm ci
+        working-directory: wms-console
+      - run: npm run typecheck
+        working-directory: wms-console
+      - run: npm test
+        working-directory: wms-console
+      - run: npm run build
+        working-directory: wms-console

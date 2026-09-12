@@ -95,6 +95,30 @@ class EffectHttpIT {
     }
 
     @Test
+    void nMinusOneClientOmitsDigestVersionAndIgnoresUnknownFields() throws Exception {
+        String token = token(List.of("WH-A"));
+        String body = """
+                {"factType":"RECEIPT_PART","factParentId":"SES-N1","factPartId":"PART-N1","factLineId":"LINE-N1","action":"RECEIVE","unknownOptional":"ignore"}
+                """;
+        HttpResponse<String> first = post("/api/wms/v1/warehouses/WH-A/action-effects", token, "compat-n1", body);
+        assertEquals(201, first.statusCode());
+        String effectId = extract(first.body(), "id");
+        HttpResponse<String> withoutUnknown = post("/api/wms/v1/warehouses/WH-A/action-effects", token, "compat-n1b",
+                """
+                {"factType":"RECEIPT_PART","factParentId":"SES-N1","factPartId":"PART-N1","factLineId":"LINE-N1","action":"RECEIVE"}
+                """);
+        assertEquals(201, withoutUnknown.statusCode());
+        assertEquals(effectId, extract(withoutUnknown.body(), "id"));
+        HttpResponse<String> attempt = post("/api/wms/v1/warehouses/WH-A/action-effects/" + effectId
+                + "/execution-attempts", token, "compat-try-1",
+                """
+                {"expectedEffectVersion":0,"reason":"first","clientOperationId":"compat-try-1"}
+                """);
+        assertEquals(202, attempt.statusCode());
+        assertEquals("ACCEPTED", extract(attempt.body(), "status"));
+    }
+
+    @Test
     void sameFactDifferentClientKeysReuseEffectId() throws Exception {
         String token = token(List.of("WH-A"));
         String body = """

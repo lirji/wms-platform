@@ -28,6 +28,12 @@ public interface CountMapper {
     Map<String, Object> getPlan(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("planId") String planId);
 
+    @Select("SELECT id, status, reason_code, scope_version, approved_by, approval_id, version, created_at "
+            + "FROM count_plan WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listPlans(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+
     @Update("UPDATE count_plan SET status=#{toStatus}, version=version+1, updated_at=#{now} "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{planId} AND status=#{fromStatus}")
     int casPlanStatus(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,

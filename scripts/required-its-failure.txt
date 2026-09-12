@@ -1,0 +1,4 @@
+# S9-06 failure-it 必选：隔离故障 + 迁移后身份 + 旧摘要重放
+com.lrj.wms.probe.FailureIsolationIT#ownedTcCrashKeepsBarrierPendingAndDoesNotTouchSharedInfra
+com.lrj.wms.probe.FailureIdentityUniquenessIT#migratedIdentityKeysRejectDuplicates
+com.lrj.wms.probe.FailureDigestReplayIT#storedVersionOneReplayIgnoresNewerDefaultFields

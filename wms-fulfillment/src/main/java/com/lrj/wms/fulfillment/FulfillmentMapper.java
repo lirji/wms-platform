@@ -240,4 +240,14 @@ public interface FulfillmentMapper {
     /** 核对本 attempt 已写的屏障事件数。 */
     @Select("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId}")
     int countOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId);
+
+    @Select("SELECT id, source_system, source_order_no, status, strategy_version, active_attempt_id, version, created_at "
+            + "FROM fulfillment_order WHERE enterprise_id=#{enterpriseId} ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listOrders(@Param("enterpriseId") String enterpriseId, @Param("limit") int limit);
+
+    @Select("SELECT id, warehouse_id, reservation_id, xid, branch_id, observed_branch_state "
+            + "FROM allocation_participant WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} "
+            + "ORDER BY warehouse_id")
+    List<Map<String, Object>> listParticipants(@Param("enterpriseId") String enterpriseId,
+            @Param("attemptId") String attemptId);
 }

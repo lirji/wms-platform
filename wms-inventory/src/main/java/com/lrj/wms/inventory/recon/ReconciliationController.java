@@ -1,6 +1,7 @@
 package com.lrj.wms.inventory.recon;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
+import com.lrj.wms.inventory.query.InventoryHttpJson;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.time.Clock;
@@ -47,7 +48,7 @@ public class ReconciliationController {
         try (SqlSession session = sessions.openSession()) {
             List<Map<String, Object>> items = new StockInternalReconcile(session, Clock.systemUTC())
                     .listCases(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, cutoffId);
-            return Map.of("items", items, "limit", items.size());
+            return Map.of("items", InventoryHttpJson.rows(items), "limit", items.size());
         }
     }
 

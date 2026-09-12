@@ -1,0 +1,24 @@
+# AC-45 TCC owner / 换 branch
+com.lrj.wms.inventory.tcc.ReservationOwnerIT#replayKeepsOwnerAndRejectsForeignBranch
+# AC-46 启动绑定 / 空启动
+com.lrj.wms.fulfillment.FulfillmentLaunchIT#leaseExpiryCannotTakeoverUntilUnknownIsolation
+com.lrj.wms.fulfillment.FulfillmentLaunchIT#emptyLaunchCleanupAndBranchBlocksIsolation
+# AC-47 同事实换键
+com.lrj.wms.inventory.inventory.EffectCommandUniquenessIT#sameFactReusesCommandSafeCloseReauthAndOnePosting
+com.lrj.wms.inventory.effect.EffectHttpIT#sameFactDifferentClientKeysReuseEffectId
+# AC-48 安全关闭与迟到旧命令
+com.lrj.wms.inventory.inventory.ReauthorizationIT#rejectedSafeCloseReauthAndLateOldCommand
+# AC-49 STARTED/UNKNOWN/APPLIED 拒绝重做
+com.lrj.wms.inventory.inventory.ReauthorizationIT#startedAndAppliedRefuseReauth
+# AC-50 补偿一次入账与摘要版本
+com.lrj.wms.inventory.inventory.ReauthorizationIT#compensateDeferredUntilOriginalPostingThenReplay
+com.lrj.wms.inventory.effect.domain.RequestDigestTest#versionTwoDoesNotChangeStoredVersionOne
+# S9-03 N/N-1
+com.lrj.wms.inventory.compat.CompatibilityGateTest#observeFlagDoesNotChangeAcceptOrReject
+com.lrj.wms.inventory.compat.CompatibilityMatrixIT#nMinusOneEventAndSnapshotRemainCompatible
+com.lrj.wms.inventory.compat.CompatibilityMatrixIT#storedDigestVersionReplayAndFactIdentityStayUnique
+com.lrj.wms.inventory.effect.EffectHttpIT#nMinusOneClientOmitsDigestVersionAndIgnoresUnknownFields
+# S9-02 / S9-04 本地两库迁移与隔离恢复
+com.lrj.wms.inventory.migrate.WarehouseMigrationIT#twoPhysicalDatabasesSwitchEpochAndRejectOldWrites
+com.lrj.wms.inventory.migrate.WarehouseMigrationIT#abortBeforeSwitchReopensSourceWrites
+com.lrj.wms.inventory.migrate.IsolatedRestoreIT#restoreSecondDatabaseAndMeasureLocalRtoRpo
