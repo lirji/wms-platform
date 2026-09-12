@@ -417,3 +417,20 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 调拨表在 fulfillment，不写库存余额。超发/超收先读行再写事实，避免失败操作留下孤儿 fact。
 - 去重键是 `enterprise+warehouse+action+operationId`。`received+loss+quota<=issued` 已落 CHECK；quota 本片恒为 0。
 - 确认：无 critical/high；AC-16 仍 planned；额度 token 留给 S6-01a；未到 S8 不创建 `wms-console/`。
+
+## S6-01a 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 额度 token 与损耗竞争在 fulfillment 本库；未知结果不自动回收。
+- 确认：无 critical/high；AC-16 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S6-02 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 失败的 `prepareTransfer` 不再先插入 `serial_transfer`，避免旧 epoch 留下孤儿行挡住合法准备。
+- 登记未见 `source_release_ref` 不得 `startReceiving`；目的确认后旧 epoch 为 `STALE_EPOCH`，同接收引用重放不改归属。
+- 源仓 `SEALED` 后 `receiveHold`/`recover`/`applyObservedAuthorization` 不得改回 AUTHORIZED。目的未在途保持 HOLD。
+- 本片不扣源仓数量、不写两仓库存守恒，那是 S6-04/`TransferConservationIT`。
+- 确认：无 critical/high；AC-16/17 仍 planned；未发明 OQ-03；未到 S8 不创建 `wms-console/`。

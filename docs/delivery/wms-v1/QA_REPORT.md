@@ -571,3 +571,16 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | fulfillment 4 项 0 失败 | 定向 |
 
 结论：S6-01a 本地 pass。不能当作 AC-16 生产通过。未知结果不自动回收仍靠 CANCELLED/CONSUMED 终态，不是跨库存。
+
+## S6-02 序列号转移状态与 epoch
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未发明 OQ-03。未到 S8，未创建 `wms-console/`。登记库 + 库存本库，不是跨库存守恒或生产 HTTP。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `SerialTransferIT` | PREPARED→IN_TRANSIT→RECEIVING→ACTIVE epoch 1→2；未见释放不能授目的；旧 epoch/`REL-OLD`/`RCV-OLD` 拒绝；目的 `RCV-1` 重放 | 登记本库 |
+| `SerialSealIT` | 源仓 SEALED 后旧 ACTIVE 观察与收货保持封闭；目的未在途 HOLD；释放后同操作放行 epoch=2；另一操作 `SERIAL_ALREADY_RECEIVED` | 库存本库 + 内存登记 |
+| `SerialRegistryIT` / `SerialRegistryActivateIT` / `SerialReceiptIT` | 回归 0 失败 | V002/V012 未破坏认领收货 |
+| 定向 Maven | serial-registry 3 项、inventory 5 项，0 失败 | 定向 |
+
+结论：S6-02 本地 pass。不能当作 AC-16/17 生产通过。源仓数量扣减与两仓守恒留给 S6-04。

@@ -56,6 +56,9 @@ public final class SerialReceiptService {
         if (!operationId.equals(String.valueOf(row.get("receipt_operation_id")))) {
             throw new InventoryException("SERIAL_ALREADY_RECEIVED", "序列号已被其他收货操作占用");
         }
+        if (SerialTransferLocalService.STATE_SEALED.equals(String.valueOf(row.get("state")))) {
+            throw new InventoryException("SERIAL_SEALED", "源仓已封闭，不能再按收货放行");
+        }
         if (STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             return view(row);
         }
@@ -82,7 +85,8 @@ public final class SerialReceiptService {
         if (row == null) {
             throw new InventoryException("SERIAL_NOT_FOUND", "本地没有该序列号意向");
         }
-        if (STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
+        if (SerialTransferLocalService.STATE_SEALED.equals(String.valueOf(row.get("state")))
+                || STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             return view(row);
         }
         return syncRegistry(enterpriseId, warehouseId, String.valueOf(row.get("receipt_operation_id")), normalized,
@@ -154,6 +158,8 @@ public final class SerialReceiptService {
         body.put("registryState", row.get("registry_state"));
         body.put("registryError", row.get("registry_error"));
         body.put("ownerEpoch", row.get("owner_epoch"));
+        body.put("transferId", row.get("transfer_id"));
+        body.put("sourceReleaseRef", row.get("source_release_ref"));
         return body;
     }
 }

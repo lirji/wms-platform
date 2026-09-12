@@ -20,16 +20,30 @@ public interface LocalSerialMapper {
             @Param("registryError") String registryError, @Param("now") Timestamp now);
 
     @Select("SELECT id, serial_id, sku_id, lot_id, balance_id, state, owner_epoch, receipt_operation_id, registry_state, "
-            + "registry_error, version FROM local_serial WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND serial_id=#{serial} FOR UPDATE")
+            + "registry_error, transfer_id, source_release_ref, version FROM local_serial "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND serial_id=#{serial} FOR UPDATE")
     Map<String, Object> lock(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("serial") String serial);
 
     @Select("SELECT id, serial_id, sku_id, lot_id, balance_id, state, owner_epoch, receipt_operation_id, registry_state, "
-            + "registry_error, version FROM local_serial WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND serial_id=#{serial}")
+            + "registry_error, transfer_id, source_release_ref, version FROM local_serial "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND serial_id=#{serial}")
     Map<String, Object> get(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("serial") String serial);
+
+    @Update("UPDATE local_serial SET state=#{state}, transfer_id=#{transferId}, source_release_ref=#{releaseRef}, "
+            + "registry_state=#{registryState}, owner_epoch=#{epoch}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND serial_id=#{serial} "
+            + "AND state=#{fromState} AND owner_epoch=#{epoch}")
+    int casSeal(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("serial") String serial, @Param("fromState") String fromState, @Param("state") String state,
+            @Param("transferId") String transferId, @Param("releaseRef") String releaseRef,
+            @Param("registryState") String registryState, @Param("epoch") long epoch, @Param("now") Timestamp now);
+
+    @Update("UPDATE local_serial SET transfer_id=#{transferId}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND serial_id=#{serial}")
+    int bindTransfer(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("serial") String serial, @Param("transferId") String transferId, @Param("now") Timestamp now);
 
     @Update("UPDATE local_serial SET balance_id=#{balanceId}, state=#{state}, registry_state=#{registryState}, "
             + "registry_error=#{registryError}, owner_epoch=#{epoch}, version=version+1, updated_at=#{now} "
