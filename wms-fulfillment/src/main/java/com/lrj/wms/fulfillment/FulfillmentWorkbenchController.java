@@ -108,10 +108,10 @@ public class FulfillmentWorkbenchController {
             for (String warehouse : warehousesOf(body.warehouses(), participants)) {
                 WmsJwtAuthorities.requireWarehouse(jwt, warehouse);
             }
-            Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createAttempt(
-                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.deadline()),
+            Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).prepareAttempt(
+                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId,
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), deadline(body.deadline()),
                     warehousesOf(body.warehouses(), participants), participants);
-            created.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -287,7 +287,7 @@ public class FulfillmentWorkbenchController {
 
     private static Instant deadline(Object value) {
         if (value == null || String.valueOf(value).isBlank()) {
-            return Instant.now().plusSeconds(3600);
+            return null;
         }
         return Instant.parse(String.valueOf(value));
     }

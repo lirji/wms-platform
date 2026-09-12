@@ -183,6 +183,48 @@ public final class FulfillmentService {
         return result;
     }
 
+    /** 创建命令与attempt原子落库；省略截止时刻时仅首次取默认值，重试不得延长期限。 */
+    public Map<String,Object> prepareAttempt(String enterpriseId, String fulfillmentId, String commandId,
+            Instant requestedDeadline, List<String> warehouses, List<Map<String,Object>> lines) {
+        requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
+        requireId(fulfillmentId, "UNKNOWN_ORDER", "履约单不能为空");
+        requireId(commandId, "INVALID_ARGUMENT", "命令键不能为空");
+        var fixedWarehouses = uniqueWarehouses(warehouses);
+        if (fixedWarehouses.size() > 200 || lines == null || lines.isEmpty() || lines.size() > 200)
+            throw new FulfillmentException("INVALID_LINE", "参与仓及行须在1到200范围内");
+        // JSON数组保留字段边界，规范数量和排序；不能靠可碰撞的分隔字符串辨别不同请求。
+        var canonicalLines = lines.stream().map(line -> List.of(required(line,"warehouseId"),
+                required(line,"orderLineId"), required(line,"skuId"),
+                requiredQty(line.get("qty")).stripTrailingZeros().toPlainString(), required(line,"baseUnit")))
+                .sorted(java.util.Comparator.comparing(JSON::writeValueAsString)).toList();
+        String hash = com.lrj.wms.runtime.messaging.RuntimeMessage.hash(JSON.writeValueAsString(
+                java.util.Arrays.asList("attempt-command-v1", fulfillmentId, requestedDeadline == null ? null : requestedDeadline.toString(),
+                        fixedWarehouses, canonicalLines)));
+        var mapper = session.getMapper(FulfillmentMapper.class);
+        String claim = UUID.randomUUID().toString();
+        mapper.insertAttemptCommand(enterpriseId, commandId, fulfillmentId, hash, claim, now());
+        var receipt = mapper.lockAttemptCommand(enterpriseId, commandId);
+        if (receipt == null || !fulfillmentId.equals(receipt.get("fulfillment_id")) || !hash.equals(receipt.get("payload_hash")))
+            throw new FulfillmentException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键分配请求内容不一致");
+        Map<String,Object> result;
+        if (!claim.equals(receipt.get("claim_id"))) {
+            String original = nullable(receipt.get("attempt_id"));
+            if (original == null) throw new FulfillmentException("ATTEMPT_RECEIPT_INCOMPLETE", "命令缺少原attempt，不能重建");
+            var attempt = requireAttempt(mapper, enterpriseId, original);
+            if (!fulfillmentId.equals(attempt.get("fulfillment_id")))
+                throw new FulfillmentException("ATTEMPT_RECEIPT_INCOMPLETE", "命令与原attempt不一致");
+            result = attemptView(attempt, mapper.lockParticipants(enterpriseId, original));
+        } else {
+            result = createAttempt(enterpriseId, fulfillmentId,
+                    requestedDeadline == null ? clock.instant().plusSeconds(3600) : requestedDeadline,
+                    new ArrayList<>(fixedWarehouses), lines);
+            if (mapper.bindAttemptCommand(enterpriseId, commandId, claim, String.valueOf(result.get("id"))) != 1)
+                throw new FulfillmentException("VERSION_CONFLICT", "分配命令回执绑定失败");
+        }
+        result.put("clientOperationId", commandId);
+        return result;
+    }
+
     /** 创建固定参与者 attempt，并 CAS 绑定为订单活动尝试。未知未终态不得重开。 */
     public Map<String, Object> createAttempt(String enterpriseId, String fulfillmentId, Instant deadline,
             List<String> warehouses, List<Map<String, Object>> participantLines) {
@@ -822,6 +864,7 @@ public final class FulfillmentService {
         body.put("tcTerminalEvidence", attempt.get("tc_terminal_evidence"));
         body.put("participantSetHash", attempt.get("participant_set_hash"));
         body.put("allocationDigest", attempt.get("allocation_digest"));
+        body.put("deadline", attempt.get("deadline"));
         body.put("launchEpoch", attempt.get("launch_epoch"));
         body.put("launchOwner", attempt.get("launch_owner"));
         body.put("cancelRequested", cancelRequested(attempt.get("cancel_requested")));

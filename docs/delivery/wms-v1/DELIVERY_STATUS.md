@@ -138,3 +138,7 @@ Try与TC证据是本消息测试明确提供的夹具，真实TC只读适配已�
 [原生RM与TM适配](../../implementation/RUNTIME_TCC_RM.md)已通过真实TC、两个库存Jar和数据库回归。V036先落登记意图再访问TC，未知结果不重复登记；已知原branch可恢复Try。企业/仓/cell/代际校验覆盖空回滚，与Fence、库存、Outbox在十秒物理事务内提交。应用及资源按cell隔离，HTTP只接受履约服务JWT；TC连接与通告地址分别治理，readiness覆盖真实协议连接。
 
 04:04:52定向组合13项通过（TM审计4、原生进程1、网关2、迁移6），必需清单82项；默认关闭Compose已静态核对。进程重启恢复原分支、TC断连/恢复、数值版本拒绝和迁移终态门禁已验证。履约自动执行器、TC终态通知/资源迁移、序列号观察/逐身份盘点和可信来源水位继续实施；本切片未部署生产。远程main已含bd6adf0授权切片，其CI仍运行中，当前RM准备提交。
+
+### 创建attempt命令回执进展
+
+V017及持久化回执完成，原请求重试保持原attempt及截止时间；最后回执失败整体回滚。04:14:20定向5项通过（AttemptCommandIT 3、FulfillmentHttpIT 2），日志/tmp/wms-attempt-command-it.log；必需清单85。0a1ec85已发布main/任务分支，bd6两路CI成功；新RM CI待结果。履约自动执行器仍在继续，不宣称四项整体完成。

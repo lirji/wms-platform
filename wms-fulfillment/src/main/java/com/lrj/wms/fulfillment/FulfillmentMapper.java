@@ -42,6 +42,18 @@ public interface FulfillmentMapper {
     List<Map<String, Object>> lockLines(@Param("enterpriseId") String enterpriseId,
             @Param("fulfillmentId") String fulfillmentId);
 
+    /** 同事务占用企业命令键，并发失败者读取原回执。 */
+    int insertAttemptCommand(@Param("enterpriseId") String enterpriseId, @Param("commandId") String commandId,
+            @Param("fulfillmentId") String fulfillmentId, @Param("hash") String hash,
+            @Param("claimId") String claimId, @Param("now") Timestamp now);
+
+    /** 锁定原命令，不以当前活动attempt替代历史回执。 */
+    Map<String,Object> lockAttemptCommand(@Param("enterpriseId") String enterpriseId, @Param("commandId") String commandId);
+
+    /** 最后绑定失败必须回滚命令、attempt、参与行及订单活动指针。 */
+    int bindAttemptCommand(@Param("enterpriseId") String enterpriseId, @Param("commandId") String commandId,
+            @Param("claimId") String claimId, @Param("attemptId") String attemptId);
+
     /** 插入未绑定XID的attempt。 */
     /** insertAttempt：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertAttempt(@Param("id") String id, @Param("enterpriseId") String enterpriseId,

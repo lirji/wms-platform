@@ -106,3 +106,12 @@
 - 原生RM收尾更新：7141于04:04:52 BUILD SUCCESS，最终13项通过，/tmp/wms-runtime-rm-final-it.log；此前62275于04:00:48原生进程独立通过。当前没有Maven。schema/Java契约、默认关闭Compose及必需清单82已补齐。准备检查/提交RM切片，之后继续履约自动执行器，bd6远程CI完成前不推同ref。
 
 - RM所有必要定向验证已通过：13个IT、必需82、公开API87、文档及4服务smoke；04:06:38 SBOM173/163purl刷新，OSV仍2个原命中，/tmp/wms-runtime-rm-sbom.log。当前没有Maven运行。准备逻辑提交；bd6main的全量Java已成功，后续warehouse/tc/failure专项仍运行，不能推同ref取消。
+
+## 当前自动履约切片
+
+- 原生RM切片0a1ec85已提交并正常快进推送main/任务分支，两ref核对一致；bd6的main/分支CI均成功。0a1远程CI待结果。当前无Maven运行。
+- 正在修复创建attempt的持久化命令回执：新V017，原请求规范摘要、省略截止时刻不续期、回执与attempt原子提交。不把活动attempt错误地当旧命令结果；后续继续持久化TM执行器。
+
+### 创建attempt命令回执进展
+
+V017及持久化回执完成，原请求重试保持原attempt及截止时间；最后回执失败整体回滚。04:14:20定向5项通过（AttemptCommandIT 3、FulfillmentHttpIT 2），日志/tmp/wms-attempt-command-it.log；必需清单85。0a1ec85已发布main/任务分支，bd6两路CI成功；新RM CI待结果。履约自动执行器仍在继续，不宣称四项整体完成。

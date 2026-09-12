@@ -103,6 +103,11 @@ class FulfillmentHttpIT {
                 "{\"warehouses\":[\"WH-A\"],\"lines\":[{\"warehouseId\":\"WH-A\",\"orderLineId\":\"SL-1\","
                         + "\"skuId\":\"SKU-STD\",\"qty\":\"3\",\"baseUnit\":\"EA\"}]}");
         assertEquals(201, attempt.statusCode());
+        HttpResponse<String> attemptReplay = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/attempts", token, "KEY-ATT-1",
+                "{\"warehouses\":[\"WH-A\"],\"lines\":[{\"warehouseId\":\"WH-A\",\"orderLineId\":\"SL-1\","
+                        + "\"skuId\":\"SKU-STD\",\"qty\":\"3.000000\",\"baseUnit\":\"EA\"}]}");
+        assertEquals(201, attemptReplay.statusCode(), attemptReplay.body());
+        assertEquals(attempt.body(), attemptReplay.body());
         HttpResponse<String> issued = post("/api/wms/v1/transfers/TR-HTTP-1/issues", token, "CMD-ISSUE-1",
                 "{\"lineId\":\"TL-1\",\"qty\":\"2\"}");
         assertEquals(202, issued.statusCode());

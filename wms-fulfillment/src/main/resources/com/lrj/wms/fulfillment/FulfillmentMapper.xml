@@ -51,6 +51,20 @@
         ORDER BY source_line_id FOR UPDATE
     </select>
 
+    <insert id="insertAttemptCommand">
+        INSERT INTO fulfillment_attempt_command(enterprise_id,command_id,fulfillment_id,payload_hash,claim_id,created_at)
+        VALUES(#{enterpriseId},#{commandId},#{fulfillmentId},#{hash},#{claimId},#{now})
+        ON DUPLICATE KEY UPDATE command_id=command_id
+    </insert>
+    <select id="lockAttemptCommand" resultType="map">
+        SELECT fulfillment_id,payload_hash,claim_id,attempt_id FROM fulfillment_attempt_command
+        WHERE enterprise_id=#{enterpriseId} AND command_id=#{commandId} FOR UPDATE
+    </select>
+    <update id="bindAttemptCommand">
+        UPDATE fulfillment_attempt_command SET attempt_id=#{attemptId}
+        WHERE enterprise_id=#{enterpriseId} AND command_id=#{commandId} AND claim_id=#{claimId} AND attempt_id IS NULL
+    </update>
+
     <!-- insertAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertAttempt">
         INSERT INTO allocation_attempt (id, enterprise_id, fulfillment_id, state, deadline, participant_set_hash, allocation_digest, cancel_requested, launch_epoch, version, created_at, updated_at)
