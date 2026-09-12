@@ -14,6 +14,8 @@ public final class SerialRegistryService {
     public static final String STATE_TRANSFER_PREPARED = "TRANSFER_PREPARED";
     public static final String STATE_IN_TRANSIT = "IN_TRANSIT";
     public static final String STATE_RECEIVING = "RECEIVING";
+    public static final String STATE_MISSING = "MISSING";
+    public static final String STATE_FOUND_CLAIMED = "FOUND_CLAIMED";
     public static final String TRANSFER_PREPARED = "PREPARED";
     public static final String TRANSFER_IN_TRANSIT = "IN_TRANSIT";
     public static final String TRANSFER_RECEIVING = "RECEIVING";
@@ -41,6 +43,9 @@ public final class SerialRegistryService {
         if (row == null) {
             throw new SerialRegistryException("VERSION_CONFLICT", "登记认领竞争");
         }
+        if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
+            throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按首次认领占用");
+        }
         if (!operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
             throw new SerialRegistryException("SERIAL_ALREADY_CLAIMED", "序列号已被其他操作认领");
         }
@@ -56,6 +61,9 @@ public final class SerialRegistryService {
         Map<String, Object> row = mapper.lockIdentity(enterpriseId, skuId, normalized);
         if (row == null) {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未认领");
+        }
+        if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
+            throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按原认领激活");
         }
         if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "激活仓与登记归属不一致");
@@ -255,6 +263,87 @@ public final class SerialRegistryService {
                 || identities.casConfirmDestination(enterpriseId, skuId, normalized, targetWarehouseId, transferId,
                         targetReceiptRef, toEpoch, now) != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "目的确认竞争");
+        }
+        return view(identities.lockIdentity(enterpriseId, skuId, normalized));
+    }
+
+    /** 盘亏事实到达后标 MISSING，禁止再授权。同事实重放。 */
+    public Map<String, Object> markMissing(String enterpriseId, String skuId, String serial, String warehouseId,
+            String factRef, long expectedEpoch) {
+        requireId(factRef, "INVALID_RELEASE", "失踪事实不能为空");
+        requireId(warehouseId, "INVALID_WAREHOUSE", "仓不能为空");
+        String normalized = normalize(serial);
+        Timestamp now = Timestamp.from(clock.instant());
+        SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
+        Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
+        if (STATE_MISSING.equals(String.valueOf(row.get("state")))
+                && sameRef(row.get("receipt_operation_id"), factRef)) {
+            return view(row);
+        }
+        if (expectedEpoch != asLong(row.get("owner_epoch"))) {
+            throw staleEpoch(row, expectedEpoch);
+        }
+        if (!STATE_ACTIVE.equals(String.valueOf(row.get("state")))
+                || !warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
+            throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能标失踪");
+        }
+        if (identities.casMissing(enterpriseId, skuId, normalized, warehouseId, factRef, expectedEpoch, now) != 1) {
+            throw new SerialRegistryException("VERSION_CONFLICT", "失踪登记竞争");
+        }
+        return view(identities.lockIdentity(enterpriseId, skuId, normalized));
+    }
+
+    /** 盘盈：失踪身份走 FOUND_CLAIMED；全新身份走 CLAIMED。 */
+    public Map<String, Object> claimFound(String enterpriseId, String skuId, String serial, String warehouseId,
+            String operationId) {
+        requireId(operationId, "INVALID_OPERATION", "盘盈操作不能为空");
+        requireId(warehouseId, "INVALID_WAREHOUSE", "仓不能为空");
+        String normalized = normalize(serial);
+        Timestamp now = Timestamp.from(clock.instant());
+        SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
+        Map<String, Object> existing = identities.getIdentity(enterpriseId, skuId, normalized);
+        if (existing == null) {
+            return claim(enterpriseId, skuId, serial, warehouseId, operationId);
+        }
+        Map<String, Object> row = identities.lockIdentity(enterpriseId, skuId, normalized);
+        if (STATE_FOUND_CLAIMED.equals(String.valueOf(row.get("state")))
+                && operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
+            return view(row);
+        }
+        if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))) {
+            throw new SerialRegistryException("SERIAL_ALREADY_CLAIMED", "序列号仍是有效授权，不能盘盈认领");
+        }
+        if (!STATE_MISSING.equals(String.valueOf(row.get("state")))) {
+            throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能盘盈认领");
+        }
+        if (identities.casFound(enterpriseId, skuId, normalized, warehouseId, operationId, now) != 1) {
+            throw new SerialRegistryException("VERSION_CONFLICT", "盘盈认领竞争");
+        }
+        return view(identities.lockIdentity(enterpriseId, skuId, normalized));
+    }
+
+    /** FOUND_CLAIMED 核实后激活。同操作重放。 */
+    public Map<String, Object> activateFound(String enterpriseId, String skuId, String serial, String warehouseId,
+            String operationId) {
+        String normalized = normalize(serial);
+        Timestamp now = Timestamp.from(clock.instant());
+        SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
+        Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
+        if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))
+                && warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
+            return view(row);
+        }
+        if (!STATE_FOUND_CLAIMED.equals(String.valueOf(row.get("state")))) {
+            return activate(enterpriseId, skuId, serial, warehouseId, operationId);
+        }
+        if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
+            throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "盘盈仓与登记归属不一致");
+        }
+        if (!operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "盘盈激活操作与认领不一致");
+        }
+        if (identities.activateFound(enterpriseId, skuId, normalized, operationId, now) != 1) {
+            throw new SerialRegistryException("VERSION_CONFLICT", "盘盈激活竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
     }

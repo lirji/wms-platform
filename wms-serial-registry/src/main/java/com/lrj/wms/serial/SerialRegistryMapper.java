@@ -50,4 +50,26 @@ public interface SerialRegistryMapper {
             + "AND state='CLAIMED'")
     int activateClaimed(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
             @Param("serial") String serial, @Param("state") String state, @Param("now") Timestamp now);
+
+    @Update("UPDATE serial_registry SET state='MISSING', receipt_operation_id=#{factRef}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} "
+            + "AND normalized_serial=#{serial} AND state='ACTIVE' AND owner_warehouse_id=#{warehouseId} "
+            + "AND owner_epoch=#{epoch}")
+    int casMissing(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
+            @Param("serial") String serial, @Param("warehouseId") String warehouseId, @Param("factRef") String factRef,
+            @Param("epoch") long epoch, @Param("now") Timestamp now);
+
+    @Update("UPDATE serial_registry SET state='FOUND_CLAIMED', owner_warehouse_id=#{warehouseId}, "
+            + "owner_epoch=owner_epoch+1, claim_operation_id=#{operationId}, receipt_operation_id=#{operationId}, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} "
+            + "AND normalized_serial=#{serial} AND state='MISSING'")
+    int casFound(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
+            @Param("serial") String serial, @Param("warehouseId") String warehouseId,
+            @Param("operationId") String operationId, @Param("now") Timestamp now);
+
+    @Update("UPDATE serial_registry SET state='ACTIVE', version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} AND normalized_serial=#{serial} "
+            + "AND state='FOUND_CLAIMED' AND claim_operation_id=#{operationId}")
+    int activateFound(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
+            @Param("serial") String serial, @Param("operationId") String operationId, @Param("now") Timestamp now);
 }

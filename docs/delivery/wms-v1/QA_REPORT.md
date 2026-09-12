@@ -597,3 +597,17 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `InventoryApplicationIT` / `InventoryDomainTest` | 回归 0 失败 | V013 未破坏门禁原语 |
 
 结论：S6-03 本地 pass。不能当作 AC-18/19 生产通过。序列号 FOUND/MISSING 留给 S6-03a。
+
+## S6-03a 序列号观察集合与 FOUND/MISSING
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未发明 OQ-03。未到 S8，未创建 `wms-console/`。登记本库 + 库存本库内存登记端口，不是跨库存或生产 HTTP。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `InventoryDomainTest.gateMatrixMatchesDomain` | OPEN 允许观察、拒绝调整/解冻/任意释放；QUIESCING 拒绝观察/调整/任意释放、允许解冻；FROZEN 允许观察/调整/解冻、拒绝任意释放 | 领域表，不是真实门禁竞态 |
+| `SerialMissingIT` | ACTIVE→MISSING 同事实重放；旧 epoch/`claim`/`activate` 拒绝；ACTIVE 不能盘盈；MISSING→FOUND_CLAIMED→ACTIVE；新身份走 CLAIMED | 登记本库 |
+| `CountSerialIT` 主路径 | 只录数量 `SERIAL_SET_REQUIRED`；观察 SN-A/SN-C 得 found=1 missing=1；调整后 SN-B MISSING、SN-C AUTHORIZED、on_hand 仍 2；`recover(SN-B)`=`SERIAL_MISSING` | 库存本库 + 内存登记 |
+| `CountSerialIT` 登记不可用 | 调整 `COUNT_REGISTRY_PENDING`；SN-Y `MISSING_PENDING`；on_hand 仍 2；门禁保持 FROZEN | 不是生产登记宕机 |
+| `CountIT` / `SerialReceiptIT` / `SerialSealIT` | 回归 0 失败 | V014 未破坏数量盘点与收货封闭 |
+
+结论：S6-03a 本地 pass。不能当作 AC-18/19 生产通过。冻结竞态、转移恢复与两仓守恒留给 S6-04。

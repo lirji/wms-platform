@@ -5,6 +5,11 @@ import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.InventoryPolicy;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+import com.lrj.wms.inventory.serial.LocalSerialMapper;
+import com.lrj.wms.inventory.serial.SerialCountRegistryPort;
+import com.lrj.wms.inventory.serial.SerialReceiptService;
+import com.lrj.wms.inventory.serial.SerialRegistryConflictException;
+import com.lrj.wms.inventory.serial.SerialRegistryUnavailableException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -18,7 +23,7 @@ import org.apache.ibatis.session.SqlSession;
 /**
  * 盘点 QUIESCING/冻结/点数/审批/调整。未排空在途不得 FROZEN。
  * 盘亏导致 reserved&gt;新 on_hand 时行进入 RESERVATION_CONFLICT，计划保持冻结。
- * 序列号 FOUND/MISSING 留给 S6-03a。不发明 OQ-03。
+ * 序列号行必须提交观察身份集合；FOUND/MISSING 先登记再改本地。不发明 OQ-03。
  */
 public final class CountService {
     public static final String DRAFT = "DRAFT";
@@ -35,13 +40,23 @@ public final class CountService {
     public static final String LINE_ZERO = "ZERO_DELTA";
     public static final String LINE_CONFLICT = "RESERVATION_CONFLICT";
     public static final String REASON_COUNT = "COUNT";
+    public static final String PRESENT = "PRESENT";
+    public static final String FOUND = "FOUND";
+    public static final String MISSING = "MISSING";
+    public static final String MISSING_PENDING = "MISSING_PENDING";
 
     private final SqlSession session;
     private final Clock clock;
+    private final SerialCountRegistryPort registry;
 
     public CountService(SqlSession session, Clock clock) {
+        this(session, clock, null);
+    }
+
+    public CountService(SqlSession session, Clock clock, SerialCountRegistryPort registry) {
         this.session = session;
         this.clock = clock;
+        this.registry = registry;
     }
 
     public Map<String, Object> create(String enterpriseId, String warehouseId, String planId, String reason,
@@ -119,6 +134,9 @@ public final class CountService {
                     MasterdataCodes.GATE_FROZEN, planId, REASON_COUNT, 1, now) != 1) {
                 throw new InventoryException("GATE_CONFLICT", "库位门禁不能冻结");
             }
+            Map<String, Object> frozenGate = inventory.lockGate(enterpriseId, warehouseId, locationId);
+            counts.updateScopeEpoch(enterpriseId, warehouseId, planId, locationId, asLong(frozenGate.get("fence_epoch")),
+                    now);
             for (Map<String, Object> balance : counts.listBalances(enterpriseId, warehouseId, locationId)) {
                 counts.insertLine(UUID.randomUUID().toString(), enterpriseId, warehouseId, planId,
                         String.valueOf(balance.get("id")), locationId, asLong(balance.get("version")),
@@ -131,48 +149,10 @@ public final class CountService {
         return view(enterpriseId, warehouseId, counts.lockPlan(enterpriseId, warehouseId, planId), counts);
     }
 
-    /** 点数或复盘。同 observation 重放；新观察不覆盖旧扫描行。 */
+    /** 点数或复盘。同 observation 重放；新观察不覆盖旧扫描行。序列号行必须走 observeIdentities。 */
     public Map<String, Object> observe(String enterpriseId, String warehouseId, String planId, String lineId,
             String observationId, String qty, String actorId, int roundNo) {
-        requireId(observationId, "INVALID_OBSERVATION", "观察标识不能为空");
-        requireId(actorId, "INVALID_ACTOR", "点数人不能为空");
-        if (roundNo < 1) {
-            throw new InventoryException("INVALID_ROUND", "点数轮次从1起");
-        }
-        BigDecimal counted = parseQty(qty);
-        Timestamp now = Timestamp.from(clock.instant());
-        CountMapper counts = session.getMapper(CountMapper.class);
-        InventoryMapper inventory = session.getMapper(InventoryMapper.class);
-        Map<String, Object> plan = requirePlan(counts, enterpriseId, warehouseId, planId);
-        String planStatus = String.valueOf(plan.get("status"));
-        if (!FROZEN.equals(planStatus) && !COUNTING.equals(planStatus)) {
-            throw new InventoryException("COUNT_STATE_CONFLICT", "当前盘点状态不能点数");
-        }
-        Map<String, Object> existing = counts.lockObservation(enterpriseId, warehouseId, observationId);
-        if (existing != null) {
-            if (!lineId.equals(String.valueOf(existing.get("count_line_id")))
-                    || counted.compareTo(decimal(existing.get("qty"))) != 0) {
-                throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
-            }
-            return observationView(existing);
-        }
-        Map<String, Object> line = counts.lockLine(enterpriseId, warehouseId, planId, lineId);
-        if (line == null) {
-            throw new InventoryException("COUNT_LINE_NOT_FOUND", "没有该盘点快照行");
-        }
-        Map<String, Object> gate = inventory.lockGate(enterpriseId, warehouseId, String.valueOf(line.get("location_id")));
-        requireCountGate(gate, planId, InventoryCodes.CMD_COUNT_OBSERVE);
-        counts.insertObservationIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, planId, lineId,
-                observationId, counted, actorId, roundNo, now);
-        Map<String, Object> stored = counts.lockObservation(enterpriseId, warehouseId, observationId);
-        if (!lineId.equals(String.valueOf(stored.get("count_line_id")))) {
-            throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
-        }
-        counts.updateCounted(enterpriseId, warehouseId, lineId, counted, LINE_OBSERVED, now);
-        if (FROZEN.equals(planStatus)) {
-            counts.casPlanStatus(enterpriseId, warehouseId, planId, FROZEN, COUNTING, now);
-        }
-        return observationView(stored);
+        return persistObservation(enterpriseId, warehouseId, planId, lineId, observationId, qty, actorId, roundNo, true);
     }
 
     public Map<String, Object> submitReview(String enterpriseId, String warehouseId, String planId) {
@@ -240,13 +220,19 @@ public final class CountService {
         if (LINE_APPLIED.equals(String.valueOf(line.get("status"))) || LINE_ZERO.equals(String.valueOf(line.get("status")))) {
             return lineView(line);
         }
-        Map<String, Object> gate = inventory.lockGate(enterpriseId, warehouseId, String.valueOf(line.get("location_id")));
-        requireCountGate(gate, planId, InventoryCodes.CMD_COUNT_ADJUST);
+        requireCountGate(inventory, counts, enterpriseId, warehouseId, planId, String.valueOf(line.get("location_id")),
+                InventoryCodes.CMD_COUNT_ADJUST);
         BigDecimal counted = decimal(line.get("counted_qty"));
         Map<String, Object> balance = inventory.lockBalanceById(enterpriseId, warehouseId,
                 String.valueOf(line.get("balance_id")));
         if (balance == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "快照桶不存在");
+        }
+        boolean hasObservationSerials = counts.countLineSerials(enterpriseId, warehouseId, lineId) > 0;
+        boolean hasLocalSerials = !session.getMapper(LocalSerialMapper.class)
+                .lockActiveByBalance(enterpriseId, warehouseId, String.valueOf(balance.get("id"))).isEmpty();
+        if (hasLocalSerials && !hasObservationSerials) {
+            throw new InventoryException("SERIAL_SET_REQUIRED", "序列号盘点不能只录数量");
         }
         BigDecimal onHand = decimal(balance.get("on_hand_qty"));
         BigDecimal reserved = decimal(balance.get("reserved_qty"));
@@ -255,6 +241,9 @@ public final class CountService {
         if (counted.compareTo(reserved.add(claim)) < 0) {
             counts.casLineStatus(enterpriseId, warehouseId, lineId, String.valueOf(line.get("status")), LINE_CONFLICT, now);
             throw new InventoryException("RESERVATION_CONFLICT", "盘亏不足覆盖预占，需先重分配或取消");
+        }
+        if (hasObservationSerials) {
+            applySerialIdentities(enterpriseId, warehouseId, planId, line, operationId, now);
         }
         if (APPROVED.equals(planStatus)) {
             counts.casPlanStatus(enterpriseId, warehouseId, planId, APPROVED, APPLYING, now);
@@ -295,6 +284,9 @@ public final class CountService {
                 throw new InventoryException("COUNT_APPLY_PENDING", "仍有未完成或冲突的调整行，保持冻结");
             }
         }
+        if (session.getMapper(LocalSerialMapper.class).countMissingPending(enterpriseId, warehouseId, planId) > 0) {
+            throw new InventoryException("COUNT_REGISTRY_PENDING", "登记尚未收敛失踪序列号，保持冻结");
+        }
         for (Map<String, Object> scope : counts.listScope(enterpriseId, warehouseId, planId)) {
             String locationId = String.valueOf(scope.get("location_id"));
             inventory.lockGate(enterpriseId, warehouseId, locationId);
@@ -316,6 +308,63 @@ public final class CountService {
             throw new InventoryException("COUNT_NOT_FOUND", "没有该盘点计划");
         }
         return view(enterpriseId, warehouseId, plan, counts);
+    }
+
+    /**
+     * 序列号点数。qty 必须等于见到的身份数，且等于快照 + FOUND - MISSING。
+     * 禁止只录数量。
+     */
+    public Map<String, Object> observeIdentities(String enterpriseId, String warehouseId, String planId, String lineId,
+            String observationId, String qty, String actorId, int roundNo, List<String> seenSerials) {
+        if (seenSerials == null || seenSerials.isEmpty()) {
+            throw new InventoryException("SERIAL_SET_REQUIRED", "序列号盘点必须提交观察身份集合");
+        }
+        BigDecimal counted = parseQty(qty);
+        if (counted.compareTo(BigDecimal.valueOf(seenSerials.size())) != 0) {
+            throw new InventoryException("SERIAL_QTY_MISMATCH", "点数必须等于观察身份数");
+        }
+        Map<String, Object> observation = persistObservation(enterpriseId, warehouseId, planId, lineId, observationId,
+                qty, actorId, roundNo, false);
+        CountMapper counts = session.getMapper(CountMapper.class);
+        Map<String, Object> line = counts.lockLine(enterpriseId, warehouseId, planId, lineId);
+        List<Map<String, Object>> locals = session.getMapper(LocalSerialMapper.class).lockActiveByBalance(enterpriseId,
+                warehouseId, String.valueOf(line.get("balance_id")));
+        java.util.Set<String> localIds = new java.util.LinkedHashSet<>();
+        for (Map<String, Object> local : locals) {
+            localIds.add(String.valueOf(local.get("serial_id")));
+        }
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        Timestamp now = Timestamp.from(clock.instant());
+        for (String raw : seenSerials) {
+            String serial = SerialReceiptService.normalize(raw);
+            if (!seen.add(serial)) {
+                throw new InventoryException("DUPLICATE_SERIAL", "同一观察不能重复同一序列号");
+            }
+            String presence = localIds.contains(serial) ? PRESENT : FOUND;
+            counts.insertObservationSerialIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, observationId,
+                    serial, serial, presence, now);
+        }
+        int found = 0;
+        int missing = 0;
+        for (String serial : seen) {
+            if (!localIds.contains(serial)) {
+                found++;
+            }
+        }
+        for (String serial : localIds) {
+            if (!seen.contains(serial)) {
+                missing++;
+                counts.insertObservationSerialIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId,
+                        observationId, serial, serial, MISSING, now);
+            }
+        }
+        BigDecimal expected = decimal(line.get("snapshot_qty")).add(BigDecimal.valueOf(found - missing));
+        if (counted.compareTo(expected) != 0) {
+            throw new InventoryException("SERIAL_QTY_MISMATCH", "点数必须等于身份集合净变化");
+        }
+        observation.put("found", found);
+        observation.put("missing", missing);
+        return observation;
     }
 
     private Map<String, Object> view(String enterpriseId, String warehouseId, Map<String, Object> plan, CountMapper counts) {
@@ -344,6 +393,53 @@ public final class CountService {
         return body;
     }
 
+    private Map<String, Object> persistObservation(String enterpriseId, String warehouseId, String planId, String lineId,
+            String observationId, String qty, String actorId, int roundNo, boolean rejectLocalSerials) {
+        requireId(observationId, "INVALID_OBSERVATION", "观察标识不能为空");
+        requireId(actorId, "INVALID_ACTOR", "点数人不能为空");
+        if (roundNo < 1) {
+            throw new InventoryException("INVALID_ROUND", "点数轮次从1起");
+        }
+        BigDecimal counted = parseQty(qty);
+        Timestamp now = Timestamp.from(clock.instant());
+        CountMapper counts = session.getMapper(CountMapper.class);
+        InventoryMapper inventory = session.getMapper(InventoryMapper.class);
+        Map<String, Object> plan = requirePlan(counts, enterpriseId, warehouseId, planId);
+        String planStatus = String.valueOf(plan.get("status"));
+        if (!FROZEN.equals(planStatus) && !COUNTING.equals(planStatus)) {
+            throw new InventoryException("COUNT_STATE_CONFLICT", "当前盘点状态不能点数");
+        }
+        Map<String, Object> existing = counts.lockObservation(enterpriseId, warehouseId, observationId);
+        if (existing != null) {
+            if (!lineId.equals(String.valueOf(existing.get("count_line_id")))
+                    || counted.compareTo(decimal(existing.get("qty"))) != 0) {
+                throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
+            }
+            return observationView(existing);
+        }
+        Map<String, Object> line = counts.lockLine(enterpriseId, warehouseId, planId, lineId);
+        if (line == null) {
+            throw new InventoryException("COUNT_LINE_NOT_FOUND", "没有该盘点快照行");
+        }
+        requireCountGate(inventory, counts, enterpriseId, warehouseId, planId, String.valueOf(line.get("location_id")),
+                InventoryCodes.CMD_COUNT_OBSERVE);
+        if (rejectLocalSerials && !session.getMapper(LocalSerialMapper.class)
+                .lockActiveByBalance(enterpriseId, warehouseId, String.valueOf(line.get("balance_id"))).isEmpty()) {
+            throw new InventoryException("SERIAL_SET_REQUIRED", "序列号盘点不能只录数量");
+        }
+        counts.insertObservationIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, planId, lineId,
+                observationId, counted, actorId, roundNo, now);
+        Map<String, Object> stored = counts.lockObservation(enterpriseId, warehouseId, observationId);
+        if (!lineId.equals(String.valueOf(stored.get("count_line_id")))) {
+            throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
+        }
+        counts.updateCounted(enterpriseId, warehouseId, lineId, counted, LINE_OBSERVED, now);
+        if (FROZEN.equals(planStatus)) {
+            counts.casPlanStatus(enterpriseId, warehouseId, planId, FROZEN, COUNTING, now);
+        }
+        return observationView(stored);
+    }
+
     private static Map<String, Object> observationView(Map<String, Object> row) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("observationId", row.get("observation_id"));
@@ -363,12 +459,95 @@ public final class CountService {
         return plan;
     }
 
-    private static void requireCountGate(Map<String, Object> gate, String planId, String command) {
+    private void applySerialIdentities(String enterpriseId, String warehouseId, String planId, Map<String, Object> line,
+            String operationId, Timestamp now) {
+        if (registry == null) {
+            throw new InventoryException("REGISTRY_REQUIRED", "序列号盘点调整需要登记端口");
+        }
+        CountMapper counts = session.getMapper(CountMapper.class);
+        LocalSerialMapper locals = session.getMapper(LocalSerialMapper.class);
+        String lineId = String.valueOf(line.get("id"));
+        String observationId = counts.latestObservationId(enterpriseId, warehouseId, lineId);
+        String balanceId = String.valueOf(line.get("balance_id"));
+        Map<String, Object> balance = session.getMapper(InventoryMapper.class).lockBalanceById(enterpriseId, warehouseId,
+                balanceId);
+        String skuId = String.valueOf(balance.get("sku_id"));
+        String lotId = String.valueOf(balance.get("lot_id"));
+        for (Map<String, Object> sight : counts.listObservationSerials(enterpriseId, warehouseId, observationId)) {
+            String serial = String.valueOf(sight.get("normalized_serial"));
+            String presence = String.valueOf(sight.get("presence_code"));
+            if (MISSING.equals(presence)) {
+                Map<String, Object> local = locals.lock(enterpriseId, warehouseId, serial);
+                if (local == null) {
+                    continue;
+                }
+                if (MISSING.equals(String.valueOf(local.get("state")))
+                        || MISSING_PENDING.equals(String.valueOf(local.get("state")))) {
+                    if (MISSING_PENDING.equals(String.valueOf(local.get("state")))) {
+                        convergeMissing(enterpriseId, warehouseId, skuId, serial, operationId,
+                                asLong(local.get("owner_epoch")), now, locals);
+                    }
+                    continue;
+                }
+                locals.updateState(enterpriseId, warehouseId, serial, balanceId, MISSING_PENDING, "MISSING", null,
+                        asLong(local.get("owner_epoch")), now);
+                convergeMissing(enterpriseId, warehouseId, skuId, serial, operationId, asLong(local.get("owner_epoch")),
+                        now, locals);
+            } else if (FOUND.equals(presence)) {
+                Map<String, Object> local = locals.lock(enterpriseId, warehouseId, serial);
+                if (local != null && SerialReceiptService.STATE_AUTHORIZED.equals(String.valueOf(local.get("state")))) {
+                    continue;
+                }
+                try {
+                    Map<String, Object> claimed = registry.claimFound(enterpriseId, skuId, serial, warehouseId,
+                            operationId);
+                    Map<String, Object> active = registry.activateFound(enterpriseId, skuId, serial, warehouseId,
+                            operationId);
+                    if (local == null) {
+                        locals.insertIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, serial, skuId, lotId,
+                                balanceId, SerialReceiptService.STATE_AUTHORIZED, operationId,
+                                String.valueOf(active.get("state")), null, now);
+                    } else {
+                        locals.updateState(enterpriseId, warehouseId, serial, balanceId,
+                                SerialReceiptService.STATE_AUTHORIZED, String.valueOf(active.get("state")), null,
+                                asLong(active.get("ownerEpoch"), claimed.get("ownerEpoch")), now);
+                    }
+                } catch (SerialRegistryUnavailableException error) {
+                    throw new InventoryException("REGISTRY_UNAVAILABLE", "盘盈登记不可用，保持冻结");
+                } catch (SerialRegistryConflictException error) {
+                    throw new InventoryException(error.code(), error.getMessage());
+                }
+            }
+        }
+    }
+
+    private void convergeMissing(String enterpriseId, String warehouseId, String skuId, String serial, String factRef,
+            long epoch, Timestamp now, LocalSerialMapper locals) {
+        try {
+            registry.markMissing(enterpriseId, skuId, serial, warehouseId, factRef, epoch);
+            Map<String, Object> local = locals.lock(enterpriseId, warehouseId, serial);
+            locals.updateState(enterpriseId, warehouseId, serial,
+                    local.get("balance_id") == null ? null : String.valueOf(local.get("balance_id")), MISSING, "MISSING",
+                    null, epoch, now);
+        } catch (SerialRegistryUnavailableException error) {
+            throw new InventoryException("COUNT_REGISTRY_PENDING", "失踪事实尚未被登记确认");
+        } catch (SerialRegistryConflictException error) {
+            throw new InventoryException(error.code(), error.getMessage());
+        }
+    }
+
+    private static void requireCountGate(InventoryMapper inventory, CountMapper counts, String enterpriseId,
+            String warehouseId, String planId, String locationId, String command) {
+        Map<String, Object> gate = inventory.lockGate(enterpriseId, warehouseId, locationId);
         if (gate == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "库位门禁不存在");
         }
         if (!planId.equals(String.valueOf(gate.get("count_plan_id")))) {
             throw new InventoryException("GATE_CONFLICT", "门禁不属于该盘点计划");
+        }
+        Long expectedEpoch = counts.scopeEpoch(enterpriseId, warehouseId, planId, locationId);
+        if (expectedEpoch != null && asLong(gate.get("fence_epoch")) != expectedEpoch) {
+            throw new InventoryException("GATE_EPOCH_MISMATCH", "门禁代际与盘点范围不一致");
         }
         String decision = InventoryPolicy.decideGate(String.valueOf(gate.get("state")), command);
         if (!InventoryCodes.DECISION_ALLOW.equals(decision)) {
@@ -413,5 +592,12 @@ public final class CountService {
             return number.longValue();
         }
         return 0L;
+    }
+
+    private static long asLong(Object primary, Object fallback) {
+        if (primary instanceof Number number) {
+            return number.longValue();
+        }
+        return asLong(fallback);
     }
 }

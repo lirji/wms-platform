@@ -1,6 +1,7 @@
 package com.lrj.wms.inventory.serial;
 
 import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.count.CountService;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
@@ -88,6 +89,10 @@ public final class SerialReceiptService {
         if (SerialTransferLocalService.STATE_SEALED.equals(String.valueOf(row.get("state")))
                 || STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             return view(row);
+        }
+        if (CountService.MISSING.equals(String.valueOf(row.get("state")))
+                || CountService.MISSING_PENDING.equals(String.valueOf(row.get("state")))) {
+            throw new InventoryException("SERIAL_MISSING", "失踪序列号不能按原收货恢复");
         }
         return syncRegistry(enterpriseId, warehouseId, String.valueOf(row.get("receipt_operation_id")), normalized,
                 String.valueOf(row.get("sku_id")), row);

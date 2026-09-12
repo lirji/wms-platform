@@ -109,7 +109,27 @@ class InventoryDomainTest {
         assertEquals(InventoryCodes.DECISION_ISOLATE,
                 InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_INFLIGHT_CONFIRM));
         assertEquals(InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_UNFREEZE));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_UNFREEZE));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_ARBITRARY_RELEASE));
+        assertEquals(InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(InventoryCodes.DECISION_ALLOW,
                 InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_UNFREEZE));
+        assertEquals(InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_ARBITRARY_RELEASE));
         assertEquals(InventoryCodes.DECISION_DENY,
                 InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_NEW_RESERVE));
         assertEquals(InventoryCodes.DECISION_DENY,

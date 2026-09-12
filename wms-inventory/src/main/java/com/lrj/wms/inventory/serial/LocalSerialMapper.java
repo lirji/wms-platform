@@ -1,6 +1,7 @@
 package com.lrj.wms.inventory.serial;
 
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -52,4 +53,17 @@ public interface LocalSerialMapper {
             @Param("serial") String serial, @Param("balanceId") String balanceId, @Param("state") String state,
             @Param("registryState") String registryState, @Param("registryError") String registryError,
             @Param("epoch") long epoch, @Param("now") Timestamp now);
+
+    @Select("SELECT serial_id, state, owner_epoch, sku_id, lot_id FROM local_serial "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND balance_id=#{balanceId} "
+            + "AND state IN ('AUTHORIZED','SEALED') ORDER BY serial_id FOR UPDATE")
+    List<Map<String, Object>> lockActiveByBalance(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("balanceId") String balanceId);
+
+    @Select("SELECT COUNT(*) FROM local_serial s JOIN count_line l ON l.enterprise_id=s.enterprise_id "
+            + "AND l.warehouse_id=s.warehouse_id AND l.balance_id=s.balance_id "
+            + "WHERE s.enterprise_id=#{enterpriseId} AND s.warehouse_id=#{warehouseId} "
+            + "AND l.count_plan_id=#{planId} AND s.state='MISSING_PENDING'")
+    int countMissingPending(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("planId") String planId);
 }

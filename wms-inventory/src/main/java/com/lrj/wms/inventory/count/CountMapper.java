@@ -139,4 +139,40 @@ public interface CountMapper {
             + "AND count_line_id=#{lineId}")
     int countObservations(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId);
+
+    @Update("UPDATE count_scope SET gate_epoch=#{epoch}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND count_plan_id=#{planId} "
+            + "AND location_id=#{locationId}")
+    int updateScopeEpoch(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("planId") String planId, @Param("locationId") String locationId, @Param("epoch") long epoch,
+            @Param("now") Timestamp now);
+
+    @Select("SELECT gate_epoch FROM count_scope WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND count_plan_id=#{planId} AND location_id=#{locationId}")
+    Long scopeEpoch(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("planId") String planId, @Param("locationId") String locationId);
+
+    @Insert("INSERT IGNORE INTO count_observation_serial (id, enterprise_id, warehouse_id, observation_id, "
+            + "normalized_serial, serial_id, presence_code, version, created_at, updated_at) VALUES (#{id}, "
+            + "#{enterpriseId}, #{warehouseId}, #{observationId}, #{serial}, #{serialId}, #{presence}, 0, #{now}, #{now})")
+    int insertObservationSerialIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("observationId") String observationId,
+            @Param("serial") String serial, @Param("serialId") String serialId, @Param("presence") String presence,
+            @Param("now") Timestamp now);
+
+    @Select("SELECT normalized_serial, presence_code FROM count_observation_serial WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND observation_id=#{observationId} ORDER BY normalized_serial")
+    List<Map<String, Object>> listObservationSerials(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("observationId") String observationId);
+
+    @Select("SELECT COUNT(*) FROM count_observation_serial s JOIN count_observation o "
+            + "ON o.enterprise_id=s.enterprise_id AND o.warehouse_id=s.warehouse_id AND o.observation_id=s.observation_id "
+            + "WHERE o.enterprise_id=#{enterpriseId} AND o.warehouse_id=#{warehouseId} AND o.count_line_id=#{lineId}")
+    int countLineSerials(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId);
+
+    @Select("SELECT observation_id FROM count_observation WHERE enterprise_id=#{enterpriseId} "
+            + "AND warehouse_id=#{warehouseId} AND count_line_id=#{lineId} ORDER BY round_no DESC, created_at DESC LIMIT 1")
+    String latestObservationId(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId);
 }

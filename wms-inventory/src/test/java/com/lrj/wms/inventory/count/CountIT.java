@@ -60,6 +60,7 @@ class CountIT {
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
         config.addMapper(CountMapper.class);
+        config.addMapper(com.lrj.wms.inventory.serial.LocalSerialMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {

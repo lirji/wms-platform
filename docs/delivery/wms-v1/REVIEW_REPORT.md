@@ -443,3 +443,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 盘亏 `counted < reserved+claim` 标 `RESERVATION_CONFLICT` 且不改 on_hand；部分失败不解冻。
 - 库存迁移用 `V013__count_plan.sql`，不占用 fulfillment 的 V004/V005。
 - 确认：无 critical/high；AC-18/19 仍 planned；序列号观察集合留给 S6-03a；未到 S8 不创建 `wms-console/`。
+
+## S6-03a 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 数量盘点路径保持；本地已有 AUTHORIZED/SEALED 时禁止只录数量。观察身份数必须等于 qty，且等于快照 + FOUND − MISSING。
+- 调整先检查预占再改身份：盘亏 `MISSING_PENDING`→登记 `MISSING`→本地 `MISSING`；盘盈先 `claimFound`/`activateFound` 才写本地 AUTHORIZED。登记不可用保持冻结。
+- 解冻按本计划余额上的 `MISSING_PENDING` 计数，不把同仓其他计划的未收敛行算进来。
+- `SerialReceiptService.recover` 对 MISSING/MISSING_PENDING 返回 `SERIAL_MISSING`，不按原收货复活。
+- 确认：无 critical/high；AC-18/19 仍 planned；未发明 OQ-03；未到 S8 不创建 `wms-console/`。冻结竞态与两仓守恒留给 S6-04。
