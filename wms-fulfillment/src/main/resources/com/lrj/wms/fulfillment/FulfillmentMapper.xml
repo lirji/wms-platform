@@ -190,7 +190,7 @@
 
     <!-- lockLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLaunch" resultType="map">
-        SELECT id, attempt_id, launch_epoch, executor_id, xid, state, cleanup_state, error_code, version
+        SELECT id, attempt_id, launch_epoch, executor_id, xid, state, cleanup_state, error_code, cleanup_terminal_evidence, version
         FROM allocation_launch
         WHERE enterprise_id=#{enterpriseId}
         AND attempt_id=#{attemptId}
@@ -221,7 +221,7 @@
     <!-- cleanupLaunch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <update id="cleanupLaunch">
         UPDATE allocation_launch
-        SET cleanup_state=#{cleanup}, error_code=#{errorCode}, version=version+1, updated_at=#{now}
+        SET cleanup_state=#{cleanup}, error_code=#{errorCode}, cleanup_terminal_evidence=#{evidence}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND attempt_id=#{attemptId}
         AND launch_epoch=#{epoch}

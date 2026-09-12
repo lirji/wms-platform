@@ -2,116 +2,64 @@
 
 ## 任务目标
 
-完成后端24项整改中剩余R13/R14/R15/R22。用户已确认“按收货分批，然后继续剩余四项”。持续授权独立任务分支、逻辑提交、验证后正常合并推送远程main；不部署生产。
+完成后端评审剩余 R13/R14/R15/R22。用户已确认“按收货分批，然后继续剩余四项”。持续授权独立任务分支、逻辑提交、必要验证后正常合并推送远程main；不强推、不部署生产，不等待“继续”。
 
 ## 已完成
 
-- R01–R12、R16–R21、R23–R24已有实现/定向验证，阶段版本origin/main f9710ef。不是50 AC整体通过。
-- 11个业务切片和验证记录95a1d46已推送到任务分支及远程main；业务切片：26c4472分批质检；9a9b9fc分批上架/批次入口；8019a45有界对账/归档候选；1247334数据库时间来源；bb3651e消息健康/CI去重复；1d645e2登记转移/盘点HTTP；455115c有界登记调用/持久化恢复/审计重排；3ac54b9仓迁移47表/目标隔离/冻结与部分切流恢复；4b8f7c5只读TC证据与有界分配恢复屏障；5d1219d库存确认可靠消费和Inbox兼容迁移；c5348d2出库消息/原订单行预占与桶级额度。
-- RECEIVE/QUALITY/PUTAWAY真实Kafka、双服务Jar、双MySQL闭环通过；批次以原RECEIVE commandId固定，质量累计版本与上架额度均校验。控制台typecheck、33测试、build通过。
-- 登记服务真实HTTP、受控主体/企业/仓鉴权、转移原始epoch/ref、FOUND旧记录修复通过。库存有界HTTP与凭据轮换、丢回执/本地提交失败恢复、人工重排通过（/tmp/wms-serial-route-final-it.log 01:35:57）。
-- 仓迁移最终5测试通过（/tmp/wms-migration-validation-final-it.log 01:47:05）。不代表真实TC/Fence搬迁与全后台排空已验证。
-- TC切片已提交4b8f7c5：JdbcTcStatusPort只读审计、明确TC集群/TM来源绑定、有界恢复游标、TC查询不持业务锁、陈旧回写拒绝；终态不可覆盖、分支确认必须有完整身份、当前attempt校验、Outbox约束失败原子回滚和重复内容核对。
-- TC切片最终证据：/tmp/wms-tc-fulfillment-final-it.log 02:05:32 BUILD SUCCESS（4个真实TC/DB新用例+7个履约回归）；/tmp/wms-tc-barrier-combined-it.log 02:04:03 BUILD SUCCESS（重新编译当前跨服务源码，ClosedLoopBlackBoxIT 1及依赖单元）。真实TC用例的仓确认来自明确夹具，不能算完整库存RM链路。
-- standalone warehouse-it 01:09通过；standalone tc-it /tmp/wms-ci-tc-only.log 01:50:06通过2个大探针。没有在同工作树并发Maven。
+- R01–R12、R16–R21、R23–R24已有实现及定向验证；不代表50AC/真实WCS/容量签署或生产验收。
+- 用户确认质检按每次收货分批。RECEIVE/分批QUALITY/PUTAWAY已通过真实Kafka、双服务Jar及双MySQL；批次以原RECEIVE commandId固定，累计质量结果及上架额度受约束。PICK/SHIP/CANCEL、原订单行、桶级预占/发运额度/取消回执已通过双进程消息验证。
+- 序列号登记真实HTTP、货主仓主体校验、转移原epoch/ref、有界客户端/凭据轮换、持久化恢复及审计重排已验证。禁止把原盘点同步网络循环直接注入运行服务。
+- 仓迁移复制清单48表（含inventory_tcc_intent），隔离目标/冻结/断点恢复已有真实双库测试；使用原生RM的仓仍拒绝迁移，不能把本地CONFIRMED当TC已收到回执。
+- TC只读审计、来源绑定、有界持久恢复游标、终态不可覆盖、分支确认可靠Inbox及完整授权Outbox/出库Inbox已验证。旧无货主/完整TC来源事件不猜测补齐；授权先于建单可恢复。
+- 95a1d46包含11业务切片及组合验证记录，main及分支CI34713653573/34713636111成功。授权切片bd6adf0的main及分支CI34715199124/34715195926也成功。
+- 原生RM切片0a1ec85已提交并推送main/任务分支，两ref已核验。实际TM适配器、真实TC、双库存Jar；原branch重试、B停机恢复Confirm、真实Cancel、TC断连readiness和空回滚路由校验通过。最终13IT日志/tmp/wms-runtime-rm-final-it.log，04:04:52成功；smoke/必需82/文档/契约及SBOM通过，OSV仍2个既有命中。
+- 创建attempt命令回执切片e10ef1b已提交，尚未推送：V017原命令/规范请求/原attempt原子绑定，省略deadline只首次生成，丢回执不新建/不续期，最后写失败全回滚。04:14:20定向5IT通过，日志/tmp/wms-attempt-command-it.log，必需85。
+- 当前自动履约切片已通过首次真实完整网络测试：04:27:05 /tmp/wms-execution-process-second-it.log成功；实际fulfillment TM +真实TC+双inventory RM+outbound Jar+Kafka+5个MySQL。最后Try回执写失败重启后原XID/原branch不变，最终两仓出库授权；没有手工伪造TC终态或仓确认。随后补空XID证据和HTTP负例，需看最新复验结果。
+- 04:22:40 /tmp/wms-execution-second-it.log：执行恢复4+创建命令3+HTTP2共9IT通过；04:28:53 /tmp/wms-execution-empty-it.log：执行恢复5+启动2+HTTP2共9IT通过，新增已知空XID绑定失败/TC证据清理，含V019。
 
 ## 已修改文件
 
-- 当前TC切片：wms-fulfillment新TcEvidenceScope/Mapper/Configuration/JdbcTcStatusPort、AllocationRecoveryMapper和V013；AllocationRecoverySweep/Job、FulfillmentService/Mapper/Persistence、application.yml、测试scope Seata依赖和复用TC测试资源。
-- TcAuditRecoveryIT及原3个履约夹具、.env.example、scripts/required-its-default.txt（现70必需用例）。OpenAPI仍87路径。
-- docs/implementation/FULFILLMENT_TC_RECOVERY.md及交付计划/状态/整改记录。
+已提交的历史切片及证据详见docs/delivery/wms-v1/BACKEND_REMEDIATION.md和docs/implementation/REMEDIATION_VERIFICATION_2026-09-13.md。
+
+当前未提交自动履约切片：
+
+- wms-fulfillment新增AllocationExecutionService/Worker/Mapper/Controller/Configuration、AllocationTmPort、WarehouseTryPort/HttpClient、Mapper XML及V018/V019。
+- SeataTmDriver实现端口；FulfillmentPersistence注册Mapper；工作台GET显示execution；FulfillmentService/FulfillmentMapper的空XID清理新增原TC证据要求及持久化。旧无证据CLEANED不伪造回填。
+- AllocationExecutionIT（5项）、FulfillmentLaunchIT证明已知空XID无TC证据不能CLEANED；AllocationExecutionProcessesIT实际四业务进程、真实TC/Kafka/5库；RuntimeRmProcessesIT仅测试辅助方法放宽包可见供复用。
+- scripts/generate-openapi.py新增执行入口/权限/专用响应Schema（当前88路径）；生成OpenAPI/operation scopes；.env.example/compose默认关闭执行器配置。
+- docs/implementation/FULFILLMENT_EXECUTION.md为最新范围、故障语义及配置说明；交付计划/必需IT/证据收尾尚待。
 
 ## 未完成
 
-- R13：PICK/SHIP/CANCEL已完成本地真实消息验证；序列号观察/质量/移位及可信来源水位仍待。
-- R14：真实fulfillment TM发起、inventory RM服务调用和出库授权传播（仓确认可靠消费已验证）；库存消息接序列号stage-only入口、来源转移释放可靠传播；盘点逐序列号持久化登记进度。
-- R15：七个catalog handler已实现执行器，serial恢复来源链仍依赖R13/R14；归档只是候选计划，未导出/删除，未编造保留期。
-- R22代码与定向证据已完成，未审计/转换共享或生产历史时区；全量默认223/必需74、failure3、smoke、SBOM均通过；远程CI仍待。
-- OQ-03、真实WCS、真实容量签署/隔离环境、50 AC业务验收仍有外部工作，不能伪称全部完成。
+- 当前切片：等待最终组合复验，检查88路径契约/必需91（尚未追加6项）/文档/Compose/smoke/SBOM，逻辑提交；核对0a1远程CI后正常推送分支及main，不取消运行CI。
+- R13：序列号观察/质量/上架/PICK/SHIP身份链及可信来源水位；新发现多物理cell共用库存Kafka消费者组，需要按cell可靠路由，避免消息分配到不持有该仓的进程。当前TM HTTP及确认/授权成功不证明普通库存命令已正确路由。
+- R14：序列号stage-only消息入口、来源转移释放传播、盘点逐身份持久化登记进度；TC终态通知/原资源及Fence迁移；已全局提交的取消需要业务补偿（当前保持CANCEL_REQUIRES_COMPENSATION，不能将TCC Cancel用于CONFIRMED）。
+- R15：七个catalog handler已有执行器；serialTransferRecovery来源链仍依赖R13/R14。归档仅候选计划，没有导出/删除，也没有编造保留期。
+- R22代码及95a1/bd6组合CI通过；没有审计、转换或声明共享/生产历史时区。当前所有后续源码最终全量组合verify仍待。
+- OQ-03、真实WCS、签署容量/RTO/RPO/50AC仍有外部验收工作，不能算此轮代码修复全部完成。
 
 ## 当前问题
 
-- 当前HEAD c5348d2。全仓clean verify于03:12:03 BUILD SUCCESS，耗时18:30，108个测试类/223用例，失败/错误/跳过均0；required default 74通过，四个Jar独立进程smoke通过。日志/tmp/wms-c534-default.log与/tmp/wms-c534-smoke.log。standalone failure-it于03:13:24通过3项，必需门禁通过，日志/tmp/wms-c534-failure.log；SBOM于03:14:25生成完成，173组件/163purl，OSV仍为原有2项，无新增命中；当前没有运行Maven。已正常推送分支并快进远程main到95a1d46，两个远程ref已核对。warehouse-it与tc-it仅依赖未变test-support，已有本地通过证据复用，远程仍重跑。
-- 出库新增OutboundPostingService、原订单行冻结、PICK/SHIP/CANCEL真实消息、原行/桶/CONFIRMED预占消费、真实来源执行凭证、桶级发运额度和取消posted数量。支持指定桶取消qty，停止旧未完成拣货任务；删除本次原逻辑生成的无库位RESTOCK行为。消息关闭时保留旧无上下文客户端，启用时维度必填。页面已同步，typecheck、33用例及build通过，最新数量字段又经定向页面测试/build通过。
-- 唯一工作目录：/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/backend-review-remediation。根用户工作区main f9710ef保持不动。所有exec显式workdir；禁止并发Maven或编译中编辑源码/配置。
-- 先前session64192已退出成功，当前所有Maven已退出成功；/tmp/wms-confirmation-replay-final-it.log 02:24:47 BUILD SUCCESS。
-- 远程f971 main CI34704623423和任务分支34704615403均失败结束，原因健康UP/DOWN竞争已由bb3651e修复，本地已验证，新切片尚未推送。推同ref前核对运行CI，不能取消别人或强推。
-- TC候选触发器仅隔离测试安装；应用不迁移TC库。旧attempt缺allocation_tc_binding保持显式待恢复，不按当前集群配置猜测补齐。TC审计enabled默认false，SELECT专用账号，4连接/1s语句/1.5s网络，健康5s缓存。
-- TC返回Committed不等于立刻可读终态；真实测试复用候选探针的retryDeadThreshold=1000ms只缩短隔离测试清理窗口，不改生产配置/承诺RTO。
-- 历史fulfillment父目录Inbox迁移缺口已由5d1219d用V014追加修复；旧手工Inbox保留正文/微秒/epoch的迁移测试本轮已通过，本轮验证已通过。
-- 新ReservationConfirmed携带原attempt/allocation/action/route和confirmationSchemaVersion=1，投fulfillment.results；旧无版本保持inventory.events，不伪造旧事实。新未知版本Outbox隔离。履约Inbox接线已实现并真实双进程初验通过，最终复验已通过；完整TM/RM及屏障Outbox发布/出库消费仍待。
-- 盘点不能直接注入HTTP循环：一行多序列号会限流整体回滚且反复从首个身份重试；必须先持久化每身份远程结果，远程在业务事务外，最终本地调整不再访问网络。现CountService同步端口只在领域测试使用，运行默认拒绝。
-- 全局序列号设计还有SHIPPED/SCRAPPED/RETURN_CLAIMED，不能用MISSING替代正常出库；SEALED调拨来源不可作为物理数量；轮回转移需明确新epoch历史，不能清空旧事实硬重用。
+- 唯一工作目录：/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；分支fix/backend-review-remediation。所有exec显式workdir。根用户目录保持main f9710ef，不切换/覆盖其他工作树。
+- 当前HEAD e10ef1b，origin/main及任务分支0a1ec85e5a1231a41ef8291cbd2be1be005cbde5。0a1 main CI34716410427、分支34716400385进行中，推同ref会取消运行CI，先等结束。
+- **89441已于04:32:00成功退出，当前没有Maven运行**：/tmp/wms-execution-final-it.log，-pl wms-inventory -am，AllocationExecutionProcessesIT、AllocationExecutionIT、FulfillmentLaunchIT、FulfillmentHttpIT。禁止并发Maven或编译中修改Java/XML/配置。之前所有session已退出。
+- 本轮首次执行测试因OpenAPI参数多行缩进错误失败，已修复；首次进程测试因RSAKey同名导入编译失败，已修复。不把失败日志改称通过。
+- TC审计触发器仅隔离测试安装，业务应用不写TC库；生产端口用SELECT专用账号。TC返回Committed与持久证据可读有时间差。既有full verify证据：c534源码223用例/108类，03:12:03成功/tmp/wms-c534-default.log；95a1/bd6远程全默认及warehouse/tc/failure/console全成功，不覆盖当前未提交源码。
+- 自动执行器：begin前持久BEGIN_CALLING，不盲重启；原XID绑定后才Try；每仓回执与进度原子提交；COMMIT/ROLLBACK意图固定；8次RPC后不继续发送，只读TC等待。60秒租约，旧代际拒绝写回；每企业每轮1动作，配置最多64企业轮询。HTTP500ms连接/1500ms总等待/64KiB响应，TC真实端到端包含SDK连接窗口，不能声称总1.5秒。
+- 凭据由受控目录按SHA256(enterprise)+.jwt原子轮换，主体wms-fulfillment，scope inventory.tcc.try，不转发操作员JWT。启用需要消息、TC审计、企业和cell允许列表；Compose还需实际只读挂载目录，默认不启用、不生成JWT。
 
 ## 下一步建议
 
-1. c5348d2已提交，全仓Maven/failure-it/SBOM均成功，95a1d46阶段main发布已完成，CI运行中；继续真实TM/RM及履约Outbox发布/出库授权传播。当前fulfillment_order/创建DTO没有ownerId，真实执行不能猜测货主：需新增显式货主范围并保留旧未知记录拒绝执行；库存确认已有confirmed_allocation_id，但原屏障Outbox缺完整owner/allocation/TC来源载荷，不能把旧不完整事件当可执行授权。
-2. 补R13出库/序列号观察与R14盘点逐身份登记；保持原有分批质检口径，不重新询问是否继续。
-3. 全部必要检查通过后推任务分支，fetch/main正常集成并推HEAD:main，检查远程CI；根工作区保持不变。
+1. 等89441退出，检查最终10IT和源码实际状态。补执行器阶段证据、required6项（85→91）、公开88契约及逻辑提交；0a1 CI成功后正常快进发布。
+2. 继续R13多cell可靠消息路由与序列号身份入口，再完成逐身份盘点/来源释放/可信水位、TC资源迁移与取消补偿。
+3. 序列号关键约束：SerialReceiptService.stageHold会加physical1，不能在聚合RECEIVE已加量后调用；需原收货批次绑定的stage-only身份入口。CountService运行registry=null保持拒绝，不能把逐SN远程循环放整个行事务；先逐身份持久化远程结果，再本地数量/序列号原子提交。observeIdentities现不接受空seenSerials，全丢失需修复。FOUND本地AUTHORIZED跳过仍需检查SKU/桶，历史owner_epoch/receipt_operation_id需正确保存。
+4. 正常SHIP不能用全局MISSING状态替代；SEALED来源不是物理数量；调拨复用身份必须保留原epoch/ref及轮回历史。旧transfer事实不能通过清空来重用。
+5. 全部必要检查通过后推送远程main并核对CI；不操作共享dev_infra、生产数据，不删除分支或工作树。
 
 ## 恢复 Prompt
 
-读取CODEX_PROGRESS.md和docs/delivery/wms-v1的DELIVERY_PLAN.md、BACKEND_REMEDIATION.md，在独立集成工作树继续已批准剩余四项。先核对当前Maven/Git状态，复用已有证据；不要把阶段提交、真实TC候选测试或handler存在当作完整业务验收，不要等待“继续”。
+读取CODEX_PROGRESS.md和docs/delivery/wms-v1的DELIVERY_PLAN.md、BACKEND_REMEDIATION.md，在唯一独立工作树继续用户批准的剩余四项。先核对记录中的Maven是否仍运行，禁止并发Maven/编译中改源码。当前自动履约切片最终复验89441已通过10项，尚待逻辑提交；完成验证提交后继续序列号、逐身份盘点及可信水位，不停在阶段提交。没有业务完成证据不能标全部完成，不等待“继续”。
 
-## 下一切片的已读上下文
+最新收尾：最终10IT已通过，必需清单已追加为91，契约专用执行响应共88路径；文档已同步。SBOM因POM/依赖未变复用0a1证据。当前准备默认关闭smoke、契约/文档/Compose检查及提交，之后继续多cell库存消息路由。
 
-- FulfillmentWorkbenchRequests/CreateFulfillmentRequest和fulfillment_order均无ownerId；不能从出库手工输入或SKU猜测。拟增加新创建显式ownerId，旧无货主记录在自动执行前保持拒绝；不修改已执行迁移或静默补齐旧事实。
-- 原writeBarrierOutbox产生AllocationCompleted及每仓OutboundOrderRequested/ExecutionAuthorizationRequested，但正文只有attempt/XID/warehouse/reservation/lines，缺owner/allocation/TC来源/授权标识。已有allocation_tc_binding和confirmed_allocation_id可证明新记录来源，但旧NULL必须拒绝。发布不能改写原payload或用当前不相干配置猜测来源。
-- 可考虑追加delivery_payload JSON，在原始绑定/确认/终态全部可验证时有锁地一次性固化完整投递上下文，后续重放沿用；或新版本独立事件。尚未实施，不要当成既定设计。
-- 真实TM/RM需要独立服务凭据、固定仓路由/epoch、Try前冻结货主及库存桶或有界候选策略、原XID重试网关不重复branchRegister；TC官方Fence与业务同物理事务。现有ReservationTccAction仅领域Bean，没有运行Seata RM注册/HTTP Try网关；test-support HttpGatewayTryProbe/WarehouseRmProcess为官方API参考，不是生产服务。
-- StockCommandService原applyPick/applyShip和InventoryApplicationService旧pickReserved/shipPicked只被历史领域夹具调用，运行消息现在走严格applyOutbound/postOutboundReservation。别把旧夹具当HTTP路径。
-
-- 已修复compose.yaml出库消息前缀为${WMS_MESSAGING_TOPIC_PREFIX:-wms.local}；默认和wms.verify自定义前缀静态config均通过，未启动服务。Python4、文档39/链接86和87路径契约均通过。
-- 授权传播建议在成功屏障事务内固化版本化delivery_payload，保留旧payload不改写；旧缺owner/TC来源/confirmed_allocation_id不自动推断。出库应核对同attempt重放的货主及全部原订单行，现createFromAllocation尚未核对重复内容。Outbox每轮采用20秒新领取预算，逐条短事务领取后网络在事务外。
-
-- 下一切片仅有临时草稿：/tmp/wms-authorization-draft/AllocationAuthorization.java（独立javac通过）及AllocationAuthorizationMessage.java；尚未复制进仓库、未实施或验收。计划完整V1仓级授权快照/TC来源强校验，不能当成功链路。
-
-- 组合验证归档：docs/implementation/REMEDIATION_VERIFICATION_2026-09-13.md。本次收尾只增加Compose前缀修复、SBOM和验证文档，无新增业务源码；应用源码验证依据c5348d2。
-
-- 远程发布已核对：main与fix/backend-review-remediation均95a1d4626985fff5dfe95350478457e0d1bb1f25；main CI34713653573、分支CI34713636111进行中，不能再次推同ref取消运行。当前无本地Maven。继续履约授权切片，远程CI独立运行不影响工作树编辑。
-
-## 当前进行中的授权切片（优先于上文历史状态）
-
-- 当前分支HEAD仍95a1d46，远程main/任务分支均已发布该阶段。根用户工作树main仍f9710ef，不切换/覆盖。main CI34713653573与分支34713636111运行中，前端成功、Java仍组合验证；运行结束前不能推同ref。
-- 新增仓级AllocationAuthorization契约与严格JSON边界、明确ownerId/同源原始行重放、成功屏障同事务delivery_payload、逐条有界FulfillmentOutboxPublisher、出库授权Inbox消费及本地完整证据。授权先于建单仍可恢复，普通建单不授执行权。实际文件均在当前独立工作树；不再只是/tmp草稿。
-- 新迁移：fulfillment目录V016（owner、delivery_payload、领取索引）与outbound V016（barrier_payload）。保留旧NULL来源，不能猜测补事实；同owner原订单行/策略版本也要核对。
-- 03:20:34编译成功；首轮授权测试因FulfillmentMapper.bindOutboxDelivery XML遗漏失败，已补齐，指定CHECK断言也已加强，不能用任意RuntimeException冒充注入故障成功。
-- **当前唯一Maven session68767运行**，日志/tmp/wms-authorization-second-it.log，-pl wms-inventory -am；覆盖MessageRecoveryIT、AllocationAuthorizationSnapshotIT、FulfillmentHttpIT/BarrierIT、新双进程授权、原确认及出库消息。禁止并发Maven或修改Java/XML/配置直到退出。前端session39677已成功退出，33测试/typecheck/build通过。
-- MessageRecoveryMapper对履约审计实际delivery_payload；重排严格校验完整授权及原范围，旧最小事件不可直接重排。新增MySQL用例覆盖原摘要、旧拒绝；应在本轮测试中核对。
-- 文档docs/implementation/FULFILLMENT_AUTHORIZATION_MESSAGING.md已写实现与明确未验收边界。required门禁尚未追加新3项、交付状态未标本切片通过，等测试完成再同步/提交。
-- 下一步：等68767结果，修复真实失败并定向复测；追加required3项/文档/契约门禁、逻辑提交授权切片。核验95a1远程CI；然后继续正式TM/RM与序列号/盘点/可信水位，不能停止在本切片。
-
-- 授权切片更新：68767于03:28:53成功（9个定向IT+单元）；取消后原授权重放修正后62227于03:30:41成功。新增首次屏障前取消测试，当前唯一Maven78613（/tmp/wms-authorization-cancel-it.log）运行，只跑fulfillment/依赖；生产源码未再修改。required默认清单已追加4项，总78。当前仍未提交授权切片；下一步完成当前测试/文档与契约检查/逻辑提交，观察远程CI后继续TM/RM。
-
-- 授权收尾：78613于03:31:35 BUILD SUCCESS，快照3用例含首次签发前取消；当前没有运行Maven。代码/迁移/测试/控制台已完成定向验证，必需清单78；文档41/链接90通过。准备提交授权逻辑切片，95a1远程CI未结束前不推同ref。
-
-## 当前TM/RM切片（最新）
-
-- 授权切片已提交bd6adf0，尚未推送；95a1任务分支CI34713636111成功，main CI34713653573仍运行。
-- SeataTmDriver及TcAuditRecoveryIT已加入工作树，fulfillment同版本seata-all提升运行依赖。真实TC+HTTP定向6用例于03:39:22成功，/tmp/wms-tm-driver-first-it.log；并发关闭改进后需复测。当前没有Maven运行。
-- 正在实现库存真实RM：先落登记意图，再访问TC；未知登记不重复branchRegister；路由/企业/原XID校验与官方Fence同事务，空回滚同样校验。尚未验收，不把现有探针当运行服务。
-
-- bd6adf0已正常快进发布远程main和任务分支，两ref核验一致；95a1的main及分支CI均成功。当前新TM/RM改动仍未提交。
-- 首轮RM编译暴露Seata原生RM无四参凭据init，已按官方2.6.0修正为两参并显式要求私网隔离配置；不宣称TM密钥能保护RM。首轮IT在Flyway重复V035处失败（已有出库索引），新迁移改为V036，未改旧迁移。真实TC审计4用例仍通过；RM/迁移用例需重跑。
-
-## 原生RM最新执行状态（优先于历史条目）
-
-- 当前HEAD及远程main/任务分支均bd6adf072bb4f8db6448e0c1dd84963d97680873。bd6 main CI34715199124进行中、任务分支34715195926待更新，禁止推同ref打断。根用户工作树仍main f9710ef，未改动。
-- 新增TM/RM代码、V036、测试和文档均未提交。真实TM适配器TcAuditRecoveryIT 4项通过；MySQL RuntimeTccGatewayIT 2项于03:52:44与03:57:07均通过；WarehouseMigrationIT 5项于03:49:14通过，48表清单含RM意图。
-- 原生进程测试暴露并已修正：Fence动作名64字符上限改完整SHA256的Base64URL身份；RM缺全局状态响应处理器，补官方ClientOnResponseProcessor；TC通告地址与NAT连接地址不同，增加显式wms.tcc.xid-addresses；同Seata应用会回退投递其他cell，应用与资源均改为cell身份。
-- 当前唯一Maven session77885运行，日志/tmp/wms-runtime-rm-native-fifth-it.log，RuntimeRmProcessesIT及RuntimeTccGatewayIT。禁止并发Maven或修改Java/XML/配置，等退出。第五轮增加十秒事务预算、严格JSON类型和租户配额。第四轮A真实Confirm成功，B停机触发TC_COMMIT_UNKNOWN；测试仅接纳此明确未知码，仍必须证明原XID恢复。
-- 原生测试使用隔离TC、3个MySQL和两个实际库存Jar，日志wms-inventory/target/runtime-rm-processes/A.log/B.log。覆盖JWT、原分支重放、B重启Confirm、两仓Cancel、TC断连/恢复readiness；尚未通过，不算完整链路验收。
-- 下一步等待77885并修复实际失败，补门禁/默认关闭配置/文档，逻辑提交RM切片；继续履约自动执行器（目前只有TM适配，无持久化编排）、序列号观察/逐身份盘点/来源释放/可信水位。不要停在阶段提交，不等继续。
-
-- 原生RM收尾更新：7141于04:04:52 BUILD SUCCESS，最终13项通过，/tmp/wms-runtime-rm-final-it.log；此前62275于04:00:48原生进程独立通过。当前没有Maven。schema/Java契约、默认关闭Compose及必需清单82已补齐。准备检查/提交RM切片，之后继续履约自动执行器，bd6远程CI完成前不推同ref。
-
-- RM所有必要定向验证已通过：13个IT、必需82、公开API87、文档及4服务smoke；04:06:38 SBOM173/163purl刷新，OSV仍2个原命中，/tmp/wms-runtime-rm-sbom.log。当前没有Maven运行。准备逻辑提交；bd6main的全量Java已成功，后续warehouse/tc/failure专项仍运行，不能推同ref取消。
-
-## 当前自动履约切片
-
-- 原生RM切片0a1ec85已提交并正常快进推送main/任务分支，两ref核对一致；bd6的main/分支CI均成功。0a1远程CI待结果。当前无Maven运行。
-- 正在修复创建attempt的持久化命令回执：新V017，原请求规范摘要、省略截止时刻不续期、回执与attempt原子提交。不把活动attempt错误地当旧命令结果；后续继续持久化TM执行器。
-
-### 创建attempt命令回执进展
-
-V017及持久化回执完成，原请求重试保持原attempt及截止时间；最后回执失败整体回滚。04:14:20定向5项通过（AttemptCommandIT 3、FulfillmentHttpIT 2），日志/tmp/wms-attempt-command-it.log；必需清单85。0a1ec85已发布main/任务分支，bd6两路CI成功；新RM CI待结果。履约自动执行器仍在继续，不宣称四项整体完成。
+执行器收尾检查通过：四个实际Jar默认关闭smoke、required91、88路径契约、文档43/链接100、Compose静态config与diff检查。当前没有Maven或smoke运行，准备逻辑提交；0a1远程两路Java仍在运行，不推同ref。

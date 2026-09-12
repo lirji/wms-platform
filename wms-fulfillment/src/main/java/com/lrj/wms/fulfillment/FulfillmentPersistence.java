@@ -44,6 +44,7 @@ class FulfillmentPersistence {
         config.addMapper(FulfillmentMapper.class);
         config.addMapper(FulfillmentOutboxMapper.class);
         config.addMapper(AllocationRecoveryMapper.class);
+        config.addMapper(AllocationExecutionMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);
         return new SqlSessionFactoryBuilder().build(config);

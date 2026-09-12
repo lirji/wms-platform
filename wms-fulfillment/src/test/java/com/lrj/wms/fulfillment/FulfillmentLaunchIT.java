@@ -109,7 +109,13 @@ class FulfillmentLaunchIT {
             Map<String, Object> recorded = service.recordKnownEmptyXid("ENT-CL", emptyId, "xid-empty");
             assertEquals(FulfillmentService.LAUNCH_UNKNOWN, recorded.get("launchState"));
             assertNull(recorded.get("attemptXid"));
-            Map<String, Object> cleaned = service.cleanupEmptyLaunch("ENT-CL", emptyId);
+            assertEquals("TC_EVIDENCE_REQUIRED", assertThrows(FulfillmentException.class,
+                    () -> service.cleanupEmptyLaunch("ENT-CL", emptyId)).code());
+            var scope = new TcEvidenceScope("fixture", "wms-fulfillment", "fixture-group");
+            var evidence = new TcStatusPort.Observation("Rollbacked", com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                    Map.of("xid", "xid-empty", "status", 11, "clusterId", "fixture", "applicationId", "wms-fulfillment", "transactionGroup", "fixture-group")));
+            Map<String, Object> cleaned = service.cleanupEmptyLaunch("ENT-CL", emptyId, evidence, scope);
+            assertEquals(cleaned, service.cleanupEmptyLaunch("ENT-CL", emptyId, evidence, scope));
             assertEquals(FulfillmentService.CLEANUP_CLEANED, cleaned.get("cleanupState"));
             service.isolateEmptyLaunch("ENT-CL", emptyId, "recoverer");
             service.bindXid("ENT-CL", emptyId, "recoverer", "xid-next");

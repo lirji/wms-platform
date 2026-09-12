@@ -40,6 +40,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}	task.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/action-effects	task.read
 POST	/api/wms/v1/fulfillments	fulfillment.create
 POST	/api/wms/v1/fulfillments/{fulfillmentId}/attempts	fulfillment.execute
+POST	/api/wms/v1/fulfillments/{fulfillmentId}/attempts/{attemptId}/executions	fulfillment.execute
 POST	/api/wms/v1/fulfillments/{fulfillmentId}/cancellations	fulfillment.cancel
 POST	/api/wms/v1/jobs/{jobId}/retries	job.retry
 POST	/api/wms/v1/reconciliation-cases/{id}/remediations	recon.remediate

@@ -278,6 +278,7 @@ post("/internal/wms/v1/warehouses/{warehouseId}/execution-permits/{permitId}/sta
 # 已有 HTTP 入口补齐契约；复用作业台的现有 scope，不新增第二套角色语义。
 get("/api/wms/v1/fulfillments", "listFulfillments", "fulfillment", "fulfillment.read", ("200",), "履约列表", cursor)
 post("/api/wms/v1/fulfillments/{fulfillmentId}/attempts", "prepareAttempt", "fulfillment", "fulfillment.execute", "PrepareAttemptRequest", ("201",), "准备参与仓分配", ["- $ref: '#/components/parameters/FulfillmentId'"])
+post("/api/wms/v1/fulfillments/{fulfillmentId}/attempts/{attemptId}/executions", "executeAllocation", "fulfillment", "fulfillment.execute", "ExecuteAllocationRequest", ("202",), "持久化固定库存桶分配执行请求", ["- $ref: '#/components/parameters/FulfillmentId'", "- name: attemptId", "  in: path", "  required: true", "  schema: { type: string, minLength: 1, maxLength: 64 }"], success_schema="AllocationExecutionStatus")
 post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders", "createOutboundOrder", "outbound", "fulfillment.execute", "OutboundCreateRequest", ("201",), "登记待授权出库单", wh)
 post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick-tasks", "planPickTasks", "outbound", "outbound.pick", "PlanPickRequest", ("201",), "规划拣货任务", wh + ["- $ref: '#/components/parameters/OutboundOrderId'"])
 post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/cancellations", "cancelUnpicked", "outbound", "outbound.pick", "CancelUnpickedRequest", ("202",), "取消未拣数量", wh + ["- $ref: '#/components/parameters/OutboundOrderId'"])
@@ -1527,6 +1528,32 @@ components:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
           description: "精确十进制；必须大于0"
+    AllocationExecutionStatus:
+      type: object
+      additionalProperties: false
+      required: [attemptId, state, completedWarehouses, retryCount, statusUrl, updatedAt]
+      properties:
+        attemptId: { type: string, minLength: 1, maxLength: 64 }
+        state: { type: string, enum: [READY, BEGIN_CALLING, BEGIN_UNKNOWN, TRYING, FINISH_REQUESTED, WAITING_TERMINAL, COMPLETED, ROLLED_BACK, ISOLATED] }
+        xid: { type: [string, 'null'], maxLength: 128 }
+        requestedAction: { type: [string, 'null'], enum: [COMMIT, ROLLBACK, null] }
+        completedWarehouses: { type: integer, minimum: 0, maximum: 200 }
+        retryCount: { type: integer, minimum: 0, maximum: 8 }
+        errorCode: { type: [string, 'null'], maxLength: 64 }
+        updatedAt: { type: string, format: date-time }
+        statusUrl: { type: string }
+    ExecuteAllocationRequest:
+      type: object
+      additionalProperties: false
+      required: [warehouses]
+      properties:
+        clientOperationId: { type: string, maxLength: 64 }
+        warehouses:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '../contracts/warehouse-tcc-try-v1.schema.json'
     PrepareAttemptRequest:
       type: "object"
       additionalProperties: false

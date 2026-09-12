@@ -418,8 +418,14 @@ public final class FulfillmentService {
         return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
     }
 
-    /** 清理已知空启动。已绑定 attempt 拒绝。未知空 XID 只标等待 TC 超时。不调用 Confirm/Cancel。 */
+    /** 兼容未知启动的等待标记；知道XID不等于已清理，缺证据时必须拒绝CLEANED。 */
     public Map<String, Object> cleanupEmptyLaunch(String enterpriseId, String attemptId) {
+        return cleanupEmptyLaunch(enterpriseId, attemptId, null, null);
+    }
+
+    /** 只有可信端口读取到原环境/原XID的回滚终态才允许清理，原证据与状态同事务保存。 */
+    public Map<String, Object> cleanupEmptyLaunch(String enterpriseId, String attemptId,
+            TcStatusPort.Observation observation, TcEvidenceScope scope) {
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
         if (nullable(attempt.get("xid")) != null) {
@@ -430,12 +436,36 @@ public final class FulfillmentService {
         if (launch == null) {
             throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "启动记录不存在");
         }
-        String cleanup = nullable(launch.get("xid")) == null ? CLEANUP_WAITING_TIMEOUT : CLEANUP_CLEANED;
-        String error = nullable(launch.get("xid")) == null ? "UNKNOWN_EMPTY_XID" : "KNOWN_EMPTY_XID";
-        if (mapper.cleanupLaunch(enterpriseId, attemptId, epoch, cleanup, error, now()) != 1) {
+        String xid = nullable(launch.get("xid"));
+        String cleanup = xid == null ? CLEANUP_WAITING_TIMEOUT : CLEANUP_CLEANED;
+        String evidence = null;
+        if (xid != null) {
+            if (observation == null || scope == null) throw new FulfillmentException("TC_EVIDENCE_REQUIRED", "已知空XID仍需原TC回滚终态证据");
+            try {
+                var proof = JSON.readTree(observation.evidence());
+                int code = "Rollbacked".equals(observation.status()) ? 11 : "TimeoutRollbacked".equals(observation.status()) ? 13 : -1;
+                if (code < 0 || !proof.path("status").isIntegralNumber() || !proof.path("status").canConvertToInt()
+                        || proof.path("status").asInt() != code || !xid.equals(proof.path("xid").asString())
+                        || !scope.clusterId().equals(proof.path("clusterId").asString())
+                        || !scope.applicationId().equals(proof.path("applicationId").asString())
+                        || !scope.transactionGroup().equals(proof.path("transactionGroup").asString())) throw new IllegalArgumentException();
+                evidence = proof.toString();
+            } catch (RuntimeException invalid) { throw new FulfillmentException("INVALID_TC_EVIDENCE", "清理证据必须属于原空XID及TC环境的回滚终态"); }
+        }
+        if (cleanup.equals(launch.get("cleanup_state"))) {
+            if (!sameJson(evidence, nullable(launch.get("cleanup_terminal_evidence"))))
+                throw new FulfillmentException("TC_EVIDENCE_CONFLICT", "原清理证据不可覆盖或补造");
+            return launchView(launch, attempt);
+        }
+        if (mapper.cleanupLaunch(enterpriseId, attemptId, epoch, cleanup,
+                xid == null ? "UNKNOWN_EMPTY_XID" : "KNOWN_EMPTY_XID", evidence, now()) != 1) {
             throw new FulfillmentException("LAUNCH_CLEANUP_CONFLICT", "空启动清理竞争");
         }
         return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
+    }
+
+    private static boolean sameJson(String left, String right) {
+        return left == null ? right == null : right != null && JSON.readTree(left).equals(JSON.readTree(right));
     }
 
     /** 写入 TC 观察副本，不据此直接放行。 */

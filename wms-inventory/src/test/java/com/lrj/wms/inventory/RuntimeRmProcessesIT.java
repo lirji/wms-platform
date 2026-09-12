@@ -135,7 +135,7 @@ class RuntimeRmProcessesIT {
     private static WarehouseTryResult ok(HttpResponse<String> response){assertEquals(200,response.statusCode(),response.body());return RuntimeMessage.JSON.readValue(response.body(),WarehouseTryResult.class);}
     private boolean healthy(int port){try{return http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/actuator/health/readiness")).timeout(Duration.ofSeconds(2)).GET().build(),HttpResponse.BodyHandlers.discarding()).statusCode()==200;}catch(Exception e){return false;}}
     private static WarehouseTryRequest request(String wh,String attempt,int qty){return new WarehouseTryRequest(1,"ENT",wh,"OWNER","ALLOC-"+attempt,attempt,wh,1,List.of(new WarehouseTryRequest.Line("L1","SKU","LOC","NO_LOT",BigDecimal.valueOf(qty),"EA",0)));}
-    private static void seed(MySQLContainer db,String wh){
+    static void seed(MySQLContainer db,String wh){
         var factory=InventoryPersistence.sessions(source(db),new JdbcTransactionFactory(),new DatabaseBudget(4,0,500,250,1,500,1500));
         try(var session=factory.openSession(false)){
             var master=new MasterdataService(session,Clock.systemUTC());master.createWarehouse(wh,"ENT",wh,"测试仓","UTC");
@@ -152,8 +152,8 @@ class RuntimeRmProcessesIT {
     }
     private static String state(JdbcTemplate db,String attempt){return db.queryForObject("SELECT state FROM inventory_tcc_intent WHERE attempt_id=?",String.class,attempt);}
     private static int count(JdbcTemplate db,String sql){return db.queryForObject(sql,Integer.class);}
-    private static com.mysql.cj.jdbc.MysqlDataSource source(MySQLContainer db){var source=new com.mysql.cj.jdbc.MysqlDataSource();source.setURL(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(db.getJdbcUrl(),"UTC"));source.setUser(db.getUsername());source.setPassword(db.getPassword());return source;}
-    private static int port()throws Exception{try(var socket=new ServerSocket(0)){return socket.getLocalPort();}}
-    private static void stop(Process p)throws Exception{if(p==null)return;p.destroy();if(!p.waitFor(15,TimeUnit.SECONDS)){p.destroyForcibly();p.waitFor(5,TimeUnit.SECONDS);}}
-    private static void await(BooleanSupplier check,int seconds,String message,Process... processes)throws Exception{long end=System.nanoTime()+Duration.ofSeconds(seconds).toNanos();do{for(var p:processes)assertTrue(p.isAlive(),message);if(check.getAsBoolean())return;Thread.sleep(150);}while(System.nanoTime()<end);fail(message);}
+    static com.mysql.cj.jdbc.MysqlDataSource source(MySQLContainer db){var source=new com.mysql.cj.jdbc.MysqlDataSource();source.setURL(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(db.getJdbcUrl(),"UTC"));source.setUser(db.getUsername());source.setPassword(db.getPassword());return source;}
+    static int port()throws Exception{try(var socket=new ServerSocket(0)){return socket.getLocalPort();}}
+    static void stop(Process p)throws Exception{if(p==null)return;p.destroy();if(!p.waitFor(15,TimeUnit.SECONDS)){p.destroyForcibly();p.waitFor(5,TimeUnit.SECONDS);}}
+    static void await(BooleanSupplier check,int seconds,String message,Process... processes)throws Exception{long end=System.nanoTime()+Duration.ofSeconds(seconds).toNanos();do{for(var p:processes)assertTrue(p.isAlive(),message);if(check.getAsBoolean())return;Thread.sleep(150);}while(System.nanoTime()<end);fail(message);}
 }

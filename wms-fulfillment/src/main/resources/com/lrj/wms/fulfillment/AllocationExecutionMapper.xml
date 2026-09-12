@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.AllocationExecutionMapper">
+    <sql id="columns">enterprise_id,attempt_id,fulfillment_id,command_id,actor_id,payload_hash,try_payload,cluster_id,transaction_group,launch_owner,xid,empty_xid,state,requested_action,next_warehouse,rpc_attempts,claim_epoch,lease_until,next_at,error_code,terminal_evidence,created_at,updated_at</sql>
+    <insert id="insert">
+        INSERT INTO allocation_execution(enterprise_id,attempt_id,fulfillment_id,command_id,actor_id,payload_hash,try_payload,cluster_id,transaction_group,launch_owner,next_at,created_at,updated_at)
+        VALUES(#{row.enterprise_id},#{row.attempt_id},#{row.fulfillment_id},#{row.command_id},#{row.actor_id},#{row.payload_hash},#{row.try_payload},#{row.cluster_id},#{row.transaction_group},#{row.launch_owner},#{row.now},#{row.now},#{row.now})
+        ON DUPLICATE KEY UPDATE attempt_id=attempt_id
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT <include refid="columns"/> FROM allocation_execution WHERE enterprise_id=#{e} AND attempt_id=#{a} FOR UPDATE
+    </select>
+    <select id="status" resultType="map">
+        SELECT state,xid,requested_action,next_warehouse,rpc_attempts,error_code,updated_at
+        FROM allocation_execution WHERE enterprise_id=#{e} AND attempt_id=#{a}
+    </select>
+    <select id="due" resultType="map">
+        SELECT <include refid="columns"/> FROM allocation_execution
+        WHERE enterprise_id=#{e} AND state IN ('READY','BEGIN_CALLING','TRYING','FINISH_REQUESTED','WAITING_TERMINAL')
+        AND next_at&lt;=#{now} AND (lease_until IS NULL OR lease_until&lt;=#{now})
+        ORDER BY next_at,attempt_id LIMIT 1 FOR UPDATE SKIP LOCKED
+    </select>
+    <update id="claim">
+        UPDATE allocation_execution SET claim_epoch=claim_epoch+1,lease_until=#{lease},updated_at=#{now}
+        WHERE enterprise_id=#{e} AND attempt_id=#{a} AND claim_epoch=#{epoch}
+        AND (lease_until IS NULL OR lease_until&lt;=#{now})
+    </update>
+    <update id="save">
+        UPDATE allocation_execution SET xid=#{row.xid},empty_xid=#{row.empty_xid},state=#{row.state},requested_action=#{row.requested_action},
+        next_warehouse=#{row.next_warehouse},rpc_attempts=#{row.rpc_attempts},next_at=#{row.next_at},error_code=#{row.error_code},
+        terminal_evidence=#{row.terminal_evidence},lease_until=#{row.lease_until},updated_at=#{now}
+        WHERE enterprise_id=#{row.enterprise_id} AND attempt_id=#{row.attempt_id} AND claim_epoch=#{epoch}
+        AND (xid IS NULL OR xid=#{row.xid}) AND (requested_action IS NULL OR requested_action=#{row.requested_action})
+    </update>
+</mapper>

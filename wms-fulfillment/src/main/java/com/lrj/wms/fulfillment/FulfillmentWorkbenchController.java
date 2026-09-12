@@ -60,8 +60,11 @@ public class FulfillmentWorkbenchController {
     @GetMapping("/fulfillments/{fulfillmentId}")
     public Map<String, Object> getFulfillment(@AuthenticationPrincipal Jwt jwt, @PathVariable String fulfillmentId) {
         try (SqlSession session = sessions.openSession()) {
-            return HttpJson.row(new FulfillmentService(session, Clock.systemUTC())
-                    .get(WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId));
+            String enterprise = WmsJwtAuthorities.enterpriseId(jwt);
+            var result = new FulfillmentService(session, Clock.systemUTC()).get(enterprise, fulfillmentId);
+            if (result.get("activeAttemptId") != null) result.put("execution", AllocationExecutionService.status(
+                    session.getMapper(AllocationExecutionMapper.class).status(enterprise, result.get("activeAttemptId").toString())));
+            return HttpJson.row(result);
         }
     }
 

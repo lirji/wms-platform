@@ -152,7 +152,7 @@ public interface FulfillmentMapper {
     /** cleanupLaunch：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int cleanupLaunch(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
             @Param("epoch") long epoch, @Param("cleanup") String cleanup, @Param("errorCode") String errorCode,
-            @Param("now") Timestamp now);
+            @Param("evidence") String evidence, @Param("now") Timestamp now);
 
     /** 已证明无业务分支时提升代际。租约过期单独不足。 */
     /** isolateEmptyLaunch：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */

@@ -9,7 +9,7 @@ import org.apache.seata.tm.TMClient;
 import org.apache.seata.tm.api.GlobalTransactionContext;
 
 /** 官方TM调用适配器；调用结果只表示RPC结果，业务放行仍依赖独立的持久化TC证据。 */
-public final class SeataTmDriver implements AutoCloseable {
+public final class SeataTmDriver implements AllocationTmPort, AutoCloseable {
     private final TcEvidenceScope scope;
     private final Semaphore admission=new Semaphore(4);
     private final TmNettyRemotingClient client;
