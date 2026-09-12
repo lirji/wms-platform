@@ -399,3 +399,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 来源 `updateEffectApplied` 仅当 `applied IS NULL AND active=cmd` 或 `applied=cmd`，旧回执不能抢走新 effect 头。
 - 补偿缺原 posting 写 DEFERRED，不抛死；原 posting 到达后同 casePart 一次入账，累计 `reversed_qty` 受原数量约束。
 - 确认：无 critical/high；AC-48/49/50 仍 planned（缺 HTTP/设备/跨库生产链）；未到 S8 不创建 `wms-console/`。
+
+## S5-06 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 四库 filesystem Flyway，不把 inbound/outbound/fulfillment jar 放进 inventory 测试类路径。build-helper 只加源码。
+- 履约只观察 TC/参与者；库存 `reserveTried`/`confirmTried` 不是真实 Seata。Outbox `operation_id` 作为出库 `execution_authorization_id`。
+- 丢失响应：拣货过账提交后再同 command 重放，不二次写 PICK posting；T3 同 event 不二次加 posted。
+- SKU-LOOP 关闭 lot/serial/expiry，单位 EA，未发明 OQ-03。
+- 确认：无 critical/high；AC-10/12/13/14/15/25 仍 planned；EG-04 仅本地同 JVM；未到 S8 不创建 `wms-console/`。

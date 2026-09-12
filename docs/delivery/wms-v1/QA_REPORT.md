@@ -535,3 +535,15 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | inventory 6 项、outbound 5 项、inbound 2 项，0 失败 | 定向 |
 
 结论：S5-05 本地协议 pass。不能当作 AC-48/49/50 生产链路通过。S5-06 同批闭环仍 planned。
+
+## S5-06 同批四库闭环（EG-04 本地）
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。同 JVM 四库，不是 HTTP/真实 TC/WCS/设备。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ClosedLoopBlackBoxIT` | 两仓收 5→入账；履约拆 3+3 预占确认 ALLOCATED；拣/包/发 3；WH-A 丢失响应重放 posting=1；storage 剩余 2、staging 0、reserved 0；两单 SHIPPED | 同 JVM 四库 |
+| `python3 scripts/check-docs.py` | 待提交时结构检查 | 结构 |
+| 定向 Maven | `ClosedLoopBlackBoxIT` 1 项 0 失败 | 定向 |
+
+结论：S5-06 本地 EG-04 pass。不能当作 AC-10/12/13/14/15/25 生产链路通过。S6 仍待 Git 发布后开始。

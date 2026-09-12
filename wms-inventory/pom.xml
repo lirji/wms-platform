@@ -123,6 +123,8 @@
             <configuration>
               <sources>
                 <source>${project.basedir}/../wms-outbound/src/main/java</source>
+                <source>${project.basedir}/../wms-inbound/src/main/java</source>
+                <source>${project.basedir}/../wms-fulfillment/src/main/java</source>
               </sources>
             </configuration>
           </execution>
