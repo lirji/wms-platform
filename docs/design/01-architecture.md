@@ -1,4 +1,33 @@
-# 总体架构详细设计
+# 总体架构与实现边界
+
+核对基线：`main 3e2c720`（2026-09-13）。本文件同时保留业务目标与当前实现，两者在下面分别标识。版本以[版本记录](../implementation/VERSION_LOCK.md)为准，配置入口见[连接清单](../operations/INFRASTRUCTURE.md)。
+
+## 当前实现快照
+
+```mermaid
+flowchart LR
+  UI[React 控制台 / Nginx或Vite代理] --> IN[inbound]
+  UI --> OUT[outbound]
+  UI --> INV[inventory / Cell A]
+  UI --> F[fulfillment / TM]
+  IN --> DI[(wms_inbound)]
+  OUT --> DO[(wms_outbound)]
+  INV --> DV[(Cell A: wms_inventory)]
+  F --> DF[(wms_fulfillment)]
+  INV --> S[serial-registry]
+  S --> DS[(wms_registry)]
+  IN <--> K[Kafka / Outbox和Inbox]
+  OUT <--> K
+  INV <--> K
+  F <--> K
+  F -->|Try| INV
+  F --> TC[Seata TC]
+  TC -->|Confirm / Cancel| INV
+```
+
+当前有五个后端可执行应用和一个前端。图中业务消息、序列号客户端、原生 RM、TC 审计及自动执行都需要显式配置，Compose 默认关闭这些执行开关。应用库在隔离开发环境共享 mysql-apps 实例但使用不同 schema/账号；inventory 连接独立 Cell A 数据库。Cell B 数据库已编排，第二个库存应用需另行配置。图不表示默认启动后所有业务链路已启用。
+
+`wms-integration` 当前是出库依赖的 WCS 端口与模拟适配库；查询投影位于 inventory 内。独立 integration/query 服务是演进目标。真实外部设备、生产高可用与容量尚未验收。
 
 ## 1. 目标与边界
 
@@ -6,7 +35,7 @@
 
 全局履约协调是独立业务边界。S0 已确认唯一 TM 为 `wms-fulfillment`（无现有 OMS 协调器）。全局事务决定始终由 Seata TC 持有；不得同时运行两个权威协调器。将来若 OMS 具备合格履约能力，通过同一 TCC 契约交接，不并行第二套 TM。
 
-## 2. 逻辑与物理视图
+## 2. 目标逻辑视图
 
 ```mermaid
 flowchart TB
@@ -39,41 +68,44 @@ flowchart TB
 
 图中展示一个Cell内的三服务结构；Cell A/B重复部署并按仓路由。Cell是资源与故障隔离范围，不是单个应用。三个服务各自扩容、发布和管理数据源，不能共享业务表来伪装独立服务。
 
-## 3. 部署单元与数据权威
+## 3. 数据权威与部署边界
 
-| 单元 | 拥有的数据/行为 | 不负责 | 初期部署 |
+| 单元 | 拥有的数据/行为 | 不负责 | 当前实现 / 目标 |
 | --- | --- | --- | --- |
 | wms-inbound | 入库单、实收事实、质检、上架任务、库存同步状态 | 库存余额及流水 | 每Cell独立进程/库/账号 |
 | wms-outbound | 出库单、拣发任务、包裹、实物交接、取消流程 | 库存余额及流水 | 每Cell独立进程/库/账号 |
 | wms-inventory | 余额、流水、预占、门禁、执行资格、库存凭证、盘点调整、主数据 | 入库/出库单据与设备派工 | 每Cell独立进程/库/账号 |
 | wms-fulfillment | 全局履约TM、XID映射/结果观察、调拨额度 | 直接写各仓库存/入出库表 | 独立服务及数据库 |
-| Seata Server | 跨仓TCC全局/分支会话与恢复决定 | 实物流程、库存业务规则 | 独立高可用基础设施，版本待POC |
+| Seata Server | 跨仓TCC全局/分支会话与恢复决定 | 实物流程、库存业务规则 | 隔离 Seata 2.6.0 已验证；生产高可用待验收 |
 | wms-serial-registry | 序列号身份、归属授权、转移版本 | 仓内数量与单据 | 独立服务及数据库 |
-| wms-integration | 外部协议、设备命令、OMS/ERP/recon适配 | 直接确认库存过账 | 独立服务及数据库 |
-| wms-query | 可重建查询投影、导出 | 库存最终判断 | 独立服务及数据库 |
+| wms-integration | 外部协议、设备命令、OMS/ERP/recon适配 | 直接确认库存过账 | 当前为 WCS 适配库；独立服务/库是目标 |
+| 查询投影 | 可重建查询投影、导出 | 库存最终判断 | 当前在 inventory 内；未创建 wms-query |
 | Worker/Outbox角色 | 所属服务的任务/事件恢复 | 跨服务直接写库 | 使用所属服务代码及权限，可独立部署 |
 
 基础主数据由inventory内masterdata模块管理，inbound/outbound保留版本化快照；质检结论由inbound持有、库存资格由inventory接收并校验。各服务版本/状态分别建模，无共享事务管理器。服务间只共享契约，不共享Mapper、领域实体或业务实现。
 
-## 4. 模块组织（S5-02 已创建 integration WCS 端口与 simulator；console/query 仍未生成）
+## 4. 当前模块组织
 
 ```text
 wms-platform/
   pom.xml
   wms-contract/                   版本化DTO与事件schema，不包含共享领域实体
+  wms-runtime/                    数据库时间、连接池、健康、消息等运行支持
+  wms-security/                   OIDC、操作scope及仓权限
   wms-inbound/                    单据/收货/质检/上架/来源命令与恢复
   wms-outbound/                   单据/拣货/包装/发运/取消与恢复
   wms-inventory/                  余额/流水/预占/执行授权/凭证/门禁
     masterdata/ counting/ movement/ inventory/
   wms-fulfillment/                跨仓协调、调拨总单与额度
   wms-serial-registry/            序列号身份与授权
-  wms-integration/                OMS/ERP/WCS/recon适配
-  wms-query/                      查询投影
+  wms-integration/                WCS端口与模拟适配库
   wms-test-support/               三库/双Cell/故障验证
-  wms-console/                   Cursor实现
+  wms-console/                   React/Vite/Ant Design作业台（独立npm构建）
   deploy/
   docs/
 ```
+
+Maven reactor 共 10 个模块。inventory POM 对其他业务模块的依赖用于测试装配，不表示生产可直接调用其他服务的业务实现。
 
 各服务内部按业务能力组织domain/application/infrastructure/api。SQL只在所属服务Mapper；应用服务只组织本服务事务。跨服务调用发生在本地提交之后，通过持久化协调恢复，禁止带数据库事务等待远程执行。简单CRUD不机械增加空接口。
 
@@ -82,18 +114,18 @@ wms-platform/
 | 能力 | 选型 | 约束 |
 | --- | --- | --- |
 | 运行时 | Java 21 LTS、Maven Wrapper | 与工作区 Java 21 习惯一致；具体发行版由构建锁定 |
-| 框架 | Spring Boot 4.1.x 为新项目验证候选 | 当前官方文档存在 4.1.1；不代表与全部组件已验证兼容，S0 锁补丁版 |
-| 持久化 | MySQL 8.4 / InnoDB、MyBatis、Flyway | 复用 dev-infra 开发实例；正式数据不得纯内存存储 |
-| 分片 | ShardingSphere-JDBC 5.5.3 验证候选 | 先验证 SQL/JDBC/Boot/驱动组合；不使用过时 starter 示例直接装配 |
-| 跨仓预占事务 | Seata TCC | 仅库存资源预留；禁用AT自动代理，不启用XA；精确版本由S0验证 |
-| 调度 | XXL-JOB 3.4.2 验证候选 | admin/executor 版本对齐；仅 BEAN handler；生产不开放任意脚本执行 |
+| 框架 | Spring Boot 4.1.1 | POM 已固定；以当前 CI 覆盖范围为证据，不代表生产验收 |
+| 持久化 | MySQL 8.4 / InnoDB、MyBatis、Flyway | 当前隔离栈复用既有镜像版本，不连接共享实例；正式数据持久化 |
+| 分片 | ShardingSphere-JDBC 5.5.3 | 已验证路由、真实SQL和Fence组合；资源迁移仍有门禁 |
+| 跨仓预占事务 | Seata TCC 2.6.0 | 仅库存资源预留；禁用AT自动代理，不启用XA；真实TM/RM已阶段验证 |
+| 调度 | XXL-JOB 3.4.2 | admin/executor 版本对齐；仅 BEAN handler；生产不开放任意脚本执行 |
 | 事件 | Kafka | 多投影订阅、重放、对账事实流；首期不同时引入 RabbitMQ |
 | 缓存 | Redis | 有界查询/资料缓存；不持有库存最终写权限 |
-| 附件 | S3 兼容存储，开发复用 MinIO | 附件权限、签名 URL、保留策略单独管理 |
-| 可观测 | OpenTelemetry / Prometheus / Grafana | 尽量复用现有 dev-infra 观测栈 |
+| 附件 | S3 兼容存储（目标） | 当前 Compose 未部署 MinIO；附件授权/保留另行设计 |
+| 可观测 | OpenTelemetry / Prometheus / Grafana（目标） | 当前已有运行指标/健康支持，观测后端未在本 Compose 部署 |
 | 配置与发现 | 环境配置、部署平台 DNS 为首期方案 | 存量 Nacos 不是强制依赖；如引入须锁兼容矩阵和配置权威 |
 
-开发现有 Kafka 3.8.0、Redis 7、MinIO 是本地目录事实，不作生产维护状态背书。所有版本和许可证、漏洞、镜像摘要由 S0 验证并锁定，见 [来源与门禁](07-decisions-evidence.md)。Spring Boot 候选组合若失败，提交替代组合 ADR 后再实施，不静默升级既有项目。
+当前 Compose 声明 Kafka 3.8.0、Redis 7-alpine 等隔离开发标签；应用依赖、镜像与前端锁文件分开记录，不把浮动标签或历史本机摘要当作生产锁。SBOM/许可证/OSV 有日期的证据见[版本记录](../implementation/VERSION_LOCK.md)，原始选型依据保留于[决策记录](07-decisions-evidence.md)。新增或升级组件需要按实际差异重新验证兼容性，本次文档没有改变选型。
 
 ## 6. 请求与事件路径
 
