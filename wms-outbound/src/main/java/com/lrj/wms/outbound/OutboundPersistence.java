@@ -1,5 +1,6 @@
 package com.lrj.wms.outbound;
 
+import com.lrj.wms.outbound.order.OutboundAuthorizationMapper;
 import com.lrj.wms.outbound.order.OutboundOrderMapper;
 import com.lrj.wms.outbound.order.OutboundTaskMapper;
 import com.lrj.wms.outbound.protocol.SourceMapper;
@@ -42,6 +43,7 @@ class OutboundPersistence {
         config.addMapper(SourceMapper.class);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(OutboundTaskMapper.class);
+        config.addMapper(OutboundAuthorizationMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 }

@@ -62,10 +62,13 @@ class OutboundPickIT {
         String commandId;
         try (SqlSession session = sessions.openSession(false)) {
             OutboundOrderService service = new OutboundOrderService(session, clock);
+            Map<String, Object> pending = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-NOAUTH", "ATT-NOAUTH",
+                    "OWNER-1", " ", List.of(Map.of("orderLineId", "L1", "skuId", "SKU-1", "qty", new BigDecimal("5"),
+                            "baseUnit", "EA")));
+            assertEquals("PENDING_AUTHORIZATION", pending.get("status"));
             OutboundException missingAuth = assertThrows(OutboundException.class,
-                    () -> service.createFromAllocation("ENT-1", "WH-A", "ALLOC-NOAUTH", "ATT-NOAUTH", "OWNER-1", " ",
-                            List.of(Map.of("orderLineId", "L1", "skuId", "SKU-1", "qty", new BigDecimal("5"),
-                                    "baseUnit", "EA"))));
+                    () -> service.planPickTask("ENT-1", "WH-A", String.valueOf(pending.get("id")), "L1", "LOC-1",
+                            "STG-1", new BigDecimal("5")));
             assertEquals("AUTH_REQUIRED", missingAuth.code());
             Map<String, Object> created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-1", "ATT-1", "OWNER-1",
                     "AUTH-1", List.of(Map.of("orderLineId", "L1", "skuId", "SKU-1", "qty", new BigDecimal("5"),

@@ -17,6 +17,9 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,6 +58,9 @@ class OutboundHttpIT {
 
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private DataSource dataSource;
 
     @AfterAll
     static void cleanup() {
@@ -121,6 +127,40 @@ class OutboundHttpIT {
         assertEquals(202, cancelled.statusCode());
         HttpResponse<String> forbidden = get("/api/wms/v1/warehouses/WH-B/outbound-orders", token);
         assertEquals(403, forbidden.statusCode());
+        String exec = token(List.of("WH-A"), List.of("outbound.create", "outbound.read", "fulfillment.execute"));
+        HttpResponse<String> pending = post("/api/wms/v1/warehouses/WH-A/outbound-orders", exec, "KEY-OB-AUTH",
+                "{\"allocationId\":\"ALLOC-AUTH\",\"attemptId\":\"ATT-AUTH\",\"ownerId\":\"OWNER-1\","
+                        + "\"lines\":[{\"orderLineId\":\"OL-A\",\"skuId\":\"SKU-STD\",\"qty\":\"2\",\"baseUnit\":\"EA\"}]}");
+        assertEquals(201, pending.statusCode());
+        assertTrue(pending.body().contains("PENDING_AUTHORIZATION"));
+        String pendingId = textBetween(pending.body(), "\"id\":\"", "\"");
+        HttpResponse<String> noEvidence = post(
+                "/api/wms/v1/warehouses/WH-A/outbound-orders/" + pendingId + "/execution-authorizations", exec,
+                "KEY-AUTH-1", "{\"attemptId\":\"ATT-AUTH\",\"authorizationId\":\"AUTH-REAL\","
+                        + "\"xid\":\"xid-1\",\"tcTerminalEvidenceRef\":\"ev-1\",\"participantSetHash\":\""
+                        + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
+        assertEquals(409, noEvidence.statusCode());
+        assertTrue(noEvidence.body().contains("TCC_NOT_COMMITTED"));
+        new JdbcTemplate(dataSource).update(
+                "INSERT INTO outbound_tcc_evidence (id, enterprise_id, warehouse_id, attempt_id, xid, "
+                        + "tc_observed_status, tc_terminal_evidence_ref, participant_set_hash, version, created_at, "
+                        + "updated_at) VALUES ('EV-1','ENT-1','WH-A','ATT-AUTH','xid-1','Committed','ev-1',"
+                        + "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',0,UTC_TIMESTAMP(6),"
+                        + "UTC_TIMESTAMP(6))");
+        HttpResponse<String> authorized = post(
+                "/api/wms/v1/warehouses/WH-A/outbound-orders/" + pendingId + "/execution-authorizations", exec,
+                "KEY-AUTH-1", "{\"attemptId\":\"ATT-AUTH\",\"authorizationId\":\"AUTH-REAL\","
+                        + "\"xid\":\"xid-1\",\"tcTerminalEvidenceRef\":\"ev-1\",\"participantSetHash\":\""
+                        + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
+        assertEquals(200, authorized.statusCode());
+        assertTrue(authorized.body().contains("AUTH-REAL"));
+        assertTrue(!authorized.body().contains("\"attemptState\":\"ALLOCATED\""));
+        HttpResponse<String> replayAuth = post(
+                "/api/wms/v1/warehouses/WH-A/outbound-orders/" + pendingId + "/execution-authorizations", exec,
+                "KEY-AUTH-1", "{\"attemptId\":\"ATT-AUTH\",\"authorizationId\":\"AUTH-REAL\","
+                        + "\"xid\":\"xid-1\",\"tcTerminalEvidenceRef\":\"ev-1\",\"participantSetHash\":\""
+                        + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
+        assertEquals(200, replayAuth.statusCode());
     }
 
     private HttpResponse<String> get(String path, String bearer) throws Exception {
@@ -146,12 +186,15 @@ class OutboundHttpIT {
     }
 
     private static String token(List<String> warehouses) throws Exception {
+        return token(warehouses, List.of("outbound.create", "outbound.read", "task.read", "task.claim"));
+    }
+
+    private static String token(List<String> warehouses, List<String> scopes) throws Exception {
         RSAKey rsa = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-wh-a").issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
-                .claim("warehouses", warehouses)
-                .claim("scope", List.of("outbound.create", "outbound.read", "task.read", "task.claim")).build();
+                .claim("warehouses", warehouses).claim("scope", scopes).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));
         return jwt.serialize();

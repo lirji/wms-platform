@@ -7,10 +7,10 @@
 | 页面 | 主要内容/操作 | 后端契约 | AC |
 | --- | --- | --- | --- |
 | 仓库选择与首页 | 可访问仓、待办、异常、数据时间 | 权限仓列表、查询汇总 | AC-01/26 |
-| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | GET `/api/wms/v1/warehouses`、`/skus`、`/warehouses/{id}/locations`（需 OIDC；写接口仍未实现） | AC-02 |
+| 商品/库位资料 | 批次/序列号/效期开关、单位版本、库位状态 | GET/POST `/api/wms/v1/warehouses`、`/skus`、`/warehouses/{id}/locations`（需 OIDC 与写 scope） | AC-02 |
 | 入库工作台 | 单据详情→收货扫描→质检→上架 | inbound、quality、tasks | AC-07/09 |
-| 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水、serial追踪 | inventory/ledger/serial详情（S3补齐） | AC-03/08/15 |
-| 履约与出库 | 全局单/仓子单、准备/确认进度、拣货、包装、发运 | fulfillments、tasks、shipments | AC-10..14 |
+| 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水；同仓移库/限制/独立调整 | inventory/ledger/moves/stock-holds/adjustments | AC-03/08/15 |
+| 履约与出库 | 全局单/仓子单、准备/确认进度、取消请求、核验授权、拣货、包装、发运 | fulfillments、cancellations、execution-authorizations、tasks、shipments | AC-10..14 |
 | 调拨 | 源仓发出、在途、目的接收、差异 | transfers、transfer-receipts | AC-16/17 |
 | 盘点 | 冻结准备、点数、复盘、审批、分片调整 | count-plans、observations、adjustments | AC-18/19 |
 | 任务与设备异常 | job/shard进度、UNKNOWN回执、重试/接管 | jobs、设备状态API（S5补齐） | AC-20/25 |

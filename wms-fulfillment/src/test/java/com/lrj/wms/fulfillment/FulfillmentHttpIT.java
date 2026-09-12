@@ -114,6 +114,21 @@ class FulfillmentHttpIT {
                 "{\"transferId\":\"TR-HTTP-1\",\"lineId\":\"TL-1\",\"authorizationId\":\"" + authorizationId
                         + "\",\"tokenVersion\":" + tokenVersion + ",\"qty\":\"2\"}");
         assertEquals(202, received.statusCode());
+        String cancelToken = token(List.of("WH-A", "WH-B"), List.of("fulfillment.create", "fulfillment.cancel"));
+        HttpResponse<String> denied = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/cancellations", token,
+                "KEY-CXL-DENY", "{\"expectedVersion\":1}");
+        assertEquals(403, denied.statusCode());
+        HttpResponse<String> cancelled = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/cancellations", cancelToken,
+                "KEY-CXL-1", "{\"expectedVersion\":1,\"reason\":\"OMS_ABORT\"}");
+        assertEquals(202, cancelled.statusCode());
+        assertTrue(cancelled.body().contains("CANCEL_REQUESTED"));
+        HttpResponse<String> replay = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/cancellations", cancelToken,
+                "KEY-CXL-1", "{\"expectedVersion\":1,\"reason\":\"OMS_ABORT\"}");
+        assertEquals(202, replay.statusCode());
+        HttpResponse<String> after = get("/api/wms/v1/fulfillments/" + fulfillmentId, cancelToken);
+        assertEquals(200, after.statusCode());
+        assertTrue(after.body().contains("\"cancelRequested\":true"));
+        assertTrue(!after.body().contains("ALLOCATED"));
     }
 
     private static String textBetween(String body, String start, String end) {
@@ -139,11 +154,15 @@ class FulfillmentHttpIT {
     }
 
     private static String token(List<String> warehouses) throws Exception {
+        return token(warehouses, List.of("fulfillment.create"));
+    }
+
+    private static String token(List<String> warehouses, List<String> scopes) throws Exception {
         RSAKey rsa = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-ops").issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
-                .claim("warehouses", warehouses).claim("scope", List.of("fulfillment.create")).build();
+                .claim("warehouses", warehouses).claim("scope", scopes).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));
         return jwt.serialize();

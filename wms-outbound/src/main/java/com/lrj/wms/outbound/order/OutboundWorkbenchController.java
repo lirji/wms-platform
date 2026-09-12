@@ -73,6 +73,23 @@ public class OutboundWorkbenchController {
         }
     }
 
+    @PostMapping("/outbound-orders/{outboundOrderId}/execution-authorizations")
+    public Map<String, Object> authorize(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String outboundOrderId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        WmsJwtAuthorities.requireScope(jwt, "fulfillment.execute");
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        String key = firstNonBlank(text(body, "clientOperationId"), idempotencyKey);
+        try (SqlSession session = sessions.openSession(false)) {
+            Map<String, Object> result = new OutboundAuthorizationService(session, Clock.systemUTC()).authorize(
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, key, jwt.getSubject(),
+                    text(body, "attemptId"), text(body, "authorizationId"), text(body, "xid"),
+                    text(body, "tcTerminalEvidenceRef"), text(body, "participantSetHash"));
+            session.commit();
+            return HttpJson.row(result);
+        }
+    }
+
     @PostMapping("/outbound-orders/{outboundOrderId}/pick-tasks")
     public ResponseEntity<Map<String, Object>> planPick(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @PathVariable String outboundOrderId,
@@ -202,7 +219,8 @@ public class OutboundWorkbenchController {
     ResponseEntity<Map<String, Object>> outbound(OutboundException error) {
         HttpStatus status = switch (error.code()) {
             case "UNKNOWN_ORDER", "UNKNOWN_LINE", "UNKNOWN_TASK" -> HttpStatus.NOT_FOUND;
-            case "VERSION_CONFLICT", "TASK_NOT_CLAIMABLE" -> HttpStatus.CONFLICT;
+            case "VERSION_CONFLICT", "TASK_NOT_CLAIMABLE", "TCC_NOT_COMMITTED", "EVIDENCE_MISMATCH", "AUTH_CONFLICT",
+                    "AUTH_REQUIRED", "IDEMPOTENCY_PAYLOAD_MISMATCH" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));

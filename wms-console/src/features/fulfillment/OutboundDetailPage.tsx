@@ -50,6 +50,36 @@ export function OutboundDetailPage() {
       )}
       commands={(
         <>
+          <CommandCol title="核验后授权执行" requireScope="fulfillment.execute">
+            <CommandCard
+              embedded
+              requireScope="fulfillment.execute"
+              title="核验后授权执行"
+              hint="必须已有本库 TCC Committed 证据。没有证据会 409，不会发明 ALLOCATED。"
+              operation={`authorize:${outboundOrderId}`}
+              submitLabel="提交授权"
+              disabled={!token}
+              onDone={reload}
+              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/execution-authorizations`, token, {
+                method: "POST",
+                idempotencyKey: key,
+                body: {
+                  attemptId: values.attemptId,
+                  authorizationId: values.authorizationId,
+                  xid: values.xid,
+                  tcTerminalEvidenceRef: values.tcTerminalEvidenceRef,
+                  participantSetHash: values.participantSetHash,
+                  clientOperationId: key
+                }
+              })}
+            >
+              <Form.Item label="attemptId" name="attemptId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="authorizationId" name="authorizationId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="xid" name="xid" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="TC证据引用" name="tcTerminalEvidenceRef" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="参与者摘要" name="participantSetHash" rules={[{ required: true }]}><Input /></Form.Item>
+            </CommandCard>
+          </CommandCol>
           <CommandCol title="规划拣货" requireScope="outbound.pick">
             <CommandCard
               embedded

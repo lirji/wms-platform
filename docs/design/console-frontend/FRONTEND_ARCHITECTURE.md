@@ -195,7 +195,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 - 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要，文案是「导出快照」不是「导出全部」
 - 离线：线上写。BRIEF「待同步意图」只能显示服务端 202/`stockSyncStatus`，禁止 `localStorage` 库存队列
 
-作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，仓任务领取，对账 APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。
+作业详情提交已落地命令：入库收货/质检/上架，出库核验授权/拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，独立调整单审批应用，同仓移库与库存限制/释放，履约取消请求，任务回收/领取，仓任务领取，对账 APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。出库单状态 ALLOCATED 不是履约 ALLOCATED。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。
 
 ## 11. 落地细节
 
@@ -300,7 +300,5 @@ F7 已落地。不再把上表当未实现清单。
 - 设备 UNKNOWN 与真实硬件（S8-05）
 - 履约整单确认依赖真实 TC，不能写成 ALLOCATED
 - AC-26 仍 open
-- `POST /moves`、`stock-holds` 无库存域实现，不编造
-- 履约取消 / 出库 execution-authorizations 无独立可复用用例，不编造 ALLOCATED
-- 独立 adjustment 资源与 count-plan 调整不是同一张表，不另造调整单
+- 出库 TCC 证据副本要由履约 outbox 消费写入；没有公开发明证据接口
 - PDA 保留文字 + tone；可选短 beep，无音频设备时静默

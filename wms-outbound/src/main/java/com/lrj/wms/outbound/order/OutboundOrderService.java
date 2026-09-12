@@ -14,6 +14,7 @@ import org.apache.ibatis.session.SqlSession;
  * 出库单、拣货任务、包裹与发运前取消。实物累计在本库完成后写来源命令，不持库存事务。
  */
 public final class OutboundOrderService {
+    public static final String STATUS_PENDING_AUTHORIZATION = "PENDING_AUTHORIZATION";
     public static final String STATUS_ALLOCATED = "ALLOCATED";
     public static final String STATUS_PICKING = "PICKING";
     public static final String STATUS_PACKING = "PACKING";
@@ -57,15 +58,16 @@ public final class OutboundOrderService {
         requireId(allocationId, "INVALID_ALLOCATION", "allocation不能为空");
         requireId(attemptId, "INVALID_ATTEMPT", "attempt不能为空");
         requireId(ownerId, "INVALID_OWNER", "货主不能为空");
-        requireId(authorizationId, "AUTH_REQUIRED", "进入拣货前必须有执行授权");
+        boolean pendingAuth = authorizationId == null || authorizationId.isBlank();
         if (lines == null || lines.isEmpty()) {
             throw new OutboundException("INVALID_LINE", "出库行不能为空");
         }
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         String orderId = UUID.randomUUID().toString();
-        mapper.insertOrderIgnore(orderId, enterpriseId, warehouseId, allocationId, attemptId, ownerId, authorizationId,
-                STATUS_ALLOCATED, now);
+        mapper.insertOrderIgnore(orderId, enterpriseId, warehouseId, allocationId, attemptId, ownerId,
+                pendingAuth ? null : authorizationId,
+                pendingAuth ? STATUS_PENDING_AUTHORIZATION : STATUS_ALLOCATED, now);
         Map<String, Object> order = mapper.lockOrderByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
         if (order == null) {
             throw new OutboundException("VERSION_CONFLICT", "出库单创建竞争");

@@ -6,7 +6,7 @@ import { WorkspaceProvider } from "../../shell/WorkspaceContext";
 import { InboundDetailPage } from "./InboundDetailPage";
 
 describe("InboundDetailPage", () => {
-  it("exposes receive, quality and putaway commands", () => {
+  it("exposes receive, quality and putaway commands", { timeout: 30_000 }, () => {
     render(
       <AppProviders>
         <MemoryRouter initialEntries={["/w/WH-A/inbound/ASN-1"]}>

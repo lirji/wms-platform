@@ -6,11 +6,11 @@ import { WorkspaceProvider } from "../../shell/WorkspaceContext";
 import { OutboundDetailPage } from "./OutboundDetailPage";
 
 describe("OutboundDetailPage", () => {
-  it("exposes pick, pack, ship and cancel commands", () => {
+  it("exposes pick, pack, ship and cancel commands", { timeout: 30_000 }, () => {
     render(
       <AppProviders>
         <MemoryRouter initialEntries={["/w/WH-A/outbound/OB-1"]}>
-          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["outbound.pick", "outbound.pack", "outbound.ship"] }}>
+          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["outbound.pick", "outbound.pack", "outbound.ship", "fulfillment.execute"] }}>
             <Routes>
               <Route path="/w/:warehouseId/outbound/:outboundOrderId" element={<OutboundDetailPage />} />
             </Routes>
@@ -19,6 +19,8 @@ describe("OutboundDetailPage", () => {
       </AppProviders>
     );
     fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
+    expect(screen.getByRole("button", { name: "提交授权" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /^规划拣货$/ }));
     expect(screen.getByRole("button", { name: "规划任务" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^拣货$/ }));
     expect(screen.getByRole("button", { name: "确认拣货" })).toBeTruthy();

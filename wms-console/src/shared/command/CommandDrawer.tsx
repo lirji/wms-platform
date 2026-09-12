@@ -60,7 +60,6 @@ export function CommandDrawer({
         open={open}
         onClose={requestClose}
         destroyOnHidden={false}
-        forceRender
       >
         {hint ? <p style={{ color: "rgba(0,0,0,0.45)", marginTop: 0 }}>{hint}</p> : null}
         <DirtyFormContext.Provider value={setDirty}>

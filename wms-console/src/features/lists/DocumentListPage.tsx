@@ -33,6 +33,7 @@ export function DocumentListPage({
   createHint,
   createScope,
   create,
+  actions,
   queryKey = "q",
   cursorKey = "cursor",
   secondary
@@ -49,6 +50,7 @@ export function DocumentListPage({
   createHint?: string;
   createScope?: string | string[];
   create?: ReactNode;
+  actions?: ReactNode;
   queryKey?: string;
   cursorKey?: string;
   secondary?: boolean;
@@ -157,6 +159,7 @@ export function DocumentListPage({
                 {create}
               </CommandDrawer>
             ) : null}
+            {actions}
           </Flex>
         )}
       />

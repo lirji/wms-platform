@@ -27,7 +27,8 @@ public final class WarehouseMigrationService {
     static final List<String> COPY_TABLES = List.of("warehouse", "location", "location_gate", "lot", "stock_balance",
             "stock_ledger", "reservation", "reservation_line", "outbox_event", "command_dedup", "write_idempotency",
             "stock_effect", "stock_effect_attempt", "stock_command", "stock_posting", "execution_permit",
-            "execution_claim", "local_serial", "quality_qualification", "job_run", "job_shard");
+            "execution_claim", "local_serial", "quality_qualification", "job_run", "job_shard",
+            "warehouse_move", "stock_hold", "warehouse_adjustment");
 
     private final SqlSession source;
     private final JdbcTemplate sourceJdbc;

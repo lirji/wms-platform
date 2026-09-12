@@ -70,12 +70,37 @@ export function FulfillmentDetailPage() {
               <Form.Item label="单位" name="baseUnit" initialValue="EA"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
+          <CommandCol title="请求取消履约" requireScope="fulfillment.cancel">
+            <CommandCard
+              embedded
+              danger
+              requireScope="fulfillment.cancel"
+              title="请求取消履约"
+              hint="202 只表示已受理。不会回滚已确认的 TC，也不会写成 ALLOCATED。"
+              operation={`cancel:${fulfillmentId}`}
+              submitLabel="请求取消"
+              disabled={!token}
+              onDone={reload}
+              onRun={(key, values) => api(`/api/wms/v1/fulfillments/${fulfillmentId}/cancellations`, token, {
+                method: "POST",
+                idempotencyKey: key,
+                body: {
+                  reason: values.reason,
+                  expectedVersion: Number(values.expectedVersion || field(record, "version") || "0"),
+                  clientOperationId: key
+                }
+              })}
+            >
+              <Form.Item label="expectedVersion" name="expectedVersion"><Input placeholder="默认用当前单据 version" /></Form.Item>
+              <Form.Item label="原因" name="reason"><Input /></Form.Item>
+            </CommandCard>
+          </CommandCol>
           <CommandCol title="生成本仓出库单" requireScope="fulfillment.execute">
             <CommandCard
               embedded
               requireScope="fulfillment.execute"
               title="生成本仓出库单"
-              hint="进入拣货前必须有执行授权。跨仓未 ALLOCATED 时服务端仍可能拒绝后续库存同步。"
+              hint="不要编造执行授权。空着会建成待授权出库单；核验 TCC Committed 后再授权。跨仓未 ALLOCATED 时服务端仍可能拒绝后续库存同步。"
               operation={`outbound-from:${fulfillmentId}:${warehouseId}`}
               submitLabel="创建出库单"
               disabled={!token}
@@ -87,7 +112,7 @@ export function FulfillmentDetailPage() {
                   allocationId: values.allocationId || field(record, "activeAttemptId") || fulfillmentId,
                   attemptId: values.attemptId || field(record, "activeAttemptId") || key,
                   ownerId: values.ownerId || "OWNER-1",
-                  authorizationId: values.authorizationId || `AUTH-${key}`,
+                  authorizationId: values.authorizationId || undefined,
                   lines: [{
                     orderLineId: values.orderLineId,
                     skuId: values.skuId,
@@ -99,7 +124,7 @@ export function FulfillmentDetailPage() {
             >
               <Form.Item label="allocationId" name="allocationId"><Input placeholder="默认用活动 attempt" /></Form.Item>
               <Form.Item label="attemptId" name="attemptId"><Input /></Form.Item>
-              <Form.Item label="执行授权" name="authorizationId"><Input placeholder="没有则按本次命令生成" /></Form.Item>
+              <Form.Item label="执行授权" name="authorizationId"><Input placeholder="有真实授权再填，否则留空待核验" /></Form.Item>
               <Form.Item label="货主" name="ownerId" initialValue="OWNER-1"><Input /></Form.Item>
               <Form.Item label="出库行" name="orderLineId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>

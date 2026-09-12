@@ -32,6 +32,9 @@ public final class InventoryCodes {
     public static final String REASON_MOVE_OUT = "MOVE_OUT";
     public static final String REASON_MOVE_IN = "MOVE_IN";
     public static final String REASON_SHIP = "SHIP";
+    public static final String REASON_HOLD = "HOLD";
+    public static final String REASON_RELEASE_HOLD = "RELEASE_HOLD";
+    public static final String REASON_ADJUST = "ADJUST";
 
     public static final String AGGREGATE_STOCK_BALANCE = "STOCK_BALANCE";
     public static final String AGGREGATE_RESERVATION = "RESERVATION";

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.domain.infrastructure.DomainCommandMapper">
+
+    <!-- 同仓移库单据，按命令键幂等 -->
+    <insert id="insertMoveIgnore">
+        INSERT IGNORE INTO warehouse_move (
+            id, enterprise_id, warehouse_id, client_operation_id, source_balance_id, target_location_id,
+            target_balance_id, qty, unit, reason, actor_id, operation_id, state, version, created_at, updated_at
+        ) VALUES (
+            #{id}, #{enterpriseId}, #{warehouseId}, #{clientOperationId}, #{sourceBalanceId}, #{targetLocationId},
+            #{targetBalanceId}, #{qty}, #{unit}, #{reason}, #{actorId}, #{operationId}, #{state}, 0, #{now}, #{now}
+        )
+    </insert>
+
+    <select id="getMoveByKey" resultType="map">
+        SELECT id, source_balance_id, target_location_id, target_balance_id, qty, unit, reason, operation_id, state,
+               version
+        FROM warehouse_move
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId}
+          AND client_operation_id = #{clientOperationId}
+    </select>
+
+    <insert id="insertHoldIgnore">
+        INSERT IGNORE INTO stock_hold (
+            id, enterprise_id, warehouse_id, client_operation_id, balance_id, location_id, sku_id, lot_id, qty,
+            reason, evidence_refs, actor_id, operation_id, state, version, created_at, updated_at
+        ) VALUES (
+            #{id}, #{enterpriseId}, #{warehouseId}, #{clientOperationId}, #{balanceId}, #{locationId}, #{skuId},
+            #{lotId}, #{qty}, #{reason}, CAST(#{evidenceRefs} AS JSON), #{actorId}, #{operationId}, #{state}, 0,
+            #{now}, #{now}
+        )
+    </insert>
+
+    <select id="getHoldByKey" resultType="map">
+        SELECT id, balance_id, location_id, sku_id, lot_id, qty, reason, operation_id, state, version
+        FROM stock_hold
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId}
+          AND client_operation_id = #{clientOperationId}
+    </select>
+
+    <select id="lockHold" resultType="map">
+        SELECT id, balance_id, location_id, sku_id, lot_id, qty, reason, operation_id, release_operation_id, state,
+               version
+        FROM stock_hold
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{holdId}
+        FOR UPDATE
+    </select>
+
+    <!-- 仅 OPEN 且版本匹配才能释放，禁止解冻盘点门禁 -->
+    <update id="casReleaseHold">
+        UPDATE stock_hold
+        SET state = 'RELEASED', released_by = #{releasedBy}, release_reason = #{releaseReason},
+            release_operation_id = #{releaseOperationId}, version = version + 1, updated_at = #{now}
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{holdId}
+          AND state = 'OPEN' AND version = #{expectedVersion}
+    </update>
+
+    <insert id="insertAdjustmentIgnore">
+        INSERT IGNORE INTO warehouse_adjustment (
+            id, enterprise_id, warehouse_id, client_operation_id, count_line_id, balance_id, delta_qty, reason,
+            evidence_refs, actor_id, state, version, created_at, updated_at
+        ) VALUES (
+            #{id}, #{enterpriseId}, #{warehouseId}, #{clientOperationId}, #{countLineId}, #{balanceId}, #{deltaQty},
+            #{reason}, CAST(#{evidenceRefs} AS JSON), #{actorId}, #{state}, 0, #{now}, #{now}
+        )
+    </insert>
+
+    <select id="getAdjustmentByKey" resultType="map">
+        SELECT id, count_line_id, balance_id, delta_qty, reason, decision, apply_operation_id, state, version
+        FROM warehouse_adjustment
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId}
+          AND client_operation_id = #{clientOperationId}
+    </select>
+
+    <select id="lockAdjustment" resultType="map">
+        SELECT id, count_line_id, balance_id, delta_qty, reason, decision, apply_operation_id, state, version
+        FROM warehouse_adjustment
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{adjustmentId}
+        FOR UPDATE
+    </select>
+
+    <select id="getAdjustment" resultType="map">
+        SELECT id, count_line_id, balance_id, delta_qty, reason, decision, decided_by, apply_operation_id, state,
+               version, created_at
+        FROM warehouse_adjustment
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{adjustmentId}
+    </select>
+
+    <!-- 读多列表无 L1+L2：与现有盘点/库存查询一致，库是写权威；TP99 unverified -->
+    <select id="listAdjustments" resultType="map">
+        SELECT id, count_line_id, balance_id, delta_qty, reason, decision, state, version, created_at
+        FROM warehouse_adjustment
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId}
+        <if test="cursor != null and cursor != ''">
+            AND id &gt; #{cursor}
+        </if>
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <update id="casAdjustmentDecision">
+        UPDATE warehouse_adjustment
+        SET decision = #{decision}, decided_by = #{decidedBy}, decision_reason = #{decisionReason},
+            state = #{state}, version = version + 1, updated_at = #{now}
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{adjustmentId}
+          AND state = 'DRAFT' AND version = #{expectedVersion}
+    </update>
+
+    <update id="casAdjustmentApplied">
+        UPDATE warehouse_adjustment
+        SET apply_operation_id = #{applyOperationId}, state = 'APPLIED', version = version + 1, updated_at = #{now}
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{adjustmentId}
+          AND state = 'APPROVED' AND version = #{expectedVersion}
+    </update>
+</mapper>

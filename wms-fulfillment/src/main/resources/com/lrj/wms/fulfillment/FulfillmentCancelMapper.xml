@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.FulfillmentCancelMapper">
+
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO fulfillment_cancellation (
+            id, enterprise_id, fulfillment_id, client_operation_id, attempt_id, reason, actor_id, state, version,
+            created_at, updated_at
+        ) VALUES (
+            #{id}, #{enterpriseId}, #{fulfillmentId}, #{clientOperationId}, #{attemptId}, #{reason}, #{actorId},
+            #{state}, 0, #{now}, #{now}
+        )
+    </insert>
+
+    <select id="getByKey" resultType="map">
+        SELECT id, fulfillment_id, attempt_id, reason, state, version
+        FROM fulfillment_cancellation
+        WHERE enterprise_id = #{enterpriseId} AND client_operation_id = #{clientOperationId}
+    </select>
+
+    <!-- 只打取消请求，不改 attempt 业务态，更不写 ALLOCATED -->
+    <update id="casCancelRequested">
+        UPDATE allocation_attempt
+        SET cancel_requested = 1, version = version + 1, updated_at = #{now}
+        WHERE enterprise_id = #{enterpriseId} AND id = #{attemptId} AND cancel_requested = 0
+    </update>
+</mapper>

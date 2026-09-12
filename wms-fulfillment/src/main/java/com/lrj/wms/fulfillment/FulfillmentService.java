@@ -59,21 +59,60 @@ public final class FulfillmentService {
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("fulfillmentId", order.get("id"));
+        body.put("id", order.get("id"));
         body.put("status", order.get("status"));
         body.put("sourceSystem", order.get("source_system"));
         body.put("sourceOrderNo", order.get("source_order_no"));
         body.put("activeAttemptId", order.get("active_attempt_id"));
+        body.put("version", order.get("version"));
         body.put("lines", mapper.lockLines(enterpriseId, fulfillmentId));
         Object attemptId = order.get("active_attempt_id");
         if (attemptId != null && !String.valueOf(attemptId).isBlank()) {
             Map<String, Object> attempt = mapper.lockAttempt(enterpriseId, String.valueOf(attemptId));
             body.put("attemptState", attempt == null ? null : attempt.get("state"));
             body.put("tcObservedStatus", attempt == null ? null : attempt.get("tc_observed_status"));
+            body.put("cancelRequested", attempt != null && cancelRequested(attempt.get("cancel_requested")));
             body.put("participants", mapper.listParticipants(enterpriseId, String.valueOf(attemptId)));
         } else {
+            body.put("cancelRequested", false);
             body.put("participants", List.of());
         }
         return body;
+    }
+
+    /**
+     * 受理取消。只打 cancel_requested，不改 attempt 业务态，不发明 ALLOCATED 或 TC Cancel。
+     */
+    public Map<String, Object> requestCancel(String enterpriseId, String fulfillmentId, String clientOperationId,
+            String reason, Long expectedVersion, String actorId) {
+        requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
+        requireId(fulfillmentId, "RESOURCE_NOT_FOUND", "履约单不能为空");
+        requireId(clientOperationId, "INVALID_ARGUMENT", "命令键不能为空");
+        requireId(actorId, "INVALID_ACTOR", "操作人不能为空");
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        FulfillmentCancelMapper cancels = session.getMapper(FulfillmentCancelMapper.class);
+        Map<String, Object> existing = cancels.getByKey(enterpriseId, clientOperationId);
+        if (existing != null) {
+            if (!fulfillmentId.equals(String.valueOf(existing.get("fulfillment_id")))) {
+                throw new FulfillmentException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键取消内容不一致");
+            }
+            return cancelView(existing, mapper.lockOrder(enterpriseId, fulfillmentId));
+        }
+        Map<String, Object> order = mapper.lockOrder(enterpriseId, fulfillmentId);
+        if (order == null) {
+            throw new FulfillmentException("RESOURCE_NOT_FOUND", "履约单不存在");
+        }
+        if (expectedVersion != null && expectedVersion.longValue() != ((Number) order.get("version")).longValue()) {
+            throw new FulfillmentException("VERSION_CONFLICT", "履约单版本冲突");
+        }
+        String attemptId = nullable(order.get("active_attempt_id"));
+        Timestamp now = now();
+        cancels.insertIgnore(UUID.randomUUID().toString(), enterpriseId, fulfillmentId, clientOperationId, attemptId,
+                reason, actorId, "CANCEL_REQUESTED", now);
+        if (attemptId != null) {
+            cancels.casCancelRequested(enterpriseId, attemptId, now);
+        }
+        return cancelView(cancels.getByKey(enterpriseId, clientOperationId), mapper.lockOrder(enterpriseId, fulfillmentId));
     }
 
     public List<Map<String, Object>> list(String enterpriseId, int limit) {
@@ -639,6 +678,7 @@ public final class FulfillmentService {
         body.put("allocationDigest", attempt.get("allocation_digest"));
         body.put("launchEpoch", attempt.get("launch_epoch"));
         body.put("launchOwner", attempt.get("launch_owner"));
+        body.put("cancelRequested", cancelRequested(attempt.get("cancel_requested")));
         List<String> warehouses = new ArrayList<>();
         List<Map<String, Object>> branches = new ArrayList<>();
         for (Map<String, Object> participant : participants) {
@@ -708,8 +748,32 @@ public final class FulfillmentService {
         return qty;
     }
 
+    private static Map<String, Object> cancelView(Map<String, Object> cancellation, Map<String, Object> order) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cancellationId", cancellation.get("id"));
+        body.put("fulfillmentId", cancellation.get("fulfillment_id"));
+        body.put("attemptId", cancellation.get("attempt_id"));
+        body.put("status", cancellation.get("state"));
+        body.put("operationId", cancellation.get("id"));
+        if (order != null) {
+            body.put("orderStatus", order.get("status"));
+            body.put("activeAttemptId", order.get("active_attempt_id"));
+        }
+        return body;
+    }
+
+    private static boolean cancelRequested(Object value) {
+        if (value instanceof Boolean flag) {
+            return flag;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() == 1;
+        }
+        return "1".equals(String.valueOf(value)) || "true".equalsIgnoreCase(String.valueOf(value));
+    }
+
     private static String nullable(Object value) {
-        return value == null ? null : String.valueOf(value);
+        return value == null || String.valueOf(value).isBlank() ? null : String.valueOf(value);
     }
 
     private static boolean isDuplicate(Throwable error) {

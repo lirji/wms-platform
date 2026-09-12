@@ -503,6 +503,87 @@ public final class InventoryApplicationService {
                 delta.negate(), documentId, actorId, now);
     }
 
+    /**
+     * 库存限制：增加 reserved，降低可分配量。不是盘点冻结，也不写 TCC 预占头。
+     */
+    public void hold(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
+            String balanceId, Quantity qty) {
+        requirePositive(qty);
+        requireWritable(enterpriseId, warehouseId);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_HOLD, operationId,
+                CommandDigest.v1Parts(InventoryCodes.REASON_HOLD, documentId, balanceId, qty.toPlainString()))) {
+            return;
+        }
+        InventoryMapper mapper = mapper();
+        Timestamp now = now();
+        Map<String, Object> balance = mapper.lockBalanceById(enterpriseId, warehouseId, balanceId);
+        if (balance == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
+        }
+        requireGate(mapper, enterpriseId, warehouseId, String.valueOf(balance.get("location_id")),
+                InventoryCodes.CMD_NORMAL_MUTATION);
+        apply(mapper, enterpriseId, warehouseId, balanceId, BigDecimal.ZERO, qty.toBigDecimal(),
+                longValue(balance.get("version")), now, "STOCK_INSUFFICIENT", "可限制量不足");
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, bucketOf(enterpriseId, warehouseId, balance),
+                InventoryCodes.REASON_HOLD, BigDecimal.ZERO, qty.toBigDecimal(), documentId, actorId, now);
+    }
+
+    /** 释放库存限制：扣减 reserved。不能用来取消 TCC 预占。 */
+    public void releaseHold(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
+            String balanceId, Quantity qty) {
+        requirePositive(qty);
+        requireWritable(enterpriseId, warehouseId);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RELEASE_HOLD, operationId,
+                CommandDigest.v1Parts(InventoryCodes.REASON_RELEASE_HOLD, documentId, balanceId, qty.toPlainString()))) {
+            return;
+        }
+        InventoryMapper mapper = mapper();
+        Timestamp now = now();
+        Map<String, Object> balance = mapper.lockBalanceById(enterpriseId, warehouseId, balanceId);
+        if (balance == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
+        }
+        requireGate(mapper, enterpriseId, warehouseId, String.valueOf(balance.get("location_id")),
+                InventoryCodes.CMD_NORMAL_MUTATION);
+        apply(mapper, enterpriseId, warehouseId, balanceId, BigDecimal.ZERO, qty.toBigDecimal().negate(),
+                longValue(balance.get("version")), now, "STOCK_INSUFFICIENT", "可释放限制不足");
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, bucketOf(enterpriseId, warehouseId, balance),
+                InventoryCodes.REASON_RELEASE_HOLD, BigDecimal.ZERO, qty.toBigDecimal().negate(), documentId, actorId,
+                now);
+    }
+
+    /** 独立调整实物。未审批不得调用；盘点冻结位应走 count-plan 应用。 */
+    public void adjust(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
+            String balanceId, Quantity delta) {
+        InventoryPolicy.requireNonNegative("absDelta", Quantity.of(delta.toBigDecimal().abs(), delta.scale()));
+        if (delta.isZero()) {
+            throw new InventoryException("INVALID_QUANTITY", "调整增量不能为0");
+        }
+        requireWritable(enterpriseId, warehouseId);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_ADJUST, operationId,
+                CommandDigest.v1Parts(InventoryCodes.REASON_ADJUST, documentId, balanceId, delta.toPlainString()))) {
+            return;
+        }
+        InventoryMapper mapper = mapper();
+        Timestamp now = now();
+        Map<String, Object> balance = mapper.lockBalanceById(enterpriseId, warehouseId, balanceId);
+        if (balance == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
+        }
+        requireGate(mapper, enterpriseId, warehouseId, String.valueOf(balance.get("location_id")),
+                InventoryCodes.CMD_NORMAL_MUTATION);
+        apply(mapper, enterpriseId, warehouseId, balanceId, delta.toBigDecimal(), BigDecimal.ZERO,
+                longValue(balance.get("version")), now, "STOCK_INSUFFICIENT", "调整后占用将超过实物");
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, bucketOf(enterpriseId, warehouseId, balance),
+                InventoryCodes.REASON_ADJUST, delta.toBigDecimal(), BigDecimal.ZERO, documentId, actorId, now);
+    }
+
+    private static StockBucketKey bucketOf(String enterpriseId, String warehouseId, Map<String, Object> balance) {
+        return StockBucketKey.of(enterpriseId, warehouseId, String.valueOf(balance.get("owner_id")),
+                String.valueOf(balance.get("location_id")), String.valueOf(balance.get("sku_id")),
+                String.valueOf(balance.get("lot_id")), String.valueOf(balance.get("quality_code")));
+    }
+
     private void apply(InventoryMapper mapper, String enterpriseId, String warehouseId, String balanceId,
             BigDecimal onHandDelta, BigDecimal reservedDelta, long version, Timestamp now, String code, String message) {
         int updated = mapper.casAdjust(enterpriseId, warehouseId, balanceId, onHandDelta, reservedDelta, BigDecimal.ZERO,

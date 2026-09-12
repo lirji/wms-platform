@@ -1,5 +1,6 @@
 package com.lrj.wms.fulfillment;
 
+import com.lrj.wms.security.ScopeForbiddenException;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.math.BigDecimal;
@@ -68,6 +69,25 @@ public class FulfillmentWorkbenchController {
                     longValue(body.get("strategyVersion"), 1));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
+        }
+    }
+
+    @PostMapping("/fulfillments/{fulfillmentId}/cancellations")
+    public ResponseEntity<Map<String, Object>> cancelFulfillment(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String fulfillmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        WmsJwtAuthorities.requireScope(jwt, "fulfillment.cancel");
+        String key = firstNonBlank(text(body, "clientOperationId"), idempotencyKey);
+        try (SqlSession session = sessions.openSession(false)) {
+            Map<String, Object> result = new FulfillmentService(session, Clock.systemUTC()).requestCancel(
+                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, key, text(body, "reason"),
+                    body.get("expectedVersion") == null ? null : longValue(body.get("expectedVersion"), 0),
+                    jwt.getSubject());
+            session.commit();
+            Map<String, Object> accepted = accepted(result, "CANCEL_REQUESTED");
+            accepted.put("statusUrl", "/api/wms/v1/fulfillments/" + fulfillmentId);
+            accepted.put("stockSyncStatus", "NOT_APPLICABLE");
+            return ResponseEntity.accepted().body(accepted);
         }
     }
 
@@ -195,6 +215,11 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    @ExceptionHandler(ScopeForbiddenException.class)
+    ResponseEntity<Map<String, Object>> scope(ScopeForbiddenException error) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(HttpJson.error("SCOPE_FORBIDDEN", "缺少作业权限"));
+    }
+
     @ExceptionHandler(WarehouseForbiddenException.class)
     ResponseEntity<Map<String, Object>> forbidden(WarehouseForbiddenException error) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(HttpJson.error("WAREHOUSE_FORBIDDEN", "无权访问该仓"));
@@ -206,7 +231,8 @@ public class FulfillmentWorkbenchController {
                 : ((TransferException) error).code();
         HttpStatus status = switch (code) {
             case "RESOURCE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "ORDER_CONFLICT", "TRANSFER_CONFLICT", "VERSION_CONFLICT" -> HttpStatus.CONFLICT;
+            case "ORDER_CONFLICT", "TRANSFER_CONFLICT", "VERSION_CONFLICT", "IDEMPOTENCY_PAYLOAD_MISMATCH" ->
+                HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(code, error.getMessage()));

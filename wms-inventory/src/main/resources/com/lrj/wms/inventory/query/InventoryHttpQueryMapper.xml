@@ -4,7 +4,7 @@
 <mapper namespace="com.lrj.wms.inventory.query.InventoryHttpQueryMapper">
 
     <select id="getBalance" resultType="map">
-        SELECT id, sku_id, lot_id, location_id, quality_code, on_hand_qty, reserved_qty, version
+        SELECT id, owner_id, sku_id, lot_id, location_id, quality_code, on_hand_qty, reserved_qty, version
         FROM stock_balance
         WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{balanceId}
     </select>

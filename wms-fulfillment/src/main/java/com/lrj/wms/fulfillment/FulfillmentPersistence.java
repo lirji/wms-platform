@@ -37,6 +37,7 @@ class FulfillmentPersistence {
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway) {
         Configuration config = new Configuration(new Environment("fulfillment", new JdbcTransactionFactory(), dataSource));
         config.addMapper(FulfillmentMapper.class);
+        config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
