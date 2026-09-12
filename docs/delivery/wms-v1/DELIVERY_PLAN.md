@@ -113,7 +113,7 @@ v1 范围：基础资料、入库质检上架、库存预占/释放/冻结、批
 - S1-01 `wms-inventory/masterdata`：实现仓、库位、门禁、SKU、单位版本和批次，迁移 `wms-inventory/src/main/resources/db/migration/V001__warehouse_masterdata.sql`；表/每列中文注释。
 - S1-02 接入已确认的 OIDC 资源服务器：issuer/client/权限映射用环境配置指向已有提供方，不在仓库写死密钥；认证集成失败不能在共享测试环境回退免认证。未指定具体 IdP 产品。
 - S1-03 `wms-contract/src/main/resources/openapi/wms-v1.yaml`：落实接口、schema、错误、分页、状态和幂等头；生成契约测试。
-- S1-04 `scripts/seed-local.*`：幂等写入2仓、普通/批次/序列号/临期/过期SKU、权限账户映射和基础库位；仅作用于显式测试库。
+- S1-04 `scripts/seed-local.*`：幂等写入2仓、普通/批次/序列号/临期/过期SKU、权限账户映射、基础库位、开账库存投影、草稿盘点，以及入出库/履约/调拨演示单；attempt 只写 PLANNED；仅作用于显式测试库。
 - S1-05 用测试身份验证越权、单位换算、效期字段和数据库种子复跑，提交该完整切片。
 
 - S1-06 细化每动作事实身份、digestVersion规范及effect/attempt查询/重授权契约，验证未来版本适配不会随机生成业务身份。

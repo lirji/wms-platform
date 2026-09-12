@@ -1,8 +1,16 @@
 package com.lrj.wms.inventory.masterdata;
 
+import com.lrj.wms.inventory.count.CountMapper;
+import com.lrj.wms.inventory.count.CountService;
+import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
+import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.masterdata.infrastructure.SeedStockMapper;
+import com.lrj.wms.inventory.query.InventoryProjectionService;
+import com.lrj.wms.inventory.query.ProjectionMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -63,15 +71,22 @@ public final class SeedLocal {
                 seedLocations(service, warehouse.id());
                 seedLots(service, warehouse.id(), now);
                 seedGrants(session.getMapper(MasterdataMapper.class), warehouse.id(), now);
+                seedOpeningStock(session, warehouse.id(), now);
+                seedDraftCount(session, clock, warehouse.id());
             }
             session.commit();
             MasterdataMapper mapper = session.getMapper(MasterdataMapper.class);
+            SeedStockMapper stock = session.getMapper(SeedStockMapper.class);
             Map<String, Integer> counts = new LinkedHashMap<>();
             counts.put("warehouses", mapper.countWarehouses(SeedCatalog.ENTERPRISE));
             counts.put("skus", mapper.countSkus(SeedCatalog.ENTERPRISE));
             counts.put("skuUnits", mapper.countSkuUnits(SeedCatalog.ENTERPRISE));
             counts.put("lots", mapper.countLots(SeedCatalog.ENTERPRISE));
             counts.put("grants", mapper.countGrants(SeedCatalog.ENTERPRISE));
+            counts.put("balances", stock.countBalances(SeedCatalog.ENTERPRISE));
+            counts.put("ledgers", stock.countLedgers(SeedCatalog.ENTERPRISE));
+            counts.put("views", stock.countViews(SeedCatalog.ENTERPRISE));
+            counts.put("countPlans", stock.countPlans(SeedCatalog.ENTERPRISE));
             return counts;
         }
     }
@@ -113,6 +128,37 @@ public final class SeedLocal {
                 SeedCatalog.alreadyExpired(now), null, 0);
     }
 
+    /** 开账余额 + 流水 + 当前世代投影。复跑保持原数量。 */
+    private static void seedOpeningStock(SqlSession session, String warehouseId, Instant now) {
+        Timestamp ts = Timestamp.from(now);
+        SeedStockMapper stock = session.getMapper(SeedStockMapper.class);
+        ProjectionMapper views = session.getMapper(ProjectionMapper.class);
+        views.insertCheckpointIgnore(warehouseId + "-INV-VIEW", SeedCatalog.ENTERPRISE, warehouseId,
+                InventoryProjectionService.NAME, ts);
+        Map<String, Object> checkpoint = views.lockCheckpoint(SeedCatalog.ENTERPRISE, warehouseId,
+                InventoryProjectionService.NAME);
+        long generation = checkpoint == null ? 0L : ((Number) checkpoint.get("live_generation")).longValue();
+        for (SeedCatalog.StockSeed seed : SeedCatalog.stocks()) {
+            String balanceId = seed.balanceId(warehouseId);
+            stock.insertBalanceIgnore(balanceId, SeedCatalog.ENTERPRISE, warehouseId, SeedCatalog.OWNER,
+                    seed.locationId(warehouseId), seed.skuId(), seed.lotId(warehouseId), seed.qualityCode(),
+                    seed.onHandQty(), ts);
+            stock.insertLedgerIgnore("LED-" + balanceId, SeedCatalog.ENTERPRISE, warehouseId, "OP-" + balanceId,
+                    balanceId, seed.onHandQty(), InventoryCodes.REASON_RECEIVE, SeedCatalog.OPENING_DOCUMENT,
+                    SeedCatalog.ACTOR, ts);
+            stock.insertViewIgnore(balanceId, SeedCatalog.ENTERPRISE, warehouseId, generation, SeedCatalog.OWNER,
+                    seed.locationId(warehouseId), seed.skuId(), seed.lotId(warehouseId), seed.qualityCode(),
+                    seed.onHandQty(), ts);
+        }
+    }
+
+    /** 草稿盘点，不排空不冻结门禁。 */
+    private static void seedDraftCount(SqlSession session, Clock clock, String warehouseId) {
+        new CountService(session, clock).create(SeedCatalog.ENTERPRISE, warehouseId,
+                SeedCatalog.countPlanId(warehouseId), CountService.REASON_COUNT,
+                List.of(SeedCatalog.storageLocation(warehouseId)));
+    }
+
     private static void seedGrants(MasterdataMapper mapper, String warehouseId, Instant now) {
         java.sql.Timestamp ts = java.sql.Timestamp.from(now);
         String operator = warehouseId.equals(SeedCatalog.WAREHOUSE_A) ? "wms-wh-a" : "wms-wh-b";
@@ -128,6 +174,10 @@ public final class SeedLocal {
     private static SqlSessionFactory sessions(DataSource dataSource) {
         Configuration config = new Configuration(new Environment("seed", new JdbcTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
+        config.addMapper(InventoryMapper.class);
+        config.addMapper(CountMapper.class);
+        config.addMapper(ProjectionMapper.class);
+        config.addMapper(SeedStockMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 

@@ -24,6 +24,7 @@
 
 ## 本轮
 
+- 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。
 - `requireWritable` 不再把分片未声明/缺表伪装成停写；`TccFenceShardingIT` 纳入 `warehouse_route`。
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。

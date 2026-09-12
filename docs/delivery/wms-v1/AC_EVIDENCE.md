@@ -40,7 +40,7 @@
 | AC-28 | local-pass | `WarehouseMigrationIT` 两 MySQL 全量/增量/切 epoch/旧写拒绝 | 无生产停写窗口（OQ-06） |
 | AC-29 | local-pass | `CompatibilityMatrixIT`/`CompatibilityGateTest`/`verify-contracts.sh` | 无生产滚动升级/开关演练现场 |
 | AC-30 | local-pass | `IsolatedRestoreIT` 第二库恢复并打印 localRtoMs/localRpoMs | 不是签署生产 RTO/RPO |
-| AC-31 | local-pass | `SeedReplayIT` + `seed-local.sh` | console 演示数据网络检查 |
+| AC-31 | local-pass | `SeedReplayIT` / 入出库履约 ReplayIT + `seed-local.sh` | console 演示数据网络检查 |
 | AC-32 | local-pass | CI `warehouse-it`/`failure-it` 无文件则失败；`check-required-its.py` 禁止 skip | 远程 runner 最终证明 |
 | AC-33 | local-pass | 三库账号/独立进程 smoke | 独立发布负例 |
 | AC-34 | local-pass | T1/T2/T3 协议 IT | 跨进程崩溃现场 |

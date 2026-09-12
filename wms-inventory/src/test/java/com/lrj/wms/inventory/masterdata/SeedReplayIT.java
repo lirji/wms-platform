@@ -57,7 +57,12 @@ class SeedReplayIT {
         assertEquals(6, first.get("skuUnits"));
         assertEquals(6, first.get("lots"));
         assertEquals(8, first.get("grants"));
+        assertEquals(8, first.get("balances"));
+        assertEquals(8, first.get("ledgers"));
+        assertEquals(8, first.get("views"));
+        assertEquals(2, first.get("countPlans"));
         assertCasePackAndExpiry(clock);
+        assertOpeningStock();
     }
 
     private static void assertCasePackAndExpiry(Clock clock) {
@@ -96,6 +101,40 @@ class SeedReplayIT {
                 assertTrue(stdRow.next());
                 assertEquals(null, stdRow.getTimestamp("expires_at"));
                 assertEquals(null, stdRow.getTimestamp("produced_at"));
+            }
+        } catch (Exception ex) {
+            throw new AssertionError(ex);
+        }
+    }
+
+    private static void assertOpeningStock() {
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement balance = connection.prepareStatement(
+                        "SELECT on_hand_qty, reserved_qty, quality_code FROM stock_balance WHERE enterprise_id=? "
+                                + "AND warehouse_id='WH-A' AND sku_id='SKU-STD' AND lot_id='NO_LOT'");
+                PreparedStatement expired = connection.prepareStatement(
+                        "SELECT quality_code, on_hand_qty FROM stock_balance WHERE enterprise_id=? "
+                                + "AND warehouse_id='WH-A' AND sku_id='SKU-EXPIRED'");
+                PreparedStatement view = connection.prepareStatement(
+                        "SELECT on_hand_qty FROM inventory_view WHERE enterprise_id=? AND warehouse_id='WH-A' "
+                                + "AND sku_id='SKU-STD' AND lot_id='NO_LOT'")) {
+            for (PreparedStatement statement : List.of(balance, expired, view)) {
+                statement.setString(1, SeedCatalog.ENTERPRISE);
+            }
+            try (ResultSet row = balance.executeQuery()) {
+                assertTrue(row.next());
+                assertEquals(0, new BigDecimal("120").compareTo(row.getBigDecimal("on_hand_qty")));
+                assertEquals(0, BigDecimal.ZERO.compareTo(row.getBigDecimal("reserved_qty")));
+                assertEquals("GOOD", row.getString("quality_code"));
+            }
+            try (ResultSet row = expired.executeQuery()) {
+                assertTrue(row.next());
+                assertEquals("HOLD", row.getString("quality_code"));
+                assertEquals(0, new BigDecimal("6").compareTo(row.getBigDecimal("on_hand_qty")));
+            }
+            try (ResultSet row = view.executeQuery()) {
+                assertTrue(row.next());
+                assertEquals(0, new BigDecimal("120").compareTo(row.getBigDecimal("on_hand_qty")));
             }
         } catch (Exception ex) {
             throw new AssertionError(ex);

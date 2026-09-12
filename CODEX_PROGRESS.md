@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-09-12 演示种子扩围：`seed-local.sh` 幂等写入开账库存/投影、草稿盘点、入出库/履约/调拨演示单（attempt 保持 PLANNED），并写入隔离库 `18306/18307/18308`。不是 50 AC。
 - WMS S0–S7 及 S8-01/S8-04/S9-02/S9-03/S9-04/S9-06 在更早的 `origin/main`。
 - 控制台登录与 Docker 编排已在远程 main `1ca61a8`。
 - 前端架构重设计 F0–F4（2026-09-12）：单应用、仓写入 `/w/:warehouseId`、PDA `/pda/:warehouseId/receive`，无页面 Mock 表。
