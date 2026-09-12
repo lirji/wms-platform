@@ -559,3 +559,15 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | fulfillment 4 项 0 失败 | 定向 |
 
 结论：S6-01 本地 pass。不能当作 AC-16 生产通过。S6-01a 额度 token 仍 planned。
+
+## S6-01a 接收额度 token / 损耗竞争
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未发明 OQ-03。未到 S8，未创建 `wms-console/`。履约本库。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `TransferIT` | 授权 3 重放不加额度；凭 token 收 3 并映射 LOT-T；再授权 2 `OVER_QUOTA`；取消未消费 token 后损耗 1；quota=0 | fulfillment 本库 |
+| `FulfillmentPlanIT` / `FulfillmentBarrierIT` | 回归 0 失败 | V005 未破坏分配 |
+| 定向 Maven | fulfillment 4 项 0 失败 | 定向 |
+
+结论：S6-01a 本地 pass。不能当作 AC-16 生产通过。未知结果不自动回收仍靠 CANCELLED/CONSUMED 终态，不是跨库存。

@@ -89,4 +89,61 @@ public interface TransferMapper {
             + "WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} AND warehouse_id=#{warehouseId}")
     int updateLegStatus(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
             @Param("warehouseId") String warehouseId, @Param("status") String status, @Param("now") Timestamp now);
+
+    @Insert("INSERT IGNORE INTO receipt_authorization (id, enterprise_id, transfer_id, transfer_line_id, "
+            + "target_warehouse_id, target_client_operation_id, quantity, state, token_version, target_result_ref, "
+            + "version, created_at, updated_at) VALUES (#{id}, #{enterpriseId}, #{transferId}, #{lineId}, "
+            + "#{warehouseId}, #{clientOperationId}, #{qty}, 'OPEN', 1, NULL, 0, #{now}, #{now})")
+    int insertAuthIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("transferId") String transferId, @Param("lineId") String lineId,
+            @Param("warehouseId") String warehouseId, @Param("clientOperationId") String clientOperationId,
+            @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Select("SELECT id, transfer_id, transfer_line_id, target_warehouse_id, target_client_operation_id, quantity, "
+            + "state, token_version, target_result_ref FROM receipt_authorization WHERE enterprise_id=#{enterpriseId} "
+            + "AND transfer_line_id=#{lineId} AND target_client_operation_id=#{clientOperationId} FOR UPDATE")
+    Map<String, Object> lockAuthByClient(@Param("enterpriseId") String enterpriseId, @Param("lineId") String lineId,
+            @Param("clientOperationId") String clientOperationId);
+
+    @Select("SELECT id, transfer_id, transfer_line_id, target_warehouse_id, target_client_operation_id, quantity, "
+            + "state, token_version, target_result_ref FROM receipt_authorization WHERE enterprise_id=#{enterpriseId} "
+            + "AND id=#{id} FOR UPDATE")
+    Map<String, Object> lockAuth(@Param("enterpriseId") String enterpriseId, @Param("id") String id);
+
+    @Update("UPDATE transfer_line SET active_receipt_quota=active_receipt_quota+#{qty}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} AND id=#{lineId} "
+            + "AND received_qty+loss_confirmed_qty+active_receipt_quota+#{qty}<=issued_qty")
+    int addQuota(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Update("UPDATE transfer_line SET received_qty=received_qty+#{qty}, active_receipt_quota=active_receipt_quota-#{qty}, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} "
+            + "AND id=#{lineId} AND active_receipt_quota>=#{qty}")
+    int consumeQuota(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Update("UPDATE transfer_line SET active_receipt_quota=active_receipt_quota-#{qty}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} AND id=#{lineId} "
+            + "AND active_receipt_quota>=#{qty}")
+    int releaseQuota(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Update("UPDATE transfer_line SET loss_confirmed_qty=loss_confirmed_qty+#{qty}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} AND id=#{lineId} "
+            + "AND received_qty+loss_confirmed_qty+active_receipt_quota+#{qty}<=issued_qty")
+    int addLoss(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Update("UPDATE receipt_authorization SET state=#{toState}, target_result_ref=#{resultRef}, version=version+1, "
+            + "updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND id=#{id} AND state=#{fromState} "
+            + "AND token_version=#{tokenVersion}")
+    int casAuthState(@Param("enterpriseId") String enterpriseId, @Param("id") String id,
+            @Param("fromState") String fromState, @Param("toState") String toState,
+            @Param("tokenVersion") long tokenVersion, @Param("resultRef") String resultRef, @Param("now") Timestamp now);
+
+    @Update("UPDATE transfer_line SET target_lot_id=#{targetLotId}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND transfer_id=#{transferId} AND id=#{lineId} "
+            + "AND (target_lot_id IS NULL OR target_lot_id=#{targetLotId})")
+    int bindTargetLot(@Param("enterpriseId") String enterpriseId, @Param("transferId") String transferId,
+            @Param("lineId") String lineId, @Param("targetLotId") String targetLotId, @Param("now") Timestamp now);
 }

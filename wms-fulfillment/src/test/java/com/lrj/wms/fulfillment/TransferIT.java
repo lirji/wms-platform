@@ -72,22 +72,45 @@ class TransferIT {
             TransferException overIssue = assertThrows(TransferException.class,
                     () -> service.issue("ENT-1", "TR-1", "TL-1", "OP-ISSUE-2", new BigDecimal("2")));
             assertEquals("OVER_ISSUE", overIssue.code());
-            Map<String, Object> receive = service.receive("ENT-1", "TR-1", "TL-1", "OP-RCV-1", new BigDecimal("3"));
-            Map<String, Object> replayReceive = service.receive("ENT-1", "TR-1", "TL-1", "OP-RCV-1",
+            Map<String, Object> auth = service.authorizeReceipt("ENT-1", "TR-1", "TL-1", "COP-R1", new BigDecimal("3"));
+            Map<String, Object> authReplay = service.authorizeReceipt("ENT-1", "TR-1", "TL-1", "COP-R1",
                     new BigDecimal("3"));
+            assertEquals(Boolean.TRUE, authReplay.get("replayed"));
+            String authId = String.valueOf(auth.get("authorizationId"));
+            long tokenVersion = ((Number) auth.get("tokenVersion")).longValue();
+            Map<String, Object> receive = service.receive("ENT-1", "TR-1", "TL-1", "OP-RCV-1", authId, tokenVersion,
+                    new BigDecimal("3"), "LOT-T");
+            Map<String, Object> replayReceive = service.receive("ENT-1", "TR-1", "TL-1", "OP-RCV-1", authId,
+                    tokenVersion, new BigDecimal("3"), "LOT-T");
             assertEquals(Boolean.FALSE, receive.get("replayed"));
             assertEquals(Boolean.TRUE, replayReceive.get("replayed"));
-            TransferException overReceive = assertThrows(TransferException.class,
-                    () -> service.receive("ENT-1", "TR-1", "TL-1", "OP-RCV-2", new BigDecimal("2")));
-            assertEquals("OVER_RECEIVE", overReceive.code());
+            TransferException overQuota = assertThrows(TransferException.class,
+                    () -> service.authorizeReceipt("ENT-1", "TR-1", "TL-1", "COP-R2", new BigDecimal("2")));
+            assertEquals("OVER_QUOTA", overQuota.code());
+            TransferException overLoss = assertThrows(TransferException.class,
+                    () -> service.confirmLoss("ENT-1", "TR-1", "TL-1", "OP-LOSS-1", new BigDecimal("2")));
+            assertEquals("OVER_LOSS", overLoss.code());
+            Map<String, Object> cancelled = service.authorizeReceipt("ENT-1", "TR-1", "TL-1", "COP-CXL",
+                    new BigDecimal("1"));
+            service.cancelAuthorization("ENT-1", "TR-1", String.valueOf(cancelled.get("authorizationId")));
+            service.confirmLoss("ENT-1", "TR-1", "TL-1", "OP-LOSS-OK", new BigDecimal("1"));
             session.commit();
         }
         assertEquals(0, jdbc.queryForObject("SELECT issued_qty FROM transfer_line WHERE id='TL-1'", BigDecimal.class)
                 .compareTo(new BigDecimal("4.000000")));
         assertEquals(0, jdbc.queryForObject("SELECT received_qty FROM transfer_line WHERE id='TL-1'", BigDecimal.class)
                 .compareTo(new BigDecimal("3.000000")));
+        assertEquals(0, jdbc.queryForObject("SELECT loss_confirmed_qty FROM transfer_line WHERE id='TL-1'",
+                BigDecimal.class).compareTo(new BigDecimal("1.000000")));
+        assertEquals(0, jdbc.queryForObject("SELECT active_receipt_quota FROM transfer_line WHERE id='TL-1'",
+                BigDecimal.class).compareTo(BigDecimal.ZERO));
+        assertEquals("LOT-T", jdbc.queryForObject("SELECT target_lot_id FROM transfer_line WHERE id='TL-1'",
+                String.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM transfer_fact WHERE action='ISSUE'", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM transfer_fact WHERE action='RECEIVE'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM transfer_fact WHERE action='LOSS'", Integer.class));
+        assertEquals("CANCELLED", jdbc.queryForObject(
+                "SELECT state FROM receipt_authorization WHERE target_client_operation_id='COP-CXL'", String.class));
         assertEquals("IN_TRANSIT", jdbc.queryForObject(
                 "SELECT status FROM transfer_leg WHERE warehouse_id='WH-A'", String.class));
         assertEquals("RECEIVING", jdbc.queryForObject(
