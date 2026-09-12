@@ -125,6 +125,38 @@ public final class StockCommandService {
         return get(enterpriseId, warehouseId, sourceService, commandId);
     }
 
+    /** 业务拒绝未执行命令。REJECTED 永久保持，安全关闭证据另存。 */
+    public Map<String, Object> reject(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String effectId) {
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        if (effect == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "效果不存在");
+        }
+        if (effect.get("applied_command_id") != null) {
+            throw new InventoryException("EFFECT_ALREADY_APPLIED", "已过账不得拒绝为REJECTED");
+        }
+        String state = String.valueOf(effect.get("state"));
+        if (EffectCodes.STATE_STARTED.equals(state) || EffectCodes.STATE_UNKNOWN.equals(state)) {
+            throw new InventoryException("STALE_EXECUTION_ATTEMPT", "STARTED/UNKNOWN 不得业务拒绝后重做");
+        }
+        refuseIfOccupying(commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
+        Map<String, Object> row = commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId);
+        if (row == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "命令不存在");
+        }
+        if (StockCommandCodes.CMD_REJECTED.equals(String.valueOf(row.get("state")))) {
+            return view(row);
+        }
+        if (commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                StockCommandCodes.CMD_REJECTED, "{\"reason\":\"REJECTED\"}", now) != 1) {
+            throw new InventoryException("INVALID_STATE", "命令状态不可拒绝");
+        }
+        return get(enterpriseId, warehouseId, sourceService, commandId);
+    }
+
     /** 未过账命令写入安全关闭证据，效果进入 SAFE_CLOSED 后才允许下一尝试。 */
     public Map<String, Object> safeClose(String enterpriseId, String warehouseId, String sourceService, String commandId,
             String effectId) {
@@ -152,7 +184,9 @@ public final class StockCommandService {
         if (effects.casSafeClose(enterpriseId, warehouseId, effectId, commandId, now) != 1) {
             throw new InventoryException("VERSION_CONFLICT", "安全关闭冲突");
         }
-        return get(enterpriseId, warehouseId, sourceService, commandId);
+        Map<String, Object> body = get(enterpriseId, warehouseId, sourceService, commandId);
+        body.put("safeCloseRef", closeId);
+        return body;
     }
 
     /** 补偿过账：新效果引用原 posting，同 casePart 只入账一次。不改原收货余额。 */
@@ -170,18 +204,29 @@ public final class StockCommandService {
         Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
                 EffectCodes.ACTION_COMPENSATE, effectId, effect, null, digest);
-        if (reused != null) {
+        if (reused != null && !StockCommandCodes.CMD_DEFERRED.equals(String.valueOf(reused.get("state")))) {
             return view(reused);
         }
         Map<String, Object> original = commands.lockPosting(enterpriseId, warehouseId, originalPostingId);
         if (original == null) {
-            throw new InventoryException("ORIGINAL_POSTING_MISSING", "补偿必须引用原过账凭证");
+            commands.insertIgnore(enterpriseId, warehouseId, sourceService, commandId, EffectCodes.ACTION_COMPENSATE,
+                    effectId, commandId, 1L, null, digest, CommandDigest.VERSION_1, StockCommandCodes.CMD_DEFERRED, now);
+            Map<String, Object> deferred = commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId);
+            if (deferred == null) {
+                throw new InventoryException("VERSION_CONFLICT", "补偿延期竞争");
+            }
+            if (!digest.equals(String.valueOf(deferred.get("payload_digest")))) {
+                throw new InventoryException("COMMAND_CONFLICT", "同命令不同内容");
+            }
+            return view(deferred);
         }
         if (commands.addReversed(enterpriseId, warehouseId, originalPostingId, qty.toBigDecimal(), now) != 1) {
             throw new InventoryException("OVER_REVERSE", "逆向累计超过原凭证可逆量");
         }
         commands.insertIgnore(enterpriseId, warehouseId, sourceService, commandId, EffectCodes.ACTION_COMPENSATE, effectId,
                 commandId, 1L, null, digest, CommandDigest.VERSION_1, StockCommandCodes.CMD_PENDING, now);
+        commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_DEFERRED,
+                StockCommandCodes.CMD_PENDING, "{\"reason\":\"ORIGINAL_ARRIVED\"}", now);
         Map<String, Object> terminal = replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest);
         if (terminal != null) {
             return view(terminal);
@@ -282,6 +327,14 @@ public final class StockCommandService {
     public Map<String, Object> applyPick(String enterpriseId, String warehouseId, String sourceService, String commandId,
             String factParentId, String factPartId, String factLineId, String documentId, String actorId,
             String allocationId, String attemptId, StockBucketKey source, StockBucketKey target, Quantity qty) {
+        return applyPick(enterpriseId, warehouseId, sourceService, commandId, factParentId, factPartId, factLineId,
+                documentId, actorId, allocationId, attemptId, source, target, qty, null);
+    }
+
+    public Map<String, Object> applyPick(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String factParentId, String factPartId, String factLineId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey source, StockBucketKey target, Quantity qty,
+            String previousCommandId) {
         EffectCodes.requireAction(EffectCodes.ACTION_PICK);
         Timestamp now = Timestamp.from(clock.instant());
         EffectMapper effects = session.getMapper(EffectMapper.class);
@@ -292,17 +345,17 @@ public final class StockCommandService {
                 EffectCodes.FACT_SUB_ACTION, factParentId, factPartId, factLineId, now);
         Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
-                EffectCodes.ACTION_PICK, effectId, effect, null, digest);
+                EffectCodes.ACTION_PICK, effectId, effect, previousCommandId, digest);
         if (reused != null) {
             return view(reused);
         }
         long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
-                EffectCodes.ACTION_PICK, effectId, digest, null, effect, now);
+                EffectCodes.ACTION_PICK, effectId, digest, previousCommandId, effect, now);
         if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
             return get(enterpriseId, warehouseId, sourceService, commandId);
         }
         if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_OPEN,
-                now) != 1) {
+                now) != 1 && previousCommandId == null) {
             throw new InventoryException("VERSION_CONFLICT", "拣货效果冲突");
         }
         String execAttempt = UUID.randomUUID().toString();
@@ -329,6 +382,13 @@ public final class StockCommandService {
     public Map<String, Object> applyShip(String enterpriseId, String warehouseId, String sourceService, String commandId,
             String factParentId, String factPartId, String factLineId, String documentId, String actorId,
             String allocationId, String attemptId, StockBucketKey stage, Quantity qty) {
+        return applyShip(enterpriseId, warehouseId, sourceService, commandId, factParentId, factPartId, factLineId,
+                documentId, actorId, allocationId, attemptId, stage, qty, null);
+    }
+
+    public Map<String, Object> applyShip(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String factParentId, String factPartId, String factLineId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey stage, Quantity qty, String previousCommandId) {
         EffectCodes.requireAction(EffectCodes.ACTION_SHIP);
         Timestamp now = Timestamp.from(clock.instant());
         EffectMapper effects = session.getMapper(EffectMapper.class);
@@ -338,17 +398,17 @@ public final class StockCommandService {
                 EffectCodes.FACT_SHIPMENT_PART, factParentId, factPartId, factLineId, now);
         Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
-                EffectCodes.ACTION_SHIP, effectId, effect, null, digest);
+                EffectCodes.ACTION_SHIP, effectId, effect, previousCommandId, digest);
         if (reused != null) {
             return view(reused);
         }
         long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
-                EffectCodes.ACTION_SHIP, effectId, digest, null, effect, now);
+                EffectCodes.ACTION_SHIP, effectId, digest, previousCommandId, effect, now);
         if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
             return get(enterpriseId, warehouseId, sourceService, commandId);
         }
         if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_OPEN,
-                now) != 1) {
+                now) != 1 && previousCommandId == null) {
             throw new InventoryException("VERSION_CONFLICT", "发运效果冲突");
         }
         String execAttempt = UUID.randomUUID().toString();
@@ -452,6 +512,11 @@ public final class StockCommandService {
         if (!previousCommandId.equals(String.valueOf(effect.get("active_command_id")))) {
             throw new InventoryException("STALE_EXECUTION_ATTEMPT", "必须引用已安全关闭的上一命令");
         }
+        Map<String, Object> previous = commands.lockByCommand(enterpriseId, warehouseId, sourceService, previousCommandId);
+        if (previous == null || previous.get("safe_close_id") == null
+                || String.valueOf(previous.get("safe_close_id")).isBlank()) {
+            throw new InventoryException("STALE_EXECUTION_ATTEMPT", "上一命令缺少本地安全关闭证据");
+        }
         long nextNo = longValue(effect.get("attempt_no")) + 1;
         if (effects.casNextAttempt(enterpriseId, warehouseId, effectId, nextNo, commandId, EffectCodes.STATE_OPEN,
                 String.valueOf(effect.get("state")), longValue(effect.get("version")), now) != 1) {
@@ -529,6 +594,10 @@ public final class StockCommandService {
         body.put("state", row.get("state"));
         body.put("businessEffectKey", row.get("business_effect_key"));
         body.put("attemptNo", row.get("attempt_no"));
+        body.put("executionAttemptId", row.get("execution_attempt_id"));
+        if (row.get("safe_close_id") != null) {
+            body.put("safeCloseRef", row.get("safe_close_id"));
+        }
         return body;
     }
 

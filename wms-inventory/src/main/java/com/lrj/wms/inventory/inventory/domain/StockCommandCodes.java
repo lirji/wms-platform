@@ -9,6 +9,7 @@ public final class StockCommandCodes {
     public static final String CMD_APPLIED = "APPLIED";
     public static final String CMD_REJECTED = "REJECTED";
     public static final String CMD_CANCELLED = "CANCELLED";
+    public static final String CMD_DEFERRED = "DEFERRED";
 
     public static final String PERMIT_PREPARED = "PREPARED";
     public static final String PERMIT_STARTED = "STARTED";

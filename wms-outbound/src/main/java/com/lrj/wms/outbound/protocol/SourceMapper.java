@@ -88,8 +88,8 @@ public interface SourceMapper {
             @Param("commandId") String commandId, @Param("closeId") String closeId, @Param("evidence") String evidence,
             @Param("now") Timestamp now);
 
-    @Select("SELECT command_id, state, payload_digest, posting_id FROM source_command WHERE enterprise_id=#{enterpriseId} "
-            + "AND warehouse_id=#{warehouseId} AND command_id=#{commandId}")
+    @Select("SELECT command_id, state, payload_digest, posting_id, business_effect_key, safe_close_id FROM source_command "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND command_id=#{commandId}")
     Map<String, Object> getCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("commandId") String commandId);
 
@@ -129,7 +129,8 @@ public interface SourceMapper {
             @Param("now") Timestamp now);
 
     @Update("UPDATE source_effect SET applied_command_id=#{commandId}, state=#{state}, version=version+1, updated_at=#{now} "
-            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{effectId}")
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{effectId} "
+            + "AND (applied_command_id IS NULL AND active_command_id=#{commandId} OR applied_command_id=#{commandId})")
     int updateEffectApplied(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("effectId") String effectId, @Param("commandId") String commandId, @Param("state") String state,
             @Param("now") Timestamp now);

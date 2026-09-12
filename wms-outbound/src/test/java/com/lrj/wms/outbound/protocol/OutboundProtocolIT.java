@@ -66,4 +66,32 @@ class OutboundProtocolIT {
         assertEquals("CANCELLED", jdbc.queryForObject("SELECT stock_sync_status FROM source_execution WHERE command_id='CMD-OUT'",
                 String.class));
     }
+
+    @Test
+    void safeCloseReauthIgnoresLateOldReceipt() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        String effectId;
+        try (SqlSession session = sessions.openSession(false)) {
+            SourceProtocolService service = new SourceProtocolService(session, clock);
+            Map<String, Object> first = service.submitPick("ENT-1", "WH-A", "CMD-P1", "ORD-1", "TASK-1", "LINE-1",
+                    "ACTOR", new BigDecimal("3"));
+            effectId = String.valueOf(first.get("effectId"));
+            Map<String, Object> closed = service.safeClose("ENT-1", "WH-A", "CMD-P1");
+            assertEquals("CMD-P1", closed.get("commandId"));
+            assertNotNull(closed.get("safeCloseRef"));
+            Map<String, Object> next = service.submitPick("ENT-1", "WH-A", "CMD-P2", "ORD-1", "TASK-1", "LINE-1",
+                    "ACTOR", new BigDecimal("3"), "CMD-P1");
+            assertEquals("CMD-P2", next.get("commandId"));
+            service.consumeResult("ENT-1", "WH-A", "EVT-OLD", "CMD-P1", "APPLIED", "POST-OLD", new BigDecimal("3"));
+            service.consumeResult("ENT-1", "WH-A", "EVT-NEW", "CMD-P2", "APPLIED", "POST-NEW", new BigDecimal("3"));
+            session.commit();
+        }
+        assertEquals("CMD-P2", jdbc.queryForObject(
+                "SELECT applied_command_id FROM source_effect WHERE id=?", String.class, effectId));
+        assertEquals("APPLIED", jdbc.queryForObject("SELECT state FROM source_command WHERE command_id='CMD-P1'",
+                String.class));
+        assertEquals("APPLIED", jdbc.queryForObject("SELECT state FROM source_command WHERE command_id='CMD-P2'",
+                String.class));
+        System.out.println("S5_REAUTH: outbound late old receipt does not take effect applied_command_id");
+    }
 }

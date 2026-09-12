@@ -96,6 +96,8 @@ class InboundProtocolIT {
             Map<String, Object> next = service.submitReceive("ENT-1", "WH-A", "CMD-F4", "RCPT-F", "PART-F", "LINE-F",
                     "ACTOR", new BigDecimal("3"), "CMD-F1");
             assertEquals("CMD-F4", next.get("commandId"));
+            service.consumeResult("ENT-1", "WH-A", "EVT-OLD", "CMD-F1", "APPLIED", "POST-OLD", new BigDecimal("3"));
+            service.consumeResult("ENT-1", "WH-A", "EVT-NEW", "CMD-F4", "APPLIED", "POST-NEW", new BigDecimal("3"));
             session.commit();
         }
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='CMD-F1'", Integer.class));
@@ -104,5 +106,9 @@ class InboundProtocolIT {
                         + "SELECT id FROM source_effect WHERE fact_parent_id='RCPT-F' AND fact_part_id='PART-F')",
                 Integer.class));
         assertEquals(2L, jdbc.queryForObject("SELECT attempt_no FROM source_command WHERE command_id='CMD-F4'", Long.class));
+        assertEquals("CMD-F4", jdbc.queryForObject(
+                "SELECT applied_command_id FROM source_effect WHERE fact_parent_id='RCPT-F' AND fact_part_id='PART-F'",
+                String.class));
+        System.out.println("S5_REAUTH: inbound late old receipt does not take effect applied_command_id");
     }
 }

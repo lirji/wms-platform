@@ -23,13 +23,15 @@ public interface StockCommandMapper {
             @Param("digestVersion") int digestVersion, @Param("state") String state, @Param("now") Timestamp now);
 
     @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
-            + "digest_version, state FROM stock_command WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "digest_version, state, safe_close_id, previous_command_id FROM stock_command "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
             + "AND source_service=#{sourceService} AND command_id=#{commandId} FOR UPDATE")
     Map<String, Object> lockByCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId);
 
     @Select("SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, "
-            + "digest_version, state FROM stock_command WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "digest_version, state, safe_close_id, previous_command_id FROM stock_command "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
             + "AND source_service=#{sourceService} AND command_id=#{commandId}")
     Map<String, Object> getByCommand(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceService") String sourceService, @Param("commandId") String commandId);

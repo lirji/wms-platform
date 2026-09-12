@@ -519,3 +519,19 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | inventory 7 项、outbound 4 项，0 失败 | 定向 |
 
 结论：S5-04 本地黑盒 pass。不能当作 AC-13/14/15 生产链路通过。S5-05 安全关闭/重授权仍 planned。
+
+## S5-05 安全关闭、重授权、迟到命令与补偿 DEFERRED
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。同 JVM 本库，不是 HTTP/WCS/设备。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `ReauthorizationIT` 拒绝后重授权 | REJECTED 保持；`safeCloseRef` 独立；CMD-RA2 过账；迟到 CMD-RA1 仍 REJECTED 且无 posting | inventory 本库 |
+| `ReauthorizationIT` STARTED/UNKNOWN/APPLIED | `safeClose` → `STALE_EXECUTION_ATTEMPT` / `EFFECT_ALREADY_APPLIED` | 不是设备实物核验 |
+| `ReauthorizationIT` 补偿 | 原 posting 未到 DEFERRED；到达后 APPLIED；同 casePart 换键复用；超额 `OVER_REVERSE` | 补偿本库 |
+| `OutboundProtocolIT` / `InboundProtocolIT` | 迟到旧 APPLIED 不改新 effect `applied_command_id` | 来源本库 |
+| `EffectCommandUniquenessIT` / `ExecutionPermitIT` / `StockCommandIT` / `OutboundPickIT` / `OutboundDispatchIT` | 回归 0 失败 | 旧幂等与部分执行 |
+| `python3 scripts/check-docs.py` | PASS documents=21, AC=50, unique_tasks=64 | 结构 |
+| 定向 Maven | inventory 6 项、outbound 5 项、inbound 2 项，0 失败 | 定向 |
+
+结论：S5-05 本地协议 pass。不能当作 AC-48/49/50 生产链路通过。S5-06 同批闭环仍 planned。

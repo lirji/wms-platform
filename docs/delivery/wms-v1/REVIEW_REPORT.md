@@ -389,3 +389,13 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 发运 STARTED 调 `requireLiveLot`；`NO_LOT` 跳过。IT 使用显式 `expires_at`，未发明 OQ-03。
 - outbound `shipPartial` CAS `shipped+qty<=packed`；`consumeShip` 仅新 inbox 加 posted。未把 outbound jar 放进 inventory 测试类路径（Flyway `db/migration` 版本冲突）；黑盒只编译 outbound 源码并用 filesystem 迁移。
 - 确认：无 critical/high；AC-13/14/15 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S5-05 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- REJECTED/CANCELLED 命令状态不改写；`safe_close_id` 是同行独立证据。新尝试核验上一命令本地 `safe_close_id`，不能只凭外部引用。
+- STARTED/UNKNOWN 效果拒绝 `safeClose`（`STALE_EXECUTION_ATTEMPT`）；已过账拒绝（`EFFECT_ALREADY_APPLIED`）。迟到旧命令命中原终态，不写第二 posting。
+- 来源 `updateEffectApplied` 仅当 `applied IS NULL AND active=cmd` 或 `applied=cmd`，旧回执不能抢走新 effect 头。
+- 补偿缺原 posting 写 DEFERRED，不抛死；原 posting 到达后同 casePart 一次入账，累计 `reversed_qty` 受原数量约束。
+- 确认：无 critical/high；AC-48/49/50 仍 planned（缺 HTTP/设备/跨库生产链）；未到 S8 不创建 `wms-console/`。

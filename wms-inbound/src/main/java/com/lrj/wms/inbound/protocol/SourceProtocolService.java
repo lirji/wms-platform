@@ -136,6 +136,10 @@ public final class SourceProtocolService {
         if (effect.get("applied_command_id") != null) {
             throw new IllegalStateException("EFFECT_ALREADY_APPLIED");
         }
+        String state = String.valueOf(effect.get("state"));
+        if ("STARTED".equals(state) || "UNKNOWN".equals(state)) {
+            throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+        }
         if (mapper.markSafeClose(enterpriseId, warehouseId, commandId, UUID.randomUUID().toString(),
                 "{\"commandId\":\"" + commandId + "\"}", now) != 1) {
             throw new IllegalStateException("RESOURCE_NOT_FOUND");
@@ -160,8 +164,11 @@ public final class SourceProtocolService {
         if (inserted == 1) {
             mapper.updateCommandResult(enterpriseId, warehouseId, commandId, resultState, commandId, postingId, now);
             mapper.updateExecutionSync(enterpriseId, warehouseId, commandId, resultState, postedQty, now);
-            mapper.updateEffectApplied(enterpriseId, warehouseId, mapper.findEffectByCommand(enterpriseId, warehouseId, commandId),
-                    commandId, resultState, now);
+            Object effectKey = command.get("business_effect_key");
+            if (effectKey != null) {
+                mapper.updateEffectApplied(enterpriseId, warehouseId, String.valueOf(effectKey), commandId, resultState,
+                        now);
+            }
         }
         Map<String, Object> body = view(mapper.getCommand(enterpriseId, warehouseId, commandId),
                 mapper.findEffectByCommand(enterpriseId, warehouseId, commandId));

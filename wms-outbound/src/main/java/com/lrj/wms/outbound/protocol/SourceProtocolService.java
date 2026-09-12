@@ -72,18 +72,25 @@ public final class SourceProtocolService {
     public Map<String, Object> submitPick(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty) {
         return submitAction(ACTION_PICK, "SUB_ACTION", enterpriseId, warehouseId, commandId, parentId, partId, lineId,
-                actorId, qty);
+                actorId, qty, null);
+    }
+
+    public Map<String, Object> submitPick(String enterpriseId, String warehouseId, String commandId, String parentId,
+            String partId, String lineId, String actorId, BigDecimal qty, String previousCommandId) {
+        return submitAction(ACTION_PICK, "SUB_ACTION", enterpriseId, warehouseId, commandId, parentId, partId, lineId,
+                actorId, qty, previousCommandId);
     }
 
     /** T1：发运前取消未执行量。 */
     public Map<String, Object> submitCancel(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty) {
         return submitAction(ACTION_CANCEL, "SUB_ACTION", enterpriseId, warehouseId, commandId, parentId, partId, lineId,
-                actorId, qty);
+                actorId, qty, null);
     }
 
     private Map<String, Object> submitAction(String action, String factType, String enterpriseId, String warehouseId,
-            String commandId, String parentId, String partId, String lineId, String actorId, BigDecimal qty) {
+            String commandId, String parentId, String partId, String lineId, String actorId, BigDecimal qty,
+            String previousCommandId) {
         Timestamp now = Timestamp.from(clock.instant());
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(action + '\u001f' + commandId + '\u001f' + qty.toPlainString());
@@ -92,14 +99,36 @@ public final class SourceProtocolService {
                 lineId, commandId, "REGISTERED", now);
         String effectId = mapper.findEffectId(enterpriseId, warehouseId, SOURCE, action, factType, parentId, partId,
                 lineId);
-        mapper.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, effectId);
         Map<String, Object> existing = mapper.getCommand(enterpriseId, warehouseId, commandId);
         if (existing != null) {
             return view(existing, effectId);
         }
-        Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
-        if (latest != null) {
-            return view(latest, effectId);
+        if (previousCommandId == null || previousCommandId.isBlank()) {
+            Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
+            if (latest != null) {
+                return view(latest, effectId);
+            }
+        } else {
+            if (!"SAFE_CLOSED".equals(String.valueOf(effect.get("state")))) {
+                throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+            }
+            if (!previousCommandId.equals(String.valueOf(effect.get("active_command_id")))) {
+                throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+            }
+            long attemptNo = ((Number) effect.get("attempt_no")).longValue() + 1;
+            if (mapper.casNextAttempt(enterpriseId, warehouseId, effectId, attemptNo, commandId, "OPEN",
+                    "SAFE_CLOSED", ((Number) effect.get("version")).longValue(), now) != 1) {
+                throw new IllegalStateException("VERSION_CONFLICT");
+            }
+            String executionId = UUID.randomUUID().toString();
+            String payload = "{\"qty\":\"" + qty.toPlainString() + "\",\"commandId\":\"" + commandId + "\"}";
+            mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, action, attemptNo,
+                    previousCommandId, digest, payload, "PENDING", now);
+            mapper.insertExecution(executionId, enterpriseId, warehouseId, commandId, action, qty, actorId, now);
+            mapper.insertOutbox(UUID.randomUUID().toString(), enterpriseId, warehouseId, commandId, "StockCommandRequested",
+                    payload, now);
+            return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
         }
         String executionId = UUID.randomUUID().toString();
         String payload = "{\"qty\":\"" + qty.toPlainString() + "\",\"commandId\":\"" + commandId + "\"}";
@@ -112,6 +141,36 @@ public final class SourceProtocolService {
             throw new IllegalStateException("VERSION_CONFLICT");
         }
         return view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
+    }
+
+    /** 未过账命令安全关闭，之后才允许同一效果的下一尝试。 */
+    public Map<String, Object> safeClose(String enterpriseId, String warehouseId, String commandId) {
+        Timestamp now = Timestamp.from(clock.instant());
+        SourceMapper mapper = session.getMapper(SourceMapper.class);
+        Map<String, Object> command = mapper.getCommand(enterpriseId, warehouseId, commandId);
+        if (command == null) {
+            throw new IllegalStateException("RESOURCE_NOT_FOUND");
+        }
+        String effectId = String.valueOf(command.get("business_effect_key"));
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, effectId);
+        if (effect.get("applied_command_id") != null) {
+            throw new IllegalStateException("EFFECT_ALREADY_APPLIED");
+        }
+        String state = String.valueOf(effect.get("state"));
+        if ("STARTED".equals(state) || "UNKNOWN".equals(state)) {
+            throw new IllegalStateException("STALE_EXECUTION_ATTEMPT");
+        }
+        String closeId = UUID.randomUUID().toString();
+        if (mapper.markSafeClose(enterpriseId, warehouseId, commandId, closeId,
+                "{\"commandId\":\"" + commandId + "\"}", now) != 1) {
+            throw new IllegalStateException("RESOURCE_NOT_FOUND");
+        }
+        if (mapper.casSafeClose(enterpriseId, warehouseId, effectId, commandId, now) != 1) {
+            throw new IllegalStateException("VERSION_CONFLICT");
+        }
+        Map<String, Object> body = view(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId);
+        body.put("safeCloseRef", closeId);
+        return body;
     }
 
     /** T3：inbox + 过账累计。同 eventId 重放不二次加 posted。 */
@@ -128,8 +187,11 @@ public final class SourceProtocolService {
         if (inserted == 1) {
             mapper.updateCommandResult(enterpriseId, warehouseId, commandId, resultState, commandId, postingId, now);
             mapper.updateExecutionSync(enterpriseId, warehouseId, commandId, resultState, postedQty, now);
-            mapper.updateEffectApplied(enterpriseId, warehouseId, mapper.findEffectByCommand(enterpriseId, warehouseId, commandId),
-                    commandId, resultState, now);
+            Object effectKey = command.get("business_effect_key");
+            if (effectKey != null) {
+                mapper.updateEffectApplied(enterpriseId, warehouseId, String.valueOf(effectKey), commandId, resultState,
+                        now);
+            }
         }
         Map<String, Object> body = view(mapper.getCommand(enterpriseId, warehouseId, commandId),
                 mapper.findEffectByCommand(enterpriseId, warehouseId, commandId));
