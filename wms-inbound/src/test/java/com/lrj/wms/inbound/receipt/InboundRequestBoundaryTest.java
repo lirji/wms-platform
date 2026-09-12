@@ -31,7 +31,7 @@ class InboundRequestBoundaryTest {
             """;
     @BeforeEach void setup() {
         sessions = mock(SqlSessionFactory.class);
-        mvc = MockMvcBuilders.standaloneSetup(new InboundWorkbenchController(sessions))
+        mvc = MockMvcBuilders.standaloneSetup(new InboundWorkbenchController(sessions, false))
                 .setControllerAdvice(new RuntimeErrors())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
         var jwt = Jwt.withTokenValue("test").header("alg", "none").subject("actor")

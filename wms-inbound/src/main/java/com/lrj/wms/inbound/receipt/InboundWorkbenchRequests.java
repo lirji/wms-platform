@@ -18,6 +18,8 @@ public final class InboundWorkbenchRequests {
     /** ReceiveRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record ReceiveRequest(
             @NotBlank @Size(max = 64) String lineId,
+            @Size(max = 64) String locationId,
+            @Size(max = 64) String lotId,
             @Size(max = 64) String clientOperationId,
             @Size(max = 64) String receiptPartId,
             @Size(max = 64) String receiptSessionId,
@@ -25,6 +27,11 @@ public final class InboundWorkbenchRequests {
             @Size(max = 64) String deviceSessionId,
             @Min(0) Long scanSequence,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) {
+        /** 滚动兼容允许旧客户端同时省略；提供维度时必须完整，消息启用后由入口强制要求。 */
+        @AssertTrue(message = "收货库位和批次必须成组提供")
+        public boolean isPostingContextComplete() {
+            return locationId == null && lotId == null || locationId != null && !locationId.isBlank() && lotId != null && !lotId.isBlank();
+        }
         /** 设备观察字段必须成组提供，缺身份不能先进入数据库用例。 */
         @AssertTrue(message = "设备观察上下文不完整")
         public boolean isDeviceContextComplete() {

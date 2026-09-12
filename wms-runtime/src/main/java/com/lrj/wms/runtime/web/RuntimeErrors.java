@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /** 共享边界只翻译明确的运行时错误，不改变领域错误语义。 */
 @RestControllerAdvice
 public class RuntimeErrors {
+    @ExceptionHandler(com.lrj.wms.runtime.messaging.MissingCommandContextException.class)
+    public ResponseEntity<Map<String, Object>> missingCommandContext() {
+        return ResponseEntity.status(409).body(Map.of("code", "LEGACY_COMMAND_CONTEXT_MISSING", "message", "历史命令缺少原始库存维度，需要核对后恢复",
+                "requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId(), "retryable", false));
+    }
+
     @ExceptionHandler(com.lrj.wms.runtime.command.CommandConflictException.class)
     public ResponseEntity<Map<String, Object>> commandConflict() {
         return ResponseEntity.status(409).body(Map.of("code", "IDEMPOTENCY_PAYLOAD_MISMATCH", "message", "同一命令或事实身份的内容不一致",

@@ -43,6 +43,7 @@ class InboundReceiptIT {
         jdbc = new JdbcTemplate(source);
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), source));
         config.addMapper(SourceMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
@@ -52,6 +53,46 @@ class InboundReceiptIT {
         if (mysql != null) {
             mysql.stop();
         }
+    }
+
+    @Test
+    void postingContextIsAtomicImmutableAndCannotBeGuessedForLegacyReplay() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        try (var session = sessions.openSession(false)) {
+            var service = new InboundReceiptService(session, clock);
+            for (String kind : List.of("CTX", "LEGACY")) {
+                service.createOrder("ENT-1", "WH-A", "ORDER-" + kind, "OMS", "EXT-" + kind, "OWNER-CONTEXT",
+                        List.of(Map.of("lineId", "LINE-" + kind, "externalLineId", "L1", "skuId", "SKU-CONTEXT",
+                                "expectedQty", new BigDecimal("2"), "unit", "BOX")));
+                var first = service.receive("ENT-1", "WH-A", "ORDER-" + kind, "LINE-" + kind, "CMD-" + kind,
+                        "PART", "ORIGINAL-ACTOR", new BigDecimal("2"));
+                if (kind.equals("CTX")) service.bindReceiveContext("ENT-1", "WH-A", "ORDER-CTX", "LINE-CTX", first, "RECEIVING-1", "LOT-1");
+            }
+            session.commit();
+        }
+        try (var session = sessions.openSession(false)) {
+            var service = new InboundReceiptService(session, clock);
+            var replay = service.receive("ENT-1", "WH-A", "ORDER-CTX", "LINE-CTX", "CHANGED-KEY", "PART", "NEW-ACTOR", new BigDecimal("2"));
+            service.bindReceiveContext("ENT-1", "WH-A", "ORDER-CTX", "LINE-CTX", replay, "RECEIVING-1", "LOT-1");
+            assertThrows(com.lrj.wms.runtime.command.CommandConflictException.class, () -> service.bindReceiveContext(
+                    "ENT-1", "WH-A", "ORDER-CTX", "LINE-CTX", replay, "RECEIVING-2", "LOT-1"));
+            var legacy = service.receive("ENT-1", "WH-A", "ORDER-LEGACY", "LINE-LEGACY", "CMD-LEGACY", "PART", "ACTOR", new BigDecimal("2"));
+            assertThrows(com.lrj.wms.runtime.messaging.MissingCommandContextException.class, () -> service.bindReceiveContext(
+                    "ENT-1", "WH-A", "ORDER-LEGACY", "LINE-LEGACY", legacy, "RECEIVING-1", "LOT-1"));
+            session.commit();
+        }
+        var body = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(jdbc.queryForObject(
+                "SELECT payload_json FROM source_command WHERE command_id='CMD-CTX'", String.class));
+        assertEquals("OWNER-CONTEXT", body.path("postingContext").path("ownerId").asString());
+        assertEquals("BOX", body.path("postingContext").path("baseUnit").asString());
+        assertEquals("HOLD", body.path("postingContext").path("qualityCode").asString());
+        assertEquals("RECEIVING-1", body.path("postingContext").path("sourceLocationId").asString());
+        assertEquals(body, com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(jdbc.queryForObject(
+                "SELECT payload FROM source_outbox WHERE command_id='CMD-CTX'", String.class)));
+        assertEquals(0, jdbc.queryForObject("SELECT received_physical_qty FROM inbound_line WHERE id='LINE-CTX'", BigDecimal.class).compareTo(new BigDecimal("2")));
+        assertEquals("ORIGINAL-ACTOR", jdbc.queryForObject("SELECT actor_id FROM source_execution WHERE command_id='CMD-CTX'", String.class));
+        assertFalse(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(jdbc.queryForObject(
+                "SELECT payload_json FROM source_command WHERE command_id='CMD-LEGACY'", String.class)).has("postingContext"));
     }
 
     @Test

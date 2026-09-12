@@ -97,3 +97,9 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 `/tmp/wms-callback-putaway-it.log` BUILD SUCCESS：InboundProtocolIT2、OutboundProtocolIT2、InboundReceiptIT4、StockCommandIT2、OutboundPickIT5、InboundHttpIT1、OutboxPublisherIT1、OutboxCrashRecoveryIT1及全部单元测试。覆盖错误行回执、不同事件ID重复回执、满额上架换键重放/更换库位冲突、首次操作人不被重试覆盖、跨仓同键。正式HTTP测试随后增加直接查询 actor_id 的断言并通过：`/tmp/wms-actor-http-it.log` BUILD SUCCESS，JWT subject 为原始操作人。
 
 最后补充的安全关闭后迟到回执与过账累计影响行数检查也通过 `/tmp/wms-source-callback-final-it.log`（两来源协议、入库主流程、出库分批与全部单元）。默认必需报告检查46项通过；尚未把这些定向报告当作本次完整组合CI。
+
+## R13 来源T1上下文和可靠发布器
+
+收货可显式提交locationId/lotId，来源数据库派生document/owner/SKU/baseUnit，固定收货质量HOLD。命令与Outbox同T1绑定相同上下文、摘要和requestId；重放不能修改原始维度或给历史minimal命令补猜。新增source_outbox领取/租约/确认/隔离列；真实发布器一次领取一条并释放DB连接后等待确认，保留原eventId/actor/执行事实/时刻，使用来源效果身份维持重试的分区键，旧minimal消息隔离。
+
+`/tmp/wms-source-publisher-it.log` BUILD SUCCESS：SourceOutboxIT1（真实Kafka/MySQL）、InboundReceiptIT5、ReceiptObservationIT2、InboundHttpIT1及所有单元。当前来源发布器尚未注册Spring运行Bean，库存T2消息适配与结果回传待接线；这不是完整收货闭环验收。

@@ -158,3 +158,25 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 最后复核补充：两来源SAFE_CLOSED但未换新尝试时也拒绝APPLIED回执；T3 Received/Putaway/Pick累计检查影响行数，失败不能把命令当APPLIED。正在唯一Maven session（见最新tool）`/tmp/wms-source-callback-final-it.log`：InboundProtocolIT,OutboundProtocolIT,InboundReceiptIT,OutboundPickIT。通过后拆分提交消息基础与来源回执/上架。不要并发Maven或在本次编译期间修改Java/XML。
 
 - 22:39：消息基础已提交 `8e013c2`（42文件），仅库存投影链路。最后来源回执保护 `/tmp/wms-source-callback-final-it.log` BUILD SUCCESS（InboundProtocol2/OutboundProtocol2/InboundReceipt4/OutboundPick5+全部单元）；required 46项结构门禁通过，仍需最终组合全跑。当前无Maven。正在提交来源回执与R23及库存命令跨仓身份，随后继续R13主链。
+
+
+## 最新检查点 2026-09-12 22:43（继续R13来源上下文）
+
+- 新提交 `61ffb80`：来源回执校验/R23上架审计/StockCommand跨仓key（22文件）；加上消息基础`8e013c2`，现在8个本地任务提交未push。上一批工作树已干净后才开始本批。
+- 本批未提交：公开契约 wms-contract/src/main/java/com/lrj/wms/contract/messaging/StockPostingContext.java（owner/SKU/baseUnit/source+targetLocation/lot/quality/allocation+attempt，按RECEIVE/PUTAWAY/PICK/SHIP校验）；wms-runtime新增对wms-contract依赖（不新引第三方）。
+- runtime/messaging/SourceCommandContextStore+MissingCommandContextException、persistence/SourceContextMapper Java/XML，只访问当前来源服务的source_command/source_outbox；第一次T1绑定payload.postingContext+canonical digest+schemaVersion1+requestId，命令与Outbox必须同时影响1行，重试保持原维度；历史无上下文重放返回专属409，禁止本次请求猜填历史事实。未改payload_digest旧版本定义。
+- 入库Persistence注册SourceContextMapper；ReceiptMapper.lockLine补base_unit；ReceiptService.bindReceiveContext从本库order/line派生owner/SKU/unit、质量HOLD，用户只传库位/批次；receiveObserved最终replayed准确反映复用原命令（防止给旧minimal命令补猜context）。
+- HTTP ReceiveRequest追加locationId/lotId optional但成组；Controller构造增加@Value消息flag，flag=true必须提供两者，flag=false且传了也持久化上下文。原HTTP行为两者均缺且消息关闭时兼容。边界单测构造已传false。OpenAPI生成器+生成产物已更新72paths；verify-contracts脚本因产物未提交而diff返回1，这是预期未提交改动，不是生成不一致；后续暂存后再复现。
+- InboundReceiptIT新增postingContextIsAtomicImmutableAndCannotBeGuessedForLegacyReplay，检查首次T1相同payload、真实owner/unit/HOLD、满额换key重放、改库位冲突、actor保留、旧minimal不能补猜。
+- 当前唯一Maven **session83759 `/tmp/wms-source-context-it.log`**：InboundReceiptIT,ReceiptObservationIT,InboundHttpIT+全单元。不要并发Maven/改Java/XML。通过后继续来源Outbox可靠publisher/T2处理/可靠回执，不停在上下文绑定。
+- 下一实现建议：source_outbox追加lease/claim_epoch/error/published_at，通用协议publisher只访问本库元数据（source_command + source_effect + source_execution），保留原事件id/time/actor/attempt，从持久化postingContext生成完整信封；旧minimal隔离。库存订阅可信inbound.commands/outbound.commands；按权威SKU精度/unit/lot/owner/location校验，RECEIVE先HOLD；T2效果+posting+resultOutbox同TX；库存StockCommandMapper需要postingByCommand查询回执；InventoryEventTransport按目标来源路由results；SourceT3读取commandFact校验行并调用现有consumeReceive/Putaway/Pick/Ship。
+- 仍无真正来源publisher、T2消息适配、结果consumer；入库质量资格需要实际HOLD→GOOD/REJECTED成对流水，StockCommandService缺Putaway。出库新增上下文/绑定allocation与attempt、取消协议亦待。R14/R15剩余/R21积压/R22/全profiles与CI/main交付仍待，OQ03/真实WCS/签署容量不假定完成。
+
+- 22:46：`/tmp/wms-source-context-it.log` BUILD SUCCESS（InboundReceipt5、ReceiptObservation2、InboundHttp1及全部单元）。随后继续来源发布器，仍本批未提交。
+- StockPostingContext现第一字段增加documentId（receiptSession不等于order，不能猜），bindReceiveContext传权威orderId。runtime新增SourceOutboxPublisher、SourceOutboxMapper Java/XML；inbound V009/outbound V011追加source_outbox领取代际/租约/发布时间/错误码（新列中文注释）。两来源Persistence注册SourceOutboxMapper；inbound已注册SourceContextMapper，outbound还没上下文绑定。
+- SourceOutboxPublisher每次领取1条独立TX、每轮<=32、领取30秒、最多8次实际发送后隔离，网络等待不占DB连接；确认后CAS成功才计数。查询本库source_command+effect+execution补action/fact父分批行/actor/sourceExecution/previous，使用原outbox.created_at（当前兼容JVM墙钟，R22待统一）；RuntimeMessage.aggregateId为来源business_effect_key（让同事实重试保持分区键），payload.commandId保留外部键；校验持久化postingContext摘要/动作/活动尝试/安全关闭，旧minimal隔离。
+- **当前唯一Maven session41842 `/tmp/wms-source-publisher-it.log`**：SourceOutboxIT、InboundReceiptIT、ReceiptObservationIT、InboundHttpIT+全单元。SourceOutboxIT专属MySQL/Kafka验证原始actor/fact/HOLD/document/asOf与旧minimal隔离；inbound POM新增TC Kafka test依赖，非运行中间件。运行中不要改Java/XML或并发Maven。
+- 注意发布器目前只是可复用实际类，尚无来源Spring beans；接下来还要InboundMessagingConfiguration（producer/sourceOutbox worker + inventory.results inbox/consumer/worker/readiness）及InventoryMessagingConfiguration消费inbound.commands的T2适配、result Outbox和按目标来源路由。不要把本测试当完整T1/T2/T3。
+- 下一个库存适配可复用MasterdataHttpMapper.getSku（base_unit/quantity_scale/lot_enabled/serial_enabled/state）与MasterdataMapper.getLocation；getLot现未返回owner_id，须新增权威scope校验查询。StockCommandMapper需postingByCommand（表已有enterprise/warehouse/source/command唯一索引）；结果写Outbox与T2/DONE同TX，发送结果按来源results topic。数量解析用Quantity按权威SKU精度，RECEIVE=HOLD，序列号SKU缺显式serial不能静默普通入账。错误契约隔离，不以重试补猜未知原始事实。
+
+- 22:47：来源发布器集成 `/tmp/wms-source-publisher-it.log` BUILD SUCCESS，SourceOutboxIT1、InboundReceipt5、ReceiptObservation2、InboundHttp1+全部单元；当前无Maven。正在独立提交T1上下文/发布器，再接完整收货T2/回执。

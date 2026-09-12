@@ -41,6 +41,8 @@ class InboundPersistence {
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(SourceMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         config.addMapper(InboundTaskMapper.class);
         return new SqlSessionFactoryBuilder().build(config);

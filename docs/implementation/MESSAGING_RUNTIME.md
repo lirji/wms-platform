@@ -23,3 +23,11 @@ Compose 默认 `WMS_INVENTORY_MESSAGING_ENABLED=false`，完成数据库/OIDC配
 ## 已有证据
 
 `KafkaMessagingIT` 使用真实 Kafka/MySQL 验证持久化失败后重投和重复去重；`RuntimeInboxIT` 验证同事务回滚/恢复及篡改隔离；`InventoryMessagingIT` 使用正式 Spring Bean 装配验证自动追平、原始 asOf、暂停专属 broker 后 DOWN、恢复后只产生原有三条流水。客户端3.9.2与broker3.8.0组合日志为 `/tmp/wms-kafka392-it.log`。测试未使用共享 dev_infra 故障注入。
+
+## 来源T1上下文（正在接入）
+
+收货请求新增可选 `locationId` / `lotId`，两者成组；来源消息开关启用时必须提供。旧客户端的两者均省略模式只适用于尚未启用消息的兼容窗口。调用方不提交owner/SKU/单位/质量：来源从自己的订单行读取owner、SKU和基础单位，并将RECEIVE质量固定为HOLD；库存服务仍须再次依据权威SKU/批次/库位进行校验。无批次标识也必须显式提交，不能为旧命令回填猜测值。
+
+`StockPostingContext`位于公开契约模块；`SourceCommandContextStore`只操作当前服务自己的来源协议表。原始上下文、摘要和requestId在同一个T1写入source_command与source_outbox。重放只比较业务维度，保留首次执行人、时刻和关联ID；历史命令没有上下文时返回明确冲突，需要有证据的核对恢复。此步骤尚不包含来源publisher或库存T2适配，不能单独当作消息闭环验收。
+
+来源发布器和追加迁移已用SourceOutboxIT通过真实Kafka/MySQL验证。每条领取单独提交，元数据查询后释放连接，收到broker确认后按领取代际置PUBLISHED；旧上下文和过期尝试隔离。来源运行Bean、库存T2消费和结果回传仍未接通。

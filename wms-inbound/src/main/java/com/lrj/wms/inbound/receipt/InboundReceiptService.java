@@ -189,7 +189,24 @@ public final class InboundReceiptService {
         mapper.bindObservation(enterpriseId, warehouseId, String.valueOf(observation.get("id")), effectId, boundCommand,
                 now);
         Map<String, Object> bound = mapper.lockObservation(enterpriseId, warehouseId, deviceId, deviceSessionId, sequenceNo);
-        return observationView(bound, false, !newPart);
+        return observationView(bound, Boolean.TRUE.equals(command.get("replayed")), !newPart);
+    }
+
+    /** 来源拥有订单/行和执行事实，库位与批次由现场显式提交；库存服务最终校验主数据。 */
+    public void bindReceiveContext(String enterpriseId, String warehouseId, String orderId, String lineId,
+            Map<String, Object> result, String locationId, String lotId) {
+        if (locationId == null || locationId.isBlank() || lotId == null || lotId.isBlank()) {
+            throw new InboundException("MISSING_POSTING_CONTEXT", "收货需要明确库位与批次标识");
+        }
+        var line = requireLine(mapper(), enterpriseId, warehouseId, lineId);
+        requireLineOrder(line, orderId);
+        var order = mapper().getOrder(enterpriseId, warehouseId, orderId);
+        if (order == null) throw new InboundException("RESOURCE_NOT_FOUND", "入库单不存在");
+        var context = new com.lrj.wms.contract.messaging.StockPostingContext(orderId, String.valueOf(order.get("owner_id")),
+                String.valueOf(line.get("sku_id")), String.valueOf(line.get("base_unit")), locationId, null, lotId,
+                "HOLD", null, null);
+        new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bind(enterpriseId, warehouseId,
+                String.valueOf(result.get("commandId")), context, Boolean.TRUE.equals(result.get("replayed")));
     }
 
     /** 按设备会话序号恢复，不入账。 */

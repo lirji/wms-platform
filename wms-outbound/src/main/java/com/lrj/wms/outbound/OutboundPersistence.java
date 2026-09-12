@@ -42,6 +42,7 @@ class OutboundPersistence {
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(SourceMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(OutboundTaskMapper.class);
         config.addMapper(OutboundAuthorizationMapper.class);

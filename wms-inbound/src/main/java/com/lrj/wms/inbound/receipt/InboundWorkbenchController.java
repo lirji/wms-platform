@@ -35,8 +35,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class InboundWorkbenchController {
     private final SqlSessionFactory sessions;
 
-    public InboundWorkbenchController(SqlSessionFactory sessions) {
+    private final boolean messagingEnabled;
+
+    public InboundWorkbenchController(SqlSessionFactory sessions,
+            @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}") boolean messagingEnabled) {
         this.sessions = sessions;
+        this.messagingEnabled = messagingEnabled;
     }
 
     @GetMapping("/inbound-orders")
@@ -82,6 +86,9 @@ public class InboundWorkbenchController {
             @PathVariable String warehouseId, @PathVariable String inboundOrderId,
             @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody InboundWorkbenchRequests.ReceiveRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        if (messagingEnabled && (body.locationId() == null || body.lotId() == null)) {
+            throw new InboundException("MISSING_POSTING_CONTEXT", "消息收货必须提供库位和批次标识");
+        }
         try (SqlSession session = sessions.openSession(false)) {
             InboundReceiptService service = new InboundReceiptService(session, Clock.systemUTC());
             Map<String, Object> result;
@@ -97,6 +104,8 @@ public class InboundWorkbenchController {
                         firstNonBlank(body.receiptPartId(), "PART-" + idempotencyKey), jwt.getSubject(),
                         qty(body.qty()));
             }
+            if (body.locationId() != null) service.bindReceiveContext(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
+                    inboundOrderId, body.lineId(), result, body.locationId(), body.lotId());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, inboundOrderId, result, "RECEIVED"));
         }

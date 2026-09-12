@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.runtime.messaging.persistence.SourceContextMapper">
+    <select id="lockCommand" resultType="map">
+        SELECT action, payload_json FROM source_command
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND command_id=#{commandId} FOR UPDATE
+    </select>
+    <update id="bindCommand">
+        UPDATE source_command SET payload_json=CAST(#{payload} AS JSON)
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND command_id=#{commandId}
+          AND state='PENDING' AND NOT JSON_CONTAINS_PATH(payload_json, 'one', '$.postingContext')
+    </update>
+    <update id="bindOutbox">
+        UPDATE source_outbox SET payload=CAST(#{payload} AS JSON)
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND command_id=#{commandId}
+          AND status='PENDING' AND event_type='StockCommandRequested'
+          AND NOT JSON_CONTAINS_PATH(payload, 'one', '$.postingContext')
+    </update>
+</mapper>

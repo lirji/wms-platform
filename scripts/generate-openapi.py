@@ -728,6 +728,14 @@ components:
           type: "string"
           maxLength: 64
           minLength: 1
+        locationId:
+          type: "string"
+          maxLength: 64
+          description: "收货现场库位；消息链路启用时必填，与lotId成组提供"
+        lotId:
+          type: "string"
+          maxLength: 64
+          description: "明确批次标识；无批次SKU显式使用NO_LOT，由库存主数据校验"
         clientOperationId:
           type: "string"
           maxLength: 64

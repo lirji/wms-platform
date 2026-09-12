@@ -65,3 +65,7 @@ com.lrj.wms.runtime.messaging.KafkaMessagingIT#retriesFailedPersistenceAndCommit
 com.lrj.wms.inventory.InventoryMessagingIT#committedInventoryAutomaticallyReachesProjectionWithOriginalTimestamp
 com.lrj.wms.inventory.inventory.StockCommandIT#sameExternalKeyPostsIndependentlyInEachWarehouse
 com.lrj.wms.inbound.receipt.InboundReceiptIT#receiveInspectPutawayTotalsAndRejectOverReceive
+
+# R13 来源原始维度与真实发布；独立于最终收货闭环验收。
+com.lrj.wms.inbound.receipt.InboundReceiptIT#postingContextIsAtomicImmutableAndCannotBeGuessedForLegacyReplay
+com.lrj.wms.inbound.messaging.SourceOutboxIT#publishesOriginalSourceFactAndIsolatesMissingLegacyContext

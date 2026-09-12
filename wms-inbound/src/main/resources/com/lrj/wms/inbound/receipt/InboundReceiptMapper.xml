@@ -16,7 +16,7 @@
 
     <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLine" resultType="map">
-        SELECT id, order_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, stock_sync_status, version
+        SELECT id, order_id, sku_id, base_unit, expected_qty, received_physical_qty, received_posted_qty, putaway_physical_qty, putaway_posted_qty, closed_qty, stock_sync_status, version
         FROM inbound_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
