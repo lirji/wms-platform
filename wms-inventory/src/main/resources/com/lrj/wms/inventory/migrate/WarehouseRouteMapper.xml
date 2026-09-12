@@ -50,5 +50,16 @@
         SET state=#{state}, reason_code=#{reason}, fence_epoch=fence_epoch+1, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
+        <choose>
+            <when test="state == 'MAINTENANCE'">AND state='OPEN'</when>
+            <otherwise>AND state='MAINTENANCE' AND reason_code='WAREHOUSE_MIGRATION'</otherwise>
+        </choose>
     </update>
+    <select id="nonOpenGates" resultType="int">
+        SELECT COUNT(*) FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND state&lt;&gt;'OPEN'
+    </select>
+    <select id="foreignBlockedGates" resultType="int">
+        SELECT COUNT(*) FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+          AND state&lt;&gt;'OPEN' AND NOT(state='MAINTENANCE' AND reason_code &lt;=> 'WAREHOUSE_MIGRATION')
+    </select>
 </mapper>

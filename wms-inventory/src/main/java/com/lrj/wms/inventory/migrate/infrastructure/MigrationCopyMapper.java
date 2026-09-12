@@ -12,6 +12,8 @@ interface MigrationCopyMapper {
             @Param("columns") List<WarehouseMigrationStore.Column> columns, @Param("key") String key,
             @Param("watermark") String watermark, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("since") Timestamp since, @Param("cursor") String cursor);
+    /** 在目标当前事务检查同主键归属及复制后的完整行，禁止静默覆盖其他仓。 */
+    Map<String,Object> byKey(@Param("table") String table,@Param("columns") List<WarehouseMigrationStore.Column> columns,@Param("key") String key,@Param("id") String id);
     int upsert(@Param("table") String table, @Param("columns") List<WarehouseMigrationStore.Column> columns,
             @Param("row") Map<String, Object> row, @Param("immutable") boolean immutable);
     long count(@Param("table") String table, @Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId);

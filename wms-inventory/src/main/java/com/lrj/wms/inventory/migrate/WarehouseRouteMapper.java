@@ -31,4 +31,8 @@ public interface WarehouseRouteMapper {
     /** markGates：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int markGates(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("state") String state, @Param("reason") String reason, @Param("now") Timestamp now);
+    /** 迁移不得覆盖盘点、人工维护等已有门禁。 */
+    int nonOpenGates(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId);
+    /** 最终开放仅限迁移自己的MAINTENANCE；其他状态必须保持并阻止切流。 */
+    int foreignBlockedGates(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId);
 }

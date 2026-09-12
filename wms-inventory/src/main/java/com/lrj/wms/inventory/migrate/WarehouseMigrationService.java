@@ -136,11 +136,15 @@ public final class WarehouseMigrationService {
         Timestamp now = Timestamp.from(clock.instant());
         Map<String, Object> route = requireState(enterpriseId, warehouseId, ACTIVE);
         WarehouseRouteMapper routes = source.getMapper(WarehouseRouteMapper.class);
+        if(routes.nonOpenGates(enterpriseId,warehouseId)>0)
+            throw new InventoryException("MIGRATION_GATE_BUSY","先结束盘点或现有维护，迁移不能覆盖其他门禁");
         if (routes.casState(enterpriseId, warehouseId, ACTIVE, QUIESCING, string(route.get("target_cell_id")),
                 timestampOf(route.get("cutoff_at")), asLong(route.get("version")), now) != 1) {
             throw new InventoryException("VERSION_CONFLICT", "停写冲突");
         }
         routes.markGates(enterpriseId, warehouseId, MasterdataCodes.GATE_MAINTENANCE, REASON_MIGRATION, now);
+        if(routes.foreignBlockedGates(enterpriseId,warehouseId)>0)
+            throw new InventoryException("MIGRATION_GATE_BUSY","门禁在停写期间变化，回滚本次迁移停写");
         return view(routes.get(enterpriseId, warehouseId));
     }
 
@@ -172,6 +176,7 @@ public final class WarehouseMigrationService {
         long next = asLong(route.get("route_epoch")) + 1;
         String targetCell = string(route.get("target_cell_id"));
         String sourceCell = string(route.get("cell_id"));
+        if(!copies.targetAlreadyActivated(enterpriseId,warehouseId,next,targetCell,sourceCell)) validate(enterpriseId,warehouseId);
         WarehouseRouteMapper routes = source.getMapper(WarehouseRouteMapper.class);
         if (routes.casSwitch(enterpriseId, warehouseId, next, RETIRED, sourceCell, targetCell,
                 asLong(route.get("version")), now) != 1) {

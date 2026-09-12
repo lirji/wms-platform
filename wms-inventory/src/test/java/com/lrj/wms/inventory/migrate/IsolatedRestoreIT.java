@@ -39,8 +39,8 @@ class IsolatedRestoreIT {
             backup.start();
             MysqlDataSource liveSource = datasource(live);
             MysqlDataSource backupSource = datasource(backup);
-            Flyway.configure().dataSource(liveSource).locations("classpath:db/migration").load().migrate();
-            Flyway.configure().dataSource(backupSource).locations("classpath:db/migration").load().migrate();
+            new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", "").initialize(liveSource, () -> Flyway.configure().dataSource(liveSource).locations("classpath:db/migration").load().migrate());
+            new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", "").initialize(backupSource, () -> Flyway.configure().dataSource(backupSource).locations("classpath:db/migration").load().migrate());
             JdbcTemplate liveJdbc = new JdbcTemplate(liveSource);
             JdbcTemplate backupJdbc = new JdbcTemplate(backupSource);
             var sessions = new SqlSessionFactoryBuilder().build(config("live", liveSource));

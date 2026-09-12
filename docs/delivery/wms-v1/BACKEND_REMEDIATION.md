@@ -225,3 +225,13 @@ V033持久化原始序列号登记意图与HOLD同事务；stageHold/stageDestin
 证据：/tmp/wms-registry-client-test.log 01:20:10，3个真实HTTP传输故障用例；/tmp/wms-serial-ops-final-it.log 01:33:51通过registry HTTP2、库存HTTP12及双库进程；/tmp/wms-serial-route-final-it.log 01:35:57 BUILD SUCCESS，最终代码的库存HTTP12、SerialReceiptIT4、SerialSealIT1、SerialTransferRecoveryIT1、SerialRegistryProcessesIT1及单元。前序对账4/CountSerialIT2于01:32定向组合中通过，该组合新增HTTP异常映射和SKU夹具失败已修复，不能把前序整组写成通过。required默认门禁新增3项，总61。
 
 R13消息侧序列号观察/质量/移位与转移源释放传播尚未接通；盘点旧同步用例须先逐身份持久化进度，避免限流后每次重放整行，当前未接入这种不完整HTTP循环。R14真实TM/TC和出库授权传播仍待。未操作生产或共享库。
+
+## R18/R22 仓迁移补齐与隔离修复
+
+迁移清单从24扩展至47张仓范围表，涵盖盘点、消息接收/恢复、对账/快照、归档候选和序列号恢复；元数据真实测试约束新增仓表不能遗漏，路由及物理数据库时间规则不按业务表覆盖。两库必须已登记相同时间来源；目标只允许对应迁移的COPYING状态。每批200行，逐行验证复制结果，其他范围主键碰撞、唯一身份冲突和不可变审计/流水内容不同均回滚当前批次，不再IGNORE吞差异。
+
+既有冻结/维护不能被迁移覆盖，开放门禁仅限本次WAREHOUSE_MIGRATION；新切流必经计数/库存数量校验，未复制目标不得激活。目标已提交激活而源提交失败时，仅相同源/目标/epoch精确重放完成源收尾，不覆盖目标新写，也不打开后续新冻结。
+
+真实两库证据：/tmp/wms-migration-expanded-it.log 01:39:39通过基础回归；/tmp/wms-migration-gates-final-it.log 01:43:54通过迁移4用例及IsolatedRestoreIT；/tmp/wms-migration-validation-final-it.log最终WarehouseMigrationIT5用例及单元BUILD SUCCESS，覆盖完整仓表目录、恢复代际/正文/微秒值、同批回滚、跨仓目标保护、时间来源冲突、冻结拒绝、目标提交/源失败重放和未复制拒绝。默认required门禁64项。隔离恢复实测仅属于该夹具，不能代替生产RTO/RPO。
+
+整体运行边界仍见 [WAREHOUSE_MIGRATION_LIMITS.md](../../implementation/WAREHOUSE_MIGRATION_LIMITS.md)：共享目录准备、真实TM/RM/Fence回调迁移及所有后台写入排空尚待R13/R14整体验证，未执行生产或共享仓迁移。

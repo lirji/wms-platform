@@ -14,13 +14,18 @@
         <if test="cursor != null">AND `${key}` &gt; #{cursor}</if>
         ORDER BY `${key}` LIMIT 200
     </select>
+    <select id="byKey" resultType="map">
+        SELECT <foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>
+        FROM `${table}` WHERE `${key}`=#{id} FOR UPDATE
+    </select>
     <insert id="upsert">
-        INSERT <if test="immutable">IGNORE</if> INTO `${table}`
+        INSERT INTO `${table}`
         (<foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>)
         VALUES (<foreach collection="columns" item="column" separator=",">
             <choose><when test="column.json">CAST(#{row.${column.name}} AS JSON)</when>
                 <otherwise>#{row.${column.name}}</otherwise></choose>
         </foreach>)
+        <if test="immutable">ON DUPLICATE KEY UPDATE id=id</if>
         <if test="!immutable">
             AS incoming ON DUPLICATE KEY UPDATE
             <trim suffixOverrides=",">
