@@ -86,6 +86,11 @@ class InboundHttpIT {
                 "{\"sourceSystem\":\"OMS\",\"externalNo\":\"EXT-HTTP-1\",\"ownerId\":\"OWNER-1\","
                         + "\"lines\":[{\"externalLineId\":\"LINE-1\",\"skuId\":\"SKU-STD\",\"expectedQty\":\"10\",\"unit\":\"EA\"}]}");
         assertEquals(201, created.statusCode());
+        HttpResponse<String> duplicateLine = post("/api/wms/v1/warehouses/WH-A/inbound-orders", token, "KEY-ASN-LINE",
+                "{\"sourceSystem\":\"OMS\",\"externalNo\":\"EXT-HTTP-LINE\",\"ownerId\":\"OWNER-1\","
+                        + "\"lines\":[{\"externalLineId\":\"LINE-1\",\"skuId\":\"SKU-STD\",\"expectedQty\":\"2\",\"unit\":\"EA\"}]}");
+        assertEquals(409, duplicateLine.statusCode());
+        assertTrue(duplicateLine.body().contains("DUPLICATE_DOCUMENT"));
         HttpResponse<String> list = get("/api/wms/v1/warehouses/WH-A/inbound-orders", token);
         assertEquals(200, list.statusCode());
         assertTrue(list.body().contains("EXT-HTTP-1"));

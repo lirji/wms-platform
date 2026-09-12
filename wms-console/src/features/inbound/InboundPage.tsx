@@ -31,8 +31,8 @@ export function InboundPage() {
               ownerId: values.ownerId || "OWNER-1",
               inboundOrderId: key,
               lines: [{
-                lineId: values.lineId || "LINE-1",
-                externalLineId: values.lineId || "LINE-1",
+                lineId: values.lineId || key,
+                externalLineId: values.lineId || key,
                 skuId: values.skuId,
                 expectedQty: values.expectedQty,
                 unit: values.unit || "EA"
@@ -43,7 +43,7 @@ export function InboundPage() {
           <Form.Item label="来源系统" name="sourceSystem" initialValue="OMS"><Input /></Form.Item>
           <Form.Item label="外部单号" name="externalNo" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item label="货主" name="ownerId" initialValue="OWNER-1"><Input /></Form.Item>
-          <Form.Item label="行号" name="lineId" initialValue="LINE-1"><Input /></Form.Item>
+          <Form.Item label="行号" name="lineId"><Input placeholder="默认用本次命令键；行标识全局唯一" /></Form.Item>
           <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item label="应收数量" name="expectedQty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
           <Form.Item label="单位" name="unit" initialValue="EA"><Input /></Form.Item>

@@ -35,7 +35,7 @@
 | AC-23 | local-pass | `StockInternalReconcileIT` | 工作台审批现场 |
 | AC-24 | local-pass | WMS `SnapshotExportIT`/`SnapshotHttpIT`；recon `WmsExportContractTest` 消费 WMS JSONL | 仍缺跨仓库进程联调与金额回归现场 |
 | AC-25 | blocked | 出库 simulator / UNKNOWN sweep（仅模拟，单独列） | 无授权真实设备/协议环境（S8-05） |
-| AC-26 | open | 作业详情已接收入库/出库/调拨/盘点/任务/对账命令；console 单测 | 未做 Casdoor 全链路现场走查；跨仓 ALLOCATED 需真实 TC |
+| AC-26 | open | 2026-09-12 Casdoor 活走查：收货/质检/上架/准备跨仓/拣/部分发/未拣回库；202 显示待同步；403/409 横幅；见 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md) | 跨仓 ALLOCATED 需真实 TC；收货同键非恢复；未做断网/对账修复/设备 |
 | AC-27 | blocked | `run-capacity.sh --scenario agreed-peak` 无签署输入则退出 2 | 缺 OQ-05 签署峰值；correctness 只对应既有并发 IT |
 | AC-28 | local-pass | `WarehouseMigrationIT` 两 MySQL 全量/增量/切 epoch/旧写拒绝 | 无生产停写窗口（OQ-06） |
 | AC-29 | local-pass | `CompatibilityMatrixIT`/`CompatibilityGateTest`/`verify-contracts.sh` | 无生产滚动升级/开关演练现场 |
@@ -49,7 +49,7 @@
 | AC-37 | local-pass | 冻结排空本库 | 三服务在途 permit |
 | AC-38 | local-pass | 质量撤销 IT | 与授权并发现场 |
 | AC-39 | local-pass | 内部对账 watermark | 跨系统水位联调 |
-| AC-40 | open | console 202/PENDING 文案 | 未做端到端 UI |
+| AC-40 | open | Casdoor 收货/拣/发 202 横幅「货已执行，库存待同步」 | 库存仍 PENDING，无 UNKNOWN 设备恢复端到端 |
 | AC-41 | local-pass | Fence/空回滚 IT | 正式 TM 进程 |
 | AC-42 | blocked | TC 探针 | TM/TC 宕机保留现场 |
 | AC-43 | local-pass | Fence 同连接 IT | 双分片 RM 重启现场 |

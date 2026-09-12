@@ -11,4 +11,4 @@
 | F4 | PDA 收货独立壳 | F1 | no | `src/features/pda` | 回车提交；202 文案非成功 | done 2026-09-12 | live API |
 | F5 | 作业命令接到已落地 HTTP | F3/F4 | no | `src/features/*` 详情页 + inbound/outbound/fulfillment/inventory 写接口 | 详情可提交收货/质检/上架/拣包发/取消/调拨/盘点/任务/对账；202 非成功 | done 2026-09-12 | live API；TCC ALLOCATED 仍需真实 TC |
 
-2026-09-12 F5 已把交接要求的写命令接到工作台。下一步是 AC-26 用活数据走完整链，且不能伪造 TC 确认。S8-05 / S9-01 保持 blocked。
+2026-09-12 F5 已把交接要求的写命令接到工作台。同日 Casdoor 现场走完收货→上架→准备跨仓→拣→部分发→取消回库，attempt 非 ALLOCATED；AC-26 仍 open。S8-05 / S9-01 保持 blocked。

@@ -66,9 +66,14 @@ public final class InboundReceiptService {
             throw new InboundException("DUPLICATE_DOCUMENT", "入库单已存在");
         }
         for (Map<String, Object> line : lines) {
-            mapper.insertLine(String.valueOf(line.get("lineId")), enterpriseId, warehouseId, orderId,
-                    String.valueOf(line.get("externalLineId")), String.valueOf(line.get("skuId")),
-                    decimal(line.get("expectedQty")), String.valueOf(line.getOrDefault("unit", "EA")), now);
+            try {
+                mapper.insertLine(String.valueOf(line.get("lineId")), enterpriseId, warehouseId, orderId,
+                        String.valueOf(line.get("externalLineId")), String.valueOf(line.get("skuId")),
+                        decimal(line.get("expectedQty")), String.valueOf(line.getOrDefault("unit", "EA")), now);
+            } catch (RuntimeException ex) {
+                // 行主键全局唯一，复用 LINE-1 不能冒成 500。
+                throw new InboundException("DUPLICATE_DOCUMENT", "入库行已存在");
+            }
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("orderId", orderId);

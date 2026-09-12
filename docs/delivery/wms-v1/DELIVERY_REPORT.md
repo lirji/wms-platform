@@ -13,7 +13,7 @@
 | AC-01..23、AC-28..39、AC-41、AC-43..50 | local-pass：有本仓库/recon 测试，缺生产或跨进程现场 |
 | AC-24 | local-pass：WMS `SnapshotHttpIT` + recon `WmsExportContractTest`；缺双方进程联调 |
 | AC-25 / S8-05 | blocked：无授权测试设备 |
-| AC-26 / AC-40 | open：console ready-for-verification，未 UI accepted |
+| AC-26 / AC-40 | open：Casdoor 现场已走收货到取消回库，202 显示待同步；跨仓未 ALLOCATED，未 UI accepted |
 | AC-27 / S9-01 | blocked：无签署 OQ-05 峰值输入 |
 | AC-42 | blocked：无真实 TM/TC 宕机环境 |
 | OQ-03 | 未决：不得编造单位/效期默认 |

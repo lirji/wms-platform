@@ -33,9 +33,10 @@
 - 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。
 - 2026-09-12：控制台改为 Ant Design 作业台（侧栏、KPI、密表）。
 - 2026-09-12 F5：作业详情接到已落地写命令；跨仓 ALLOCATED 仍要真实 TC。已发布远程 main `f466efc`，Docker 控制台与四服务已按该提交重建。不是 50 AC / AC-26 accepted。
+- 2026-09-12 AC-26 现场走查：Casdoor 收货→质检→上架→跨仓准备（PLANNED）→拣→部分发→未拣回库。重复行主键改为 409。证据 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md)。仍 open。
 
 ## 未完成
 
-- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 现场走查。AC-42。
+- 进行中的 main verify `34683583780`（`f466efc`）结束前不推 main。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。
 
 无生产部署。
