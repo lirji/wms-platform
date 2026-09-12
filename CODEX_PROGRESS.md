@@ -6,7 +6,7 @@
 
 ## 已完成
 
-- 2026-09-13 控制台 `feat/console-serial-jobs`：收货/PDA/质检/上架/盘点接到公开序列号观察字段；202 不换幂等键并有界轮询 `GET /operations/{id}`；单据头展示实物/库存同步；401 提供去登录；任务页接序列恢复与消息重排；履约页接 attempt 执行（不写 ALLOCATED）；主数据拆成商品/库位/批次三表并补单位写入与门禁只读查询。拣/发序列号清单未公开，页面未发明。
+- 2026-09-13 控制台 `feat/console-serial-jobs` 已合入远程 main `b6f44ac`：收货/PDA/质检/上架/盘点接到公开序列号观察字段；202 不换幂等键并有界轮询 `GET /operations/{id}`；单据头展示实物/库存同步；401 提供去登录；任务页接序列恢复与消息重排；履约页接 attempt 执行（不写 ALLOCATED）；主数据拆成商品/库位/批次三表并补单位写入与门禁只读查询。拣/发序列号清单未公开，页面未发明。
 - 控制台 `npm test` 21 文件 / 41 用例通过；`typecheck` 与 production build 通过。不是 50 AC / AC-26 accepted。
 
 ## 未完成
@@ -18,10 +18,10 @@
 
 ## 下一步建议
 
-1. 本切片验证后提交 `feat/console-serial-jobs` 并合入远程 main。
-2. 有 Casdoor + 隔离栈时做 AC-26 黑盒：序列号收货路径、202 不换键、401/429、对账审批。
-3. 等拣/发序列号公开契约后再做出发身份 UI。
+1. 有 Casdoor + 隔离栈时做 AC-26 黑盒：序列号收货路径、202 不换键、401/429、对账审批。无现场栈则保持 open。
+2. 等拣/发序列号公开契约后再做出发身份 UI。
+3. S8-05 / S9-01 / 真实 TC ALLOCATED 仍 blocked，不发明证据。
 
 ## 恢复 Prompt
 
-读取本文件与 `docs/delivery/wms-v1/DELIVERY_STATUS.md`。当前任务分支 `feat/console-serial-jobs`，工作树 `/Users/liruijun/personal/LLM/wms-platform`。不要切到 `.local/backend-remediation-integrate`。未完成项从上表继续，不要重做已发布后端收货/质检/上架/盘点切片。
+读取本文件与 `docs/delivery/wms-v1/DELIVERY_STATUS.md`。控制台切片已在远程 main `b6f44ac`。工作树 `/Users/liruijun/personal/LLM/wms-platform`。不要切到 `.local/backend-remediation-integrate`。未完成项从上表继续，不要重做已发布后端收货/质检/上架/盘点切片。

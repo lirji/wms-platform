@@ -2,8 +2,8 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S9-05 证据汇总。控制台前端补面在 `feat/console-serial-jobs`。
-- 任务分支：`feat/console-serial-jobs`（基于远程 main `3e2c720`）。
+- 状态：in-progress；阶段：S9-05 证据汇总。控制台前端补面已合入远程 main `b6f44ac`。
+- 任务分支：`feat/console-serial-jobs`（已快进合入 `origin/main`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
