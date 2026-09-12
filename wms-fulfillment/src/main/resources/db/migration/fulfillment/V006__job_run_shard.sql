@@ -37,9 +37,7 @@ CREATE TABLE job_shard (
   retry_count INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
   next_retry_at DATETIME(6) NULL COMMENT '下次可领，立即可空',
   last_error VARCHAR(255) COLLATE utf8mb4_bin NULL COMMENT '最近错误，无错误可空',
-  live_guard VARCHAR(64) COLLATE utf8mb4_bin
-    GENERATED ALWAYS AS (CASE WHEN state IN ('SUCCEEDED','FAILED','QUARANTINED','CANCELLED') THEN id ELSE 'LIVE' END) STORED
-    COMMENT '活跃分片收敛键，终态放开',
+  live_guard VARCHAR(64) COLLATE utf8mb4_bin GENERATED ALWAYS AS (CASE WHEN state IN ('SUCCEEDED','FAILED','QUARANTINED','CANCELLED') THEN id ELSE 'LIVE' END) STORED COMMENT '活跃分片收敛键，终态放开',
   version BIGINT NOT NULL DEFAULT 0 COMMENT '并发版本',
   created_at DATETIME(6) NOT NULL COMMENT 'UTC创建时刻',
   updated_at DATETIME(6) NOT NULL COMMENT 'UTC最后变更时刻',
