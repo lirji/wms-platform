@@ -6,6 +6,7 @@
         <choose>
             <when test="queue == 'INBOX'">runtime_message_inbox</when>
             <when test="queue == 'INVENTORY_OUTBOX'">outbox_event</when>
+            <when test="queue == 'FULFILLMENT_OUTBOX'">fulfillment_outbox</when>
             <otherwise>source_outbox</otherwise>
         </choose>
     </sql>

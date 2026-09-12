@@ -426,7 +426,6 @@ public final class FulfillmentService {
         }
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
-        refuseExpiredTry(attempt);
         String bound = nullable(attempt.get("xid"));
         if (bound == null) {
             throw new FulfillmentException("XID_NOT_BOUND", "attempt尚未绑定XID，不能登记仓分支");
@@ -439,12 +438,23 @@ public final class FulfillmentService {
         for (Map<String, Object> participant : participants) {
             if (warehouseId.equals(String.valueOf(participant.get("warehouse_id")))) {
                 found = true;
+                if (participant.get("xid") != null) {
+                    if (!xid.equals(participant.get("xid")) || !actionName.equals(participant.get("action_name"))
+                            || !reservationId.equals(participant.get("reservation_id"))
+                            || !(participant.get("branch_id") instanceof Number originalBranch) || originalBranch.longValue() != branchId
+                            || !(participant.get("route_epoch") instanceof Number originalRoute) || originalRoute.longValue() != routeEpoch) {
+                        throw new FulfillmentException("BRANCH_ALREADY_BOUND", "仓级分支身份不可改绑");
+                    }
+                    // 原Try回执可能晚于Confirm或截止时刻；同身份只读取，不回退观察状态或重做Try。
+                    return attemptView(attempt, participants);
+                }
                 break;
             }
         }
         if (!found) {
             throw new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在");
         }
+        refuseExpiredTry(attempt);
         if (mapper.bindParticipantBranch(enterpriseId, attemptId, warehouseId, xid, branchId, actionName,
                 reservationId, routeEpoch, branchState, now()) != 1) {
             throw new FulfillmentException("BRANCH_ALREADY_BOUND", "仓级分支身份不可改绑");

@@ -126,6 +126,10 @@ class FulfillmentMappingIT {
             assertEquals(FulfillmentService.ATTEMPT_ALLOCATED, allocated.get("state"));
             Map<String, Object> allocatedAgain = service.markAllocated("ENT-XID", attemptId);
             assertEquals(FulfillmentService.ATTEMPT_ALLOCATED, allocatedAgain.get("state"));
+            new FulfillmentService(session, Clock.fixed(NOW.plusSeconds(600), ZoneOffset.UTC))
+                    .bindParticipant("ENT-XID", attemptId, "WH-A", "xid-so2", 11L, "reserve-A", "res-A", 1, "TRIED");
+            assertTrue(session.getMapper(FulfillmentMapper.class).listParticipants("ENT-XID", attemptId).stream()
+                    .allMatch(row -> "CONFIRMED".equals(row.get("state")) && "CONFIRMED".equals(row.get("observed_branch_state"))));
             session.commit();
         }
         assertEquals("xid-so2", jdbc.queryForObject(

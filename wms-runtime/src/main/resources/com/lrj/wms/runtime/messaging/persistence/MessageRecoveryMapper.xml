@@ -4,7 +4,7 @@
     <!-- 类别由服务端将INBOX/OUTBOX映射成固定表，禁止原始表名插值。 -->
     <sql id="table">
         <choose><when test="queue == 'INBOX'">runtime_message_inbox</when>
-            <when test="queue == 'INVENTORY_OUTBOX'">outbox_event</when><otherwise>source_outbox</otherwise></choose>
+            <when test="queue == 'INVENTORY_OUTBOX'">outbox_event</when><when test="queue == 'FULFILLMENT_OUTBOX'">fulfillment_outbox</when><otherwise>source_outbox</otherwise></choose>
     </sql>
     <sql id="idColumn"><choose><when test="queue == 'INBOX'">id</when><otherwise>event_id</otherwise></choose></sql>
     <select id="list" resultType="map">

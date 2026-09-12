@@ -114,17 +114,23 @@
 
     <!-- lockParticipants：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockParticipants" resultType="map">
-        SELECT id, warehouse_id, reservation_id, xid, branch_id, action_name, route_epoch, observed_branch_state, state, last_error, confirmed_version, version
+        SELECT id, warehouse_id, reservation_id, xid, branch_id, action_name, route_epoch, observed_branch_state, state, last_error, confirmed_version, confirmed_allocation_id, version
         FROM allocation_participant
         WHERE enterprise_id=#{enterpriseId}
         AND attempt_id=#{attemptId}
         ORDER BY warehouse_id FOR UPDATE
     </select>
 
+    <update id="bindConfirmedAllocation">
+        UPDATE allocation_participant SET confirmed_allocation_id=#{allocationId},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId} AND warehouse_id=#{warehouseId}
+        AND confirmed_allocation_id IS NULL
+    </update>
+
     <!-- observeParticipant：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <update id="observeParticipant">
         UPDATE allocation_participant
-        SET state=#{state}, confirmed_version=#{confirmedVersion}, version=version+1, updated_at=#{now}
+        SET state=#{state}, observed_branch_state=#{state}, confirmed_version=#{confirmedVersion}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND attempt_id=#{attemptId}
         AND warehouse_id=#{warehouseId}
@@ -303,7 +309,7 @@
 
     <!-- listParticipants：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listParticipants" resultType="map">
-        SELECT id, warehouse_id, reservation_id, xid, branch_id, observed_branch_state
+        SELECT id, warehouse_id, reservation_id, xid, branch_id, observed_branch_state, state, confirmed_version
         FROM allocation_participant
         WHERE enterprise_id=#{enterpriseId}
         AND attempt_id=#{attemptId}

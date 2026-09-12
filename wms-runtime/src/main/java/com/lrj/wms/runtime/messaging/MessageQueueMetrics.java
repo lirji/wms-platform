@@ -13,7 +13,7 @@ import org.apache.ibatis.session.SqlSessionFactory;
 
 /** 后台有界采样；指标HTTP只读取不可变快照，不在抓取线程中占数据库连接。 */
 public final class MessageQueueMetrics {
-    public enum Queue { INBOX, INVENTORY_OUTBOX, SOURCE_OUTBOX }
+    public enum Queue { INBOX, INVENTORY_OUTBOX, SOURCE_OUTBOX, FULFILLMENT_OUTBOX }
     private static final List<String> STATES = List.of("PENDING", "CLAIMED", "ISOLATED");
     private static final int DEPTH_LIMIT = 1000;
     private final SqlSessionFactory sessions;

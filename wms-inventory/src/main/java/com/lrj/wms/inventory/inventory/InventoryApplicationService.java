@@ -225,8 +225,12 @@ public final class InventoryApplicationService {
             throw new InventoryException("VERSION_CONFLICT", "预占头状态冲突");
         }
         Map<String, Object> after = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
-        String payload = CompatibilityGate.decorateEvent("{\"reservationId\":\"" + after.get("id") + "\",\"state\":\""
-                + ReservationState.CONFIRMED + "\",\"xid\":\"" + xid + "\",\"branchId\":" + branchId + "}");
+        // 确认事件携带落库时的原始分支身份，履约不能从当前余额或调用方参数猜测绑定。
+        String payload = CompatibilityGate.decorateEvent(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                Map.of("confirmationSchemaVersion", 1, "reservationId", after.get("id"), "state", ReservationState.CONFIRMED,
+                        "allocationId", after.get("allocation_id"), "attemptId", after.get("attempt_id"),
+                        "xid", after.get("xid"), "branchId", after.get("branch_id"),
+                        "actionName", after.get("action_name"), "routeEpoch", after.get("route_epoch"))));
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_RESERVATION, String.valueOf(after.get("id")), longValue(after.get("version")),
                 InventoryCodes.EVENT_RESERVATION_CONFIRMED, operationId, payload, now);

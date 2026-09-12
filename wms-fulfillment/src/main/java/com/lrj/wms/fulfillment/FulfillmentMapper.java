@@ -167,6 +167,10 @@ public interface FulfillmentMapper {
             @Param("eventType") String eventType, @Param("operationId") String operationId,
             @Param("payload") String payload, @Param("now") Timestamp now);
 
+    /** 可靠库存确认首次绑定分配业务键，旧记录不从当前配置猜测。 */
+    int bindConfirmedAllocation(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId, @Param("now") Timestamp now);
+
     /** 重复屏障事件读取原正文，避免同身份不同内容被静默吞掉。 */
     Map<String,Object> getBarrierOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
             @Param("warehouseId") String warehouseId, @Param("eventType") String eventType);

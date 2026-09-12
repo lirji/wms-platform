@@ -36,6 +36,14 @@ public final class InventoryEventTransport implements OutboxTransport {
         var message = new RuntimeMessage(1, record.eventId(), "wms-inventory", record.enterpriseId(), record.warehouseId(),
                 record.eventType(), record.aggregateId(), record.aggregateVersion(), record.occurredAt().toString(), requestId, payload);
         String topic = topicPrefix + ".inventory.events";
+        if (InventoryCodes.EVENT_RESERVATION_CONFIRMED.equals(record.eventType()) && payload.has("confirmationSchemaVersion")) {
+            if (!payload.path("confirmationSchemaVersion").isIntegralNumber()
+                    || !payload.path("confirmationSchemaVersion").canConvertToInt()
+                    || payload.path("confirmationSchemaVersion").asInt() != 1) {
+                throw new OutboxIsolateException("未知仓确认契约版本，禁止降级成被忽略的旧事件");
+            }
+            topic = topicPrefix + ".fulfillment.results";
+        }
         if ("InventoryCommandResult".equals(record.eventType())) {
             String recipient = payload.path("recipientService").asString();
             if (!java.util.Set.of("wms-inbound", "wms-outbound").contains(recipient)) throw new OutboxIsolateException("回执目标来源不合法");

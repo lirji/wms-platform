@@ -99,3 +99,14 @@ R13消息侧序列号观察/质量/移位与转移源释放传播尚未接通；
 本切片仍不等于完整R14：正式TM发起/库存RM服务调用、仓确认消息、出库授权传播及序列号剩余运行路径继续实施。没有部署TC触发器到生产或共享库，也未迁移历史未知来源的attempt。真实TC测试的仓级确认来自明确夹具，不把它称作真实库存RM业务验收。
 
 验证：2026-09-13 02:05:32 `/tmp/wms-tc-fulfillment-final-it.log` BUILD SUCCESS，TcAuditRecoveryIT 4、FulfillmentMappingIT 3、FulfillmentBarrierIT 1、AllocationRecoverySweepIT 1、FulfillmentHttpIT 2，及依赖单元全部通过。02:04:03 `/tmp/wms-tc-barrier-combined-it.log` BUILD SUCCESS，库存侧重新编译当前履约源码的 ClosedLoopBlackBoxIT 1 通过。默认必需用例清单68项，尚待最终全量组合。先前测试暴露的INSERT IGNORE吞CHECK问题已修复；端口竞争及测试TC清理延迟已通过隔离夹具修正，未改变生产TC行为。
+
+
+## R13/R14 库存确认到履约的可靠消费
+
+[FULFILLMENT_CONFIRMATION_MESSAGING.md](../../implementation/FULFILLMENT_CONFIRMATION_MESSAGING.md)记录新确认契约和`${topicPrefix}.fulfillment.results`：库存Confirm同事务保存原分配/attempt/XID/branch/action/route，履约只更新已绑定参与者。缺原Try回执等待，错误身份隔离；确认、ALLOCATED/屏障Outbox与Inbox DONE同事务。重复和晚于截止的原分支回执只读取原绑定，不把CONFIRMED回退TRIED。新未知版本在库存Outbox隔离，旧无版本不猜测补事实。
+
+V014以追加迁移修复历史父目录Inbox漏扫，V015增加原分配确认和Outbox投递预算字段；库存测试依赖履约确保干净reactor先打包真实Jar。新增履约积压指标、受审计恢复及Compose配置，默认不开启消息或TC审计；未启动生产或共享环境。
+
+证据：`/tmp/wms-confirmation-verified-it.log` 2026-09-13 02:21:36 BUILD SUCCESS，FulfillmentInboxMigrationIT 1、FulfillmentHttpIT 2、ReservationTccIT 3和双进程FulfillmentConfirmationProcessesIT 1通过。最后迟到回执修复后，`/tmp/wms-confirmation-replay-final-it.log` 02:24:47 BUILD SUCCESS，FulfillmentMappingIT 3、FulfillmentBarrierIT 1和双进程确认1再次通过。验证旧Inbox原正文/微秒/epoch=7保留、审计重排不降代际、双服务最终Inbox失败全事务回滚与重启恢复、重复/错分支/未知契约处理；Compose静态config及文档/契约检查通过，默认必需用例70项。
+
+Try与TC证据是本消息测试明确提供的夹具，真实TC只读适配已有独立证据，不能拼成真实TM/RM全链。履约屏障Outbox发布器、出库授权消费、PICK/SHIP/CANCEL、序列号观察与盘点逐身份恢复继续实施。
