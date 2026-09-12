@@ -165,4 +165,48 @@ class SerialReceiptBatchIT {
         apply(quality(e,"Q2",2,List.of("SN-A","SN-B"),List.of()));
         assertEquals(Map.of("SN-A","GOOD","SN-B","GOOD"),qualities(e));
     }
+
+    private static void storage(String e) {
+        try(var session=sessions.openSession(false)) {
+            new MasterdataService(session,Clock.systemUTC()).createLocation("STORAGE-"+e,"GATE-P-"+e,e,"WH-"+e,"STORAGE","A","STORAGE",new BigDecimal("100"),"EA");session.commit();
+        }
+    }
+    private static RuntimeMessage putaway(String e,String command,String... serials) {
+        var original=message(e,command,serials);var body=(tools.jackson.databind.node.ObjectNode)original.payload();
+        body.remove("serialObservation");body.put("action","PUTAWAY");body.put("receiptCommandId","RECEIVE");
+        body.set("serialSelection",RuntimeMessage.JSON.valueToTree(new SerialStockSelection(1,List.of(serials))));
+        body.set("postingContext",RuntimeMessage.JSON.valueToTree(new StockPostingContext("ORDER","OWNER","SKU-"+e,"EA","LOC-"+e,"STORAGE-"+e,"NO_LOT","GOOD",null,null)));
+        return original;
+    }
+    private static String location(String e,String serial) {
+        return jdbc.queryForObject("SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.enterprise_id=? AND s.serial_id=?",String.class,e,serial);
+    }
+    @Test void serialPutawayMovesOnlySelectedIdentitiesAndRejectsDoubleSelection() {
+        String e="PUT";seed(e);storage(e);apply(message(e,"RECEIVE","SN-A","SN-B"));authorize(e);
+        apply(quality(e,"Q1",1,List.of("SN-A","SN-B"),List.of()));
+        assertEquals("SERIAL_BATCH_CONFLICT",assertThrows(InventoryException.class,()->apply(putaway(e,"P-FOREIGN","OTHER"))).code());
+        var missing=putaway(e,"P-MISSING","SN-A");((tools.jackson.databind.node.ObjectNode)missing.payload()).remove("serialSelection");
+        assertThrows(MessageRejectedException.class,()->apply(missing));
+        var first=putaway(e,"P1","SN-A");apply(first);apply(first);
+        assertEquals("STORAGE-PUT",location(e,"SN-A"));assertEquals("LOC-PUT",location(e,"SN-B"));
+        assertThrows(InventoryException.class,()->apply(putaway(e,"P1","SN-B")));
+        assertEquals("SERIAL_SELECTION_CONFLICT",assertThrows(InventoryException.class,()->apply(putaway(e,"P2","SN-A"))).code());
+        assertEquals(0,jdbc.queryForObject("SELECT putaway_qty FROM stock_receipt_quality WHERE enterprise_id=?",BigDecimal.class,e).compareTo(BigDecimal.ONE));
+        apply(putaway(e,"P2","SN-B"));apply(first);
+        assertEquals("STORAGE-PUT",location(e,"SN-B"));assertEquals(4,count("stock_posting",e));
+    }
+
+    @Test void finalPutawayIdentityWriteFailureRollsBackQuantityAndBatchQuota() {
+        String e="PUTFAIL";seed(e);storage(e);apply(message(e,"RECEIVE","SN-A","SN-B"));authorize(e);
+        apply(quality(e,"Q1",1,List.of("SN-A","SN-B"),List.of()));
+        jdbc.execute("ALTER TABLE local_serial ADD CONSTRAINT test_serial_putaway_final CHECK(enterprise_id<>'PUTFAIL' OR serial_id<>'SN-B' OR version<=2)");
+        try {
+            assertThrows(RuntimeException.class,()->apply(putaway(e,"P1","SN-A","SN-B")));
+            assertEquals("LOC-PUTFAIL",location(e,"SN-A"));assertEquals("LOC-PUTFAIL",location(e,"SN-B"));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM stock_balance WHERE enterprise_id=? AND location_id='STORAGE-PUTFAIL'",Integer.class,e));
+            assertEquals(0,jdbc.queryForObject("SELECT putaway_qty FROM stock_receipt_quality WHERE enterprise_id=?",BigDecimal.class,e).signum());
+            assertEquals(2,count("stock_command",e));assertEquals(2,count("stock_posting",e));
+        } finally {jdbc.execute("ALTER TABLE local_serial DROP CHECK test_serial_putaway_final");}
+        apply(putaway(e,"P1","SN-A","SN-B"));assertEquals("STORAGE-PUTFAIL",location(e,"SN-A"));assertEquals("STORAGE-PUTFAIL",location(e,"SN-B"));
+    }
 }

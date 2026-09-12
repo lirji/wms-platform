@@ -285,9 +285,20 @@ public final class InboundReceiptService {
     public Map<String, Object> putaway(String enterpriseId, String warehouseId, String orderId, String lineId,
             String taskId, String targetLocationId, String targetLocationType, BigDecimal qty, String commandId, String actorId,
             String receiptCommandId) {
+        return putaway(enterpriseId,warehouseId,orderId,lineId,taskId,targetLocationId,targetLocationType,qty,commandId,actorId,receiptCommandId,null);
+    }
+
+    /** 序列上架按明确所选身份受理，同批身份占用与来源数量/命令/任务一起提交。 */
+    public Map<String,Object> putaway(String enterpriseId,String warehouseId,String orderId,String lineId,String taskId,
+            String targetLocationId,String targetLocationType,BigDecimal qty,String commandId,String actorId,
+            String receiptCommandId,com.lrj.wms.contract.messaging.SerialStockSelection selection) {
         requireIdentity("操作人", actorId);
         requireIdentity("命令", commandId);
         if (qty == null || qty.signum() <= 0) throw new InboundException("INVALID_QTY", "上架数量必须为正");
+        if(selection!=null) {
+            if(receiptCommandId==null) throw new InboundException("RECEIPT_BATCH_REQUIRED","所选身份必须绑定原收货批次");
+            try {selection.requireQuantity(qty);} catch(IllegalArgumentException invalid) {throw new InboundException("INVALID_SERIAL_SELECTION","上架数量与身份数量不一致");}
+        }
         if (targetLocationId == null || targetLocationId.isBlank()) {
             throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架库位不能为空");
         }
@@ -311,6 +322,11 @@ public final class InboundReceiptService {
             if (receipt == null || !lineId.equals(receipt.get("line_id")) || !orderId.equals(receipt.get("order_id")))
                 throw new InboundException("UNKNOWN_RECEIPT_BATCH", "收货批次不属于该入库单行");
             var payload = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(String.valueOf(receipt.get("payload_json")));
+            if(payload.hasNonNull("serialObservation")) {
+                if(selection==null) throw new InboundException("SERIAL_SELECTION_REQUIRED","序列号上架必须明确所选身份");
+                var observed=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(payload.path("serialObservation"),com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
+                if(!observed.serialIds().containsAll(selection.serialIds())) throw new InboundException("SERIAL_BATCH_CONFLICT","所选身份不属于原收货批次");
+            } else if(selection!=null) throw new InboundException("SERIAL_BATCH_CONTEXT_REQUIRED","原批次没有可信身份清单");
             if (!payload.hasNonNull("postingContext")) throw new InboundException("MISSING_POSTING_CONTEXT", "原收货缺少库存维度");
             var original = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(payload.path("postingContext"), com.lrj.wms.contract.messaging.StockPostingContext.class);
             original.requireForAction("RECEIVE");
@@ -329,8 +345,8 @@ public final class InboundReceiptService {
             if (task == null) throw new InboundException("TASK_MISSING", "历史上架命令缺少对应任务");
             if (batchContext != null) {
                 if (task.get("receipt_command_id") == null) throw new InboundException("MISSING_POSTING_CONTEXT", "历史任务没有可信批次绑定");
-                new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bind(enterpriseId, warehouseId,
-                        String.valueOf(replay.get("commandId")), batchContext, receiptCommandId, true);
+                new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bindPutaway(enterpriseId, warehouseId,
+                        String.valueOf(replay.get("commandId")), batchContext, receiptCommandId, selection,true);
             }
             replay.put("taskId", taskId); replay.put("lineId", lineId);
             return replay;
@@ -368,6 +384,8 @@ public final class InboundReceiptService {
         Map<String, Object> command = protocol.submitPutaway(enterpriseId, warehouseId,
                 commandId, orderId, taskId, lineId, actorId, qty);
         if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if(selection!=null) new ReceiptSerialPutawayService(session,clock).claim(enterpriseId,warehouseId,receiptCommandId,
+                    taskId,String.valueOf(command.get("commandId")),selection,batchQuality);
             if (batchQuality != null && session.getMapper(ReceiptQualityMapper.class).addPutaway(enterpriseId, warehouseId,
                     receiptCommandId, ((Number) batchQuality.get("version")).longValue(), qty, now) != 1)
                 throw new InboundException("VERSION_CONFLICT", "分批上架额度竞争");
@@ -383,8 +401,8 @@ public final class InboundReceiptService {
                 throw new InboundException("VERSION_CONFLICT", "上架任务更新冲突");
             }
         }
-        if (batchContext != null) new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bind(enterpriseId, warehouseId,
-                String.valueOf(command.get("commandId")), batchContext, receiptCommandId, Boolean.TRUE.equals(command.get("replayed")));
+        if (batchContext != null) new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bindPutaway(enterpriseId, warehouseId,
+                String.valueOf(command.get("commandId")), batchContext, receiptCommandId,selection,Boolean.TRUE.equals(command.get("replayed")));
         command.put("taskId", taskId);
         command.put("lineId", lineId);
         return command;

@@ -1,5 +1,14 @@
 # Codex Progress
 
+## 当前上架切片（最新）
+
+- HEAD 4c41c60，2818ddf收货和4c41c60身份质检均已提交并通过各自定向检查，但尚未推送；远程34cc417两路CI截至05:10仍运行。所有之前Maven/smoke已退出。
+- 当前唯一Maven session31567，/tmp/wms-serial-putaway-first-it.log；-pl wms-inbound,wms-inventory -am，SerialReceiptBatchIT（新增2项总9）/ReceiveMessagingProcessesIT/SerialRegistryProcessesIT/InboundHttpIT。禁止并发Maven或编译中改Java/XML/配置。
+- 当前未提交上架实现：SerialStockSelection；来源V016 inbound_serial_putaway及Mapper/ReceiptSerialPutawayService，唯一企业仓/原批/SN固定原任务；原当前APPLIED质量命令验证所选SN合格。SourceCommandContextStore.bindPutaway固定选择；InboundReceiptService与HTTP可选字段；ReceiptQualityService禁止后续版本替换已被任务领取的GOOD身份。
+- 库存StockCommandService.applyPutaway新增选择摘要/凭证，SerialPutawayStockService在原数量move同事务验证原批、源桶、AUTHORIZED/ACTIVE和无占用后逐身份绑定目标；旧重放在动作前返回，不拉回身份。StockCommandMessageHandler严格V1/选择字段与主数据；普通旧路径不变。
+- 测试新增库存重复选择/最终身份写回滚，以及实际来源双进程的同SN不同任务409、原任务换SN409、已领取身份质量等量替换400、最后任务CHECK失败来源占用/数量/命令回滚。真实登记Jar测试也从真实授权继续上架。尚待结果，详见docs/implementation/SERIAL_PUTAWAY.md。
+- PATCH曾两次因同一文件中逆序定位上下文失败，均未应用；最终按顺序编辑完成，不是测试失败。当前代码尚未验收，不提交前须看31567完整结果。
+
 ## 最新追加（优先于下方历史状态）
 
 - 收货批次切片已提交2818ddf，13IT/多身份真实登记复验/四Jar smoke/必需95/契约88/文档45通过；尚未推送，34cc两路CI仍运行。
@@ -61,3 +70,5 @@
 请读取本文件及docs/delivery/wms-v1/BACKEND_REMEDIATION.md，在唯一工作树连续完成已批准的剩余四项。先核对活跃进程，禁止并发Maven或编译中改源码。当前序列号收货13IT及真实多身份登记通过，待收尾提交，继续序列质检/上架/盘点及可信水位等，不等待“继续”，无证据不标全部完成。
 
 最新质量收尾：Maven72809已05:03:09成功退出，10IT零失败/跳过；当前smoke75070运行，日志/tmp/wms-serial-quality-smoke.log。必需新增3项至98，API88。准备静态检查和提交，然后序列上架。2818ddf尚未推送，34cc远程两路CI仍运行，不取消。
+
+上架31567已05:12:06成功退出，12IT通过，日志/tmp/wms-serial-putaway-first-it.log。当前无Maven；smoke1643运行（/tmp/wms-serial-putaway-smoke.log）。required新增2至100、API88。34cc main CI默认全仓verify已成功，正在warehouse-it专项，分支状态需后续核对；2818ddf/4c41c60及待提交上架尚未推送。下一步收尾检查并提交，继续PICK/SHIP身份及登记SHIPPED终态，不能用MISSING替代正常发运。

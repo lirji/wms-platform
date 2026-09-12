@@ -49,6 +49,7 @@ class InboundPersistence {
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         config.addMapper(com.lrj.wms.inbound.receipt.ReceiptQualityMapper.class);
+        config.addMapper(com.lrj.wms.inbound.receipt.ReceiptSerialPutawayMapper.class);
         config.addMapper(InboundTaskMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }

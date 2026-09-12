@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.receipt.ReceiptSerialPutawayMapper">
+    <insert id="insert">
+        INSERT IGNORE INTO inbound_serial_putaway(id,enterprise_id,warehouse_id,receipt_command_id,serial_id,task_id,putaway_command_id,created_at)
+        VALUES(#{id},#{e},#{w},#{receipt},#{serial},#{task},#{command},#{now})
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT task_id,putaway_command_id FROM inbound_serial_putaway
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND receipt_command_id=#{receipt} AND serial_id=#{serial} FOR UPDATE
+    </select>
+    <select id="claimed" resultType="string">
+        SELECT serial_id FROM inbound_serial_putaway
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND receipt_command_id=#{receipt} ORDER BY serial_id LIMIT 201 FOR UPDATE
+    </select>
+</mapper>

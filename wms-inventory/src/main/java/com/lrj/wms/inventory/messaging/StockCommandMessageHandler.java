@@ -59,9 +59,11 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 serialObservation = RuntimeMessage.JSON.treeToValue(observation, com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
                 serialObservation.requireQuantity(rawQty);
             } catch (RuntimeException invalid) { throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED"); }
-        } else if (serialEnabled && !Set.of("CANCEL","QUALITY").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        } else if (serialEnabled && !Set.of("CANCEL","QUALITY","PUTAWAY").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
         else if (payload.hasNonNull("serialObservation")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if(payload.hasNonNull("serialQualityObservation") && (!serialEnabled || !"QUALITY".equals(action)))
+            throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
+        if(payload.hasNonNull("serialSelection") && (!serialEnabled || !"PUTAWAY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         boolean hasLot = !"NO_LOT".equals(context.lotId());
         if (flag(sku.get("lot_enabled")) != hasLot) throw new MessageRejectedException("LOT_POLICY_MISMATCH");
@@ -117,12 +119,23 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                     required(payload, "factLineId"), context.documentId(), required(payload, "actorId"),
                     required(payload, "sourceExecutionId"), bucket, decision, qualityObservation);
         } else if ("PUTAWAY".equals(action)) {
+            com.lrj.wms.contract.messaging.SerialStockSelection selection=null;
+            if(serialEnabled) {
+                try {
+                    var raw=payload.path("serialSelection");
+                    if(!raw.isObject() || raw.properties().stream().anyMatch(p->!Set.of("schemaVersion","serialIds").contains(p.getKey()))
+                            || !raw.path("schemaVersion").isIntegralNumber() || !raw.path("schemaVersion").canConvertToInt() || raw.path("schemaVersion").intValue()!=1
+                            || !raw.path("serialIds").isArray() || raw.path("serialIds").size()>200) throw new IllegalArgumentException();
+                    for(var serial:raw.path("serialIds")) if(!serial.isString()) throw new IllegalArgumentException();
+                    selection=RuntimeMessage.JSON.treeToValue(raw,com.lrj.wms.contract.messaging.SerialStockSelection.class);selection.requireQuantity(rawQty);
+                } catch(RuntimeException invalid) {throw new MessageRejectedException("INVALID_SERIAL_SELECTION");}
+            }
             var targetLocation = masterdata.getLocation(enterprise, warehouse, context.targetLocationId());
             if (!active(targetLocation) || !"STORAGE".equals(targetLocation.get("location_type"))) throw new MessageRejectedException("INVALID_PUTAWAY_LOCATION");
             var target = StockBucketKey.of(enterprise, warehouse, context.ownerId(), context.targetLocationId(), context.skuId(), context.lotId(), "GOOD");
             command = new StockCommandService(session, clock).applyPutaway(enterprise, warehouse, commandId,
                     required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
-                    context.documentId(), required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "receiptCommandId"), bucket, target, qty);
+                    context.documentId(), required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "receiptCommandId"), bucket, target, qty,selection);
         } else if (serialEnabled) {
             command = new com.lrj.wms.inventory.serial.SerialReceiptBatchService(session, clock).receive(enterprise, warehouse, commandId,
                     required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),

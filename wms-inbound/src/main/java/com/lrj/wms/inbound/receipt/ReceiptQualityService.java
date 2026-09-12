@@ -87,6 +87,8 @@ public final class ReceiptQualityService {
         if (new BigDecimal(state.get("putaway_qty").toString()).compareTo(decision.acceptedQty()) > 0) {
             throw new InboundException("QUALITY_ALREADY_PUTAWAY", "新合格量不能低于已经确认上架的数量");
         }
+        if(observation!=null && !observation.acceptedSerials().containsAll(session.getMapper(ReceiptSerialPutawayMapper.class).claimed(ent,wh,decision.receiptCommandId())))
+            throw new InboundException("QUALITY_ALREADY_PUTAWAY","已受理上架的具体身份不能用其他合格身份替换");
         var result = protocol.submitQuality(ent, wh, command, decision.receiptCommandId(), Long.toString(decision.sourceVersion()), lineId, actor, decision);
         if (Boolean.TRUE.equals(result.get("replayed"))) throw new CommandConflictException();
         new SourceCommandContextStore(session).bindQuality(ent, wh, command, context, observation, false);

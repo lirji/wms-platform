@@ -906,6 +906,19 @@ components:
         sourceVersion:
           type: "integer"
           minimum: 1
+    SerialStockSelection:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, serialIds]
+      description: 本次动作明确选择的身份，最多200条；规范化后唯一，数量必须等于清单长度
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        serialIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
     SerialQualityObservation:
       type: object
       additionalProperties: false
@@ -928,6 +941,7 @@ components:
       additionalProperties: false
       required: ["inboundOrderId","lineId","qty"]
       properties:
+        serialSelection: { $ref: '#/components/schemas/SerialStockSelection' }
         receiptCommandId:
           type: string
           minLength: 1

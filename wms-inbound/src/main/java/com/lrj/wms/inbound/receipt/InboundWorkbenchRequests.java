@@ -76,10 +76,15 @@ public final class InboundWorkbenchRequests {
             @Size(max = 64) String locationType,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty,
             @Size(max = 64) String clientOperationId,
-            @Size(max = 64) String receiptCommandId) {
+            @Size(max = 64) String receiptCommandId,
+            @Valid com.lrj.wms.contract.messaging.SerialStockSelection serialSelection) {
+        public PutawayRequest(String inboundOrderId,String lineId,String locationId,String targetLocationId,
+                String locationType,BigDecimal qty,String clientOperationId,String receiptCommandId) {
+            this(inboundOrderId,lineId,locationId,targetLocationId,locationType,qty,clientOperationId,receiptCommandId,null);
+        }
         public PutawayRequest(String inboundOrderId, String lineId, String locationId, String targetLocationId,
                 String locationType, BigDecimal qty, String clientOperationId) {
-            this(inboundOrderId, lineId, locationId, targetLocationId, locationType, qty, clientOperationId, null);
+            this(inboundOrderId, lineId, locationId, targetLocationId, locationType, qty, clientOperationId, null, null);
         }
     }
     /** InboundLine：在数据库用例开始前校验类型、范围和必填项。 */

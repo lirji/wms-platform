@@ -166,6 +166,14 @@ class SerialRegistryProcessesIT {
                     session.commit();
                 }
                 assertEquals(List.of("GOOD","REJECTED"),jdbc.queryForList("SELECT b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='BATCH-RECEIPT' ORDER BY s.serial_id",String.class));
+                try(var session=sessions.openSession(false)) {
+                    new MasterdataService(session,clock).createLocation("PUT-STORAGE","PUT-GATE","ENT","A","PUT-STORAGE","A","STORAGE",new BigDecimal("100"),"EA");
+                    var from=StockBucketKey.of("ENT","A","OWNER","LOC-A","SKU","NO_LOT","GOOD");
+                    var to=StockBucketKey.of("ENT","A","OWNER","PUT-STORAGE","SKU","NO_LOT","GOOD");
+                    new com.lrj.wms.inventory.inventory.StockCommandService(session,clock).applyPutaway("ENT","A","BATCH-PUT","BATCH-DOC","TASK","LINE","BATCH-DOC","actor","EXEC-PUT","BATCH-RECEIPT",from,to,Quantity.parse("1",0),
+                            new com.lrj.wms.contract.messaging.SerialStockSelection(1,List.of("BATCH-1")));session.commit();
+                }
+                assertEquals("PUT-STORAGE",jdbc.queryForObject("SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.warehouse_id='A' AND s.serial_id='BATCH-1'",String.class));
                 // 迁移停写后的旧进程不能领取或更新恢复状态，远端也不再被调用。
                 jdbc.update("INSERT INTO warehouse_route(id,enterprise_id,warehouse_id,cell_id,target_cell_id,route_epoch,state,version,created_at,updated_at) VALUES('ROUTE-A','ENT','A','CELL-A','CELL-B',1,'QUIESCING',0,?,?)",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
                 var stopped=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialRecoveryService(sessions,at(now,420),actual,actual).execute("ENT","A"));

@@ -210,7 +210,7 @@ public class InboundWorkbenchController {
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.inboundOrderId(), body.lineId(),
                     taskId, firstNonBlank(body.locationId(), body.targetLocationId()),
                     firstNonBlank(body.locationType(), InboundReceiptService.LOCATION_STORAGE),
-                    qty(body.qty()), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), body.receiptCommandId());
+                    qty(body.qty()), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), body.receiptCommandId(),body.serialSelection());
             result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, body.inboundOrderId(), result, "PUTAWAY"));
@@ -232,7 +232,7 @@ public class InboundWorkbenchController {
         HttpStatus status = switch (error.code()) {
             case "RESOURCE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "DUPLICATE_DOCUMENT", "DUPLICATE_INSPECTION", "VERSION_CONFLICT", "OBSERVATION_CONFLICT", "PART_CONFLICT",
-                    "TASK_NOT_CLAIMABLE" -> HttpStatus.CONFLICT;
+                    "TASK_NOT_CLAIMABLE", "SERIAL_ALREADY_PUTAWAY" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));

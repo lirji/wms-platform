@@ -271,6 +271,38 @@ class ReceiveMessagingProcessesIT {
             assertEquals(202,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-REPLAY",serialQuality).statusCode());
             assertEquals(409,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-REPLACED",serialQuality.replace("SN-A","TEMP").replace("SN-B","SN-A").replace("TEMP","SN-B")).statusCode());
             assertEquals(List.of("GOOD","REJECTED"),stockDb.queryForList("SELECT b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='RECEIVE-SERIAL' ORDER BY s.serial_id",String.class));
+            String serialQuality2="""
+                    {"lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","sourceVersion":2,"acceptedQty":"2","rejectedQty":"0",
+                     "serialQualityObservation":{"schemaVersion":1,"acceptedSerials":["SN-A","SN-B"],"rejectedSerials":[]}}
+                    """;
+            assertEquals(202,post(base+"/quality-inspections/INSPECT-SERIAL-2/results",qualityToken,"QUALITY-SERIAL-2",serialQuality2).statusCode());
+            await(()->"APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='QUALITY-SERIAL-2'",String.class)),30,"第二版序列质检未闭环",in,stock);
+            String serialPutaway="""
+                    {"inboundOrderId":"ORDER-SERIAL","lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","targetLocationId":"STORAGE","qty":"1",
+                     "serialSelection":{"schemaVersion":1,"serialIds":["SN-A"]}}
+                    """;
+            String serialPutPath=base+"/tasks/SERIAL-P1/putaways";
+            var serialPutAccepted=post(serialPutPath,putawayToken,"SERIAL-P1",serialPutaway);
+            assertEquals(202,serialPutAccepted.statusCode(),serialPutAccepted.body());
+            await(()->"APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='SERIAL-P1'",String.class)),30,"第一身份上架未闭环",in,stock);
+            assertEquals(202,post(serialPutPath,putawayToken,"SERIAL-P1-REPLAY",serialPutaway).statusCode());
+            assertEquals(409,post(serialPutPath,putawayToken,"SERIAL-P1-SWAP",serialPutaway.replace("SN-A","SN-B")).statusCode());
+            String secondPut=base+"/tasks/SERIAL-P2/putaways";
+            assertEquals(409,post(secondPut,putawayToken,"SERIAL-P2",serialPutaway).statusCode());
+            assertEquals(1,inDb.queryForObject("SELECT COUNT(*) FROM inbound_serial_putaway WHERE receipt_command_id='RECEIVE-SERIAL'",Integer.class));
+            String swappedQuality=serialQuality.replace("\"sourceVersion\":1","\"sourceVersion\":3").replace("SN-A","TEMP").replace("SN-B","SN-A").replace("TEMP","SN-B");
+            assertEquals(400,post(base+"/quality-inspections/INSPECT-SERIAL-3/results",qualityToken,"QUALITY-SERIAL-3",swappedQuality).statusCode());
+            // 来源最后任务写失败时，新增身份占用、数量和来源命令必须一起回滚。
+            inDb.execute("ALTER TABLE inbound_task ADD CONSTRAINT test_serial_task_final CHECK(id<>'SERIAL-P2' OR completed_qty=0)");
+            try {
+                assertTrue(post(secondPut,putawayToken,"SERIAL-P2",serialPutaway.replace("SN-A","SN-B")).statusCode()>=500);
+                assertEquals(1,inDb.queryForObject("SELECT COUNT(*) FROM inbound_serial_putaway WHERE receipt_command_id='RECEIVE-SERIAL'",Integer.class));
+                assertEquals(0,inDb.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='SERIAL-P2'",Integer.class));
+                assertEquals(0,inDb.queryForObject("SELECT putaway_physical_qty FROM inbound_line WHERE id='LINE-SERIAL'",BigDecimal.class).compareTo(BigDecimal.ONE));
+            } finally {inDb.execute("ALTER TABLE inbound_task DROP CHECK test_serial_task_final");}
+            assertEquals(202,post(secondPut,putawayToken,"SERIAL-P2",serialPutaway.replace("SN-A","SN-B")).statusCode());
+            await(()->inDb.queryForObject("SELECT putaway_posted_qty FROM inbound_line WHERE id='LINE-SERIAL'",BigDecimal.class).compareTo(new BigDecimal("2"))==0,30,"全部序列身份上架未闭环",in,stock);
+            assertEquals(List.of("STORAGE","STORAGE"),stockDb.queryForList("SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='RECEIVE-SERIAL' ORDER BY s.serial_id",String.class));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;

@@ -327,11 +327,20 @@ public final class StockCommandService {
     public Map<String, Object> applyPutaway(String enterpriseId, String warehouseId, String commandId,
             String factParentId, String factPartId, String factLineId, String documentId, String actorId,
             String sourceExecutionId, String receiptCommandId, StockBucketKey source, StockBucketKey target, Quantity qty) {
+        return applyPutaway(enterpriseId,warehouseId,commandId,factParentId,factPartId,factLineId,documentId,actorId,sourceExecutionId,receiptCommandId,source,target,qty,null);
+    }
+
+    /** 所选身份进入新命令摘要和凭证；迟到重放只恢复原命令，不重新拉回已移动身份。 */
+    public Map<String,Object> applyPutaway(String enterpriseId,String warehouseId,String commandId,String factParentId,
+            String factPartId,String factLineId,String documentId,String actorId,String sourceExecutionId,String receiptCommandId,
+            StockBucketKey source,StockBucketKey target,Quantity qty,com.lrj.wms.contract.messaging.SerialStockSelection selection) {
+        if(selection!=null) selection.requireQuantity(qty.toBigDecimal());
         String sourceService = StockCommandCodes.SOURCE_INBOUND, action = EffectCodes.ACTION_PUTAWAY;
         Timestamp now = Timestamp.from(clock.instant());
         var effects = session.getMapper(EffectMapper.class);
         var commands = session.getMapper(StockCommandMapper.class);
         String digest = CommandDigest.v1(action, documentId, source, qty.toPlainString(), target.locationId(), receiptCommandId);
+        if(selection!=null) digest=CommandDigest.v1Parts("SERIAL_PUTAWAY_V1",digest,com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(selection));
         String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
                 EffectCodes.FACT_SUB_ACTION, factParentId, factPartId, factLineId, now);
         var effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
@@ -348,8 +357,10 @@ public final class StockCommandService {
         String operation = UUID.nameUUIDFromBytes(("PUTAWAY/" + enterpriseId + "/" + warehouseId + "/" + commandId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         new InventoryApplicationService(session, clock).move(enterpriseId, warehouseId, operation, documentId, actorId, source, target, qty, false);
+        if(selection!=null) new com.lrj.wms.inventory.serial.SerialPutawayStockService(session,clock).move(enterpriseId,warehouseId,receiptCommandId,source,target,selection);
         String postingId = UUID.randomUUID().toString();
-        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("operationId", operation));
+        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(selection==null?Map.of("operationId", operation):
+                Map.of("operationId",operation,"receiptCommandId",receiptCommandId,"serialSelection",selection));
         if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
                 UUID.randomUUID().toString(), "PUTAWAY", qty.toBigDecimal(), sourceExecutionId, documentId, manifest, now) != 1
                 || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1
