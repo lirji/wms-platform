@@ -3,8 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 用户工作区 `main` 未切换（含未跟踪 `docs/design/11-edge-resilience.md`）。
-- 任务分支：`feat/wms-s9-02-route-gate`。
+- 任务分支：`feat/console-login-oidc`（基于远程 main `87a233b`）。原工作区 `feat/wms-cursor-workflow-overlay` 仍有同内容脏文件，未切换该目录。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -28,7 +27,8 @@
 - `requireWritable` 不再把分片未声明/缺表伪装成停写；`TccFenceShardingIT` 纳入 `warehouse_route`。
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。
-- 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console；隔离项目 `wms-local`。健康 UP / 未配 OIDC 的 403 已核。不是 S9-05 或设备验收。
+- 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console，已在远程 main `87a233b`。
+- 2026-09-12：控制台登录/`returnTo`/OIDC 与 `11-edge-resilience.md` 迁到 `feat/console-login-oidc`。不是 UI accepted。
 
 ## 未完成
 

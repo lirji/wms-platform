@@ -9,13 +9,14 @@
 - WMS S0–S7 及 S8-01/S8-04/S9-02/S9-03/S9-04/S9-06 在更早的 `origin/main`。
 - route-gate 修复与 AC-24 HTTP IT 在 `origin/main` `4dee112`。
 - recon S8-02/S8-03 在 recon `origin/main`；`WmsExportContractTest` 复跑 1/0。
-- 公共工作流 Stage 5：`compose.yaml` + `deploy/app.Dockerfile` 在容器内编译并启动 inbound/outbound/inventory/serial-registry/fulfillment 与 console（2026-09-12，工作树 `.local/main-integration`，项目 `wms-local`）。五服务 `/actuator/health` 与控制台 `http://127.0.0.1:18180/` 为 200；未配 OIDC 时业务路径 403。未操作共享 dev-infra。健康 UP 不是 50 AC。
+- 公共工作流 Stage 5：`compose.yaml` 容器编译启动五服务与 console，已在远程 main `87a233b`。
+- 控制台登录页、`returnTo` 消毒、OIDC client 默认 `wms-platform`、Vite `:4181`/`/healthz`，以及设计文档 `docs/design/11-edge-resilience.md`（2026-09-12，`feat/console-login-oidc`）。未配 OIDC 停在登录配置态。不是 UI accepted。
 
 ## 未完成
 
-- 将本 Stage 5 提交合入远程 main，并核对 60m java timeout 的 main verify。
+- 将 `feat/console-login-oidc` 合入远程 main（等当前 main verify 结束再推，避免 `cancel-in-progress`）。
 - S8-05 真实设备。S9-01 签署容量。OQ-03。UI accepted。50 AC 全量通过。
 
 ## 下一步
 
-发布 `feat/docker-app-runtime` 后继续 S9-05 证据；S8-05 / S9-01 / AC-42 / UI 保持 blocked，除非给出设备、签署容量、OIDC 联调或 TM/TC 宕机环境。不把 compose 健康写成全通过。
+main verify `34678521646` 结束后快进发布控制台登录切片；S8-05 / S9-01 / AC-42 / UI 保持 blocked。不把 compose 健康或登录页写成全通过。
