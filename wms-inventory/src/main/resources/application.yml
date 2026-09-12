@@ -36,6 +36,12 @@ wms:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
     client-id: ${WMS_OIDC_CLIENT_ID:}
+  serial:
+    client:
+      enabled: ${WMS_SERIAL_CLIENT_ENABLED:false}
+      base-url: ${WMS_SERIAL_CLIENT_BASE_URL:}
+      token-directory: ${WMS_SERIAL_CLIENT_TOKEN_DIRECTORY:}
+      allow-http: ${WMS_SERIAL_CLIENT_ALLOW_HTTP:false}
   inventory:
     datasource:
       url: ${WMS_INVENTORY_JDBC_URL:}

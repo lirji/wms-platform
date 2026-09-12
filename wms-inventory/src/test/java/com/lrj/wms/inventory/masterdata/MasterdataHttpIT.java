@@ -257,6 +257,54 @@ class MasterdataHttpIT {
         assertTrue(missing.body().contains(missing.headers().firstValue("X-Request-Id").orElseThrow()));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired org.apache.ibatis.session.SqlSessionFactory sessions;
+    @org.springframework.beans.factory.annotation.Autowired javax.sql.DataSource dataSource;
+
+    @Test void serialRecoveryRequiresWarehouseScopeAndAtomicAuditedRequeue() throws Exception {
+        var jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        var json=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        var now=java.sql.Timestamp.from(Instant.parse("2026-09-12T01:02:03.123456Z"));
+        for(int n=1;n<=2;n++) jdbc.update("INSERT INTO serial_recovery_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,operation_id,kind,context_hash,state,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES(?,?,? ,?,?,?,'RECEIPT',?,'ISOLATED',7,12,?,?,?)",
+                "HTTP-INTENT-"+n,SeedCatalog.ENTERPRISE,"WH-A","HTTP-SN-"+n,"SKU","OP-"+n,"0".repeat(64),now,now,now);
+        String path="/api/wms/v1/warehouses/WH-A/serial-recoveries";
+        String authorized=token("wms-ops",List.of("WH-A"),List.of("messaging.read","messaging.recover"));
+        assertEquals(403,get(path,token(List.of("WH-A"))).statusCode());
+        assertEquals(403,get(path,token("wms-ops",List.of("WH-B"),List.of("messaging.read"))).statusCode());
+        assertEquals(400,get(path+"?limit=201",authorized).statusCode());
+        var first=get(path+"?limit=1&state=ISOLATED",authorized); assertEquals(200,first.statusCode(),first.body());
+        var page=json.readTree(first.body()); assertEquals(1,page.path("items").size());
+        assertTrue(first.body().contains("2026-09-12T01:02:03.123456Z"));
+        assertTrue(!first.body().contains("context_hash"));
+        var second=get(path+"?limit=1&state=ISOLATED&cursor="+page.path("nextCursor").asString(),authorized);
+        assertEquals(200,second.statusCode());
+        org.junit.jupiter.api.Assertions.assertNotEquals(page.path("items").get(0).path("id").asString(),json.readTree(second.body()).path("items").get(0).path("id").asString());
+        String retry=path+"/HTTP-INTENT-1/retries";
+        String body="{\"expectedEpoch\":7,\"reason\":\"已核对原收货与登记冲突\"}";
+        assertEquals(403,postRecovery(retry,token("wms-ops",List.of("WH-A"),List.of("messaging.read")),"DENIED",body).statusCode());
+        assertEquals(409,postRecovery(retry,authorized,"STALE",body.replace(":7",":6")).statusCode());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        jdbc.execute("ALTER TABLE serial_recovery_intent ADD CONSTRAINT reject_requeue CHECK (id<>'HTTP-INTENT-1' OR state='ISOLATED')");
+        assertEquals(503,postRecovery(retry,authorized,"RETRY-HTTP",body).statusCode());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        jdbc.execute("ALTER TABLE serial_recovery_intent DROP CHECK reject_requeue");
+        var accepted=postRecovery(retry,authorized,"RETRY-HTTP",body); assertEquals(202,accepted.statusCode(),accepted.body());
+        assertEquals(202,postRecovery(retry,authorized,"RETRY-HTTP",body).statusCode());
+        assertEquals(409,postRecovery(retry,authorized,"RETRY-HTTP",body.replace("已核对","换依据")).statusCode());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        assertEquals(8L,jdbc.queryForObject("SELECT claim_epoch FROM serial_recovery_intent WHERE id='HTTP-INTENT-1'",Long.class));
+        assertEquals(0,jdbc.queryForObject("SELECT attempts FROM serial_recovery_intent WHERE id='HTTP-INTENT-1'",Integer.class));
+        // 旧领取回执即使迟到，也不能在人工重排后覆盖新代际。
+        try(var session=sessions.openSession(false)) {
+            assertEquals(0,session.getMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-INTENT-1",7,"DONE",null,now,now));
+            session.commit();
+        }
+    }
+    private HttpResponse<String> postRecovery(String path,String bearer,String command,String body) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path))
+                .header("Authorization","Bearer "+bearer).header("Idempotency-Key",command).header("Content-Type","application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET();
         if (bearer != null) {

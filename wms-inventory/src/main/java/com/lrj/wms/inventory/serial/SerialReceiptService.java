@@ -39,6 +39,16 @@ public final class SerialReceiptService {
     /** HOLD 收货并协调登记。同操作重放不二次加量；登记失败保留本地记录。 */
     public Map<String, Object> receiveHold(String enterpriseId, String warehouseId, String operationId, String documentId,
             String actorId, String serial, StockBucketKey bucket) {
+        return receive(enterpriseId,warehouseId,operationId,documentId,actorId,serial,bucket,true);
+    }
+
+    /** 运行链路先提交HOLD和原始意图，由serialTransferRecovery在事务外协调登记。 */
+    public Map<String,Object> stageHold(String e,String w,String op,String document,String actor,String serial,StockBucketKey bucket) {
+        return receive(e,w,op,document,actor,serial,bucket,false);
+    }
+    private Map<String,Object> receive(String enterpriseId,String warehouseId,String operationId,String documentId,
+            String actorId,String serial,StockBucketKey bucket,boolean synchronize) {
+        SerialRecoveryService.requireWritable(session,enterpriseId,warehouseId);
         String normalized = normalize(serial);
         if (!InventoryCodes.QUALITY_HOLD.equals(bucket.qualityCode())) {
             throw new InventoryException("INVALID_QUALITY", "序列号收货必须进入 HOLD 桶");
@@ -54,12 +64,15 @@ public final class SerialReceiptService {
         if (row == null) {
             throw new InventoryException("VERSION_CONFLICT", "本地序列号意向竞争");
         }
-        if (!operationId.equals(String.valueOf(row.get("receipt_operation_id")))) {
+        if (!operationId.equals(String.valueOf(row.get("receipt_operation_id")))
+                || !bucket.skuId().equals(row.get("sku_id")) || !bucket.lotId().equals(row.get("lot_id"))) {
             throw new InventoryException("SERIAL_ALREADY_RECEIVED", "序列号已被其他收货操作占用");
         }
         if (SerialTransferLocalService.STATE_SEALED.equals(String.valueOf(row.get("state")))) {
             throw new InventoryException("SERIAL_SEALED", "源仓已封闭，不能再按收货放行");
         }
+        if(row.get("transfer_id") != null) throw new InventoryException("SERIAL_OPERATION_MISMATCH","转移接收不能按首次收货重放");
+        requireIdentityBucket(session,enterpriseId,warehouseId,row,bucket);
         if (STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             return view(row);
         }
@@ -76,7 +89,8 @@ public final class SerialReceiptService {
                     STATE_HOLD_RECEIVED, REGISTRY_NONE, null, 0L, now);
             row = locals.lock(enterpriseId, warehouseId, normalized);
         }
-        return syncRegistry(enterpriseId, warehouseId, operationId, normalized, bucket.skuId(), row);
+        SerialRecoveryService.stage(session, clock, enterpriseId, warehouseId, row, null, null);
+        return synchronize ? syncRegistry(enterpriseId, warehouseId, operationId, normalized, bucket.skuId(), row) : view(row);
     }
 
     /** 登记恢复后补激活。查询本地记录，不 invent 新库存。 */
@@ -89,6 +103,9 @@ public final class SerialReceiptService {
         if (SerialTransferLocalService.STATE_SEALED.equals(String.valueOf(row.get("state")))
                 || STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             return view(row);
+        }
+        if (row.get("transfer_id") != null || row.get("balance_id") == null) {
+            throw new InventoryException("SERIAL_RECOVERY_CONTEXT_REQUIRED", "转移或未入账意图不能按首次收货恢复");
         }
         if (CountService.MISSING.equals(String.valueOf(row.get("state")))
                 || CountService.MISSING_PENDING.equals(String.valueOf(row.get("state")))) {
@@ -112,7 +129,21 @@ public final class SerialReceiptService {
         if (serial == null || serial.isBlank()) {
             throw new InventoryException("INVALID_SERIAL", "序列号不能为空");
         }
-        return serial.trim().toUpperCase(java.util.Locale.ROOT);
+        String normalized=serial.trim().toUpperCase(java.util.Locale.ROOT);
+        if(normalized.length()>64) throw new InventoryException("INVALID_SERIAL", "本地序列号最大64字符");
+        return normalized;
+    }
+
+    /** 本地唯一键较全局更严格，重放仍必须核对SKU、批次和原库存桶，不得串用其他SKU。 */
+    static void requireIdentityBucket(SqlSession session,String e,String w,Map<String,Object> row,StockBucketKey bucket) {
+        if(!bucket.skuId().equals(row.get("sku_id")) || !bucket.lotId().equals(row.get("lot_id")))
+            throw new InventoryException("SERIAL_OPERATION_MISMATCH","本地序列号已绑定其他SKU或批次");
+        if(row.get("balance_id")!=null) {
+            var balance=session.getMapper(InventoryMapper.class).lockBalanceById(e,w,String.valueOf(row.get("balance_id")));
+            if(balance==null || !bucket.ownerId().equals(balance.get("owner_id")) || !bucket.locationId().equals(balance.get("location_id"))
+                    || !bucket.qualityCode().equals(balance.get("quality_code")))
+                throw new InventoryException("SERIAL_OPERATION_MISMATCH","本地序列号重放不得更改库存桶");
+        }
     }
 
     private Map<String, Object> syncRegistry(String enterpriseId, String warehouseId, String operationId, String serial,

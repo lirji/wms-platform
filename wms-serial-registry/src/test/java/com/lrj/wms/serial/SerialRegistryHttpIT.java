@@ -82,6 +82,7 @@ class SerialRegistryHttpIT {
         var active = post("activations", token, "ACTIVATE-CMD", body);
         assertEquals(200, active.statusCode(), active.body());
         assertEquals("ACTIVE", RuntimeMessage.JSON.readTree(active.body()).path("state").asString());
+        assertEquals("RECEIPT-OP",RuntimeMessage.JSON.readTree(active.body()).path("receiptOperationId").asString());
         assertEquals(200, post("activations", token, "ACTIVATE-CMD", body).statusCode());
         assertEquals(409, post("activations", token, "WRONG-OP", body.replace("RECEIPT-OP", "WRONG-OP")).statusCode());
         var jdbc = new JdbcTemplate(source);
@@ -149,6 +150,9 @@ class SerialRegistryHttpIT {
         ok("found-claims",destinationOnly,"FRESH-CLAIM",fresh,"CLAIMED");
         ok("found-claims",destinationOnly,"FRESH-CLAIM",fresh,"CLAIMED");
         ok("found-activations",destinationOnly,"FRESH-ACTIVATE",fresh,"ACTIVE");
+        new JdbcTemplate(source).update("UPDATE serial_registry SET receipt_operation_id=NULL WHERE normalized_serial='SN-FRESH-FOUND'");
+        var repaired=ok("found-claims",destinationOnly,"FRESH-CLAIM",fresh,"ACTIVE");
+        assertEquals("FRESH-FACT",repaired.path("receiptOperationId").asString());
     }
 
     private tools.jackson.databind.JsonNode ok(String action,String token,String key,Map<String,Object> body,String state) throws Exception {

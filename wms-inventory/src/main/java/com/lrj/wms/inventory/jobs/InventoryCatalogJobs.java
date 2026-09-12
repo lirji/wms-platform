@@ -17,6 +17,10 @@ public class InventoryCatalogJobs {
     private final TccReservationWatch watch;
     private final org.apache.ibatis.session.SqlSessionFactory sessions;
 
+    private com.lrj.wms.inventory.serial.SerialRegistryHttpClient registry;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void registry(ObjectProvider<com.lrj.wms.inventory.serial.SerialRegistryHttpClient> clients) { this.registry=clients.getIfAvailable(); }
+
     public InventoryCatalogJobs(ObjectProvider<TccReservationWatch> watches,
             ObjectProvider<org.apache.ibatis.session.SqlSessionFactory> sessions) {
         this.watch = watches == null ? null : watches.getIfAvailable();
@@ -46,7 +50,11 @@ public class InventoryCatalogJobs {
 
     @XxlJob(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY)
     public void serialTransferRecovery() {
-        unavailableHandler(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY);
+        clearSchedulerContext();
+        String[] scope=requireScope(2);
+        var report=new com.lrj.wms.inventory.serial.SerialRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry,registry).execute(scope[0],scope[1]);
+        XxlJobHelper.log("serial recovered={}, failed={}",report.completed(),report.failed());
+        if(report.failed()>0) throw new IllegalStateException("登记恢复失败已保留HOLD及有界退避/隔离记录");
     }
 
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
@@ -123,11 +131,6 @@ public class InventoryCatalogJobs {
     private org.apache.ibatis.session.SqlSessionFactory requireSessions() {
         if (sessions == null) throw new IllegalStateException("后台任务未配置业务数据库");
         return sessions;
-    }
-
-    private static void unavailableHandler(String handler) {
-        clearSchedulerContext();
-        throw new IllegalStateException(handler + " 尚未配置实际执行器，拒绝报告成功");
     }
 
     private static String[] requireScope(int parts) {

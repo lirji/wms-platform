@@ -52,6 +52,7 @@ public final class SerialRegistryService {
         if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "认领仓与原操作归属不一致");
         }
+        if(STATE_ACTIVE.equals(row.get("state"))) return activeReceipt(mapper,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
         return view(row);
     }
 
@@ -76,7 +77,7 @@ public final class SerialRegistryService {
         }
         String state = String.valueOf(row.get("state"));
         if (STATE_ACTIVE.equals(state)) {
-            return view(row);
+            return activeReceipt(mapper,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
         }
         if (!STATE_CLAIMED.equals(state)) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能激活");
@@ -85,6 +86,14 @@ public final class SerialRegistryService {
             throw new SerialRegistryException("VERSION_CONFLICT", "登记激活竞争");
         }
         return view(mapper.lockIdentity(enterpriseId, skuId, normalized));
+    }
+
+    /** ACTIVE必须携带原收货凭证，旧记录仅在原始认领且从未转移的情况下修复。 */
+    private Map<String,Object> activeReceipt(SerialRegistryMapper mapper,String e,String sku,String serial,String wh,String op,Map<String,Object> row,Timestamp now) {
+        if(op.equals(row.get("receipt_operation_id"))) return view(row);
+        if(row.get("receipt_operation_id")==null && row.get("transfer_id")==null
+                && mapper.repairActiveReceipt(e,sku,serial,wh,op,now)==1) return view(mapper.lockIdentity(e,sku,serial));
+        throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","有效授权不属于本次收货操作");
     }
 
     /** 恢复查询，不加锁。不存在则业务码拒绝。 */
@@ -318,7 +327,8 @@ public final class SerialRegistryService {
             return view(row);
         }
         if (STATE_ACTIVE.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
-                && operationId.equals(row.get("receipt_operation_id")) && operationId.equals(row.get("claim_operation_id"))) return view(row);
+                && operationId.equals(row.get("claim_operation_id")))
+            return activeReceipt(identities,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
         // 全新盘盈认领的回执丢失后仍停在CLAIMED，按原操作继续激活。
         if (STATE_CLAIMED.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
                 && operationId.equals(row.get("claim_operation_id"))) return view(row);

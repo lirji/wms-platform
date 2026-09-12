@@ -1,0 +1,26 @@
+-- 登记调用意图与HOLD库存同事务持久化；历史转移缺少from_epoch时不猜测回填。
+CREATE TABLE serial_recovery_intent (
+  id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '稳定登记恢复意图标识',
+  enterprise_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '企业权限范围',
+  warehouse_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '仓库及路由键',
+  serial_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '规范化本地序列号',
+  sku_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '不可变SKU身份',
+  operation_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原收货操作，重试不另造身份',
+  kind VARCHAR(16) COLLATE utf8mb4_bin NOT NULL COMMENT 'RECEIPT或TRANSFER',
+  transfer_id VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '原始转移引用，首次收货为空',
+  from_epoch BIGINT NULL COMMENT '转移原始归属代际，不从当前owner_epoch猜测',
+  context_hash CHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '库存桶与业务引用的不可变摘要',
+  state VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING、RUNNING、DONE、ISOLATED或SUPERSEDED',
+  claim_epoch BIGINT NOT NULL DEFAULT 0 COMMENT '领取代际，拒绝旧执行器落库',
+  attempts INT NOT NULL DEFAULT 0 COMMENT '本意图自动尝试次数，上限12',
+  next_attempt_at DATETIME(6) NOT NULL COMMENT '下次可领取时刻或在途租约截止UTC',
+  last_error VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '可审计错误码，不保存远端响应正文',
+  version BIGINT NOT NULL DEFAULT 0 COMMENT '记录并发版本',
+  created_at DATETIME(6) NOT NULL COMMENT '意图创建UTC时刻',
+  updated_at DATETIME(6) NOT NULL COMMENT '最后状态变更UTC时刻',
+  PRIMARY KEY(id),
+  UNIQUE KEY uk_serial_recovery_operation(enterprise_id,warehouse_id,serial_id,operation_id),
+  KEY idx_serial_recovery_ready(enterprise_id,warehouse_id,state,next_attempt_at,id),
+  CONSTRAINT ck_serial_recovery_context CHECK ((kind='RECEIPT' AND transfer_id IS NULL AND from_epoch IS NULL) OR (kind='TRANSFER' AND transfer_id IS NOT NULL AND from_epoch>=0)),
+  CONSTRAINT ck_serial_recovery_attempt CHECK (claim_epoch>=0 AND attempts>=0 AND attempts<=12 AND version>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存登记恢复原始意图及有界重试；不替代登记授权';

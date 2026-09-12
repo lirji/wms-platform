@@ -34,6 +34,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}	recon.read
+GET	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries	messaging.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks	task.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}	task.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/action-effects	task.read
@@ -75,6 +76,7 @@ POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick
 POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shipments	outbound.ship
 POST	/api/wms/v1/warehouses/{warehouseId}/quality-inspections/{inspectionId}/results	quality.inspect
 POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}/remediations	recon.remediate
+POST	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries	messaging.recover
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds	stock.hold
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds/{holdId}/releases	stock.releaseHold
 POST	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/claims	task.claim

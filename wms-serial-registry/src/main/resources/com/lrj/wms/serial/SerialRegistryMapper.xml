@@ -51,7 +51,7 @@
     <!-- activateClaimed：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <update id="activateClaimed">
         UPDATE serial_registry
-        SET state=#{state}, version=version+1, updated_at=#{now}
+        SET state=#{state}, receipt_operation_id=claim_operation_id, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND sku_id=#{skuId}
         AND normalized_serial=#{serial}
@@ -89,5 +89,12 @@
         AND normalized_serial=#{serial}
         AND state='FOUND_CLAIMED'
         AND claim_operation_id=#{operationId}
+    </update>
+    <!-- 只补齐从未转移的原始认领激活；不猜测转移或其他收货引用。 -->
+    <update id="repairActiveReceipt">
+        UPDATE serial_registry SET receipt_operation_id=claim_operation_id, version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND sku_id=#{skuId} AND normalized_serial=#{serial}
+          AND owner_warehouse_id=#{warehouseId} AND claim_operation_id=#{operationId}
+          AND state='ACTIVE' AND receipt_operation_id IS NULL AND transfer_id IS NULL
     </update>
 </mapper>

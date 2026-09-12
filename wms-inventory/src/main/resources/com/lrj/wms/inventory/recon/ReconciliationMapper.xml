@@ -36,7 +36,7 @@
                 WHERE l.enterprise_id=b.enterprise_id AND l.warehouse_id=b.warehouse_id AND l.balance_id=b.id
                 AND r.state IN ('TRIED','CONFIRMED')),0) AS remaining_qty,
             (SELECT COUNT(*) FROM local_serial s WHERE s.enterprise_id=b.enterprise_id AND s.warehouse_id=b.warehouse_id
-                AND s.balance_id=b.id AND s.state IN ('HOLD_RECEIVED','AUTHORIZED','SEALED')) AS serial_count
+                AND s.balance_id=b.id AND s.state IN ('HOLD_RECEIVED','AUTHORIZED','EXCEPTION','RECEIVING')) AS serial_count
         FROM stock_balance b JOIN sku k ON k.enterprise_id=b.enterprise_id AND k.id=b.sku_id
         WHERE b.enterprise_id=#{enterpriseId} AND b.warehouse_id=#{warehouseId} AND b.created_at &lt; #{cutoff}
         <if test="cursor != null">AND b.id &gt; #{cursor}</if>

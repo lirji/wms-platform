@@ -67,6 +67,7 @@ class CountSerialIT {
         config.addMapper(CommandDedupMapper.class);
         config.addMapper(CountMapper.class);
         config.addMapper(LocalSerialMapper.class);
+        config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {

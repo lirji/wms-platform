@@ -3549,6 +3549,84 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/serial-recoveries:
+    get:
+      operationId: listSerialRecoveries
+      tags: [common]
+      summary: 登记恢复元数据与隔离原因，稳定分页
+      security:
+        - oidc: [messaging.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: state
+          schema: { type: string, enum: [PENDING, RUNNING, DONE, ISOLATED, SUPERSEDED] }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries:
+    post:
+      operationId: retrySerialRecovery
+      tags: [common]
+      summary: 核查隔离原因后受审计重排原意图，领取代际递增
+      security:
+        - oidc: [messaging.recover]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - in: path
+          name: intentId
+          required: true
+          schema: { type: string, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRetryRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialRecoveryAccepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     oidc:
@@ -4999,6 +5077,15 @@ components:
         transferId: { type: [string, 'null'] }
         receiptOperationId: { type: [string, 'null'] }
         version: { $ref: '#/components/schemas/Version' }
+    SerialRecoveryAccepted:
+      type: object
+      additionalProperties: false
+      required: [recoveryId, intentId, status, replayed]
+      properties:
+        recoveryId: { $ref: '#/components/schemas/Id' }
+        intentId: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [RETRY_ACCEPTED] }
+        replayed: { type: boolean }
     MessageRecoveryAccepted:
       type: object
       additionalProperties: false

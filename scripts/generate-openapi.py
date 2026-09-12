@@ -320,6 +320,12 @@ get("/internal/wms/v1/serial-identities/transfers/{transferId}", "getSerialTrans
      "- $ref: '#/components/parameters/SerialSkuQuery'", "- $ref: '#/components/parameters/SerialQuery'",
      "- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string, minLength: 1, maxLength: 64 }"], success_schema="SerialTransfer")
 
+get("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries", "listSerialRecoveries", "common", "messaging.read", ("200",),
+    "登记恢复元数据与隔离原因，稳定分页", wh+cursor+["- in: query\n          name: state\n          schema: { type: string, enum: [PENDING, RUNNING, DONE, ISOLATED, SUPERSEDED] }"])
+post("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries", "retrySerialRecovery", "common", "messaging.recover",
+    "MessageRetryRequest", ("202",), "核查隔离原因后受审计重排原意图，领取代际递增",
+    wh+["- in: path\n          name: intentId\n          required: true\n          schema: { type: string, maxLength: 64 }"], success_schema="SerialRecoveryAccepted")
+
 header = """openapi: 3.1.0
 info:
   title: WMS v1 HTTP contract
@@ -1803,6 +1809,15 @@ components:
         transferId: { type: [string, 'null'] }
         receiptOperationId: { type: [string, 'null'] }
         version: { $ref: '#/components/schemas/Version' }
+    SerialRecoveryAccepted:
+      type: object
+      additionalProperties: false
+      required: [recoveryId, intentId, status, replayed]
+      properties:
+        recoveryId: { $ref: '#/components/schemas/Id' }
+        intentId: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [RETRY_ACCEPTED] }
+        replayed: { type: boolean }
     MessageRecoveryAccepted:
       type: object
       additionalProperties: false

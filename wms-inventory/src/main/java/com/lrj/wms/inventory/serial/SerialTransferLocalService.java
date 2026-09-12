@@ -113,6 +113,16 @@ public final class SerialTransferLocalService {
     public Map<String, Object> receiveDestination(String enterpriseId, String warehouseId, String operationId,
             String documentId, String actorId, String serial, StockBucketKey bucket, String transferId,
             long expectedFromEpoch) {
+        return receiveDestination(enterpriseId,warehouseId,operationId,documentId,actorId,serial,bucket,transferId,expectedFromEpoch,true);
+    }
+
+    /** 目的HOLD与原始转移上下文先落库，登记请求由独立恢复执行器提交。 */
+    public Map<String,Object> stageDestination(String e,String w,String op,String document,String actor,String serial,StockBucketKey bucket,String transfer,long epoch) {
+        return receiveDestination(e,w,op,document,actor,serial,bucket,transfer,epoch,false);
+    }
+    private Map<String,Object> receiveDestination(String enterpriseId,String warehouseId,String operationId,String documentId,
+            String actorId,String serial,StockBucketKey bucket,String transferId,long expectedFromEpoch,boolean synchronize) {
+        SerialRecoveryService.requireWritable(session,enterpriseId,warehouseId);
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         String normalized = SerialReceiptService.normalize(serial);
         if (!InventoryCodes.QUALITY_HOLD.equals(bucket.qualityCode())) {
@@ -130,12 +140,14 @@ public final class SerialTransferLocalService {
         if (row == null) {
             throw new InventoryException("VERSION_CONFLICT", "目的序列号意向竞争");
         }
-        if (!operationId.equals(String.valueOf(row.get("receipt_operation_id")))) {
+        if (!operationId.equals(String.valueOf(row.get("receipt_operation_id")))
+                || !bucket.skuId().equals(row.get("sku_id")) || !bucket.lotId().equals(row.get("lot_id"))
+                || row.get("transfer_id") != null && !transferId.equals(row.get("transfer_id"))) {
             throw new InventoryException("SERIAL_ALREADY_RECEIVED", "序列号已被其他收货操作占用");
         }
-        if (SerialReceiptService.STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
-            return view(row);
-        }
+        SerialReceiptService.requireIdentityBucket(session,enterpriseId,warehouseId,row,bucket);
+        if (!java.util.Set.of("INTENDED","HOLD_RECEIVED","EXCEPTION","RECEIVING","AUTHORIZED").contains(row.get("state")))
+            throw new InventoryException("SERIAL_STATE_CONFLICT", "当前本地生命周期不能接收转移");
         if (SerialReceiptService.STATE_INTENDED.equals(String.valueOf(row.get("state")))) {
             new InventoryApplicationService(session, clock).receive(enterpriseId, warehouseId, operationId, documentId,
                     actorId, bucket, Quantity.parse("1", 0));
@@ -149,8 +161,16 @@ public final class SerialTransferLocalService {
                     SerialReceiptService.STATE_HOLD_RECEIVED, SerialReceiptService.REGISTRY_NONE, null, 0L, now);
             row = locals.lock(enterpriseId, warehouseId, normalized);
         }
-        return syncDestination(enterpriseId, warehouseId, operationId, normalized, bucket.skuId(), transferId,
-                expectedFromEpoch, row);
+        // 在远程调用前固定原始转移与fromEpoch；恢复不能从后来变化的owner_epoch推测。
+        if (row.get("transfer_id") == null) {
+            if(locals.bindTransfer(enterpriseId,warehouseId,normalized,transferId,now)!=1)
+                throw new InventoryException("VERSION_CONFLICT","转移意图绑定竞争");
+            row=locals.lock(enterpriseId,warehouseId,normalized);
+        }
+        SerialRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedFromEpoch);
+        if(SerialReceiptService.STATE_AUTHORIZED.equals(row.get("state"))) return view(row);
+        return synchronize ? syncDestination(enterpriseId, warehouseId, operationId, normalized, bucket.skuId(), transferId,
+                expectedFromEpoch, row) : view(row);
     }
 
     private Map<String, Object> syncDestination(String enterpriseId, String warehouseId, String operationId,
@@ -183,7 +203,6 @@ public final class SerialTransferLocalService {
             locals.updateState(enterpriseId, warehouseId, serial, balanceId, SerialReceiptService.STATE_HOLD_RECEIVED,
                     SerialReceiptService.REGISTRY_NONE, error.code(), 0L, now);
         }
-        locals.bindTransfer(enterpriseId, warehouseId, serial, transferId, now);
         return view(locals.lock(enterpriseId, warehouseId, serial));
     }
 

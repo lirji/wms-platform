@@ -62,7 +62,7 @@
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND balance_id=#{balanceId}
-        AND state IN ('AUTHORIZED','SEALED')
+        AND state IN ('AUTHORIZED','HOLD_RECEIVED','EXCEPTION','RECEIVING')
         ORDER BY serial_id FOR UPDATE
     </select>
 

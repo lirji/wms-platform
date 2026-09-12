@@ -213,3 +213,15 @@ JDBC 显式设置会话/连接偏移、保留瞬时与微秒、拒绝零日期�
 新增 MISSING、FOUND 认领/激活、转移准备、源仓释放、目的接收/确认及转移查询 HTTP；统一服务主体、企业、仓范围、scope、幂等审计。准备校验两仓，释放核对真实源仓，查询仅源或目的仓。重放继续核验原始 fromEpoch 和事实引用；补全 FOUND 的 CLAIMED/ACTIVE 丢回执恢复，错误操作不得借 ACTIVE 获得成功。规范化固定 Locale.ROOT。
 
 2026-09-13 01:17:14 定向 registry verify BUILD SUCCESS（SerialRegistryHttpIT 2 用例、SerialRegistryIT、SerialRegistryActivateIT及依赖单元；日志 /tmp/wms-registry-transfer-http-it.log）。真实隔离 MySQL、RSA验签HTTP覆盖早到接收、伪造源仓、epoch不符、转移完成及FOUND重放。OpenAPI更新为85路径；verify-contracts需在产物提交后核验其无diff规则。库存有界HTTP适配、恢复和TM/TC仍未完成。
+
+## R14/R15 有界登记调用与持久化恢复
+
+库存新增真实HTTP端口适配，连接500ms/总请求1500ms、响应64KiB、8全局/2租户并发和32/8每秒预算、固定线程与队列；不隐式重试、不重定向，响应授权必须匹配原操作/归属。外部按企业JWT文件轮换，未配置不假装成功。首次登记ACTIVE现在保存原收货引用，兼容旧记录只在同仓同认领且从未转移时补齐，不能借旧认领重放目的仓授权。
+
+V033持久化原始序列号登记意图与HOLD同事务；stageHold/stageDestination明确先记本地事实。serialTransferRecovery真实执行器在库存事务外调用登记，每次20条/20秒、每条最多12次，失去回执或最后提交失败可从原操作恢复。领取epoch、本地version及共享仓路由锁阻止旧执行器或已停写源仓继续放行；归属授权不改变HOLD质量。V034人工重排与审计原子提交，messaging.read/recover及仓范围、稳定分页、期望epoch和reason必需，重排递增epoch不重置。
+
+本地唯一键继续采用更严格的企业/仓/序列号，重放核对SKU/批次/库存桶并明确拒绝超过64字符。对账序列号数量计入有实物的EXCEPTION/RECEIVING/HOLD，排除已扣量SEALED；真实双库测试验证源SEALED数量0和目的HOLD数量1。部署配置与边界见 [SERIAL_REGISTRY_RUNTIME.md](../../implementation/SERIAL_REGISTRY_RUNTIME.md)。
+
+证据：/tmp/wms-registry-client-test.log 01:20:10，3个真实HTTP传输故障用例；/tmp/wms-serial-ops-final-it.log 01:33:51通过registry HTTP2、库存HTTP12及双库进程；/tmp/wms-serial-route-final-it.log 01:35:57 BUILD SUCCESS，最终代码的库存HTTP12、SerialReceiptIT4、SerialSealIT1、SerialTransferRecoveryIT1、SerialRegistryProcessesIT1及单元。前序对账4/CountSerialIT2于01:32定向组合中通过，该组合新增HTTP异常映射和SKU夹具失败已修复，不能把前序整组写成通过。required默认门禁新增3项，总61。
+
+R13消息侧序列号观察/质量/移位与转移源释放传播尚未接通；盘点旧同步用例须先逐身份持久化进度，避免限流后每次重放整行，当前未接入这种不完整HTTP循环。R14真实TM/TC和出库授权传播仍待。未操作生产或共享库。

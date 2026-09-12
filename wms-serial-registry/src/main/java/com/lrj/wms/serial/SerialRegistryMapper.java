@@ -47,4 +47,7 @@ public interface SerialRegistryMapper {
     /** activateFound：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int activateFound(@Param("enterpriseId") String enterpriseId, @Param("skuId") String skuId,
             @Param("serial") String serial, @Param("operationId") String operationId, @Param("now") Timestamp now);
+    /** 兼容旧节点首次激活未写收货引用，只允许原始认领身份补齐。 */
+    int repairActiveReceipt(@Param("enterpriseId") String enterpriseId,@Param("skuId") String skuId,
+            @Param("serial") String serial,@Param("warehouseId") String warehouseId,@Param("operationId") String operationId,@Param("now") Timestamp now);
 }
