@@ -1,6 +1,7 @@
 
 Lists of 304 third-party dependencies.
      (Public Domain) AOP alliance (aopalliance:aopalliance:1.0 - http://aopalliance.sourceforge.net)
+     (Apache License, Version 2.0) LZ4 Java Compression (at.yawk.lz4:lz4-java:1.11.1 - https://github.com/yawkat/lz4-java)
      (EPL-2.0) (LGPL-2.1-only) Logback Classic Module (ch.qos.logback:logback-classic:1.5.38 - http://logback.qos.ch/logback-classic)
      (EPL-2.0) (LGPL-2.1-only) Logback Core Module (ch.qos.logback:logback-core:1.5.38 - http://logback.qos.ch/logback-core)
      (Apache 2) druid (com.alibaba:druid:1.2.25 - https://github.com/alibaba/druid)
@@ -18,7 +19,7 @@ Lists of 304 third-party dependencies.
      (The Apache Software License, Version 2.0) docker-java-api (com.github.docker-java:docker-java-api:3.7.1 - https://github.com/docker-java/docker-java)
      (The Apache Software License, Version 2.0) docker-java-transport (com.github.docker-java:docker-java-transport:3.7.1 - https://github.com/docker-java/docker-java)
      (The Apache Software License, Version 2.0) docker-java-transport-zerodep (com.github.docker-java:docker-java-transport-zerodep:3.7.1 - https://github.com/docker-java/docker-java)
-     (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.5.6-3 - https://github.com/luben/zstd-jni)
+     (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.5.6-4 - https://github.com/luben/zstd-jni)
      (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:3.0.2 - http://findbugs.sourceforge.net/)
      (Apache-2.0) Gson (com.google.code.gson:gson:2.13.2 - https://github.com/google/gson)
      (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.36.0 - https://errorprone.info/error_prone_annotations)
@@ -121,7 +122,7 @@ Lists of 304 third-party dependencies.
      (Apache-2.0) Apache Commons Text (org.apache.commons:commons-text:1.11.0 - https://commons.apache.org/proper/commons-text)
      (Apache License, Version 2.0) dubbo-filter-seata (org.apache.dubbo.extensions:dubbo-filter-seata:1.0.2 - https://www.apache.org/extensions-parent/dubbo-filter-extensions/dubbo-filter-seata/)
      (The Apache Software License, Version 2.0) Apache Groovy (org.apache.groovy:groovy:5.0.8 - https://groovy-lang.org)
-     (The Apache License, Version 2.0) Apache Kafka (org.apache.kafka:kafka-clients:3.8.0 - https://kafka.apache.org)
+     (The Apache License, Version 2.0) Apache Kafka (org.apache.kafka:kafka-clients:3.9.2 - https://kafka.apache.org)
      (Apache-2.0) Apache Log4j API (org.apache.logging.log4j:log4j-api:2.25.5 - https://logging.apache.org/log4j/2.x/)
      (Apache-2.0) Log4j API to SLF4J Adapter (org.apache.logging.log4j:log4j-to-slf4j:2.25.5 - https://logging.apache.org/log4j/2.x/)
      (Apache License, Version 2.0) Seata All-in-one 2.6.0 (org.apache.seata:seata-all:2.6.0 - https://seata.apache.org)
@@ -225,7 +226,6 @@ Lists of 304 third-party dependencies.
      (Eclipse Distribution License - v 1.0) (Eclipse Public License, Version 2.0) org.locationtech.jts:jts-core (org.locationtech.jts:jts-core:1.19.0 - https://www.locationtech.org/projects/technology.jts/jts-modules/jts-core)
      (Eclipse Distribution License - v 1.0) (Eclipse Public License, Version 2.0) org.locationtech.jts.io:jts-io-common (org.locationtech.jts.io:jts-io-common:1.19.0 - https://www.locationtech.org/projects/technology.jts/jts-modules/jts-io/jts-io-common)
      (Apache License, Version 2.0) Proj4J (org.locationtech.proj4j:proj4j:1.2.2 - https://github.com/locationtech/proj4j)
-     (The Apache Software License, Version 2.0) LZ4 and xxHash (org.lz4:lz4-java:1.8.0 - https://github.com/lz4/lz4-java)
      (MIT) mockito-core (org.mockito:mockito-core:5.23.0 - https://github.com/mockito/mockito)
      (MIT) mockito-junit-jupiter (org.mockito:mockito-junit-jupiter:5.23.0 - https://github.com/mockito/mockito)
      (The Apache Software License, Version 2.0) mybatis (org.mybatis:mybatis:3.5.19 - https://www.mybatis.org/mybatis-3/)

@@ -635,10 +635,11 @@ public final class InventoryApplicationService {
         mapper.insertLedger(ledgerId, enterpriseId, warehouseId, operationId, entryNo, balanceId, onHandDelta, reservedDelta,
                 BigDecimal.ZERO, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason, documentId, actorId, now,
                 now);
-        String payload = CompatibilityGate.decorateEvent("{\"onHandDelta\":\"" + onHandDelta.toPlainString()
-                + "\",\"reservedDelta\":\"" + reservedDelta.toPlainString() + "\",\"onHandAfter\":\""
-                + onHandAfter.toPlainString() + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString()
-                + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}");
+        String payload = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of(
+                "schemaVersion", CompatibilityGate.CURRENT_EVENT_SCHEMA, "onHandDelta", onHandDelta.toPlainString(),
+                "reservedDelta", reservedDelta.toPlainString(), "onHandAfter", onHandAfter.toPlainString(),
+                "reservedAfter", reservedAfter.toPlainString(), "ledgerEntryId", ledgerId,
+                "requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId()));
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_STOCK_BALANCE, balanceId, balanceVersion, InventoryCodes.EVENT_BALANCE_CHANGED,
                 operationId, payload, now);

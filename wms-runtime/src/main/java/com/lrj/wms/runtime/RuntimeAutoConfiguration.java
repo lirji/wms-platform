@@ -21,8 +21,10 @@ public class RuntimeAutoConfiguration {
     @Bean
     public com.lrj.wms.runtime.observability.RuntimeReadiness wmsReadiness(
             org.springframework.beans.factory.ObjectProvider<javax.sql.DataSource> sources,
-            org.springframework.core.env.Environment environment) {
-        return new com.lrj.wms.runtime.observability.RuntimeReadiness(sources::getIfAvailable, environment);
+            org.springframework.core.env.Environment environment,
+            org.springframework.beans.factory.ObjectProvider<com.lrj.wms.runtime.observability.RuntimeDependencyCheck> checks) {
+        return new com.lrj.wms.runtime.observability.RuntimeReadiness(sources::getIfAvailable, environment,
+                () -> checks.orderedStream().toList());
     }
 
     @Bean

@@ -36,6 +36,7 @@ class FulfillmentPersistence {
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("fulfillment", new JdbcTransactionFactory(), dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(FulfillmentMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);

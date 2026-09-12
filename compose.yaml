@@ -83,6 +83,10 @@ services:
       WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INVENTORY_DB_USER: wms_inventory_a
       WMS_INVENTORY_DB_PASSWORD: ${WMS_INVENTORY_A_DB_PASSWORD:?set WMS_INVENTORY_A_DB_PASSWORD}
+      # 当前仅启用库存事件投影；来源命令链路待完成后再独立启用。
+      WMS_MESSAGING_ENABLED: ${WMS_INVENTORY_MESSAGING_ENABLED:-false}
+      WMS_MESSAGING_BOOTSTRAPSERVERS: kafka:9092
+      WMS_MESSAGING_TOPICPREFIX: ${WMS_MESSAGING_TOPIC_PREFIX:-wms.local}
       WMS_RUNTIME_CACHE_REDISHOST: redis
       WMS_RUNTIME_CACHE_REDISPASSWORD: ${WMS_REDIS_PASSWORD:?set WMS_REDIS_PASSWORD}
       WMS_RUNTIME_CACHE_NAMESPACE: "wms:local:inventory:masterdata:v1:"

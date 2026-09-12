@@ -51,6 +51,7 @@ class InventoryPersistence {
     private static SqlSessionFactory sessions(DataSource dataSource, TransactionFactory transactions, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("inventory", transactions, dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);

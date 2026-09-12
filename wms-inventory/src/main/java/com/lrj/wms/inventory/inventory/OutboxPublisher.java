@@ -13,7 +13,7 @@ import org.apache.ibatis.session.SqlSessionFactory;
 
 /**
  * 按单个物理数据源领取、投递、重试或隔离 Outbox。
- * 不绑定 Kafka；未配置真实 transport 时不得把 PUBLISHED 当成外部已投递。
+ * 由运行配置注入真实transport，收到broker确认后才标记PUBLISHED。
  */
 public final class OutboxPublisher {
     static final int BATCH_SIZE = 32;
@@ -42,14 +42,14 @@ public final class OutboxPublisher {
         List<Claimed> claimed = claimDue();
         int published = 0;
         for (Claimed item : claimed) {
+            if (Thread.currentThread().isInterrupted()) break;
             if (item.claimEpoch() >= budget.maxClaims()) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
                 continue;
             }
             try {
                 transport.publish(item.record());
-                finish(item, InventoryCodes.OUTBOX_PUBLISHED, null);
-                published++;
+                if (finish(item, InventoryCodes.OUTBOX_PUBLISHED, null)) published++;
             } catch (OutboxIsolateException isolated) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
             } catch (RuntimeException retryable) {
@@ -77,7 +77,7 @@ public final class OutboxPublisher {
         return claimed;
     }
 
-    private void finish(Claimed item, String status, Duration retryDelay) {
+    private boolean finish(Claimed item, String status, Duration retryDelay) {
         Timestamp now = Timestamp.from(clock.instant());
         try (SqlSession session = sessions.openSession(false)) {
             OutboxMapper mapper = session.getMapper(OutboxMapper.class);
@@ -92,9 +92,10 @@ public final class OutboxPublisher {
             }
             if (updated != 1) {
                 session.rollback();
-                return;
+                return false;
             }
             session.commit();
+            return true;
         }
     }
 
@@ -103,7 +104,7 @@ public final class OutboxPublisher {
                 String.valueOf(row.get("warehouse_id")), String.valueOf(row.get("aggregate_type")),
                 String.valueOf(row.get("aggregate_id")), ((Number) row.get("aggregate_version")).longValue(),
                 String.valueOf(row.get("event_type")), String.valueOf(row.get("operation_id")),
-                String.valueOf(row.get("payload")));
+                String.valueOf(row.get("payload")), com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(row.get("created_at")));
     }
 
     private record Claimed(OutboxRecord record, long claimEpoch) {

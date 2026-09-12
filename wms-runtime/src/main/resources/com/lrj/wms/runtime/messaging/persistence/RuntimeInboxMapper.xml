@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper">
+    <!-- 同一消息身份必须保持内容不变；锁保护并发不同offset的重复投递。 -->
+    <select id="lockIdentity" resultType="map">
+        SELECT id, payload_hash FROM runtime_message_inbox WHERE event_key=#{key} FOR UPDATE
+    </select>
+    <insert id="insert">
+        INSERT INTO runtime_message_inbox(id, event_key, enterprise_id, warehouse_id, source_service,
+          topic_name, partition_no, offset_no, payload_hash, payload, status, error_code,
+          claim_epoch, next_attempt_at, created_at, updated_at)
+        VALUES (#{row.id}, #{row.eventKey,jdbcType=VARCHAR}, #{row.enterpriseId,jdbcType=VARCHAR},
+          #{row.warehouseId,jdbcType=VARCHAR}, #{row.sourceService,jdbcType=VARCHAR}, #{row.topic}, #{row.partition},
+          #{row.offset}, #{row.hash}, #{row.payload}, #{row.status}, #{row.error,jdbcType=VARCHAR}, 0, #{row.now}, #{row.now}, #{row.now})
+        ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lockNext" resultType="map">
+        SELECT id, claim_epoch FROM runtime_message_inbox
+        WHERE (status='PENDING' AND next_attempt_at &lt;= #{now})
+           OR (status='CLAIMED' AND lease_until &lt; #{now})
+        ORDER BY next_attempt_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+    </select>
+    <update id="claim">
+        UPDATE runtime_message_inbox SET status='CLAIMED', claim_epoch=claim_epoch+1, lease_until=#{until}, updated_at=#{now}
+        WHERE id=#{id} AND claim_epoch=#{epoch}
+          AND (status='PENDING' OR (status='CLAIMED' AND lease_until &lt; #{now}))
+    </update>
+    <select id="lockClaim" resultType="map">
+        SELECT id, payload, claim_epoch FROM runtime_message_inbox
+        WHERE id=#{id} AND claim_epoch=#{epoch} AND status='CLAIMED' FOR UPDATE
+    </select>
+    <update id="finish">
+        UPDATE runtime_message_inbox SET status=#{status}, error_code=#{error,jdbcType=VARCHAR},
+          lease_until=NULL, next_attempt_at=#{next}, updated_at=#{now}
+        WHERE id=#{id} AND claim_epoch=#{epoch} AND status='CLAIMED'
+    </update>
+</mapper>

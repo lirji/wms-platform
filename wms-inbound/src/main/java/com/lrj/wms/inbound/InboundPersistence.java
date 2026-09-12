@@ -39,6 +39,7 @@ class InboundPersistence {
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(SourceMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         config.addMapper(InboundTaskMapper.class);

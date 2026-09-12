@@ -1,0 +1,25 @@
+-- 每个服务持有自己的Inbox；消息已持久化后才能提交Kafka位点。
+CREATE TABLE runtime_message_inbox (
+  id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '本库接收记录标识',
+  event_key CHAR(64) COLLATE utf8mb4_bin NULL COMMENT '来源与企业仓事件身份摘要，无法解析的隔离消息可空',
+  enterprise_id VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '验证后的企业范围，非法消息可空',
+  warehouse_id VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '验证后的仓范围，非法消息可空',
+  source_service VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '与受信Topic匹配的来源服务',
+  topic_name VARCHAR(190) COLLATE utf8mb4_bin NOT NULL COMMENT 'Kafka来源Topic',
+  partition_no INT NOT NULL COMMENT 'Kafka分区',
+  offset_no BIGINT NOT NULL COMMENT '原始消费位点',
+  payload_hash CHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '内容摘要，用于拒绝事件身份复用',
+  payload MEDIUMTEXT NOT NULL COMMENT '有界原始信封，非法消息保留隔离证据',
+  status VARCHAR(32) COLLATE utf8mb4_bin NOT NULL COMMENT 'PENDING/CLAIMED/DONE/ISOLATED',
+  error_code VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '脱敏的失败类别',
+  claim_epoch BIGINT NOT NULL DEFAULT 0 COMMENT '领取代际，拒绝旧执行器提交',
+  lease_until DATETIME(6) NULL COMMENT 'UTC领取期限，不代表撤销业务效果',
+  next_attempt_at DATETIME(6) NOT NULL COMMENT 'UTC下次重试时刻',
+  created_at DATETIME(6) NOT NULL COMMENT 'UTC接收时刻',
+  updated_at DATETIME(6) NOT NULL COMMENT 'UTC更新时刻',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_runtime_event (event_key),
+  UNIQUE KEY uk_runtime_kafka_offset (topic_name, partition_no, offset_no),
+  KEY idx_runtime_inbox_due (status, next_attempt_at, id),
+  KEY idx_runtime_inbox_scope (enterprise_id, warehouse_id, status, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='本服务可靠消息接收与处理队列';

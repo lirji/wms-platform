@@ -8,6 +8,7 @@
   </parent>
   <artifactId>wms-inventory</artifactId>
   <dependencies>
+    <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-kafka</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
     <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>

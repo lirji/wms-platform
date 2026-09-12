@@ -31,12 +31,15 @@
     <seata.version>2.6.0</seata.version>
     <antlr4.version>4.13.2</antlr4.version>
     <xxl-job.version>3.4.2</xxl-job.version>
-    <kafka.version>3.8.0</kafka.version>
+    <kafka.version>3.9.2</kafka.version>
+    <lz4-java.version>1.11.1</lz4-java.version>
     <testcontainers.version>2.0.5</testcontainers.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencyManagement>
     <dependencies>
+      <!-- Kafka新增运行依赖：修复GHSA-xx22-p4ch-683r的JNI边界校验，真实压缩消息回归验证。 -->
+      <dependency><groupId>at.yawk.lz4</groupId><artifactId>lz4-java</artifactId><version>${lz4-java.version}</version></dependency>
       <!-- ShardingSphere 5.5.3解析器由4.13.2生成；Seata传递的4.8无法读取其ATN。本项目不启用Seata AT解析路径。 -->
       <dependency>
         <groupId>org.antlr</groupId>

@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:59769f46-3178-39b8-bd64-5395c5d03b97",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-09-12T13:23:41Z",
+    "timestamp" : "2026-09-12T14:36:57Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -1708,6 +1708,845 @@
         {
           "type" : "vcs",
           "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-runtime"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+      "publisher" : "MyBatis.org",
+      "group" : "org.mybatis",
+      "name" : "mybatis",
+      "version" : "3.5.19",
+      "description" : "The MyBatis SQL mapper framework makes it easier to use a relational database with object-oriented applications. MyBatis couples objects with stored procedures or SQL statements using a XML descriptor or annotations. Simplicity is the biggest advantage of the MyBatis data mapper over object relational mapping tools.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "c08c2e37b85829ca613dda4d5dbb6fcc"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "79b20d963e38e66f41431ea49bc22f7cce718142"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "93eea616ae355751bd5fbabb57f0732713fbe79f3196f33c51a0aeeb4255862a"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "2c9537965b3ffdfb68b161bc7d20db2f2dcb0e5b11ca2da1c9e5e7ea68558200ce9fc708101c0879bbfdb90bc4d46a18aad37441d4d960da1b6845cb03e0ade6"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "35c495d01912b8aa3343971b3df5386291cf7d4307528ef7771b15cd94a296ef04265243e00d5d38c144ed3b590c8ae3"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "ccf9821f76302c318f73469410a26798e8a02bf0a88167cd77614aec1f6a6c197375699dc88c53ab3e32823a8f2cd85f"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "376886a67042e04de1291bbefb17255f91239171e2470a7570ef9ccef2bb65cd"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "48b5ed3cc65b7923448e7c29d18432a9154cf4b5e2cf43b7444db1a6cdc86a4afdf5dc8b1f09b61004b82ceef74a94d09bdc66c61dfe9540230e5753eca22ef6"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.mybatis.org/mybatis-3/"
+        },
+        {
+          "type" : "build-system",
+          "url" : "https://github.com/mybatis/mybatis-3/actions"
+        },
+        {
+          "type" : "distribution-intake",
+          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/mybatis/mybatis-3/issues"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://groups.google.com/forum/#!forum/mybatis-dev"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/mybatis/mybatis-3"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.apache.kafka/kafka-clients@3.9.2?type=jar",
+      "group" : "org.apache.kafka",
+      "name" : "kafka-clients",
+      "version" : "3.9.2",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "403ae287b6dff42f84e473938a904519"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "a06edbaa01458ed2e8cf1be69a18c2f231fda6e0"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "014b4ef36884478a932641818b080c36a8f8e2e92dc771e800c9d2694f4f83d8"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "dd824c9a31f38a5a6d2b2c7ac03e9f31d8c5a7f1d8a6baefbe7d55552f4ab961ec831f040bb87a3c52dab6d464ee0954c31d256c1ea323140139465697806369"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "b3713f3e89d1650fb14d78b64b0d990253180d1c043879b0d08d1f5e5a9cea8e6028f69a3dce288bf16babd8b025fcee"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "e78f30fcebb79f35964139f3956e93aad741b98a45657324f2800210896c4083e308239ed6983761a8e16972552a8f12"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "b831f2ea3ca0ed6a44bbd56d1a2cf4af7c2ef9f46ea404cf7c975cbaa8a034e0"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "e9fb4576a52cb8949e6f52aa18478c28928b8c613cfe2e6482ffa824667fb99a6291cb0551fd5f63a44b72dbb71ff00d28c1db8b23777fb4f4bf450f06db806f"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.apache.kafka/kafka-clients@3.9.2?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://kafka.apache.org"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/com.github.luben/zstd-jni@1.5.6-4?type=jar",
+      "publisher" : "com.github.luben",
+      "group" : "com.github.luben",
+      "name" : "zstd-jni",
+      "version" : "1.5.6-4",
+      "description" : "JNI bindings for Zstd native library that provides fast and high compression lossless algorithm for Java and all JVM languages.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "808e96f7bc2d4a3c5f68e95786f74cc9"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "ba9e303e0b5e94cdd0017390d7d8c06f47fd61f7"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "793ca8734aa15687e7e64564eab8b6ae9ee2720eae27aa663074682144b1c386"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "91ae51e05bfe322e18875cd158f311a0aaef62059fd391b83c4d06447f31518863654fc218891eb99f72def102964c01d8122c73890498fef7288f060cb29e88"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "0c56933ba08e88187767e688325fdc8e281e8cb2838d6125819da484df8ecf07bfe0b88c9a5b12049efb24f8711f6f76"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "257b31ed4be57edd59c93a7b379c29c04ebba03397a528fc87bd2faa512ad4d95f7d3d6207e840b359fe8697dc66365b"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "9548d91de11376d8c4af0a3400078473e77225ae4ec1c8956d41b2af2e81810b"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "3db8c2f18fad2bcd1bc9486309228374d33e6f15d39ed8324da58a8d7d17175fb278f20004f549095333a76ce2637441e74da49fd32637e5cca640e82a2b36c7"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "BSD-2-Clause"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.github.luben/zstd-jni@1.5.6-4?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/luben/zstd-jni"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/at.yawk.lz4/lz4-java@1.11.1?type=jar",
+      "group" : "at.yawk.lz4",
+      "name" : "lz4-java",
+      "version" : "1.11.1",
+      "description" : "Java bindings and pure Java implementations of LZ4 and XXHash",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "cf0bae47489d940ad5d5420cfe4f9ebf"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "140124bf632168cef73cf9ce80477dced52b2443"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "e5e31b195fcc7e9c5da4b191af3b0082ee616c13f61cbd79409ffa65e4dd5c47"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "e8bff47e602093b9c86f14021ca4e82d90aa5358f37726b1ba04b8f58812751cf3d7fe2f9893a963eb251d2c3237b41fe890768d8f90ef76a24ad389e2056fda"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "7fb6a46d318fad3783a92c47a1e0ccdef2e0162266dd503dff2659814e82b8c857507930f00f5d0f529932b6d853a041"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "8f69886f5ddf2952d6e15dda6dfc4956f069047f44623c0413b45c24d60b662a5a6de1112ab59c1659e6665ca7a90e64"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "aa8d74abc6ba4ec19e730b936cf80ee6ecc02ce903beb874930411484cd403c6"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "69eb36d3883c07275daa521501ea2b9c64ca0719d952995f3c0de0c6c79424dadb47c816c8e8a0c2ea6c7b2d3749bbdf948e99cf7548d08034d2536de33690e5"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/at.yawk.lz4/lz4-java@1.11.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/yawkat/lz4-java"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/yawkat/lz4-java"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.xerial.snappy/snappy-java@1.1.10.5?type=jar",
+      "publisher" : "xerial.org",
+      "group" : "org.xerial.snappy",
+      "name" : "snappy-java",
+      "version" : "1.1.10.5",
+      "description" : "snappy-java: A fast compression/decompression library",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "a52ffcdbbe525b486237a7098e5c5ff7"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "ac605269f3598506196e469f1fb0d7ed5c55059e"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "0f3f1857ed33116583f480b4df5c0218836c47bfbc9c6221c0d73f356decf37b"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "36c288aa84017b52362a49a20d1702151a16b9f58518b6877f11122941a549d94fab8d515f7f1ad6384fb94be569328abf862edaf970c10a16832498dfda853b"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "693a542ca2471dec4da5fe582563aff1bf5238e1a8d1a1f79cd8138334f94f1112094fbd270b1637d983c9290084a6e1"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "41cbbb20b4bc0bd9a80521904568335fb131602a6931783f5bf6a1c8287b8ccd92c8169b8bb2399d27208fc067ef2321"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "38dc41c5a0d827c58e1409a63e902d0568a03d67cdb99708ccc63921000ddc55"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "b07d178cc94f6385d5f09d7730d2dd161c6f7d6815ae779e742421c0c1fb92043c8ec8ce5ee67660760f5287bd959eba1028924257a6ff36fb5439d8f81bd049"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0",
+            "url" : "https://www.apache.org/licenses/LICENSE-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.xerial.snappy/snappy-java@1.1.10.5?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/xerial/snappy-java"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/xerial/snappy-java"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-starter-actuator",
+      "version" : "4.1.1",
+      "description" : "Starter for using Spring Boot's Actuator which provides production ready features to help you monitor and manage your application",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "db663cf36712de35fbff7d7e43ca112c"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "b0e96511b91d0842c0d80587ffda4ee4aee512c9"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "d26bb8461ccc417c97a869fbd2e9f0067ce8a56a9ab6058093097ca16e4cc128"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "90adb1a2e2bac85c2004992e9c33dd3b1ec109c4deb1d48d9197f319889b0d76ab1d420cc3a8d25daa184276c6f8bc691ff0e59ce246dce943942a64b0a6dfd6"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "4483dfc1ba23c06ed4ad7ef76855a11fde48aa332c93ff4f341b50d114fd258c9ef0985ebca35e7218e358019cd556f4"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "0611b64b98c9b5ba629beea1eeb62f02d44af71312235bdd9ccc7627ee948f05840ed8a100ee80c7241d27aa9bc7ef3b"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "d00bfe358deb3deb9a56db45a0e75f35fa946b7546ad6dfb938967f1d4f2f83a"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "a685e7657a114d465d5fe759bd2fc8d367d433d13d0ea1c48a44c97390b872bc5fa72faba14fda692765b47bc3662b837ce46540884987dbfa925a6c6c75b4fa"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-starter-micrometer-metrics",
+      "version" : "4.1.1",
+      "description" : "Starter for using Micrometer Metrics",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "f4160cd83ae1ae2bcab3c26fec444c41"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "54a40a5888717f1bff5984b1da34118cd0af8fbf"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "ad34ce3535a82b3920efea7f9c5d6322de484969f3ab5fa6da05030edd7c14d4"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "7ab947a715b478f65d2ab274556963a7837706343321f2dcbbf679e9a5cd903bfff37b27f2490cfd4d11424851d3cd9624224f6aee1bdebf5a6728eda548ccd7"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "47012100cbfb41296c493b27b7b2edbcc8cc87a64ef86d280f38578f851f4b673b8005dff4a14307b32917dbc66f3fd8"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "396c53da391aa5f6667f2abbfb8966d628718bcc2e2c42a933230e8828b2ee5fa9432c27a6d8cf46de99c7785889b85c"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "35ceeb7d85125807e8dad16c6a0e4d783f601362aea715ba112f2a21e2e1cfd8"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "097abeb4c398f8c81ad5d6c266d70073cbc00db638c285aa8c235630179ec16df6b8e18a22c2c43e81a245b107bb881c063a88f55e7f56c73d6c8c6eb7c19f0b"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-micrometer-metrics",
+      "version" : "4.1.1",
+      "description" : "Spring Boot Metrics",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "2477c39e371ccc42ee5f0b7030c0e070"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "d2fa58fe517a9aefcf99a725b63331151fe63c40"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "70dd91dcc319d00998ce5e410b03b841e682aa2f60e4bab159c78ff0ecdb7d0f"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "0a4d5af751deca522c1d2f8127985e8c161cc5d5d567d823de4d18593b36b917eb4caa9ed76afdc94b5ea2f595d5d21c601530d8bb44d33900de59d5a78d5e6e"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "147df83675ccda3fd1c85fe17e6a59abfdb7c96e4429d362b4fdd83c28117ed4e7c57fb3a02a272a7c418290643080b4"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "721ac75c54a7fac43a5c1497dfd64c9adca209ea2b40aab2284c3fcf0d0ecac338719638e951592f477b206915549601"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "1803e77cece8be82270b97e84336bebf986ac6cc0c3e186dc9cfc7bb15754ac1"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "3cbc4da45d3b06fee0f1912e7f0ac735040969568fb24d8bfb24c4aad38097bf578c5732c2df2a3ad3e8e7a0ccb9879793ac8172ec4757ba23a96250559428cf"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-micrometer-observation",
+      "version" : "4.1.1",
+      "description" : "Spring Boot Observation",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "11c33921ea9e304b13993400f9691278"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "cff84301fdcaeacd0e83b0b5d1ec5a098be8ca7d"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "09ebd9ff7de21d10b1f11c70ca0ea8766a8a727affd19642584bee5a314ea11a"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "e76bb1047829abe9c8d4d0da1225421dcc67905346ecb392ba7c933a0b0a4cd59aee79b1afab5172090113b27d60d1bcb1ee71c7ec57a882e443ca1a9c8807a7"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "fdcd70bfe2e73ef550451e49af681c646ee76f10d3eee7e75bac0cac92824e7fd8e7a6bae6e50c4f3407ec040b9081a5"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "304c4c96118354754c458f730e68a3dc6975c0ec94c397ff0b9f04ea06236b2bd4764a6b0328c4a18c6c773fdfeb3ffa"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "0d3e2b63bb31504fd3d2a4866e54e04a25f4747022fcb185e6c9e9d9313541f2"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "e1e011e4c0a36e7495fc0f104796e20509e2af0eb13c301d9ec8361377adf1655b53d9e93cf5834c0f03b6aea9e868c209741532f09d530928834c7f2fd5a4d9"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-actuator-autoconfigure",
+      "version" : "4.1.1",
+      "description" : "Spring Boot Actuator AutoConfigure",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "d0cad8ab3930629532dcf93f80d3b022"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "858f3be62af25ba19a8d87003bb9e929187fc5a5"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "bedbd4282a0f0c6a08bd5342d3940b50d8a013420d8a536695aedb1421b5e0f5"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "f7d3208131beb7148b998bd1dad7f6763075150275c688ff8b4e396b1fa3f85a8aaa2450ea7dc99957b34cc661e8d54cc9a746f661abf35c25947ec2ff7cf9f4"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "1c9e26511fe137c41fb39f1f418ee91866f736d7cb37fb52c139767313503aec4e7786995abddeb1a94ec4075aefef30"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "341f6c7988df5573b360cdd5fdfa9df7c8dffe0fc24ebc5a6d6c8a3d2c1ef7e145392d39390b5fb443a9333afa5350b7"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "55913c13784f49c8b58792621d261929f0e437bae89297312779b2371979e80d"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "2b624454464623405c61bfeb95153d415e07f8002535783ecd2dd00dd77e86e58adf9692a22e6b58c57c8809fc1224c2e2c033969c2efc18e8bd073bfd9336c5"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-actuator",
+      "version" : "4.1.1",
+      "description" : "Spring Boot Actuator",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "23f11a944b14ecf8fc994350f042cb5d"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "17252248f9205cfb288b5fd499c821fd078a2070"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "2bbb38417af25cfc6f57a9b01a85db9b6ccdcadb9e5d40f6b1b2f54a08f8b798"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "a8a4e37726ff23ce752b0468176294d32a708fae6498360d1c4502f7c4310af7ddfddfd3b3f39301111df8e032fca2c3eb787a513bf7d75ac91dd396f0f307f9"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "31a3bab7e1ff0aa795796984811199ea32fede1eca7e6d32bbcbb917aad196e2d81ee06385e27a4b117013dccf964af8"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "c221590cf6ca3ac4570e9eb236cd30dbc08ec5f9508892bd2b3264982e305fdd6385100e0efa85609e49d3c315517e2e"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "8edc2e5f8420d06b34dceb34cfa88ec0194b0ffd070de7e6afe068a85b2e847a"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "c040ef86efd5e48493b902b31a4ac59c7a770ddbbdfb04829700e8cd66d6803c62fb7cd5d5df1d0b5dee06cb6f9a65a7a16771461e3890b48f43dd389205850e"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
+      "publisher" : "VMware, Inc.",
+      "group" : "org.springframework.boot",
+      "name" : "spring-boot-health",
+      "version" : "4.1.1",
+      "description" : "Spring Boot Health",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "e41c3d975f47d62e4e56e44313c40203"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "a767dfdac299c48e3488fddd8918b2beb300a640"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "f60151e1f014b40761d0644be1cb04f82df7fc3e9b7bf6e946848547eec399e7"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "fb90f861cc14b76c6d6b23b86fc208c00de6b1e63c41083598e3dce8314ebac62442be3705d2f0c699bca0140c0443e69d365a96fb5c49c51e45b1ff848811a4"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "4abb24642069578f8b41bb2d8c1b022b5d37bfc87c181fd8e43442ec7ef404982ea647baed65c8ad94ef3bb07375e2c2"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "dcb6fbf0d872f3e6a68bd4844ff1a355a8ea037fca3ddb5329a7c33b148c592aea06070e70ae12d406572d4dc917ff8e"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "2a42ac5ec9b6ecb9467dbf5735b3d808f5e7cdb3608dceeaf8d9dafe00ac791e"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "3eea9d94fd4620efc978dd894d6ea99d7753dedf23092fa3a3e9ee1e88bf12b06591fe47f392f16606a8c66a9a412b228209a6e47eaddbdd1aee4fb5457d2a5a"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://spring.io/projects/spring-boot"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/spring-projects/spring-boot/issues"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/spring-projects/spring-boot"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
+      "group" : "io.micrometer",
+      "name" : "micrometer-jakarta9",
+      "version" : "1.17.1",
+      "description" : "Module for Jakarta 9+ based instrumentations",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "bbccd0e1c1e758c80a02847f52bb5c70"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "6ac099edc69e8f780bfddaa48bcc7a1d4b84e3c7"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "37fbb0a98ba92e185ae7ebe0804fe6c1394bf7fba7573b204fa6fc3998c2e246"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "24da67a88d41cf054e062195520e51be8eedd8f236f5a9dd50b13bfbc760b7cca6c864b7e09dac16b748f60fadb9ca728651270dd09fd3a0211dbd22524a6bc8"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "d38dda661ba86bd7c0781f023a660010ca57cf9335ff212fe3c7efb4dffe27d82b8a768a724b6c86d4c204c3fbe2b0eb"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "214fcecbafddef8181491049757affc0eb16c666a326d95bada339ea7dd3b5dcb4c224df984db5606861386a2cee78f0"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "36b7756c9a16c475f0191950d0e9c345f5f736af9aebca9e5b2487a2ddbf43b4"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "30767c807fdfe07bab0fef2d99c7be250f0da1f5cf3e4c4dbf957850fa59abdb3932d2ad196df7a615d7b0dbc1fba5173f004597017fe00840fe3f16f392fd09"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://github.com/micrometer-metrics/micrometer-commercial"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/micrometer-metrics/micrometer-commercial.git"
         }
       ]
     },
@@ -5518,607 +6357,6 @@
         {
           "type" : "vcs",
           "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-inbound"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-starter-actuator",
-      "version" : "4.1.1",
-      "description" : "Starter for using Spring Boot's Actuator which provides production ready features to help you monitor and manage your application",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "db663cf36712de35fbff7d7e43ca112c"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "b0e96511b91d0842c0d80587ffda4ee4aee512c9"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "d26bb8461ccc417c97a869fbd2e9f0067ce8a56a9ab6058093097ca16e4cc128"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "90adb1a2e2bac85c2004992e9c33dd3b1ec109c4deb1d48d9197f319889b0d76ab1d420cc3a8d25daa184276c6f8bc691ff0e59ce246dce943942a64b0a6dfd6"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "4483dfc1ba23c06ed4ad7ef76855a11fde48aa332c93ff4f341b50d114fd258c9ef0985ebca35e7218e358019cd556f4"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "0611b64b98c9b5ba629beea1eeb62f02d44af71312235bdd9ccc7627ee948f05840ed8a100ee80c7241d27aa9bc7ef3b"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "d00bfe358deb3deb9a56db45a0e75f35fa946b7546ad6dfb938967f1d4f2f83a"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "a685e7657a114d465d5fe759bd2fc8d367d433d13d0ea1c48a44c97390b872bc5fa72faba14fda692765b47bc3662b837ce46540884987dbfa925a6c6c75b4fa"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-starter-micrometer-metrics",
-      "version" : "4.1.1",
-      "description" : "Starter for using Micrometer Metrics",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "f4160cd83ae1ae2bcab3c26fec444c41"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "54a40a5888717f1bff5984b1da34118cd0af8fbf"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "ad34ce3535a82b3920efea7f9c5d6322de484969f3ab5fa6da05030edd7c14d4"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "7ab947a715b478f65d2ab274556963a7837706343321f2dcbbf679e9a5cd903bfff37b27f2490cfd4d11424851d3cd9624224f6aee1bdebf5a6728eda548ccd7"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "47012100cbfb41296c493b27b7b2edbcc8cc87a64ef86d280f38578f851f4b673b8005dff4a14307b32917dbc66f3fd8"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "396c53da391aa5f6667f2abbfb8966d628718bcc2e2c42a933230e8828b2ee5fa9432c27a6d8cf46de99c7785889b85c"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "35ceeb7d85125807e8dad16c6a0e4d783f601362aea715ba112f2a21e2e1cfd8"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "097abeb4c398f8c81ad5d6c266d70073cbc00db638c285aa8c235630179ec16df6b8e18a22c2c43e81a245b107bb881c063a88f55e7f56c73d6c8c6eb7c19f0b"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-micrometer-metrics",
-      "version" : "4.1.1",
-      "description" : "Spring Boot Metrics",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "2477c39e371ccc42ee5f0b7030c0e070"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "d2fa58fe517a9aefcf99a725b63331151fe63c40"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "70dd91dcc319d00998ce5e410b03b841e682aa2f60e4bab159c78ff0ecdb7d0f"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "0a4d5af751deca522c1d2f8127985e8c161cc5d5d567d823de4d18593b36b917eb4caa9ed76afdc94b5ea2f595d5d21c601530d8bb44d33900de59d5a78d5e6e"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "147df83675ccda3fd1c85fe17e6a59abfdb7c96e4429d362b4fdd83c28117ed4e7c57fb3a02a272a7c418290643080b4"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "721ac75c54a7fac43a5c1497dfd64c9adca209ea2b40aab2284c3fcf0d0ecac338719638e951592f477b206915549601"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "1803e77cece8be82270b97e84336bebf986ac6cc0c3e186dc9cfc7bb15754ac1"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "3cbc4da45d3b06fee0f1912e7f0ac735040969568fb24d8bfb24c4aad38097bf578c5732c2df2a3ad3e8e7a0ccb9879793ac8172ec4757ba23a96250559428cf"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-micrometer-observation",
-      "version" : "4.1.1",
-      "description" : "Spring Boot Observation",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "11c33921ea9e304b13993400f9691278"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "cff84301fdcaeacd0e83b0b5d1ec5a098be8ca7d"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "09ebd9ff7de21d10b1f11c70ca0ea8766a8a727affd19642584bee5a314ea11a"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "e76bb1047829abe9c8d4d0da1225421dcc67905346ecb392ba7c933a0b0a4cd59aee79b1afab5172090113b27d60d1bcb1ee71c7ec57a882e443ca1a9c8807a7"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "fdcd70bfe2e73ef550451e49af681c646ee76f10d3eee7e75bac0cac92824e7fd8e7a6bae6e50c4f3407ec040b9081a5"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "304c4c96118354754c458f730e68a3dc6975c0ec94c397ff0b9f04ea06236b2bd4764a6b0328c4a18c6c773fdfeb3ffa"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "0d3e2b63bb31504fd3d2a4866e54e04a25f4747022fcb185e6c9e9d9313541f2"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "e1e011e4c0a36e7495fc0f104796e20509e2af0eb13c301d9ec8361377adf1655b53d9e93cf5834c0f03b6aea9e868c209741532f09d530928834c7f2fd5a4d9"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-actuator-autoconfigure",
-      "version" : "4.1.1",
-      "description" : "Spring Boot Actuator AutoConfigure",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "d0cad8ab3930629532dcf93f80d3b022"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "858f3be62af25ba19a8d87003bb9e929187fc5a5"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "bedbd4282a0f0c6a08bd5342d3940b50d8a013420d8a536695aedb1421b5e0f5"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "f7d3208131beb7148b998bd1dad7f6763075150275c688ff8b4e396b1fa3f85a8aaa2450ea7dc99957b34cc661e8d54cc9a746f661abf35c25947ec2ff7cf9f4"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "1c9e26511fe137c41fb39f1f418ee91866f736d7cb37fb52c139767313503aec4e7786995abddeb1a94ec4075aefef30"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "341f6c7988df5573b360cdd5fdfa9df7c8dffe0fc24ebc5a6d6c8a3d2c1ef7e145392d39390b5fb443a9333afa5350b7"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "55913c13784f49c8b58792621d261929f0e437bae89297312779b2371979e80d"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "2b624454464623405c61bfeb95153d415e07f8002535783ecd2dd00dd77e86e58adf9692a22e6b58c57c8809fc1224c2e2c033969c2efc18e8bd073bfd9336c5"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-actuator",
-      "version" : "4.1.1",
-      "description" : "Spring Boot Actuator",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "23f11a944b14ecf8fc994350f042cb5d"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "17252248f9205cfb288b5fd499c821fd078a2070"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "2bbb38417af25cfc6f57a9b01a85db9b6ccdcadb9e5d40f6b1b2f54a08f8b798"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "a8a4e37726ff23ce752b0468176294d32a708fae6498360d1c4502f7c4310af7ddfddfd3b3f39301111df8e032fca2c3eb787a513bf7d75ac91dd396f0f307f9"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "31a3bab7e1ff0aa795796984811199ea32fede1eca7e6d32bbcbb917aad196e2d81ee06385e27a4b117013dccf964af8"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "c221590cf6ca3ac4570e9eb236cd30dbc08ec5f9508892bd2b3264982e305fdd6385100e0efa85609e49d3c315517e2e"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "8edc2e5f8420d06b34dceb34cfa88ec0194b0ffd070de7e6afe068a85b2e847a"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "c040ef86efd5e48493b902b31a4ac59c7a770ddbbdfb04829700e8cd66d6803c62fb7cd5d5df1d0b5dee06cb6f9a65a7a16771461e3890b48f43dd389205850e"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
-      "publisher" : "VMware, Inc.",
-      "group" : "org.springframework.boot",
-      "name" : "spring-boot-health",
-      "version" : "4.1.1",
-      "description" : "Spring Boot Health",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "e41c3d975f47d62e4e56e44313c40203"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "a767dfdac299c48e3488fddd8918b2beb300a640"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "f60151e1f014b40761d0644be1cb04f82df7fc3e9b7bf6e946848547eec399e7"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "fb90f861cc14b76c6d6b23b86fc208c00de6b1e63c41083598e3dce8314ebac62442be3705d2f0c699bca0140c0443e69d365a96fb5c49c51e45b1ff848811a4"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "4abb24642069578f8b41bb2d8c1b022b5d37bfc87c181fd8e43442ec7ef404982ea647baed65c8ad94ef3bb07375e2c2"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "dcb6fbf0d872f3e6a68bd4844ff1a355a8ea037fca3ddb5329a7c33b148c592aea06070e70ae12d406572d4dc917ff8e"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "2a42ac5ec9b6ecb9467dbf5735b3d808f5e7cdb3608dceeaf8d9dafe00ac791e"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "3eea9d94fd4620efc978dd894d6ea99d7753dedf23092fa3a3e9ee1e88bf12b06591fe47f392f16606a8c66a9a412b228209a6e47eaddbdd1aee4fb5457d2a5a"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/spring-projects/spring-boot/issues"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
-      "group" : "io.micrometer",
-      "name" : "micrometer-jakarta9",
-      "version" : "1.17.1",
-      "description" : "Module for Jakarta 9+ based instrumentations",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "bbccd0e1c1e758c80a02847f52bb5c70"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "6ac099edc69e8f780bfddaa48bcc7a1d4b84e3c7"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "37fbb0a98ba92e185ae7ebe0804fe6c1394bf7fba7573b204fa6fc3998c2e246"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "24da67a88d41cf054e062195520e51be8eedd8f236f5a9dd50b13bfbc760b7cca6c864b7e09dac16b748f60fadb9ca728651270dd09fd3a0211dbd22524a6bc8"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "d38dda661ba86bd7c0781f023a660010ca57cf9335ff212fe3c7efb4dffe27d82b8a768a724b6c86d4c204c3fbe2b0eb"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "214fcecbafddef8181491049757affc0eb16c666a326d95bada339ea7dd3b5dcb4c224df984db5606861386a2cee78f0"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "36b7756c9a16c475f0191950d0e9c345f5f736af9aebca9e5b2487a2ddbf43b4"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "30767c807fdfe07bab0fef2d99c7be250f0da1f5cf3e4c4dbf957850fa59abdb3932d2ad196df7a615d7b0dbc1fba5173f004597017fe00840fe3f16f392fd09"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://github.com/micrometer-metrics/micrometer-commercial"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/micrometer-metrics/micrometer-commercial.git"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-      "publisher" : "MyBatis.org",
-      "group" : "org.mybatis",
-      "name" : "mybatis",
-      "version" : "3.5.19",
-      "description" : "The MyBatis SQL mapper framework makes it easier to use a relational database with object-oriented applications. MyBatis couples objects with stored procedures or SQL statements using a XML descriptor or annotations. Simplicity is the biggest advantage of the MyBatis data mapper over object relational mapping tools.",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "c08c2e37b85829ca613dda4d5dbb6fcc"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "79b20d963e38e66f41431ea49bc22f7cce718142"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "93eea616ae355751bd5fbabb57f0732713fbe79f3196f33c51a0aeeb4255862a"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "2c9537965b3ffdfb68b161bc7d20db2f2dcb0e5b11ca2da1c9e5e7ea68558200ce9fc708101c0879bbfdb90bc4d46a18aad37441d4d960da1b6845cb03e0ade6"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "35c495d01912b8aa3343971b3df5386291cf7d4307528ef7771b15cd94a296ef04265243e00d5d38c144ed3b590c8ae3"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "ccf9821f76302c318f73469410a26798e8a02bf0a88167cd77614aec1f6a6c197375699dc88c53ab3e32823a8f2cd85f"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "376886a67042e04de1291bbefb17255f91239171e2470a7570ef9ccef2bb65cd"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "48b5ed3cc65b7923448e7c29d18432a9154cf4b5e2cf43b7444db1a6cdc86a4afdf5dc8b1f09b61004b82ceef74a94d09bdc66c61dfe9540230e5753eca22ef6"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://www.mybatis.org/mybatis-3/"
-        },
-        {
-          "type" : "build-system",
-          "url" : "https://github.com/mybatis/mybatis-3/actions"
-        },
-        {
-          "type" : "distribution-intake",
-          "url" : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/mybatis/mybatis-3/issues"
-        },
-        {
-          "type" : "mailing-list",
-          "url" : "https://groups.google.com/forum/#!forum/mybatis-dev"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/mybatis/mybatis-3"
         }
       ]
     },
@@ -10885,6 +11123,9 @@
     {
       "ref" : "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.apache.kafka/kafka-clients@3.9.2?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
         "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.1.1?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
@@ -10895,40 +11136,43 @@
       ]
     },
     {
-      "ref" : "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
-        "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
+      "ref" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
       "dependsOn" : [ ]
     },
     {
-      "ref" : "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
+      "ref" : "pkg:maven/org.apache.kafka/kafka-clients@3.9.2?type=jar",
       "dependsOn" : [
-        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+        "pkg:maven/com.github.luben/zstd-jni@1.5.6-4?type=jar",
+        "pkg:maven/at.yawk.lz4/lz4-java@1.11.1?type=jar",
+        "pkg:maven/org.xerial.snappy/snappy-java@1.1.10.5?type=jar",
+        "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar"
       ]
     },
     {
-      "ref" : "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar",
+      "ref" : "pkg:maven/com.github.luben/zstd-jni@1.5.6-4?type=jar",
       "dependsOn" : [ ]
     },
     {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.1.1?type=jar",
+      "ref" : "pkg:maven/at.yawk.lz4/lz4-java@1.11.1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.xerial.snappy/snappy-java@1.1.10.5?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
       "dependsOn" : [
         "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-validation@4.1.1?type=jar"
+        "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar"
       ]
     },
     {
@@ -10957,10 +11201,6 @@
     },
     {
       "ref" : "pkg:maven/ch.qos.logback/logback-core@1.5.38?type=jar",
-      "dependsOn" : [ ]
-    },
-    {
-      "ref" : "pkg:maven/org.slf4j/slf4j-api@2.0.18?type=jar",
       "dependsOn" : [ ]
     },
     {
@@ -11005,6 +11245,10 @@
       "dependsOn" : [ ]
     },
     {
+      "ref" : "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
       "ref" : "pkg:maven/org.springframework/spring-context@7.0.9?type=jar",
       "dependsOn" : [
         "pkg:maven/org.springframework/spring-aop@7.0.9?type=jar",
@@ -11034,12 +11278,95 @@
       ]
     },
     {
+      "ref" : "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar"
+      ]
+    },
+    {
       "ref" : "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0?type=jar",
       "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/org.yaml/snakeyaml@2.6?type=jar",
       "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
+        "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
+        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-validation@4.1.1?type=jar",
+      "dependsOn" : [
+        "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-validation@4.1.1?type=jar"
+      ]
     },
     {
       "ref" : "pkg:maven/org.springframework.boot/spring-boot-validation@4.1.1?type=jar",
@@ -11449,71 +11776,6 @@
         "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
         "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
       ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-starter-micrometer-metrics@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot-starter@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.springframework.boot/spring-boot-health@4.1.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.springframework.boot/spring-boot@4.1.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.1?type=jar",
-      "dependsOn" : [
-        "pkg:maven/org.jspecify/jspecify@1.0.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-core@1.17.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-commons@1.17.1?type=jar",
-        "pkg:maven/io.micrometer/micrometer-observation@1.17.1?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-      "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",

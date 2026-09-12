@@ -21,7 +21,7 @@
 | XXL-JOB core | 3.4.2 | 依赖可解析；warehouse-it 证明 handler 清理后无当前全局事务；`XxlAdminTriggerIT` 经官方 admin 3.4.2 真实触发 BEAN handler，执行器未持有 TCC。不是集群/分片验收 |
 | XXL-JOB admin | xuxueli/xxl-job-admin:3.4.2 | 隔离 compose 可启动；warehouse-it 对官方镜像做 `/auth/doLogin` + `/jobinfo/trigger`。官方镜像 linux/amd64，本机 arm64 经模拟。不是集群/分片/生产调度 |
 | Kafka broker | apache/kafka:3.8.0 | 与 dev-infra 同标签；隔离 compose 可启动；warehouse-it 用同标签 Testcontainers 验证生产/消费且消费不 bind XID |
-| Kafka client | kafka-clients 3.8.0 | 与 broker 对齐；仅测试探针使用，未做事务消息/生产 Outbox |
+| Kafka client | kafka-clients 3.9.2 | R13运行链路新增依赖；按官方修复CVE-2026-35554/33558选择3.9.2，与3.8.0 broker兼容/断连恢复隔离回归已通过，未升级broker |
 | HikariCP / Caffeine / Lettuce | 7.0.2 / 3.2.4 / 7.5.2.RELEASE | Boot BOM；真实连接池耗尽/超时及缓存故障回归。HikariCP/Caffeine Apache-2.0，Lettuce MIT；2026-09-12 OSV 三项直接依赖未命中（不代表无漏洞） |
 | Redis | redis:7-alpine | 与 dev-infra 同标签；主数据展示 L2 跨实例、过期、断连降级已通过专属 Redis 集成测试；最大陈旧5s，不用于业务写决策 |
 
@@ -51,9 +51,9 @@
 
 生成命令：`./scripts/generate-sbom.sh`（Maven profile `-Psbom`，不加入默认 `mvn verify`）。产物：
 
-- CycloneDX 聚合 BOM：`docs/implementation/sbom/wms-platform.json`（168 个组件；2026-09-12重新生成）
-- 第三方许可证清单：`docs/implementation/sbom/THIRD-PARTY.txt`（license-maven-plugin 285 条，含测试传递依赖）
-- OSV 快照：`docs/implementation/sbom/osv-findings.md`（2026-09-12，158 个 purl，2 个组件命中）
+- CycloneDX 聚合 BOM：`docs/implementation/sbom/wms-platform.json`（172 个组件；2026-09-12重新生成）
+- 第三方许可证清单：`docs/implementation/sbom/THIRD-PARTY.txt`（license-maven-plugin 304 条，含测试传递依赖）
+- OSV 快照：`docs/implementation/sbom/osv-findings.md`（2026-09-12，162 个 purl，2 个组件命中）
 
 许可证观察（不是法务签署）：
 
@@ -73,3 +73,11 @@ OSV 命中（未升级 Boot/Tomcat，不把空扫描当成目标）：
 TC DB终态审计隔离候选已实测提交/回滚清理、重启与审计写入故障恢复，详见[候选说明](TC_TERMINAL_EVIDENCE.md)；不改变当前生产版本门禁未通过的结论。
 
 2026-09-12 R16–R20：完整聚合BOM另报告既有 `com.alibaba:fastjson:1.2.83` 的 GHSA-crf3-v9rr-v7hj；Tomcat三项仍存在。此次没有升级Seata或Boot，也没有安全例外签署。新增HikariCP/Caffeine/Lettuce未命中；未命中不代表不存在漏洞。
+
+2026-09-12 R13：Kafka客户端由仅测试进入运行范围，原3.8.0受消息误投Topic与日志信息泄露漏洞影响。依据 [Apache安全公告](https://kafka.apache.org/community/cve-list/) 使用修复版3.9.2；[官方兼容说明](https://kafka.apache.org/41/getting-started/compatibility/)支持通过API版本协商与旧broker互通，实际组合仍以本仓库隔离集成测试为证据。Kafka broker仍为既有3.8.0隔离开发标签，生产版本/ACL/复制与容量未锁定，不把客户端修复当作broker整体安全验收。
+
+Kafka 客户端 3.9.2 与 broker 3.8.0 的实际兼容/提交后入箱/重复隔离/断连恢复已于本轮通过，日志 `/tmp/wms-kafka392-it.log`；未修改共享 broker。该结果覆盖本地单 broker 组合，不证明生产多副本丢失或整体安全门禁。
+
+新增 Kafka 运行传递依赖首次 OSV 扫描命中 `at.yawk.lz4:lz4-java:1.10.1`，依据[维护者 GHSA-xx22-p4ch-683r 公告](https://github.com/yawkat/lz4-java/security/advisories/GHSA-xx22-p4ch-683r) 将其单独锁为1.11.1（Apache-2.0）。影响条件是JNI调用接收非法数组引用或范围，不能据此宣称任意正常Kafka消息都可触发。本轮补压缩消息真实组件回归，并重新扫描SBOM。
+
+LZ4 1.11.1 压缩消息通过真实 Kafka 接收、持久化重投与去重测试（`/tmp/wms-lz4-it.log` BUILD SUCCESS）。随后重新生成 SBOM/许可证并扫描 OSV，172组件/162purl，仅保留既有Tomcat和fastjson两个组件命中；LZ4修复版未命中。不以未命中替代安全保证。

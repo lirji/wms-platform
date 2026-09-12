@@ -4,20 +4,20 @@
 这是一次有日期的只读快照，不是生产漏洞签署，也不自动升级依赖。
 
 - 扫描日期：2026-09-12
-- 组件数：168
-- 查询 purl 数：158
+- 组件数：172
+- 查询 purl 数：162
 - 命中记录：2
 
 ## 许可证计数（BOM 声明）
 
-- Apache-2.0: 148
+- Apache-2.0: 151
 - MIT: 5
 - EPL-2.0: 3
 - LGPL-2.1-only: 2
+- BSD-2-Clause: 2
 - BSD-3-Clause: 2
 - GPL-2.0-with-classpath-exception: 1
 - CC0-1.0: 1
-- BSD-2-Clause: 1
 - MIT-0: 1
 - The GNU General Public License, v2 with Universal FOSS Exception, v1.0: 1
 - GPL-3.0-only: 1
