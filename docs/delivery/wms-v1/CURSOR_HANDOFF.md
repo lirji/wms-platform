@@ -33,7 +33,7 @@
 
 遵循 [API契约](../../design/04-contracts.md)，以S1生成的OpenAPI为最终代码类型来源。数量用字符串输入/显示，禁止JS浮点运算决定发运量。时区按仓展示，API传UTC。Idempotency-Key按一次有意业务操作生成并在重试中复用；scanSequence每个新扫描递增。
 
-演示数据来自后端幂等 seed 写入数据库，再由 API 读取，禁止页面数组写死业务 Mock。前端测试可以使用隔离 fixture，但必须与交付演示数据区分。种子命令：`./scripts/seed-local.sh --profile isolated-wms`，必须显式 JDBC，拒绝共享 dev-infra。测试账号由 auth-platform `deploy/wms-platform-provision.py` 写入 `WMS_IAM_CREDENTIALS`（0600，不进仓库）。
+演示数据来自后端幂等 seed 写入数据库，再由 API 读取，禁止页面数组写死业务 Mock。前端测试可以使用隔离 fixture，但必须与交付演示数据区分。种子命令：`./scripts/seed-local.sh --profile isolated-wms`，必须显式 JDBC，拒绝共享 dev-infra。除主数据外还会写入开账库存投影、入库/出库/履约/调拨演示单；attempt 保持 PLANNED。测试账号由 auth-platform `deploy/wms-platform-provision.py` 写入 `WMS_IAM_CREDENTIALS`（0600，不进仓库）。
 
 ## 4. 交付与验收
 

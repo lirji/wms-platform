@@ -6,6 +6,9 @@
 
 ## 已完成
 
+- 2026-09-12 控制台 README：本机 Vite `4181` 只给本地开发，能力门户走 Docker `18180`。不是 50 AC。
+- 2026-09-12 `verify` 支持提交说明 / PR 标题 `[skip ci]`、`[ci skip]`、`[no ci]` 跳过。不是 50 AC。
+- 2026-09-12 演示种子扩围：`seed-local.sh` 幂等写入开账库存/投影、草稿盘点、入出库/履约/调拨演示单（attempt 保持 PLANNED），并写入隔离库 `18306/18307/18308`。已发布远程 main `38ef86e`（含 `9d6d8f1`）。不是 50 AC。
 - WMS S0–S7 及 S8-01/S8-04/S9-02/S9-03/S9-04/S9-06 在更早的 `origin/main`。
 - 控制台登录与 Docker 编排已在远程 main `1ca61a8`。
 - 前端架构重设计 F0–F4（2026-09-12）：单应用、仓写入 `/w/:warehouseId`、PDA `/pda/:warehouseId/receive`，无页面 Mock 表。
@@ -24,4 +27,4 @@
 
 ## 下一步
 
-S8-05 / S9-01 / AC-42 保持 blocked。主线 verify 若仍在跑则只推任务分支，不推会取消进行中 verify 的 main。已登录用户须重新登录拿含 `stock.move`/`stock.hold`/`fulfillment.cancel`/`adjustment.*` 的 JWT。硬刷新 `127.0.0.1:18180`。不把 F9 写成 50 AC 或 AC-26 accepted。
+S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main verify 并推送 `feat/contract-http-gaps` 到远程 main。已登录用户须重新登录拿含 `stock.move`/`stock.hold`/`fulfillment.cancel`/`adjustment.*` 的 JWT。硬刷新 `127.0.0.1:18180`。不把 F9 写成 50 AC 或 AC-26 accepted。

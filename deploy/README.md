@@ -37,6 +37,6 @@
 
 - 控制台：`http://127.0.0.1:18180/`
 - 健康：各服务 `/actuator/health`（控制台为 `/`）
-- 种子仍走 `./scripts/seed-local.sh --profile isolated-wms`，JDBC 指向宿主 `18307`/`18308`，拒绝 `43306`/`dev-infra`
+- 种子仍走 `./scripts/seed-local.sh --profile isolated-wms`，JDBC 指向宿主库存 `18307`/`18308` 与应用库 `18306`，拒绝 `43306`/`dev-infra`
 
 健康 UP 只代表进程与探针。OIDC、Kafka 投递、TCC Try、XXL 触发、真实设备另证。
