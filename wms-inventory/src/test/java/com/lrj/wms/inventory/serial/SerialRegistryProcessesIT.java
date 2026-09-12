@@ -69,6 +69,7 @@ class SerialRegistryProcessesIT {
             config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class); config.addMapper(MasterdataMapper.class); config.addMapper(InventoryMapper.class); config.addMapper(OutboxMapper.class);
             config.addMapper(CommandDedupMapper.class); config.addMapper(LocalSerialMapper.class); config.addMapper(SerialRecoveryMapper.class);
             config.addMapper(SerialReceiptBatchMapper.class); config.addMapper(StockCommandMapper.class);
+            config.addMapper(com.lrj.wms.inventory.quality.ReceiptQualityStockMapper.class);
             config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
             var sessions=new SqlSessionFactoryBuilder().build(config); var jdbc=new JdbcTemplate(source); var registrySql=new JdbcTemplate(source(registryDb));
             Instant now=Instant.now(); Clock clock=Clock.fixed(now,ZoneOffset.UTC);
@@ -158,6 +159,13 @@ class SerialRegistryProcessesIT {
                 }
                 assertQuantity(jdbc,"A",2);
                 assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='BATCH-RECEIPT'",Integer.class));
+                try(var session=sessions.openSession(false)) {
+                    var decision=new com.lrj.wms.contract.messaging.ReceiptQualityDecision("BATCH-RECEIPT","BATCH-Q",1,BigDecimal.ONE,BigDecimal.ONE);
+                    var quality=new com.lrj.wms.contract.messaging.SerialQualityObservation(1,List.of("BATCH-1"),List.of("BATCH-2"));
+                    new com.lrj.wms.inventory.inventory.StockCommandService(session,clock).applyQuality("ENT","A","BATCH-Q","LINE","BATCH-DOC","actor","EXEC-Q",bucket("A"),decision,quality);
+                    session.commit();
+                }
+                assertEquals(List.of("GOOD","REJECTED"),jdbc.queryForList("SELECT b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='BATCH-RECEIPT' ORDER BY s.serial_id",String.class));
                 // 迁移停写后的旧进程不能领取或更新恢复状态，远端也不再被调用。
                 jdbc.update("INSERT INTO warehouse_route(id,enterprise_id,warehouse_id,cell_id,target_cell_id,route_epoch,state,version,created_at,updated_at) VALUES('ROUTE-A','ENT','A','CELL-A','CELL-B',1,'QUIESCING',0,?,?)",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
                 var stopped=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialRecoveryService(sessions,at(now,420),actual,actual).execute("ENT","A"));

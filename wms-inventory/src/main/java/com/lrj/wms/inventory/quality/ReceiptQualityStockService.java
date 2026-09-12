@@ -20,6 +20,12 @@ public final class ReceiptQualityStockService {
     /** 调用方负责库存命令与Inbox事务；本方法不做跨库调用或独立提交。 */
     public void apply(String ent, String wh, String operation, String document, String actor,
             StockBucketKey hold, ReceiptQualityDecision decision) {
+        apply(ent,wh,operation,document,actor,hold,decision,null);
+    }
+
+    /** 序列号质量放行与数量同一事务，不以数量等价替代具体身份授权。 */
+    public void apply(String ent,String wh,String operation,String document,String actor,StockBucketKey hold,
+            ReceiptQualityDecision decision,com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
         var mapper = session.getMapper(ReceiptQualityStockMapper.class);
         var receipt = mapper.receipt(ent, wh, decision.receiptCommandId());
         if (receipt == null) throw new InventoryException("RECEIPT_NOT_POSTED", "原收货凭证尚不存在");
@@ -38,6 +44,8 @@ public final class ReceiptQualityStockService {
         BigDecimal rejectedDelta = decision.rejectedQty().subtract(decimal(current.get("rejected_qty")));
         new InventoryApplicationService(session, clock).reclassifyQuality(ent, wh, operation, document, actor, hold,
                 Map.of("HOLD", goodDelta.add(rejectedDelta).negate(), "GOOD", goodDelta, "REJECTED", rejectedDelta));
+        if(observation!=null) new com.lrj.wms.inventory.serial.SerialQualityStockService(session,clock).apply(ent,wh,hold,decision,observation,
+                decimal(current.get("accepted_qty")),decimal(current.get("rejected_qty")));
         if (mapper.apply(ent, wh, decision.receiptCommandId(), decision.sourceVersion(), ((Number) current.get("version")).longValue(),
                 decision.acceptedQty(), decision.rejectedQty(), now) != 1) throw new InventoryException("VERSION_CONFLICT", "质检并发状态变更");
     }

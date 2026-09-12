@@ -59,8 +59,10 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 serialObservation = RuntimeMessage.JSON.treeToValue(observation, com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
                 serialObservation.requireQuantity(rawQty);
             } catch (RuntimeException invalid) { throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED"); }
-        } else if (serialEnabled && !"CANCEL".equals(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        } else if (serialEnabled && !Set.of("CANCEL","QUALITY").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
         else if (payload.hasNonNull("serialObservation")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
+        if(payload.hasNonNull("serialQualityObservation") && (!serialEnabled || !"QUALITY".equals(action)))
+            throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         boolean hasLot = !"NO_LOT".equals(context.lotId());
         if (flag(sku.get("lot_enabled")) != hasLot) throw new MessageRejectedException("LOT_POLICY_MISMATCH");
         if (hasLot) {
@@ -96,9 +98,24 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 if (rawQty.compareTo(decision.inspectedQty()) != 0 || !decision.receiptCommandId().equals(required(payload, "factParentId"))
                         || !Long.toString(decision.sourceVersion()).equals(required(payload, "factPartId"))) throw new IllegalArgumentException();
             } catch (RuntimeException invalid) { throw new MessageRejectedException("INVALID_QUALITY_DECISION"); }
+            com.lrj.wms.contract.messaging.SerialQualityObservation qualityObservation=null;
+            if(serialEnabled) {
+                try {
+                    var raw=payload.path("serialQualityObservation");
+                    if(!raw.isObject() || raw.properties().stream().anyMatch(p->!Set.of("schemaVersion","acceptedSerials","rejectedSerials").contains(p.getKey()))
+                            || !raw.path("schemaVersion").isIntegralNumber() || !raw.path("schemaVersion").canConvertToInt() || raw.path("schemaVersion").intValue()!=1)
+                        throw new IllegalArgumentException();
+                    for(String name:List.of("acceptedSerials","rejectedSerials")) {
+                        if(!raw.path(name).isArray() || raw.path(name).size()>200) throw new IllegalArgumentException();
+                        for(var serial:raw.path(name)) if(!serial.isString()) throw new IllegalArgumentException();
+                    }
+                    qualityObservation=RuntimeMessage.JSON.treeToValue(raw,com.lrj.wms.contract.messaging.SerialQualityObservation.class);
+                    qualityObservation.requireDecision(decision);
+                } catch(RuntimeException invalid) {throw new MessageRejectedException("INVALID_SERIAL_QUALITY");}
+            }
             command = new StockCommandService(session, clock).applyQuality(enterprise, warehouse, commandId,
                     required(payload, "factLineId"), context.documentId(), required(payload, "actorId"),
-                    required(payload, "sourceExecutionId"), bucket, decision);
+                    required(payload, "sourceExecutionId"), bucket, decision, qualityObservation);
         } else if ("PUTAWAY".equals(action)) {
             var targetLocation = masterdata.getLocation(enterprise, warehouse, context.targetLocationId());
             if (!active(targetLocation) || !"STORAGE".equals(targetLocation.get("location_type"))) throw new MessageRejectedException("INVALID_PUTAWAY_LOCATION");

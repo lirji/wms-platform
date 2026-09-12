@@ -255,6 +255,22 @@ class ReceiveMessagingProcessesIT {
             assertEquals(2, stockDb.queryForObject("SELECT COUNT(*) FROM local_serial WHERE state='HOLD_RECEIVED' AND receipt_operation_id='RECEIVE-SERIAL'", Integer.class));
             assertEquals(2, stockDb.queryForObject("SELECT COUNT(*) FROM serial_recovery_intent WHERE operation_id='RECEIVE-SERIAL' AND state='PENDING'", Integer.class));
             assertEquals(0, inDb.queryForObject("SELECT received_posted_qty FROM inbound_line WHERE id='LINE-SERIAL'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            String serialQuality = """
+                    {"lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","sourceVersion":1,"acceptedQty":"1","rejectedQty":"1",
+                     "serialQualityObservation":{"schemaVersion":1,"acceptedSerials":["SN-A"],"rejectedSerials":["SN-B"]}}
+                    """;
+            String serialQualityPath=base+"/quality-inspections/INSPECT-SERIAL/results";
+            assertEquals(400,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-BAD",serialQuality.replace("SN-A","OTHER")).statusCode());
+            String noIdentity="{\"lineId\":\"LINE-SERIAL\",\"receiptCommandId\":\"RECEIVE-SERIAL\",\"sourceVersion\":1,\"acceptedQty\":\"1\",\"rejectedQty\":\"1\"}";
+            assertEquals(400,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-NONE",noIdentity).statusCode());
+            // 本测试专门证明来源消息链；登记授权使用明确夹具，真实HTTP授权后质检另见登记进程测试。
+            stockDb.update("UPDATE local_serial SET state='AUTHORIZED',registry_state='ACTIVE',owner_epoch=1 WHERE receipt_operation_id='RECEIVE-SERIAL'");
+            var serialQualityAccepted=post(serialQualityPath,qualityToken,"QUALITY-SERIAL",serialQuality);
+            assertEquals(202,serialQualityAccepted.statusCode(),serialQualityAccepted.body());
+            await(()->"APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='QUALITY-SERIAL'",String.class)),30,"身份质检未闭环",in,stock);
+            assertEquals(202,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-REPLAY",serialQuality).statusCode());
+            assertEquals(409,post(serialQualityPath,qualityToken,"QUALITY-SERIAL-REPLACED",serialQuality.replace("SN-A","TEMP").replace("SN-B","SN-A").replace("TEMP","SN-B")).statusCode());
+            assertEquals(List.of("GOOD","REJECTED"),stockDb.queryForList("SELECT b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='RECEIVE-SERIAL' ORDER BY s.serial_id",String.class));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;

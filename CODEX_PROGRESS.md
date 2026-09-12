@@ -1,5 +1,13 @@
 # Codex Progress
 
+## 最新追加（优先于下方历史状态）
+
+- 收货批次切片已提交2818ddf，13IT/多身份真实登记复验/四Jar smoke/必需95/契约88/文档45通过；尚未推送，34cc两路CI仍运行。
+- 当前新增序列号QUALITY切片：SerialQualityObservation独立可选契约（不改旧ReceiptQualityDecision摘要）；SourceCommandContextStore.bindQuality，来源HTTP/ReceiptQualityService固定本批累计身份并参与新摘要；库存StockCommandService摘要及凭证含身份，SerialQualityStockService在同数量事务里校验授权/原批次/质量计数/已移出身份/占用并更新local_serial.balance_id。无新迁移/依赖；序列PUTAWAY等仍未接通。
+- 当前唯一Maven session72809，/tmp/wms-serial-quality-first-it.log，-pl wms-inbound,wms-inventory -am，SerialReceiptBatchIT（新增3项质检场景，总7）/ReceiveMessagingProcessesIT/SerialRegistryProcessesIT/InboundHttpIT。禁止并发Maven或编译中改Java/XML/配置。所有此前Maven和smoke均已结束。
+- 最新代码细节见docs/implementation/SERIAL_RECEIPT_QUALITY.md。库存数量转桶先锁三桶并调整，然后按原批次SN校验旧身份质量、更新指向；任何错误同事务回滚。未选择且原HOLD身份可以等待登记，质量改变必须AUTHORIZED/ACTIVE；已移出原收货位只能保持原GOOD；等量交换也不能绕过reserved/free_execution_claim。
+- 下一步等质量复验后修正/提交，然后序列PUTAWAY。来源须逐SN固定所选身份与任务消耗，避免同一SN在不同任务重复领取而仅总数量合法；可从原收货/当前active quality command中的完整名单校验。库存StockCommandService.applyPutaway要把所选名单纳入摘要和凭证，并在真实move同事务更新local_serial；旧命令重放不拉回身份。不要在当前Maven中编辑源码。
+
 ## 任务目标
 
 完成后端评审剩余R13/R14/R15/R22。用户确认按收货分批并继续剩余四项，持续授权逻辑提交、必要验证后正常推送分支并合入远程main。不中途等待继续，不强推、不操作生产、共享数据或其他工作树。没有授权使用子Agent。
@@ -51,3 +59,5 @@
 ## 恢复 Prompt
 
 请读取本文件及docs/delivery/wms-v1/BACKEND_REMEDIATION.md，在唯一工作树连续完成已批准的剩余四项。先核对活跃进程，禁止并发Maven或编译中改源码。当前序列号收货13IT及真实多身份登记通过，待收尾提交，继续序列质检/上架/盘点及可信水位等，不等待“继续”，无证据不标全部完成。
+
+最新质量收尾：Maven72809已05:03:09成功退出，10IT零失败/跳过；当前smoke75070运行，日志/tmp/wms-serial-quality-smoke.log。必需新增3项至98，API88。准备静态检查和提交，然后序列上架。2818ddf尚未推送，34cc远程两路CI仍运行，不取消。

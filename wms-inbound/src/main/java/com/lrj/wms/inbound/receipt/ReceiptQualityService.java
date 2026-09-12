@@ -41,13 +41,19 @@ public final class ReceiptQualityService {
     /** 只接受已过账批次，待确认版本不能被下一版本越过；重试保持原命令和操作者。 */
     public Map<String, Object> inspect(String ent, String wh, String lineId, String command, String actor,
             ReceiptQualityDecision decision) {
+        return inspect(ent,wh,lineId,command,actor,decision,null);
+    }
+
+    /** 原始无身份质检保持旧摘要；序列批次必须给出完整累计身份，重复请求不能换名单。 */
+    public Map<String,Object> inspect(String ent,String wh,String lineId,String command,String actor,
+            ReceiptQualityDecision decision,com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
         CommandKeys.resolve(command, null);
         var mapper = session.getMapper(ReceiptQualityMapper.class);
         var receipt = mapper.receipt(ent, wh, decision.receiptCommandId());
         if (receipt == null || !lineId.equals(receipt.get("line_id"))) throw new InboundException("UNKNOWN_RECEIPT_BATCH", "收货批次不属于该行");
         if (session.getMapper(InboundReceiptMapper.class).lockLine(ent, wh, lineId) == null) throw new InboundException("UNKNOWN_LINE", "入库行不存在");
         var protocol = new SourceProtocolService(session, clock);
-        String hash = RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(decision));
+        String hash = RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(observation==null?decision:java.util.List.of(decision,observation)));
         var revisions = mapper.revisions(ent, wh, decision.receiptCommandId(), decision.inspectionId(), command, decision.sourceVersion());
         if (!revisions.isEmpty()) {
             if (revisions.size() != 1 || !hash.equals(revisions.getFirst().get("request_hash"))) throw new CommandConflictException();
@@ -57,6 +63,13 @@ public final class ReceiptQualityService {
         }
         if (!"APPLIED".equals(receipt.get("state"))) throw new InboundException("RECEIPT_NOT_POSTED", "收货过账确认后才能质检");
         var payload = RuntimeMessage.JSON.readTree(String.valueOf(receipt.get("payload_json")));
+        if(payload.hasNonNull("serialObservation")) {
+            if(observation==null) throw new InboundException("SERIAL_OBSERVATION_REQUIRED","序列批次质检不能只有数量");
+            try {
+                observation.requireDecision(decision);
+                observation.requireReceipt(RuntimeMessage.JSON.treeToValue(payload.path("serialObservation"),com.lrj.wms.contract.messaging.SerialReceiptObservation.class));
+            } catch(IllegalArgumentException invalid) {throw new InboundException("INVALID_SERIAL_QUALITY","质检数量或身份不属于本批");}
+        } else if(observation!=null) throw new InboundException("SERIAL_BATCH_CONTEXT_REQUIRED","原收货没有可信身份清单");
         if (!payload.hasNonNull("postingContext")) throw new InboundException("MISSING_POSTING_CONTEXT", "历史收货缺少可信库存维度");
         StockPostingContext context = RuntimeMessage.JSON.treeToValue(payload.path("postingContext"), StockPostingContext.class);
         context.requireForAction("RECEIVE");
@@ -76,7 +89,7 @@ public final class ReceiptQualityService {
         }
         var result = protocol.submitQuality(ent, wh, command, decision.receiptCommandId(), Long.toString(decision.sourceVersion()), lineId, actor, decision);
         if (Boolean.TRUE.equals(result.get("replayed"))) throw new CommandConflictException();
-        new SourceCommandContextStore(session).bind(ent, wh, command, context, false);
+        new SourceCommandContextStore(session).bindQuality(ent, wh, command, context, observation, false);
         if (mapper.insertRevision(ent, wh, decision.receiptCommandId(), decision.inspectionId(), command, decision.sourceVersion(), hash,
                 actor, decision.acceptedQty(), decision.rejectedQty(), now) != 1
                 || mapper.accept(ent, wh, decision.receiptCommandId(), command, decision.sourceVersion(), ((Number) state.get("version")).longValue(),

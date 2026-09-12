@@ -100,4 +100,69 @@ class SerialReceiptBatchIT {
         assertEquals("SERIAL_BATCH_CONTEXT_REQUIRED",assertThrows(InventoryException.class,()->apply(message(e,"RECEIVE","SN"))).code());
         assertEquals(0,count("serial_receipt_batch",e));assertEquals(0,count("local_serial",e));assertEquals(1,count("stock_ledger",e));
     }
+
+    private static RuntimeMessage quality(String e,String command,long version,List<String> good,List<String> rejected) {
+        var original=message(e,command,"SN-A","SN-B");var body=(tools.jackson.databind.node.ObjectNode)original.payload();
+        body.remove("serialObservation");body.put("action","QUALITY");body.put("qty",good.size()+rejected.size());
+        body.put("factParentId","RECEIVE");body.put("factPartId",Long.toString(version));
+        body.set("qualityDecision",RuntimeMessage.JSON.valueToTree(new ReceiptQualityDecision("RECEIVE",command,version,
+                BigDecimal.valueOf(good.size()),BigDecimal.valueOf(rejected.size()))));
+        body.set("serialQualityObservation",RuntimeMessage.JSON.valueToTree(new SerialQualityObservation(1,good,rejected)));
+        return original;
+    }
+    /** 明确授权夹具用于库存原子性测试；真实登记授权链另见SerialRegistryProcessesIT。 */
+    private static void authorize(String e) {jdbc.update("UPDATE local_serial SET state='AUTHORIZED',registry_state='ACTIVE',owner_epoch=1 WHERE enterprise_id=?",e);}
+    private static Map<String,String> qualities(String e) {
+        var result=new TreeMap<String,String>();
+        jdbc.query("SELECT s.serial_id,b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.enterprise_id=?",rs->{
+            result.put(rs.getString(1),rs.getString(2));},e);return result;
+    }
+    @Test void qualityRequiresAuthorizedExactBatchAndOldReplayKeepsNewerIdentityState() {
+        String e="QUALITY";seed(e);apply(message(e,"RECEIVE","SN-A","SN-B"));
+        var first=quality(e,"Q1",1,List.of("SN-A"),List.of("SN-B"));
+        assertEquals("SERIAL_REGISTRY_PENDING",assertThrows(InventoryException.class,()->apply(first)).code());
+        assertEquals(0,count("stock_receipt_quality",e));assertEquals(Map.of("SN-A","HOLD","SN-B","HOLD"),qualities(e));
+        authorize(e);apply(first);assertEquals(Map.of("SN-A","GOOD","SN-B","REJECTED"),qualities(e));
+        assertThrows(InventoryException.class,()->apply(quality(e,"Q1",1,List.of("SN-B"),List.of("SN-A"))));
+        assertEquals("SERIAL_BATCH_CONFLICT",assertThrows(InventoryException.class,()->apply(quality(e,"Q2",2,List.of("OTHER"),List.of()))).code());
+        apply(quality(e,"Q2",2,List.of("SN-A","SN-B"),List.of()));apply(first);
+        assertEquals(Map.of("SN-A","GOOD","SN-B","GOOD"),qualities(e));
+        assertEquals(2L,jdbc.queryForObject("SELECT source_version FROM stock_receipt_quality WHERE enterprise_id=?",Long.class,e));
+        assertEquals(3,count("stock_posting",e));
+    }
+
+    @Test void equalQuantitySerialSwapCannotBypassReservationAndFinalIdentityFailureRollsBack() {
+        String e="SWAP";seed(e);apply(message(e,"RECEIVE","SN-A","SN-B"));authorize(e);
+        apply(quality(e,"Q1",1,List.of("SN-A"),List.of("SN-B")));
+        String good=jdbc.queryForObject("SELECT id FROM stock_balance WHERE enterprise_id=? AND quality_code='GOOD'",String.class,e);
+        jdbc.update("UPDATE stock_balance SET reserved_qty=1 WHERE id=?",good);
+        var swap=quality(e,"Q2",2,List.of("SN-B"),List.of("SN-A"));
+        assertEquals("SERIAL_QUALITY_RESERVED",assertThrows(InventoryException.class,()->apply(swap)).code());
+        jdbc.update("UPDATE stock_balance SET reserved_qty=0 WHERE id=?",good);
+        // 对最后一个身份写入注入真实CHECK失败，前一个身份和全部质量/命令写入也必须回滚。
+        jdbc.execute("ALTER TABLE local_serial ADD CONSTRAINT test_serial_quality_final CHECK(enterprise_id<>'SWAP' OR serial_id<>'SN-B' OR balance_id<>'"+good+"')");
+        try {
+            assertThrows(RuntimeException.class,()->apply(swap));
+            assertEquals(Map.of("SN-A","GOOD","SN-B","REJECTED"),qualities(e));assertEquals(2,count("stock_posting",e));
+            assertEquals(1L,jdbc.queryForObject("SELECT source_version FROM stock_receipt_quality WHERE enterprise_id=?",Long.class,e));
+        } finally {jdbc.execute("ALTER TABLE local_serial DROP CHECK test_serial_quality_final");}
+        apply(swap);assertEquals(Map.of("SN-A","REJECTED","SN-B","GOOD"),qualities(e));
+    }
+
+    @Test void movedGoodIdentityCannotBeDowngradedByReplacingItWithAnotherSerial() {
+        String e="MOVED";seed(e);apply(message(e,"RECEIVE","SN-A","SN-B"));authorize(e);
+        apply(quality(e,"Q1",1,List.of("SN-A"),List.of()));
+        try(var session=sessions.openSession(false)) {
+            new MasterdataService(session,Clock.systemUTC()).createLocation("STORAGE-"+e,"GATE-S-"+e,e,"WH-"+e,"STORAGE","A","STORAGE",new BigDecimal("100"),"EA");
+            var source=com.lrj.wms.inventory.inventory.domain.StockBucketKey.of(e,"WH-"+e,"OWNER","LOC-"+e,"SKU-"+e,"NO_LOT","GOOD");
+            var target=com.lrj.wms.inventory.inventory.domain.StockBucketKey.of(e,"WH-"+e,"OWNER","STORAGE-"+e,"SKU-"+e,"NO_LOT","GOOD");
+            new com.lrj.wms.inventory.inventory.InventoryApplicationService(session,Clock.systemUTC()).move(e,"WH-"+e,"MOVE","ORDER","actor",source,target,com.lrj.wms.inventory.inventory.domain.Quantity.parse("1",0),false);
+            var balance=session.getMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class).lockBalanceByDimension(e,"WH-"+e,"OWNER","STORAGE-"+e,"SKU-"+e,"NO_LOT","GOOD");
+            // 明确的已移动身份前置夹具，不冒充尚未接通的来源序列号PUTAWAY消息。
+            session.getMapper(com.lrj.wms.inventory.serial.LocalSerialMapper.class).updateState(e,"WH-"+e,"SN-A",String.valueOf(balance.get("id")),"AUTHORIZED","ACTIVE",null,1,java.sql.Timestamp.from(Instant.now()));session.commit();
+        }
+        assertEquals("QUALITY_ALREADY_MOVED",assertThrows(InventoryException.class,()->apply(quality(e,"Q2",2,List.of("SN-B"),List.of()))).code());
+        apply(quality(e,"Q2",2,List.of("SN-A","SN-B"),List.of()));
+        assertEquals(Map.of("SN-A","GOOD","SN-B","GOOD"),qualities(e));
+    }
 }

@@ -885,6 +885,7 @@ components:
       additionalProperties: false
       required: ["lineId","acceptedQty","rejectedQty"]
       properties:
+        serialQualityObservation: { $ref: '#/components/schemas/SerialQualityObservation' }
         receiptCommandId:
           type: string
           minLength: 1
@@ -905,6 +906,23 @@ components:
         sourceVersion:
           type: "integer"
           minimum: 1
+    SerialQualityObservation:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, acceptedSerials, rejectedSerials]
+      description: 原收货批次累计合格和不合格身份，合计1至200条，两集合互斥且数量须匹配；未列出的身份仍HOLD
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        acceptedSerials:
+          type: array
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
+        rejectedSerials:
+          type: array
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
     PutawayRequest:
       type: "object"
       additionalProperties: false

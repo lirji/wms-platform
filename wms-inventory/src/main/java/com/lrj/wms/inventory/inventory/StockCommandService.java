@@ -363,12 +363,22 @@ public final class StockCommandService {
     public Map<String, Object> applyQuality(String enterpriseId, String warehouseId, String commandId,
             String factLineId, String documentId, String actorId, String sourceExecutionId, StockBucketKey hold,
             com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
+        return applyQuality(enterpriseId,warehouseId,commandId,factLineId,documentId,actorId,sourceExecutionId,hold,decision,null);
+    }
+
+    /** 身份快照参与新命令摘要与凭证，旧无身份调用保持原摘要和重放语义。 */
+    public Map<String,Object> applyQuality(String enterpriseId,String warehouseId,String commandId,String factLineId,
+            String documentId,String actorId,String sourceExecutionId,StockBucketKey hold,
+            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision,
+            com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
         String sourceService = StockCommandCodes.SOURCE_INBOUND, action = EffectCodes.ACTION_QUALITY;
         Timestamp now = Timestamp.from(clock.instant());
         var effects = session.getMapper(EffectMapper.class);
         var commands = session.getMapper(StockCommandMapper.class);
         String digest = CommandDigest.v1(action, documentId, hold, decision.inspectedQty().toPlainString(),
                 com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(decision));
+        if(observation!=null) digest=CommandDigest.v1Parts("SERIAL_QUALITY_V1",digest,
+                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(observation));
         String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
                 EffectCodes.FACT_SUB_ACTION, decision.receiptCommandId(), Long.toString(decision.sourceVersion()), factLineId, now);
         var effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
@@ -383,9 +393,10 @@ public final class StockCommandService {
         String operation = UUID.nameUUIDFromBytes(("QUALITY/" + enterpriseId + "/" + warehouseId + "/" + commandId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         new com.lrj.wms.inventory.quality.ReceiptQualityStockService(session, clock).apply(enterpriseId, warehouseId,
-                operation, documentId, actorId, hold, decision);
+                operation, documentId, actorId, hold, decision, observation);
         String postingId = UUID.randomUUID().toString();
-        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("operationId", operation));
+        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(observation==null?Map.of("operationId", operation):
+                Map.of("operationId",operation,"qualityDecision",decision,"serialQualityObservation",observation));
         if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
                 UUID.randomUUID().toString(), "QUALITY", decision.inspectedQty(), sourceExecutionId, documentId, manifest, now) != 1
                 || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1

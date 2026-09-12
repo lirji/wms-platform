@@ -20,13 +20,19 @@ public final class SourceCommandContextStore {
     /** 上架等衍生动作额外固定原收货批次，不能仅因两个批次落在同桶就允许互换。 */
     public void bind(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
             String receiptCommandId, boolean replayed) {
-        bindContext(enterpriseId, warehouseId, commandId, context, receiptCommandId, null, null, replayed);
+        bindContext(enterpriseId, warehouseId, commandId, context, receiptCommandId, null, null, null, replayed);
     }
 
     /** 首次来源T1同时绑定完整收货身份；重放不能遗漏、替换或追加原清单。 */
     public void bindReceipt(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
             com.lrj.wms.contract.messaging.SerialReceiptObservation observation, boolean replayed) {
-        bindContext(enterpriseId, warehouseId, commandId, context, null, null, observation, replayed);
+        bindContext(enterpriseId, warehouseId, commandId, context, null, null, observation, null, replayed);
+    }
+
+    /** 质检数量契约保持旧格式，身份作为明确的可选扩展与原来源命令一起冻结。 */
+    public void bindQuality(String enterpriseId,String warehouseId,String commandId,StockPostingContext context,
+            com.lrj.wms.contract.messaging.SerialQualityObservation observation,boolean replayed) {
+        bindContext(enterpriseId,warehouseId,commandId,context,null,null,null,observation,replayed);
     }
 
     /** 出库同时冻结权威预占使用的原订单行，不能把来源库的内部行ID当作预占订单行。 */
@@ -34,12 +40,13 @@ public final class SourceCommandContextStore {
             String reservationOrderLineId, boolean replayed) {
         if (reservationOrderLineId == null || reservationOrderLineId.isBlank() || reservationOrderLineId.length() > 64)
             throw new CommandConflictException();
-        bindContext(enterpriseId, warehouseId, commandId, context, null, reservationOrderLineId, null, replayed);
+        bindContext(enterpriseId, warehouseId, commandId, context, null, reservationOrderLineId, null, null, replayed);
     }
 
     private void bindContext(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
             String receiptCommandId, String reservationOrderLineId,
-            com.lrj.wms.contract.messaging.SerialReceiptObservation observation, boolean replayed) {
+            com.lrj.wms.contract.messaging.SerialReceiptObservation observation,
+            com.lrj.wms.contract.messaging.SerialQualityObservation qualityObservation, boolean replayed) {
         if (receiptCommandId != null && (receiptCommandId.isBlank() || receiptCommandId.length() > 64)) throw new CommandConflictException();
         var mapper = session.getMapper(SourceContextMapper.class);
         var command = mapper.lockCommand(enterpriseId, warehouseId, commandId);
@@ -53,10 +60,16 @@ public final class SourceCommandContextStore {
             if (!"RECEIVE".equals(action)) throw new CommandConflictException();
             observation.requireQuantity(new java.math.BigDecimal(object.path("qty").asString()));
         }
+        if (qualityObservation != null) {
+            if (!"QUALITY".equals(action)) throw new CommandConflictException();
+            qualityObservation.requireDecision(RuntimeMessage.JSON.treeToValue(object.path("qualityDecision"),
+                    com.lrj.wms.contract.messaging.ReceiptQualityDecision.class));
+        }
         var supplied = RuntimeMessage.JSON.valueToTree(context);
         if (object.has("postingContext")) {
             if (!object.path("postingContext").equals(supplied)
                     || !java.util.Objects.equals(object.get("serialObservation"), observation == null ? null : RuntimeMessage.JSON.valueToTree(observation))
+                    || !java.util.Objects.equals(object.get("serialQualityObservation"), qualityObservation == null ? null : RuntimeMessage.JSON.valueToTree(qualityObservation))
                     || receiptCommandId != null && !receiptCommandId.equals(object.path("receiptCommandId").asString())
                     || reservationOrderLineId != null && (!reservationOrderLineId.equals(object.path("reservationOrderLineId").asString())
                         || !object.path("outboundSchemaVersion").isIntegralNumber()
@@ -70,6 +83,7 @@ public final class SourceCommandContextStore {
         }
         if (receiptCommandId != null) object.put("receiptCommandId", receiptCommandId);
         if (observation != null) object.set("serialObservation", RuntimeMessage.JSON.valueToTree(observation));
+        if (qualityObservation != null) object.set("serialQualityObservation", RuntimeMessage.JSON.valueToTree(qualityObservation));
         object.put("schemaVersion", 1);
         object.set("postingContext", supplied);
         object.put("postingContextDigest", RuntimeMessage.contentHash(supplied.toString()));

@@ -131,6 +131,8 @@ public class InboundWorkbenchController {
         if (messagingEnabled && (body.receiptCommandId() == null || body.receiptCommandId().isBlank())) {
             throw new InboundException("RECEIPT_BATCH_REQUIRED", "消息质检必须明确原收货批次命令");
         }
+        if(body.serialQualityObservation()!=null && body.receiptCommandId()==null)
+            throw new InboundException("RECEIPT_BATCH_REQUIRED","身份质检必须明确收货批次");
         try (SqlSession session = sessions.openSession(false)) {
             if (body.receiptCommandId() != null) {
                 com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
@@ -138,7 +140,7 @@ public class InboundWorkbenchController {
                         longValue(body.sourceVersion(), 1), body.acceptedQty(), body.rejectedQty()); }
                 catch (IllegalArgumentException invalid) { throw new InboundException("INVALID_QUALITY_DECISION", "分批质检数量或版本无效"); }
                 var result = new ReceiptQualityService(session, Clock.systemUTC()).inspect(WmsJwtAuthorities.enterpriseId(jwt),
-                        warehouseId, body.lineId(), commandId, jwt.getSubject(), decision);
+                        warehouseId, body.lineId(), commandId, jwt.getSubject(), decision, body.serialQualityObservation());
                 session.commit();
                 result.put("operationId", result.get("commandId"));
                 result.put("stockSyncStatus", "APPLIED".equals(result.get("state")) ? "POSTED" : "PENDING");

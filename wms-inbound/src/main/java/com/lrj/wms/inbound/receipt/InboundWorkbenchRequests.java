@@ -53,10 +53,14 @@ public final class InboundWorkbenchRequests {
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true) BigDecimal acceptedQty,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true) BigDecimal rejectedQty,
             @Min(1) Long sourceVersion,
-            @Size(max = 64) String receiptCommandId) {
+            @Size(max = 64) String receiptCommandId,
+            @Valid com.lrj.wms.contract.messaging.SerialQualityObservation serialQualityObservation) {
+        public InspectRequest(String lineId, BigDecimal acceptedQty, BigDecimal rejectedQty, Long sourceVersion, String receiptCommandId) {
+            this(lineId, acceptedQty, rejectedQty, sourceVersion, receiptCommandId, null);
+        }
         /** 旧客户端的行级请求仅在消息关闭时兼容。 */
         public InspectRequest(String lineId, BigDecimal acceptedQty, BigDecimal rejectedQty, Long sourceVersion) {
-            this(lineId, acceptedQty, rejectedQty, sourceVersion, null);
+            this(lineId, acceptedQty, rejectedQty, sourceVersion, null, null);
         }
     }
     /** ClaimRequest：在数据库用例开始前校验类型、范围和必填项。 */
