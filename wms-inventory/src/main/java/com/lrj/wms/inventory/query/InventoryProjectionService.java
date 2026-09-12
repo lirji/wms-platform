@@ -119,8 +119,8 @@ public final class InventoryProjectionService {
             }
             String payload = String.valueOf(next.get("payload"));
             CompatibilityGate.requireEvent(payload);
-            BigDecimal onHand = decimalField(payload, "onHandAfter");
-            BigDecimal reserved = decimalField(payload, "reservedAfter");
+            BigDecimal onHand = CompatibilityGate.decimalField(payload, "onHandAfter");
+            BigDecimal reserved = CompatibilityGate.decimalField(payload, "reservedAfter");
             Timestamp asOf = timestampOf(next.get("occurred_at"));
             long version = asLong(next.get("aggregate_version"));
             if (current == null) {
@@ -172,17 +172,4 @@ public final class InventoryProjectionService {
         return Timestamp.from(ExpiryPolicy.instantOf(value));
     }
 
-    private static BigDecimal decimalField(String json, String name) {
-        String key = "\"" + name + "\":\"";
-        int start = json.indexOf(key);
-        if (start < 0) {
-            return BigDecimal.ZERO;
-        }
-        start += key.length();
-        int end = json.indexOf('"', start);
-        if (end < 0) {
-            return BigDecimal.ZERO;
-        }
-        return new BigDecimal(json.substring(start, end));
-    }
 }

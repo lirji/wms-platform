@@ -56,7 +56,7 @@ export function ReconPage() {
           <CommandDrawer
             triggerLabel="导出快照"
             title="导出对账快照"
-            hint="202 只表示受理。水位不齐会被服务端拒绝。这不是导出全部。"
+            hint="快照按批生成。水位不齐会被服务端拒绝；状态为 COMPLETE 时才可用于对账。"
             triggerType="default"
             requireScope="recon.export"
             disabled={!warehouseId || warehouseId === "_"}
@@ -65,9 +65,9 @@ export function ReconPage() {
               embedded
               requireScope="recon.export"
               title="导出快照"
-              hint="必须带 cutoff 关闭时刻与三方水位。返回 snapshotJobId，不是成功。"
+              hint="填写关闭时刻与三方水位。若返回 EXPORTING，保持表单内容再次提交续跑，直到 COMPLETE。"
               operation={`recon-export:${warehouseId}:${cutoffId || "draft"}`}
-              submitLabel="提交导出"
+              submitLabel="导出 / 继续生成"
               disabled={!token || !warehouseId || warehouseId === "_"}
               onRun={(key, values) => api("/api/wms/v1/reconciliation-snapshots", token, {
                 method: "POST",

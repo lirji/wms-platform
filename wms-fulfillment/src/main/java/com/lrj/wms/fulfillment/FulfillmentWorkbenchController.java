@@ -80,7 +80,7 @@ public class FulfillmentWorkbenchController {
             @PathVariable String fulfillmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
             @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.CancelFulfillmentRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "fulfillment.cancel");
-        String key = firstNonBlank(body.clientOperationId(), idempotencyKey);
+        String key = com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new FulfillmentService(session, Clock.systemUTC()).requestCancel(
                     WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, key, body.reason(),
@@ -106,7 +106,7 @@ public class FulfillmentWorkbenchController {
             Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createAttempt(
                     WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.deadline()),
                     warehousesOf(body.warehouses(), participants), participants);
-            created.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
+            created.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }
@@ -155,7 +155,7 @@ public class FulfillmentWorkbenchController {
             WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
             Map<String, Object> result = service.issue(WmsJwtAuthorities.enterpriseId(jwt), transferId,
                     firstNonBlank(body.lineId(), body.transferLineId()),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), qty(body.qty()));
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), qty(body.qty()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "ISSUED"));
         }
@@ -191,7 +191,7 @@ public class FulfillmentWorkbenchController {
             }
             Map<String, Object> result = service.receive(WmsJwtAuthorities.enterpriseId(jwt), body.transferId(),
                     firstNonBlank(body.lineId(), body.sourceLineRef()),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), body.authorizationId(),
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), body.authorizationId(),
                     longValue(body.tokenVersion(), 0), qty(body.qty()), body.targetLotId());
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "RECEIVED"));
@@ -208,7 +208,7 @@ public class FulfillmentWorkbenchController {
             WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
             Map<String, Object> result = service.confirmLoss(WmsJwtAuthorities.enterpriseId(jwt), transferId,
                     firstNonBlank(body.lineId(), body.transferLineId()),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), qty(body.qty()));
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), qty(body.qty()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(result, "LOSS_CONFIRMED"));
         }

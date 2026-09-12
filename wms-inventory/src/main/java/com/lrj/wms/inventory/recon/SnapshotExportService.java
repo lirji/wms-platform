@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.TreeSet;
+import tools.jackson.databind.json.JsonMapper;
+import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.seata.core.context.RootContext;
 
@@ -20,6 +23,7 @@ import org.apache.seata.core.context.RootContext;
  * 导出数量事实快照。水位不齐不能完成；完成后重拉同一 snapshotId 内容不变。
  */
 public final class SnapshotExportService {
+    private static final JsonMapper JSON = JsonMapper.builder().build();
     public static final int PAGE_LIMIT = 100;
     public static final String SCENARIO = "WMS_ONHAND_QTY";
 
@@ -35,17 +39,17 @@ public final class SnapshotExportService {
             String sourceWatermark, String postingWatermark, String receiptWatermark) {
         RootContext.unbind();
         require(enterpriseId, warehouseId, cutoffId);
-        if (closedAt == null) {
+        if (closedAt == null || closedAt.toInstant().isAfter(clock.instant())) {
             throw new JobRunException("INVALID_CUTOFF", "快照必须带稳定关闭时刻");
         }
         if (blank(sourceWatermark) || blank(postingWatermark) || blank(receiptWatermark)) {
             throw new JobRunException("SOURCE_INCOMPLETE", "三方水位不齐不能发布快照");
         }
         Timestamp now = Timestamp.from(clock.instant());
-        String scopeJson = "{\"warehouseIds\":[\"" + warehouseId + "\"]}";
-        String digest = sha256(enterpriseId + "/" + warehouseId + "/" + SCENARIO + "/" + cutoffId);
-        String watermarks = "{\"source\":\"" + sourceWatermark + "\",\"posting\":\"" + postingWatermark
-                + "\",\"receipt\":\"" + receiptWatermark + "\"}";
+        String scopeJson = JSON.writeValueAsString(Map.of("warehouseIds", List.of(warehouseId)));
+        String digest = sha256(JSON.writeValueAsString(List.of(enterpriseId, warehouseId, SCENARIO, cutoffId)));
+        String watermarks = JSON.writeValueAsString(Map.of("source", sourceWatermark, "posting", postingWatermark,
+                "receipt", receiptWatermark));
         SnapshotMapper mapper = session.getMapper(SnapshotMapper.class);
         mapper.insertIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, SCENARIO, cutoffId, closedAt,
                 digest, scopeJson, watermarks, WarehouseQuantityFact.SCHEMA_VERSION, now);
@@ -53,38 +57,68 @@ public final class SnapshotExportService {
         if (existing == null) {
             throw new JobRunException("SNAPSHOT_MISSING", "快照未创建");
         }
+        if (!ExpiryPolicy.instantOf(existing.get("closed_at")).equals(closedAt.toInstant())
+                || !JSON.readTree(String.valueOf(existing.get("source_watermarks"))).equals(JSON.readTree(watermarks))) {
+            throw new JobRunException("CONFLICT", "同一截止身份的关闭时刻和水位不能修改");
+        }
         String snapshotId = String.valueOf(existing.get("id"));
         if ("COMPLETE".equals(String.valueOf(existing.get("state")))) {
             return get(enterpriseId, warehouseId, snapshotId);
         }
+        // 每次最多生成一段，调用方提交后以同一截止身份续跑；不会持有全量导出的长事务。
+        String afterId = (String) existing.get("last_balance_id");
+        List<Map<String, Object>> balances = mapper.listBalances(enterpriseId, warehouseId, closedAt, afterId, PAGE_LIMIT + 1);
+        boolean complete = balances.size() <= PAGE_LIMIT;
+        List<Map<String, Object>> page = balances.stream().limit(PAGE_LIMIT).toList();
+        TreeSet<String> units = new TreeSet<>();
+        if (existing.get("units_json") != null) {
+            JSON.readTree(String.valueOf(existing.get("units_json"))).forEach(unit -> units.add(unit.asString()));
+        }
         StringJoiner lines = new StringJoiner("\n");
-        int rows = 0;
-        for (Map<String, Object> balance : mapper.listBalances(enterpriseId, warehouseId, closedAt, PAGE_LIMIT)) {
+        for (Map<String, Object> balance : page) {
+            if (balance.get("on_hand_qty") == null || balance.get("base_unit") == null) {
+                throw new JobRunException("SOURCE_INCOMPLETE", "库存缺少截止前流水或权威单位，不能发布完整快照");
+            }
+            String unit = String.valueOf(balance.get("base_unit"));
+            units.add(unit);
+            if (units.size() > 200) throw new JobRunException("EXPORT_LIMIT", "单位集合超过单快照预算，请缩小范围");
             Map<String, Object> fact = WarehouseQuantityFact.onHand(String.valueOf(balance.get("id")) + "/" + cutoffId,
                     enterpriseId, warehouseId, String.valueOf(balance.get("owner_id")),
                     String.valueOf(balance.get("sku_id")), String.valueOf(balance.get("lot_id")), null,
-                    decimal(balance.get("on_hand_qty")), String.valueOf(balance.get("base_unit")), cutoffId,
-                    postingWatermark);
+                    decimal(balance.get("on_hand_qty")), unit, cutoffId, postingWatermark);
             CompatibilityGate.requireQuantityFact(fact);
-            lines.add(toJson(fact));
-            rows++;
+            lines.add(JSON.writeValueAsString(fact));
         }
-        String payload = lines.toString();
-        String partHash = sha256(payload);
-        mapper.insertPartIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, snapshotId, 1, payload, rows,
-                partHash, now);
-        String manifest = "{\"schemaVersion\":" + WarehouseQuantityFact.SCHEMA_VERSION + ",\"snapshotId\":\""
-                + snapshotId + "\",\"scenarioCode\":\"" + SCENARIO + "\",\"cutoffId\":\"" + cutoffId
-                + "\",\"complete\":true,\"units\":[\"EA\"],\"parts\":[{\"partNo\":1,\"rowCount\":" + rows
-                + ",\"sha256\":\"" + partHash + "\"}]}";
-        if (mapper.casComplete(enterpriseId, warehouseId, snapshotId, "COMPLETE", manifest, now, now) != 1
-                && mapper.get(enterpriseId, warehouseId, snapshotId) == null) {
+        int parts = ((Number) existing.get("part_count")).intValue();
+        long rows = ((Number) existing.get("total_rows")).longValue() + page.size();
+        if (!page.isEmpty() || parts == 0) {
+            String payload = lines.toString();
+            if (mapper.insertPartIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, snapshotId, ++parts,
+                    payload, page.size(), sha256(payload), now) != 1) {
+                throw new JobRunException("CONFLICT", "快照分段冲突");
+            }
+        }
+        if (!page.isEmpty()) afterId = String.valueOf(page.getLast().get("id"));
+        if (mapper.checkpoint(enterpriseId, warehouseId, snapshotId, afterId, parts, rows,
+                JSON.writeValueAsString(units), ((Number) existing.get("version")).longValue(), now) != 1) {
+            throw new JobRunException("CONFLICT", "快照检查点冲突");
+        }
+        String manifest = JSON.writeValueAsString(Map.of("schemaVersion", WarehouseQuantityFact.SCHEMA_VERSION,
+                "snapshotId", snapshotId, "scenarioCode", SCENARIO, "cutoffId", cutoffId, "complete", true,
+                "units", units, "partCount", parts, "rowCount", rows));
+        if (complete && mapper.casComplete(enterpriseId, warehouseId, snapshotId, "COMPLETE", manifest, now, now) != 1) {
             throw new JobRunException("CONFLICT", "快照完成冲突");
         }
         return get(enterpriseId, warehouseId, snapshotId);
     }
 
     public Map<String, Object> get(String enterpriseId, String warehouseId, String snapshotId) {
+        return get(enterpriseId, warehouseId, snapshotId, 0);
+    }
+
+    /** 每次读取一个已提交分段，nextPartNo 用于续取，避免把全部内容加载到内存。 */
+    public Map<String, Object> get(String enterpriseId, String warehouseId, String snapshotId, int afterPart) {
+        if (afterPart < 0) throw new IllegalArgumentException("afterPart 必须非负");
         RootContext.unbind();
         require(enterpriseId, warehouseId, snapshotId);
         SnapshotMapper mapper = session.getMapper(SnapshotMapper.class);
@@ -92,13 +126,16 @@ public final class SnapshotExportService {
         if (snapshot == null) {
             throw new JobRunException("SNAPSHOT_MISSING", "快照不存在");
         }
-        List<Map<String, Object>> parts = mapper.listParts(enterpriseId, warehouseId, snapshotId);
+        List<Map<String, Object>> parts = mapper.listParts(enterpriseId, warehouseId, snapshotId, afterPart);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("snapshotId", snapshot.get("id"));
         body.put("state", snapshot.get("state"));
         body.put("manifest", snapshot.get("manifest_json"));
         body.put("schemaVersion", snapshot.get("schema_version"));
-        body.put("parts", parts.stream().map(part -> {
+        body.put("partCount", snapshot.get("part_count"));
+        body.put("rowCount", snapshot.get("total_rows"));
+        body.put("nextPartNo", parts.size() > 1 ? parts.getFirst().get("part_no") : null);
+        body.put("parts", parts.stream().limit(1).map(part -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("partNo", part.get("part_no"));
             item.put("rowCount", part.get("row_count"));
@@ -132,17 +169,4 @@ public final class SnapshotExportService {
         }
     }
 
-    private static String toJson(Map<String, Object> fact) {
-        StringJoiner json = new StringJoiner(",", "{", "}");
-        fact.forEach((key, value) -> {
-            if (value == null) {
-                json.add("\"" + key + "\":null");
-            } else if (value instanceof Number) {
-                json.add("\"" + key + "\":" + value);
-            } else {
-                json.add("\"" + key + "\":\"" + value + "\"");
-            }
-        });
-        return json.toString();
-    }
 }

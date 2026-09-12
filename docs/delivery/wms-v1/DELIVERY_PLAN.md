@@ -258,8 +258,8 @@ v0.4幂等任务已并入各阶段。每项任务记录实现、验证、提交�
 | 1 | R19 | 请求 DTO 与异常分类 | implemented / local targeted regressions passed; combined CI pending；DTO和400/409/503边界测试通过 |
 | 1 | R20 | 适用读路径 L1/L2、回源预算、重试配置 | implemented / local targeted regressions passed; combined CI pending；真实Redis跨实例/TTL/断连/回源预算通过 |
 | 2 | R01–R04 | 库存事务、操作权限、仓范围、可信执行授权 | implemented / local regressions passed；生产事务、79路由、仓范围、可信授权和现有HTTP回归通过；combined CI pending |
-| 3 | R05–R08/R12 | 重试、分批身份、整单状态、行归属、建任务幂等 | pending |
-| 3 | R09–R11 | 快照完整性/截点、JSON 与版本解析 | pending |
+| 3 | R05–R08/R12 | 重试、分批身份、整单状态、行归属、建任务幂等 | implemented；本地定向回归通过，待组合CI |
+| 3 | R09–R11 | 快照完整性/截点、JSON 与版本解析 | implemented；251桶历史分页及兼容回归通过；跨服务关闭证明边界见证据 |
 | 4 | R13–R15 | 消息闭环、TC/序列号服务、恢复与清理任务 | pending；真实设备验收不得用 simulator 替代 |
 | 4 | R21/R24 | 就绪/观测、正式装配测试、容量执行器 | pending；容量目标未签署，不宣称达标 |
 | 5 | R22–R23 | UTC 序列化、操作者审计 | pending |

@@ -86,17 +86,28 @@ public final class InboundReceiptService {
     /** 收货实物：校验剩余额度后累计 physical，并提交 RECEIVE 来源命令。 */
     public Map<String, Object> receive(String enterpriseId, String warehouseId, String orderId, String lineId,
             String commandId, String partId, String actorId, BigDecimal qty) {
+        if (qty == null || qty.signum() <= 0) throw new InboundException("INVALID_QTY", "收货数量必须为正");
         Timestamp now = Timestamp.from(clock.instant());
         InboundReceiptMapper mapper = mapper();
         Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
+        requireLineOrder(line, orderId);
+        var protocol = new SourceProtocolService(session, clock);
+        Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_RECEIVE, "RECEIPT_PART",
+                enterpriseId, warehouseId, commandId, orderId, partId, lineId, qty);
+        if (replay != null) return replay;
         BigDecimal physical = decimal(line.get("received_physical_qty")).add(qty);
         if (physical.compareTo(decimal(line.get("expected_qty")).subtract(decimal(line.get("closed_qty")))) > 0) {
             throw new InboundException("OVER_RECEIVE", "收货超过剩余额度");
         }
-        mapper.addReceivedPhysical(enterpriseId, warehouseId, lineId, qty, now);
-        mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_RECEIVING, now);
-        return new SourceProtocolService(session, clock).submitReceive(enterpriseId, warehouseId, commandId, orderId, partId,
+        Map<String, Object> command = protocol.submitReceive(enterpriseId, warehouseId, commandId, orderId, partId,
                 lineId, actorId, qty);
+        if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if (mapper.addReceivedPhysical(enterpriseId, warehouseId, lineId, qty, now) != 1) {
+                throw new InboundException("VERSION_CONFLICT", "收货行更新冲突");
+            }
+            mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_RECEIVING, now);
+        }
+        return command;
     }
 
     /**
@@ -119,6 +130,8 @@ public final class InboundReceiptService {
         }
         Timestamp now = Timestamp.from(clock.instant());
         InboundReceiptMapper mapper = mapper();
+        Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
+        requireLineOrder(line, orderId);
         String digest = observationDigest(receiptSessionId, partId, lineId, qty);
         Map<String, Object> observation = mapper.lockObservation(enterpriseId, warehouseId, deviceId, deviceSessionId,
                 sequenceNo);
@@ -130,15 +143,17 @@ public final class InboundReceiptService {
                 return observationView(observation, true, false);
             }
         }
-        Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
         Map<String, Object> part = mapper.lockPart(enterpriseId, warehouseId, receiptSessionId, partId, lineId);
+        var protocol = new SourceProtocolService(session, clock);
+        Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_RECEIVE, "RECEIPT_PART",
+                enterpriseId, warehouseId, commandId, receiptSessionId, partId, lineId, qty);
         boolean newPart = part == null;
-        if (newPart) {
+        if (newPart && replay == null) {
             BigDecimal physical = decimal(line.get("received_physical_qty")).add(qty);
             if (physical.compareTo(decimal(line.get("expected_qty")).subtract(decimal(line.get("closed_qty")))) > 0) {
                 throw new InboundException("OVER_RECEIVE", "收货超过剩余额度");
             }
-        } else if (decimal(part.get("qty")).compareTo(qty) != 0) {
+        } else if (part != null && decimal(part.get("qty")).compareTo(qty) != 0) {
             throw new InboundException("PART_CONFLICT", "同分批数量不一致");
         }
         mapper.insertObservationIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, deviceId, deviceSessionId,
@@ -153,18 +168,22 @@ public final class InboundReceiptService {
         if (OBSERVATION_BOUND.equals(String.valueOf(observation.get("state")))) {
             return observationView(observation, true, false);
         }
+        Map<String, Object> command = replay != null ? replay : protocol.submitReceive(enterpriseId, warehouseId,
+                commandId, receiptSessionId, partId, lineId, actorId, qty);
         if (newPart) {
             mapper.insertPartIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, receiptSessionId, orderId,
-                    lineId, partId, qty, commandId, actorId, now);
+                    lineId, partId, qty, String.valueOf(command.get("commandId")), actorId, now);
             part = mapper.lockPart(enterpriseId, warehouseId, receiptSessionId, partId, lineId);
             if (part == null) {
                 throw new InboundException("VERSION_CONFLICT", "分批登记竞争");
             }
-            mapper.addReceivedPhysical(enterpriseId, warehouseId, lineId, qty, now);
-            mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_RECEIVING, now);
+            if (!Boolean.TRUE.equals(command.get("replayed"))) {
+                if (mapper.addReceivedPhysical(enterpriseId, warehouseId, lineId, qty, now) != 1) {
+                    throw new InboundException("VERSION_CONFLICT", "收货行更新冲突");
+                }
+                mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_RECEIVING, now);
+            }
         }
-        Map<String, Object> command = new SourceProtocolService(session, clock).submitReceive(enterpriseId, warehouseId,
-                commandId, receiptSessionId, partId, lineId, actorId, qty);
         String boundCommand = String.valueOf(command.get("commandId"));
         String effectId = String.valueOf(command.get("effectId"));
         mapper.bindObservation(enterpriseId, warehouseId, String.valueOf(observation.get("id")), effectId, boundCommand,
@@ -238,6 +257,7 @@ public final class InboundReceiptService {
         Timestamp now = Timestamp.from(clock.instant());
         InboundReceiptMapper mapper = mapper();
         Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
+        requireLineOrder(line, orderId);
         Map<String, Object> inspection = mapper.latestInspection(enterpriseId, warehouseId, lineId);
         if (inspection == null) {
             throw new InboundException("QC_REQUIRED", "上架前必须完成质检");
@@ -328,5 +348,11 @@ public final class InboundReceiptService {
         body.put("reusedPart", reusedPart);
         body.put("state", observation.get("state"));
         return body;
+    }
+    /** 企业/仓一致还不够，路径中的单据必须真正拥有该行。 */
+    private static void requireLineOrder(Map<String, Object> line, String orderId) {
+        if (!java.util.Objects.equals(orderId, line.get("order_id"))) {
+            throw new InboundException("UNKNOWN_LINE", "入库行不属于该单据");
+        }
     }
 }

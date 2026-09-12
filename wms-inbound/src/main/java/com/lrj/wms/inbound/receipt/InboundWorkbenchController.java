@@ -88,12 +88,12 @@ public class InboundWorkbenchController {
             if (body.deviceId() != null) {
                 result = service.receiveObserved(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, inboundOrderId,
                         body.lineId(), body.receiptSessionId(), body.receiptPartId(),
-                        firstNonBlank(body.clientOperationId(), idempotencyKey), body.deviceId(),
+                        com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), body.deviceId(),
                         body.deviceSessionId(), longValue(body.scanSequence(), 1), jwt.getSubject(),
                         qty(body.qty()));
             } else {
                 result = service.receive(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, inboundOrderId,
-                        body.lineId(), firstNonBlank(body.clientOperationId(), idempotencyKey),
+                        body.lineId(), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()),
                         firstNonBlank(body.receiptPartId(), "PART-" + idempotencyKey), jwt.getSubject(),
                         qty(body.qty()));
             }
@@ -153,7 +153,7 @@ public class InboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new InboundTaskService(session, Clock.systemUTC()).claim(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId, jwt.getSubject(), expectedVersion);
-            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
+            result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return HttpJson.row(result);
         }
@@ -170,7 +170,7 @@ public class InboundWorkbenchController {
                     taskId, firstNonBlank(body.locationId(), body.targetLocationId()),
                     firstNonBlank(body.locationType(), InboundReceiptService.LOCATION_STORAGE),
                     qty(body.qty()));
-            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
+            result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, body.inboundOrderId(), result, "PUTAWAY"));
         }

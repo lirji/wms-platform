@@ -59,6 +59,23 @@ class CompatibilityGateTest {
     }
 
     @Test
+    void malformedAndSpacedUnknownVersionsCannotBypassGate() {
+        for (String payload : new String[] {"null", "[]", "{", "{} {}", "{\"schemaVersion\" : 9}",
+                "{\"schemaVersion\":1.5}", "{\"schemaVersion\":\"1\"}", "{\"schemaVersion\":null}",
+                "{\"schemaVersion\":1,\"schemaVersion\":9}"}) {
+            assertEquals(CompatibilityGate.Decision.REJECT_UNKNOWN, CompatibilityGate.decideEvent(payload), payload);
+        }
+        assertEquals(CompatibilityGate.Decision.ACCEPT_CURRENT,
+                CompatibilityGate.decideEvent("{ \"schemaVersion\" : 1 }"));
+        assertEquals(new BigDecimal("3.5"), CompatibilityGate.decimalField("{\"onHandAfter\" : \"3.5\"}", "onHandAfter"));
+        assertEquals(new BigDecimal("3.5"), CompatibilityGate.decimalField("{\"onHandAfter\" : 3.5}", "onHandAfter"));
+        for (String payload : new String[] {"{}", "{\"onHandAfter\":null}", "{\"onHandAfter\":true}",
+                "{\"onHandAfter\":\"bad\"}"}) {
+            assertThrows(JobRunException.class, () -> CompatibilityGate.decimalField(payload, "onHandAfter"));
+        }
+    }
+
+    @Test
     void decorateDoesNotRewriteExistingSchema() {
         String decorated = CompatibilityGate.decorateEvent("{\"onHandAfter\":\"3\"}");
         assertTrue(decorated.startsWith("{\"schemaVersion\":1,"));

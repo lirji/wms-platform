@@ -60,11 +60,12 @@ public class SnapshotExportController {
 
     @GetMapping("/reconciliation-snapshots/{id}")
     public Map<String, Object> get(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
-            @RequestParam(name = "warehouseId") String warehouseId) {
+            @RequestParam(name = "warehouseId") String warehouseId,
+            @RequestParam(name = "afterPart", defaultValue = "0") int afterPart) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             return new SnapshotExportService(session, Clock.systemUTC()).get(WmsJwtAuthorities.enterpriseId(jwt),
-                    warehouseId, id);
+                    warehouseId, id, afterPart);
         }
     }
 

@@ -199,10 +199,10 @@ post("/api/wms/v1/jobs/{jobId}/retries", "retryJob", "job", "job.retry",
      "JobRetryRequest", ("202",), "失败分片恢复同一业务任务",
      ["- $ref: '#/components/parameters/JobId'"])
 post("/api/wms/v1/reconciliation-snapshots", "createReconciliationSnapshot", "recon",
-     "recon.export", "ReconciliationSnapshotRequest", ("202",), "导出对账快照")
+     "recon.export", "ReconciliationSnapshotRequest", ("202",), "每次导出最多100行，以相同请求续跑直至COMPLETE")
 get("/api/wms/v1/reconciliation-snapshots/{snapshotId}", "getReconciliationSnapshot", "recon",
-    "recon.read", ("200",), "读取快照manifest",
-    ["- $ref: '#/components/parameters/SnapshotId'"])
+    "recon.read", ("200",), "读取快照manifest及一个分段，nextPartNo作为下次afterPart",
+    ["- $ref: '#/components/parameters/SnapshotId'", "- $ref: '#/components/parameters/AfterPart'"])
 get("/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases", "listReconciliationCases",
     "recon", "recon.read", ("200",), "对账差异列表", wh + cursor)
 get("/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}", "getReconciliationCase",
@@ -418,6 +418,13 @@ components:
       in: path
       required: true
       schema: { $ref: '#/components/schemas/Id' }
+    AfterPart:
+      name: afterPart
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
     SnapshotId:
       name: snapshotId
       in: path
@@ -797,6 +804,10 @@ components:
       additionalProperties: false
       required: ["qty"]
       properties:
+        pickPartId:
+          type: string
+          maxLength: 64
+          description: 分批事实身份；省略时沿用命令键，同分批换键重试应携带原身份。
         clientOperationId:
           type: "string"
           maxLength: 64
@@ -825,6 +836,10 @@ components:
       additionalProperties: false
       required: ["orderLineId","qty"]
       properties:
+        shipmentPartId:
+          type: string
+          maxLength: 64
+          description: 分批事实身份；省略时沿用命令键，同分批换键重试应携带原身份。
         orderLineId:
           type: "string"
           maxLength: 64

@@ -121,4 +121,16 @@ public interface OutboundOrderMapper {
     /** listTasks：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listTasks(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
+    /** 先定位不可变父单，再按单据→任务顺序加锁，避免规划与执行互相等待。 */
+    String taskOrderId(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("taskId") String taskId);
+    /** 锁住订单后查询规划幂等结果与未完成任务占用，防止重复派工。 */
+    Map<String, Object> plannedTaskByKey(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("commandId") String commandId);
+    BigDecimal pendingPickQty(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId);
+    int bindPlanningKey(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("taskId") String taskId, @Param("commandId") String commandId);
+    int cancelOpenPickTasks(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("now") Timestamp now);
 }

@@ -3,6 +3,11 @@ package com.lrj.wms.inventory.compat;
 import com.lrj.wms.inventory.jobs.JobRunException;
 import com.lrj.wms.inventory.recon.WarehouseQuantityFact;
 import java.util.Map;
+import java.math.BigDecimal;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.databind.DeserializationFeature;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -10,6 +15,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 观察开关只计数，不改变接受或拒绝。
  */
 public final class CompatibilityGate {
+    private static final JsonMapper JSON = JsonMapper.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     public static final int CURRENT_EVENT_SCHEMA = 1;
     public static final String OBSERVE_PROPERTY = "wms.compat.observe";
 
@@ -45,10 +53,13 @@ public final class CompatibilityGate {
     }
 
     public static Decision decideEvent(String payload) {
-        if (payload == null || payload.indexOf("\"schemaVersion\"") < 0) {
-            return record(Decision.ACCEPT_N_MINUS_1);
+        try {
+            JsonNode object = object(payload);
+            if (!object.has("schemaVersion")) return record(Decision.ACCEPT_N_MINUS_1);
+            return decide(version(object.get("schemaVersion")), CURRENT_EVENT_SCHEMA);
+        } catch (RuntimeException invalid) {
+            return record(Decision.REJECT_UNKNOWN);
         }
-        return decide(readSchemaVersion(payload, CURRENT_EVENT_SCHEMA), CURRENT_EVENT_SCHEMA);
     }
 
     public static Decision decideSnapshot(int schemaVersion) {
@@ -63,10 +74,12 @@ public final class CompatibilityGate {
     }
 
     public static Decision decideSnapshotFact(Map<String, Object> fact) {
-        if (fact == null || !fact.containsKey("schemaVersion")) {
+        if (fact == null) return record(Decision.REJECT_UNKNOWN);
+        if (!fact.containsKey("schemaVersion")) {
             return record(Decision.ACCEPT_N_MINUS_1);
         }
-        return decideSnapshot(asInt(fact.get("schemaVersion")));
+        try { return decideSnapshot(version(JSON.valueToTree(fact.get("schemaVersion")))); }
+        catch (RuntimeException invalid) { return record(Decision.REJECT_UNKNOWN); }
     }
 
     public static void requireQuantityFact(Map<String, Object> fact) {
@@ -84,6 +97,8 @@ public final class CompatibilityGate {
         if (!(quantity instanceof String) || ((String) quantity).isBlank()) {
             throw new JobRunException("INVALID_QUANTITY", "数量必须是十进制字符串");
         }
+        try { new BigDecimal((String) quantity); }
+        catch (NumberFormatException invalid) { throw new JobRunException("INVALID_QUANTITY", "数量必须是十进制字符串"); }
         Object unit = fact.get("unit");
         if (unit == null || String.valueOf(unit).isBlank()) {
             throw new JobRunException("INVALID_UNIT", "数量事实必须带单位");
@@ -92,55 +107,59 @@ public final class CompatibilityGate {
 
     /** 给当前生产者补 schemaVersion；旧消费者只读业务字段即可忽略它。 */
     public static String decorateEvent(String payload) {
-        if (payload == null || payload.isBlank() || payload.indexOf("\"schemaVersion\"") >= 0) {
+        var object = object(payload);
+        if (object.has("schemaVersion")) {
+            requireEvent(payload);
             return payload;
         }
-        String trimmed = payload.strip();
-        if (trimmed.length() < 2 || trimmed.charAt(0) != '{' || trimmed.charAt(trimmed.length() - 1) != '}') {
-            return payload;
-        }
-        String inner = trimmed.substring(1, trimmed.length() - 1).strip();
-        if (inner.isEmpty()) {
-            return "{\"schemaVersion\":" + CURRENT_EVENT_SCHEMA + "}";
-        }
-        return "{\"schemaVersion\":" + CURRENT_EVENT_SCHEMA + "," + inner + "}";
+        var decorated = JSON.createObjectNode().put("schemaVersion", CURRENT_EVENT_SCHEMA);
+        object.properties().forEach(entry -> decorated.set(entry.getKey(), entry.getValue()));
+        return JSON.writeValueAsString(decorated);
     }
 
+    /** 仅合法对象缺少版本才使用旧版默认值，畸形输入不得降级为兼容版本。 */
     public static int readSchemaVersion(String json, int defaultVersion) {
-        if (json == null) {
-            return defaultVersion;
+        JsonNode object = object(json);
+        return object.has("schemaVersion") ? version(object.get("schemaVersion")) : defaultVersion;
+    }
+
+    /** 消息允许十进制字符串或 JSON 数字；缺失、布尔和错误格式不能变成零库存。 */
+    public static BigDecimal decimalField(String payload, String name) {
+        JsonNode node = object(payload).get(name);
+        if (node == null || !(node.isString() || node.isNumber())) {
+            throw new JobRunException("INVALID_EVENT_PAYLOAD", "库存事件缺少有效数量字段：" + name);
         }
-        String key = "\"schemaVersion\":";
-        int start = json.indexOf(key);
-        if (start < 0) {
-            return defaultVersion;
+        try {
+            BigDecimal value = node.isNumber() ? node.decimalValue() : new BigDecimal(node.asString());
+            if (value.scale() > 6 || value.precision() - value.scale() > 14) throw new NumberFormatException();
+            return value;
+        } catch (RuntimeException invalid) {
+            throw new JobRunException("INVALID_EVENT_PAYLOAD", "库存事件数量格式无效：" + name);
         }
-        start += key.length();
-        while (start < json.length() && Character.isWhitespace(json.charAt(start))) {
-            start++;
+    }
+
+    private static JsonNode object(String payload) {
+        try {
+            JsonNode node = JSON.readTree(payload);
+            if (node == null || !node.isObject()) throw new IllegalArgumentException();
+            return node;
+        } catch (RuntimeException invalid) {
+            throw new JobRunException("INVALID_EVENT_PAYLOAD", "消息必须是无重复字段的完整 JSON 对象");
         }
-        if (start >= json.length()) {
-            return defaultVersion;
+    }
+
+    private static int version(JsonNode node) {
+        if (node == null || !node.isIntegralNumber() || !node.canConvertToInt()) {
+            throw new JobRunException("SCHEMA_UNSUPPORTED", "版本必须是整数");
         }
-        if (json.charAt(start) == '"') {
-            int end = json.indexOf('"', start + 1);
-            return end < 0 ? defaultVersion : Integer.parseInt(json.substring(start + 1, end));
-        }
-        int end = start;
-        if (json.charAt(end) == '-') {
-            end++;
-        }
-        while (end < json.length() && Character.isDigit(json.charAt(end))) {
-            end++;
-        }
-        return start == end ? defaultVersion : Integer.parseInt(json.substring(start, end));
+        return node.intValue();
     }
 
     private static Decision decide(int version, int current) {
         Decision decision;
         if (version == current) {
             decision = Decision.ACCEPT_CURRENT;
-        } else if (version > 0 && version < current) {
+        } else if (version > 0 && version == current - 1) {
             decision = Decision.ACCEPT_N_MINUS_1;
         } else {
             decision = Decision.REJECT_UNKNOWN;
@@ -159,10 +178,4 @@ public final class CompatibilityGate {
         return decision;
     }
 
-    private static int asInt(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        return Integer.parseInt(String.valueOf(value));
-    }
 }

@@ -35,9 +35,14 @@ public interface SnapshotMapper {
 
     /** listParts：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listParts(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("snapshotId") String snapshotId);
+            @Param("warehouseId") String warehouseId, @Param("snapshotId") String snapshotId, @Param("afterPart") int afterPart);
 
     /** listBalances：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listBalances(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff, @Param("limit") int limit);
+            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff, @Param("afterId") String afterId, @Param("limit") int limit);
+    /** 分段与游标由同一个用例事务提交，版本保护阻止旧执行器覆盖进度。 */
+    int checkpoint(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("id") String id, @Param("afterId") String afterId, @Param("parts") int parts,
+            @Param("rows") long rows, @Param("units") String units, @Param("version") long version,
+            @Param("now") Timestamp now);
 }

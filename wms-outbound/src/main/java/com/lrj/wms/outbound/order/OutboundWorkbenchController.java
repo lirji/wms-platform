@@ -82,7 +82,7 @@ public class OutboundWorkbenchController {
             @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.AuthorizeRequest body) {
         WmsJwtAuthorities.requireScope(jwt, "fulfillment.execute");
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        String key = firstNonBlank(body.clientOperationId(), idempotencyKey);
+        String key = com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId());
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundAuthorizationService(session, Clock.systemUTC()).authorize(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, key, jwt.getSubject(),
@@ -101,8 +101,9 @@ public class OutboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).planPickTask(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    body.sourceLocationId(), body.stagingLocationId(), qty(body.qty()));
-            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
+                    body.sourceLocationId(), body.stagingLocationId(), qty(body.qty()),
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
+            result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
         }
@@ -145,7 +146,7 @@ public class OutboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundTaskService(session, Clock.systemUTC()).claim(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId, jwt.getSubject(), expectedVersion);
-            result.put("clientOperationId", firstNonBlank(body.clientOperationId(), idempotencyKey));
+            result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return HttpJson.row(result);
         }
@@ -159,7 +160,7 @@ public class OutboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).pickPartial(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId,
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject(), qty(body.qty()));
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "PICKED"));
         }
@@ -186,7 +187,7 @@ public class OutboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).shipPartial(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject(), qty(body.qty()));
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId());
             session.commit();
             Map<String, Object> accepted = accepted(warehouseId, result, "SHIPPED");
             accepted.put("statusUrl", "/api/wms/v1/warehouses/" + warehouseId + "/outbound-orders/" + outboundOrderId);
@@ -202,7 +203,7 @@ public class OutboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).cancelUnpicked(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "CANCEL_REQUESTED"));
         }

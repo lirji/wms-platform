@@ -36,6 +36,7 @@ public final class OutboundWorkbenchRequests {
             @Size(max = 64) String clientOperationId) { }
     /** PickRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record PickRequest(
+            @Size(max = 64) String pickPartId,
             @Size(max = 64) String clientOperationId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) { }
     /** PackRequest：在数据库用例开始前校验类型、范围和必填项。 */
@@ -45,6 +46,7 @@ public final class OutboundWorkbenchRequests {
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) { }
     /** ShipRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record ShipRequest(
+            @Size(max = 64) String shipmentPartId,
             @NotBlank @Size(max = 64) String orderLineId,
             @Size(max = 64) String clientOperationId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) { }

@@ -120,7 +120,7 @@ public class CountCommandController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new CountService(session, Clock.systemUTC()).applyLine(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, body.lineId(),
-                    firstNonBlank(body.clientOperationId(), idempotencyKey), jwt.getSubject());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
             session.commit();
             return ResponseEntity.accepted().body(result);
         }

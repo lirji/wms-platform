@@ -82,6 +82,58 @@ class SnapshotExportIT {
     }
 
     @Test
+    void resumesAcrossTransactionsAndExportsEveryHistoricalBalance() {
+        Clock before = Clock.fixed(POSTED, ZoneOffset.UTC);
+        Clock after = Clock.fixed(CUTOFF.plusSeconds(60), ZoneOffset.UTC);
+        try (SqlSession session = sessions.openSession(false)) {
+            MasterdataService masterdata = new MasterdataService(session, before);
+            masterdata.createWarehouse("WH-PAGES", "ENT-1", "PAGES", "分页快照仓", "UTC");
+            masterdata.createLocation("LOC-PAGES", "GATE-PAGES", "ENT-1", "WH-PAGES", "P-01", "P", "STORAGE",
+                    new BigDecimal("1000"), "EA");
+            for (int i = 0; i < 251; i++) {
+                var bucket = StockBucketKey.of("ENT-1", "WH-PAGES", "OWNER-" + i, "LOC-PAGES", "SKU-Q",
+                        MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_GOOD);
+                new InventoryApplicationService(session, before).receive("ENT-1", "WH-PAGES", "BEFORE-" + i,
+                        "DOC", "ACTOR", bucket, Quantity.parse("4", 0));
+                // 截止之后同一桶继续收货，历史快照仍必须导出4，而不是丢桶或导出9。
+                new InventoryApplicationService(session, after).receive("ENT-1", "WH-PAGES", "AFTER-" + i,
+                        "DOC", "ACTOR", bucket, Quantity.parse("5", 0));
+            }
+            session.commit();
+        }
+        String snapshotId = null;
+        for (int part = 1; part <= 3; part++) {
+            try (SqlSession session = sessions.openSession(false)) {
+                var result = new SnapshotExportService(session, after).export("ENT-1", "WH-PAGES", "C-PAGES",
+                        Timestamp.from(CUTOFF), "SRC", "POST", "RCV");
+                snapshotId = String.valueOf(result.get("snapshotId"));
+                assertEquals(part < 3 ? "EXPORTING" : "COMPLETE", result.get("state"));
+                assertEquals(Math.min(part * 100, 251), ((Number) result.get("rowCount")).intValue());
+                session.commit();
+            }
+        }
+        int cursor = 0;
+        int rows = 0;
+        try (SqlSession session = sessions.openSession(false)) {
+            var service = new SnapshotExportService(session, after);
+            do {
+                var result = service.get("ENT-1", "WH-PAGES", snapshotId, cursor);
+                @SuppressWarnings("unchecked")
+                var parts = (List<Map<String, Object>>) result.get("parts");
+                assertEquals(1, parts.size());
+                for (String line : String.valueOf(parts.getFirst().get("payload")).split("\n")) {
+                    assertTrue(line.contains("\"quantity\":\"4\""), line);
+                    rows++;
+                }
+                cursor = result.get("nextPartNo") == null ? 0 : ((Number) result.get("nextPartNo")).intValue();
+            } while (cursor != 0);
+            assertEquals(251, rows);
+            assertThrows(JobRunException.class, () -> service.export("ENT-1", "WH-PAGES", "C-PAGES",
+                    Timestamp.from(CUTOFF), "CHANGED", "POST", "RCV"));
+        }
+    }
+
+    @Test
     void exportIsIdempotentAndQuantityIsNotMoney() {
         Clock clock = Clock.fixed(CUTOFF, ZoneOffset.UTC);
         Timestamp closed = Timestamp.from(CUTOFF);

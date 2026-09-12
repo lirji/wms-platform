@@ -79,3 +79,24 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 新增依赖许可证和OSV已核对并提交；既有Tomcat与fastjson命中，不能宣称生产安全门禁通过。
 
 - 2026-09-12 21:31：session25893结束 BUILD SUCCESS。R01–R04所有定向测试通过，正在独立提交。下一步直接R05–R12，当前没有运行中的Maven。全部整改仍未完成/尚未推送，不停在本批。
+
+
+## 最新检查点 2026-09-12 21:40（R05–R12实施中）
+
+- 第二批已提交 `967ad0d`（R01–R04）；工作树现在是第三批，暂存区为空。两个提交尚未push。
+- R05/R06/R07/R08已实现主体：来源提交返回replayed，核验动作/效果/精确数量；收货/观察先恢复重放再检查剩余额度，仅首次累加；拣货和发运支持独立分批身份（DTO增加pickPartId/shipmentPartId，缺省命令键，拣货身份含task）；拣货/派发统一订单→任务锁序；跨单入库行拒绝；整单终态汇总所有行；取消命令可重放且取消未完成拣货任务。
+- CommandReplay/CommandKeys/CommandConflictException/InvalidCommandKeyException 新增在wms-runtime/command，RuntimeErrors映射409/400；HTTP里简单clientOperationId与header必须一致。含targetClientOperationId的授权协议未机械替换。
+- 来源命令主键原有CHECK(id=command_id)与企业/仓幂等范围冲突。新代码用UUID技术主键，追加inbound V007/outbound V008迁移删除该CHECK并改字段注释；旧数据不回填，旧查询仍用command_id。第一次R05测试因此CHECK导致失败，已补迁移后通过（见下一条）。
+- `/tmp/wms-r05-regression.log` BUILD SUCCESS：InboundProtocolIT2、ReceiptObservationIT2、InboundReceiptIT3（新增同事实并发换键/满额重试/跨单/篡改数量）、OutboundProtocolIT、OutboundPickIT4（新增部分执行与全行汇总）；随后又补了insertCommand影响行数/下一尝试数量一致性、取消重放、R12规划持久化和header一致性。
+- R12实现：outbound V009为outbound_task追加planning_command_id、唯一约束及查询索引；planPickTask带命令键重放复用任务，并扣除未完成PICK任务数量；HTTP传稳定key。新增OutboundPickIT.planningIsIdempotentAndAccountsForOutstandingTasks。
+- 正在Maven session74238、日志 `/tmp/wms-command-regression.log`，选择InboundReceiptIT,ReceiptObservationIT,OutboundPickIT,OutboundProtocolIT,InboundProtocolIT,OutboundDispatchIT（以及全模块单测）。不要并发Maven。最新新增规划测试可能要确认是否在本次编译之前写入；若报告OutboundPickIT只有4项则需重跑5项。
+- 第三批未完成：R05–R08/R12最后回归/HTTP同步/跨企业同command键测试、R09完整有界快照导出、R10cutoff历史重建、R11严格JSON兼容门禁。来源消息payload已改JSON库转义；CompatibilityGate与Projection仍是旧手写解析，尚未修改。
+- 之后仍有R13–R15/R21/R24、R22–R23，全配置集成/CI/合并推main；不得停在第三批。恢复先看当前日志与git diff，不重做前两批。
+
+## 最新检查点 2026-09-12 21:50
+
+- 第三批 R05–R12 已本地验证：`/tmp/wms-command-regression.log` BUILD SUCCESS，OutboundPickIT5项；`/tmp/wms-third-batch-it.log` BUILD SUCCESS，InboundReceiptIT4、ReceiptObservationIT2、OutboundHttpIT1、SnapshotExportIT2、InventoryProjectionIT2、CompatibilityMatrixIT2，以及全模块单元测试。必需门禁37项通过。当前无运行中的Maven。
+- R09快照每次最多100行，分段和游标同事务，重复同cutoff请求续跑，末段才COMPLETE；GET一段+nextPartNo作为下次afterPart。R10按截止前ledger最后版本重建，251桶截止后全部再收货仍导出原量；拒绝未来cutoff/改水位/缺流水与单位。**三方水位仍是调用方关闭声明，不是跨服务关闭证明**。控制台提示已同步续跑语义。R11严格JSON重复字段/完整对象/整数版本/数量校验，兼容旧有效无版本事件。
+- 第三批正在独立提交。下一批已有**未验证交付的工作树改动**：scripts/run-capacity.sh、scripts/capacity-runner.py、scripts/tests/test_capacity_runner.py（R24执行器），不能混入第三批提交。执行器专属HTTP夹具2项通过，未对WMS做签署容量压测。
+- R13消息运行闭环、R14真实TM/TC/序列号、R15实际恢复任务、R21就绪观测仍待实施；R24要补输入/运行说明及CI；最后R22 UTC、R23操作人。现有出库证据夹具不是R14完成。入库putaway当前仍SYSTEM/先加量后协议，R23时一起校正幂等。
+- 全部整改之后才完整default/warehouse-it/tc-it/failure-it、CI、正常合并推main。目前ee255e0/967ad0d均未push，不停在第三批。

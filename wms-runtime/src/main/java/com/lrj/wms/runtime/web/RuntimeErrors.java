@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /** 共享边界只翻译明确的运行时错误，不改变领域错误语义。 */
 @RestControllerAdvice
 public class RuntimeErrors {
+    @ExceptionHandler(com.lrj.wms.runtime.command.CommandConflictException.class)
+    public ResponseEntity<Map<String, Object>> commandConflict() {
+        return ResponseEntity.status(409).body(Map.of("code", "IDEMPOTENCY_PAYLOAD_MISMATCH", "message", "同一命令或事实身份的内容不一致",
+                "requestId", UUID.randomUUID().toString(), "retryable", false));
+    }
+
     @ExceptionHandler(com.lrj.wms.runtime.cache.QueryCacheBusyException.class)
     public ResponseEntity<Map<String, Object>> cacheBusy() {
         return ResponseEntity.status(503).header("Retry-After", "1").body(Map.of("code", "QUERY_OVERLOADED",
@@ -16,7 +22,8 @@ public class RuntimeErrors {
     }
 
     /** 不返回原始解析异常，避免泄漏请求内容、内部类名和数据库详情。 */
-    @ExceptionHandler({org.springframework.web.bind.MethodArgumentNotValidException.class,
+    @ExceptionHandler({com.lrj.wms.runtime.command.InvalidCommandKeyException.class,
+            org.springframework.web.bind.MethodArgumentNotValidException.class,
             org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, java.time.DateTimeException.class})
     public ResponseEntity<Map<String, Object>> invalidBody() {

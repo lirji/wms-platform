@@ -84,18 +84,38 @@ public final class OutboundOrderService {
     /** 规划拣货任务。授权为空拒绝进入 PICKING。 */
     public Map<String, Object> planPickTask(String enterpriseId, String warehouseId, String orderId, String orderLineId,
             String sourceLocationId, String stagingLocationId, BigDecimal plannedQty) {
+        return planPickTask(enterpriseId, warehouseId, orderId, orderLineId, sourceLocationId, stagingLocationId, plannedQty, UUID.randomUUID().toString());
+    }
+
+    /** 外部规划必须提供稳定命令键；未完成任务数量也占用可规划额度。 */
+    public Map<String, Object> planPickTask(String enterpriseId, String warehouseId, String orderId, String orderLineId,
+            String sourceLocationId, String stagingLocationId, BigDecimal plannedQty, String commandId) {
+        requireId(commandId, "INVALID_ARGUMENT", "规划命令键不能为空");
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
         requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
-        BigDecimal remain = remainUnpicked(line);
+        Map<String, Object> existing = mapper.plannedTaskByKey(enterpriseId, warehouseId, commandId);
+        if (existing != null) {
+            if (!orderId.equals(existing.get("document_id")) || !line.get("id").equals(existing.get("document_line_id"))
+                    || !java.util.Objects.equals(sourceLocationId, existing.get("source_location_id"))
+                    || !java.util.Objects.equals(stagingLocationId, existing.get("target_location_id"))
+                    || plannedQty == null || plannedQty.compareTo(decimal(existing.get("planned_qty"))) != 0) {
+                throw new com.lrj.wms.runtime.command.CommandConflictException();
+            }
+            return Map.of("taskId", existing.get("id"), "lineId", line.get("id"), "plannedQty", existing.get("planned_qty"), "state", existing.get("state"));
+        }
+        BigDecimal remain = remainUnpicked(line).subtract(mapper.pendingPickQty(enterpriseId, warehouseId, String.valueOf(line.get("id"))));
         if (plannedQty == null || plannedQty.signum() <= 0 || plannedQty.compareTo(remain) > 0) {
             throw new OutboundException("OVER_PICK", "计划拣货超过剩余分配量");
         }
         String taskId = UUID.randomUUID().toString();
         mapper.insertTask(taskId, enterpriseId, warehouseId, TASK_PICK, orderId, String.valueOf(line.get("id")),
                 sourceLocationId, stagingLocationId, plannedQty, TASK_PLANNED, now);
+        if (mapper.bindPlanningKey(enterpriseId, warehouseId, taskId, commandId) != 1) {
+            throw new OutboundException("VERSION_CONFLICT", "规划幂等键绑定冲突");
+        }
         mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_PICKING, now);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("taskId", taskId);
@@ -108,27 +128,49 @@ public final class OutboundOrderService {
     /** 部分拣货实物：累计 physical 并提交 PICK 来源命令。不写库存余额。 */
     public Map<String, Object> pickPartial(String enterpriseId, String warehouseId, String taskId, String commandId,
             String actorId, BigDecimal qty) {
+        return pickPartial(enterpriseId, warehouseId, taskId, commandId, actorId, qty, commandId);
+    }
+
+    /** 新分批有独立事实身份；同分批换命令键仍复用原结果。 */
+    public Map<String, Object> pickPartial(String enterpriseId, String warehouseId, String taskId, String commandId,
+            String actorId, BigDecimal qty, String pickPartId) {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
+        String parentOrder = mapper.taskOrderId(enterpriseId, warehouseId, taskId);
+        if (parentOrder == null) throw new OutboundException("UNKNOWN_TASK", "拣货任务不存在");
+        Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, parentOrder);
         Map<String, Object> task = mapper.lockTask(enterpriseId, warehouseId, taskId);
         if (task == null) {
             throw new OutboundException("UNKNOWN_TASK", "拣货任务不存在");
         }
-        Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, String.valueOf(task.get("document_id")));
         requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, String.valueOf(task.get("document_line_id")));
         if (qty == null || qty.signum() <= 0) {
             throw new OutboundException("INVALID_QTY", "拣货数量必须为正");
         }
+        var protocol = new SourceProtocolService(session, clock);
+        String partId = com.lrj.wms.runtime.command.CommandReplay.partId(taskId,
+                pickPartId == null || pickPartId.isBlank() ? commandId : pickPartId);
+        Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_PICK, "SUB_ACTION",
+                enterpriseId, warehouseId, commandId, String.valueOf(order.get("id")), partId, String.valueOf(line.get("id")), qty);
+        if (replay != null) {
+            replay.put("taskId", taskId); replay.put("lineId", line.get("id")); return replay;
+        }
         BigDecimal remainTask = decimal(task.get("planned_qty")).subtract(decimal(task.get("completed_qty")));
         if (qty.compareTo(remainTask) > 0 || qty.compareTo(remainUnpicked(line)) > 0) {
             throw new OutboundException("OVER_PICK", "拣货超过任务或行剩余量");
         }
-        mapper.addPickedPhysical(enterpriseId, warehouseId, String.valueOf(line.get("id")), qty, now);
-        String taskState = qty.compareTo(remainTask) == 0 ? TASK_COMPLETED : TASK_STARTED;
-        mapper.addTaskCompleted(enterpriseId, warehouseId, taskId, qty, taskState, now);
-        Map<String, Object> command = new SourceProtocolService(session, clock).submitPick(enterpriseId, warehouseId,
-                commandId, String.valueOf(task.get("document_id")), taskId, String.valueOf(line.get("id")), actorId, qty);
+        Map<String, Object> command = protocol.submitPick(enterpriseId, warehouseId, commandId,
+                String.valueOf(order.get("id")), partId, String.valueOf(line.get("id")), actorId, qty);
+        if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if (mapper.addPickedPhysical(enterpriseId, warehouseId, String.valueOf(line.get("id")), qty, now) != 1) {
+                throw new OutboundException("OVER_PICK", "拣货行更新冲突");
+            }
+            String taskState = qty.compareTo(remainTask) == 0 ? TASK_COMPLETED : TASK_STARTED;
+            if (mapper.addTaskCompleted(enterpriseId, warehouseId, taskId, qty, taskState, now) != 1) {
+                throw new OutboundException("VERSION_CONFLICT", "拣货任务更新冲突");
+            }
+        }
         command.put("taskId", taskId);
         command.put("lineId", line.get("id"));
         return command;
@@ -175,6 +217,12 @@ public final class OutboundOrderService {
     /** 发运已包装未发量。超过包装未发拒绝。不写库存余额。 */
     public Map<String, Object> shipPartial(String enterpriseId, String warehouseId, String orderId, String orderLineId,
             String commandId, String actorId, BigDecimal qty) {
+        return shipPartial(enterpriseId, warehouseId, orderId, orderLineId, commandId, actorId, qty, commandId);
+    }
+
+    /** 每个发运分批独立过账，同分批与同命令重试不再累计数量。 */
+    public Map<String, Object> shipPartial(String enterpriseId, String warehouseId, String orderId, String orderLineId,
+            String commandId, String actorId, BigDecimal qty, String shipmentPartId) {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
@@ -183,15 +231,23 @@ public final class OutboundOrderService {
         if (qty == null || qty.signum() <= 0) {
             throw new OutboundException("INVALID_QTY", "发运数量必须为正");
         }
+        var protocol = new SourceProtocolService(session, clock);
+        String partId = shipmentPartId == null || shipmentPartId.isBlank() ? commandId : shipmentPartId;
+        Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_SHIP, "SHIPMENT_PART",
+                enterpriseId, warehouseId, commandId, orderId, partId, String.valueOf(line.get("id")), qty);
+        if (replay != null) {
+            replay.put("lineId", line.get("id")); replay.put("shippedQty", qty); return replay;
+        }
         BigDecimal unshipped = decimal(line.get("packed_physical_qty")).subtract(decimal(line.get("shipped_physical_qty")));
         if (qty.compareTo(unshipped) > 0) {
             throw new OutboundException("OVER_SHIP", "发运超过已包装未发量");
         }
-        if (mapper.addShippedPhysical(enterpriseId, warehouseId, String.valueOf(line.get("id")), qty, now) != 1) {
+        Map<String, Object> command = protocol.submitShip(enterpriseId, warehouseId,
+                commandId, orderId, partId, String.valueOf(line.get("id")), actorId, qty);
+        if (!Boolean.TRUE.equals(command.get("replayed"))
+                && mapper.addShippedPhysical(enterpriseId, warehouseId, String.valueOf(line.get("id")), qty, now) != 1) {
             throw new OutboundException("OVER_SHIP", "发运超过已包装未发量");
         }
-        Map<String, Object> command = new SourceProtocolService(session, clock).submitShip(enterpriseId, warehouseId,
-                commandId, orderId, String.valueOf(line.get("id")), String.valueOf(line.get("id")), actorId, qty);
         command.put("lineId", line.get("id"));
         command.put("shippedQty", qty);
         settleOrder(mapper, enterpriseId, warehouseId, orderId, String.valueOf(line.get("id")), now);
@@ -220,21 +276,29 @@ public final class OutboundOrderService {
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
         requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
+        var protocol = new SourceProtocolService(session, clock);
+        String taskId = com.lrj.wms.runtime.command.CommandReplay.partId(orderId, commandId);
+        Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_CANCEL, "SUB_ACTION",
+                enterpriseId, warehouseId, commandId, orderId, taskId, String.valueOf(line.get("id")), null);
+        if (replay != null) {
+            replay.put("cancelledQty", replay.get("qty")); replay.put("taskId", taskId);
+            replay.put("action", SourceProtocolService.ACTION_CANCEL); return replay;
+        }
         BigDecimal remain = remainUnpicked(line);
         if (remain.signum() <= 0) {
             throw new OutboundException("NOTHING_TO_CANCEL", "没有可取消的未拣量");
         }
-        mapper.addCancelled(enterpriseId, warehouseId, String.valueOf(line.get("id")), remain, now);
-        String taskId = UUID.randomUUID().toString();
-        mapper.insertTask(taskId, enterpriseId, warehouseId, TASK_RESTOCK, orderId, String.valueOf(line.get("id")),
-                null, null, remain, TASK_PLANNED, now);
-        if (decimal(line.get("picked_physical_qty")).signum() == 0) {
-            mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_CANCELLED, now);
-        } else {
+        Map<String, Object> command = protocol.submitCancel(enterpriseId, warehouseId,
+                commandId, orderId, taskId, String.valueOf(line.get("id")), actorId, remain);
+        if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if (mapper.addCancelled(enterpriseId, warehouseId, String.valueOf(line.get("id")), remain, now) != 1) {
+                throw new OutboundException("VERSION_CONFLICT", "取消数量更新冲突");
+            }
+            mapper.cancelOpenPickTasks(enterpriseId, warehouseId, String.valueOf(line.get("id")), now);
+            mapper.insertTask(taskId, enterpriseId, warehouseId, TASK_RESTOCK, orderId, String.valueOf(line.get("id")),
+                    null, null, remain, TASK_PLANNED, now);
             settleOrder(mapper, enterpriseId, warehouseId, orderId, String.valueOf(line.get("id")), now);
         }
-        Map<String, Object> command = new SourceProtocolService(session, clock).submitCancel(enterpriseId, warehouseId,
-                commandId, orderId, taskId, String.valueOf(line.get("id")), actorId, remain);
         command.put("cancelledQty", remain);
         command.put("taskId", taskId);
         command.put("action", SourceProtocolService.ACTION_CANCEL);
@@ -272,13 +336,20 @@ public final class OutboundOrderService {
         new OutboundAuthorizationService(session, clock).requireExecutable(enterpriseId, warehouseId, order);
     }
 
+    /** 头状态只能由所有行汇总；单行完成不能阻止其他行继续执行。调用方已经锁住订单。 */
     private void settleOrder(OutboundOrderMapper mapper, String enterpriseId, String warehouseId, String orderId,
             String lineId, Timestamp now) {
-        Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
-        BigDecimal settled = decimal(line.get("shipped_physical_qty")).add(decimal(line.get("cancelled_qty")));
-        if (settled.compareTo(decimal(line.get("allocated_qty"))) == 0
-                && decimal(line.get("shipped_physical_qty")).signum() > 0) {
-            mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_SHIPPED, now);
+        var lines = mapper.listLines(enterpriseId, warehouseId, orderId);
+        boolean shipped = false;
+        if (lines.isEmpty()) return;
+        for (var line : lines) {
+            BigDecimal shippedQty = decimal(line.get("shipped_physical_qty"));
+            BigDecimal settled = shippedQty.add(decimal(line.get("cancelled_qty")));
+            if (settled.compareTo(decimal(line.get("allocated_qty"))) != 0) return;
+            shipped |= shippedQty.signum() > 0;
+        }
+        if (mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, shipped ? STATUS_SHIPPED : STATUS_CANCELLED, now) != 1) {
+            throw new OutboundException("VERSION_CONFLICT", "出库头状态汇总冲突");
         }
     }
 

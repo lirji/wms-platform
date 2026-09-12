@@ -204,4 +204,26 @@
         AND document_id=#{orderId}
         ORDER BY created_at
     </select>
+    <select id="taskOrderId" resultType="string">
+        SELECT document_id FROM outbound_task
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{taskId}
+    </select>
+    <select id="plannedTaskByKey" resultType="map">
+        SELECT id, document_id, document_line_id, source_location_id, target_location_id, planned_qty, state
+        FROM outbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND planning_command_id=#{commandId}
+    </select>
+    <select id="pendingPickQty" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(planned_qty-completed_qty),0) FROM outbound_task
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND document_line_id=#{lineId}
+            AND task_type='PICK' AND state IN ('PLANNED','STARTED')
+    </select>
+    <update id="bindPlanningKey">
+        UPDATE outbound_task SET planning_command_id=#{commandId}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{taskId} AND planning_command_id IS NULL
+    </update>
+    <update id="cancelOpenPickTasks">
+        UPDATE outbound_task SET state='CANCELLED', version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND document_line_id=#{lineId}
+            AND task_type='PICK' AND state IN ('PLANNED','STARTED')
+    </update>
 </mapper>

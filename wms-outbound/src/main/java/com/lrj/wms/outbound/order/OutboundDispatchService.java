@@ -57,13 +57,16 @@ public final class OutboundDispatchService {
     public Map<String, Object> dispatch(String enterpriseId, String warehouseId, String taskId, String workerId,
             long claimEpoch) {
         OutboundOrderMapper mapper = session.getMapper(OutboundOrderMapper.class);
+        String orderId = mapper.taskOrderId(enterpriseId, warehouseId, taskId);
+        if (orderId == null) throw new OutboundException("UNKNOWN_TASK", "拣货任务不存在");
+        Map<String, Object> order = mapper.lockOrder(enterpriseId, warehouseId, orderId);
         Map<String, Object> task = requireTask(mapper, enterpriseId, warehouseId, taskId);
         guardWorker(task, workerId, claimEpoch);
         if (blank(task.get("device_command_id"))) {
             throw new OutboundException("ACTION_IDENTITY_MISSING", "派发前必须固定动作身份");
         }
         new OutboundAuthorizationService(session, clock).requireExecutable(enterpriseId, warehouseId,
-                mapper.lockOrder(enterpriseId, warehouseId, String.valueOf(task.get("document_id"))));
+                order);
         BigDecimal qty = remain(task);
         Map<String, Object> permit = authorizations.startPermit(enterpriseId, warehouseId,
                 String.valueOf(task.get("device_command_id")), taskId, claimEpoch,

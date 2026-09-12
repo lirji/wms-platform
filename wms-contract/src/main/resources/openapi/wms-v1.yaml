@@ -1604,7 +1604,7 @@ paths:
     post:
       operationId: createReconciliationSnapshot
       tags: [recon]
-      summary: 导出对账快照
+      summary: 每次导出最多100行，以相同请求续跑直至COMPLETE
       security:
         - oidc: [recon.export]
       parameters:
@@ -1641,12 +1641,13 @@ paths:
     get:
       operationId: getReconciliationSnapshot
       tags: [recon]
-      summary: 读取快照manifest
+      summary: 读取快照manifest及一个分段，nextPartNo作为下次afterPart
       security:
         - oidc: [recon.read]
       parameters:
         - $ref: '#/components/parameters/XRequestId'
         - $ref: '#/components/parameters/SnapshotId'
+        - $ref: '#/components/parameters/AfterPart'
       responses:
         '200':
           description: 成功
@@ -3119,6 +3120,13 @@ components:
       in: path
       required: true
       schema: { $ref: '#/components/schemas/Id' }
+    AfterPart:
+      name: afterPart
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
     SnapshotId:
       name: snapshotId
       in: path
@@ -3498,6 +3506,10 @@ components:
       additionalProperties: false
       required: ["qty"]
       properties:
+        pickPartId:
+          type: string
+          maxLength: 64
+          description: 分批事实身份；省略时沿用命令键，同分批换键重试应携带原身份。
         clientOperationId:
           type: "string"
           maxLength: 64
@@ -3526,6 +3538,10 @@ components:
       additionalProperties: false
       required: ["orderLineId","qty"]
       properties:
+        shipmentPartId:
+          type: string
+          maxLength: 64
+          description: 分批事实身份；省略时沿用命令键，同分批换键重试应携带原身份。
         orderLineId:
           type: "string"
           maxLength: 64

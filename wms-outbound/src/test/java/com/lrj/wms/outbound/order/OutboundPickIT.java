@@ -172,6 +172,78 @@ class OutboundPickIT {
         System.out.println("S5_OUTBOUND: ship bound by packed; posted replay; cancel settles SHIPPED");
     }
 
+    /** 多次部分执行各有独立事实，同分批换键和满额后重试都不能再增加实物量。 */
+    @Test
+    void partialExecutionsUseSeparateFactsAndReplaysKeepExactTotals() {
+        try (var session = sessions.openSession(false)) {
+            var service = new OutboundOrderService(session, Clock.systemUTC());
+            var created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-PARTS", "ATT-PARTS", "OWNER", null,
+                    List.of(Map.of("orderLineId", "LP", "skuId", "SKU", "qty", new BigDecimal("5"), "baseUnit", "EA")));
+            String order = String.valueOf(created.get("id"));
+            authorizeForTest(session, "ENT-1", "WH-A", order, "ATT-PARTS", "AUTH-PARTS");
+            String task = String.valueOf(service.planPickTask("ENT-1", "WH-A", order, "LP", "LOC", "STAGE", new BigDecimal("5")).get("taskId"));
+            var first = service.pickPartial("ENT-1", "WH-A", task, "PARTS-P1", "ACTOR", new BigDecimal("3"), "P1");
+            var second = service.pickPartial("ENT-1", "WH-A", task, "PARTS-P2", "ACTOR", new BigDecimal("2"));
+            assertNotEquals(first.get("effectId"), second.get("effectId"));
+            assertEquals(first.get("commandId"), service.pickPartial("ENT-1", "WH-A", task, "PARTS-P1-RETRY", "ACTOR", new BigDecimal("3.00"), "P1").get("commandId"));
+            assertThrows(com.lrj.wms.runtime.command.CommandConflictException.class,
+                    () -> service.pickPartial("ENT-1", "WH-A", task, "PARTS-P1", "ACTOR", new BigDecimal("1"), "P1"));
+            service.pack("ENT-1", "WH-A", order, "LP", "PACK-PARTS", new BigDecimal("5"));
+            var ship1 = service.shipPartial("ENT-1", "WH-A", order, "LP", "PARTS-S1", "ACTOR", new BigDecimal("3"));
+            var ship2 = service.shipPartial("ENT-1", "WH-A", order, "LP", "PARTS-S2", "ACTOR", new BigDecimal("2"));
+            assertNotEquals(ship1.get("effectId"), ship2.get("effectId"));
+            assertEquals(ship1.get("commandId"), service.shipPartial("ENT-1", "WH-A", order, "LP", "PARTS-S1", "ACTOR", new BigDecimal("3")).get("commandId"));
+            var line = session.getMapper(OutboundOrderMapper.class).lockLineByOrderLine("ENT-1", "WH-A", order, "LP");
+            assertEquals(0, new BigDecimal("5").compareTo((BigDecimal) line.get("picked_physical_qty")));
+            assertEquals(0, new BigDecimal("5").compareTo((BigDecimal) line.get("shipped_physical_qty")));
+            session.commit();
+        }
+    }
+
+    /** 只完成或取消第一行时，头状态必须继续允许剩余行作业。 */
+    @Test
+    void headerOnlyBecomesTerminalAfterEveryLineIsSettled() {
+        try (var session = sessions.openSession(false)) {
+            var service = new OutboundOrderService(session, Clock.systemUTC());
+            var created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-MULTI", "ATT-MULTI", "OWNER", null,
+                    List.of(Map.of("orderLineId", "M1", "skuId", "SKU", "qty", new BigDecimal("2"), "baseUnit", "EA"),
+                            Map.of("orderLineId", "M2", "skuId", "SKU", "qty", new BigDecimal("2"), "baseUnit", "EA")));
+            String order = String.valueOf(created.get("id"));
+            authorizeForTest(session, "ENT-1", "WH-A", order, "ATT-MULTI", "AUTH-MULTI");
+            service.cancelUnpicked("ENT-1", "WH-A", order, "M1", "CANCEL-M1", "ACTOR");
+            assertTrue(Boolean.TRUE.equals(service.cancelUnpicked("ENT-1", "WH-A", order, "M1", "CANCEL-M1", "ACTOR").get("replayed")));
+            assertNotEquals("CANCELLED", service.getOrder("ENT-1", "WH-A", order).get("status"));
+            String task = String.valueOf(service.planPickTask("ENT-1", "WH-A", order, "M2", "LOC", "STAGE", new BigDecimal("2")).get("taskId"));
+            service.pickPartial("ENT-1", "WH-A", task, "PICK-M2", "ACTOR", new BigDecimal("2"));
+            service.pack("ENT-1", "WH-A", order, "M2", "PACK-M2", new BigDecimal("2"));
+            service.shipPartial("ENT-1", "WH-A", order, "M2", "SHIP-M2", "ACTOR", new BigDecimal("2"));
+            assertEquals("SHIPPED", service.getOrder("ENT-1", "WH-A", order).get("status"));
+            session.commit();
+        }
+    }
+
+    /** 规划重放复用任务；未拣任务占用规划额度，部分完成不会释放已经分给该任务的剩余量。 */
+    @Test
+    void planningIsIdempotentAndAccountsForOutstandingTasks() {
+        try (var session = sessions.openSession(false)) {
+            var service = new OutboundOrderService(session, Clock.systemUTC());
+            var created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-PLAN", "ATT-PLAN", "OWNER", null,
+                    List.of(Map.of("orderLineId", "PL", "skuId", "SKU", "qty", new BigDecimal("5"), "baseUnit", "EA")));
+            String order = String.valueOf(created.get("id"));
+            authorizeForTest(session, "ENT-1", "WH-A", order, "ATT-PLAN", "AUTH-PLAN");
+            var first = service.planPickTask("ENT-1", "WH-A", order, "PL", "LOC", "STAGE", new BigDecimal("3"), "PLAN-1");
+            assertEquals(first.get("taskId"), service.planPickTask("ENT-1", "WH-A", order, "PL", "LOC", "STAGE", new BigDecimal("3.0"), "PLAN-1").get("taskId"));
+            assertThrows(com.lrj.wms.runtime.command.CommandConflictException.class,
+                    () -> service.planPickTask("ENT-1", "WH-A", order, "PL", "OTHER", "STAGE", new BigDecimal("3"), "PLAN-1"));
+            assertThrows(OutboundException.class, () -> service.planPickTask("ENT-1", "WH-A", order, "PL", "LOC", "STAGE", new BigDecimal("3"), "PLAN-OVER"));
+            service.pickPartial("ENT-1", "WH-A", String.valueOf(first.get("taskId")), "PICK-PLAN", "ACTOR", BigDecimal.ONE);
+            service.planPickTask("ENT-1", "WH-A", order, "PL", "LOC", "STAGE", new BigDecimal("2"), "PLAN-2");
+            assertThrows(OutboundException.class, () -> service.planPickTask("ENT-1", "WH-A", order, "PL", "LOC", "STAGE", BigDecimal.ONE, "PLAN-EXTRA"));
+            assertEquals(2, session.getMapper(OutboundOrderMapper.class).listTasks("ENT-1", "WH-A", order).size());
+            session.commit();
+        }
+    }
+
     /** 仅本地测试的终态证据夹具；仍调用实际授权服务，不证明真实 TC 集成。 */
     private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
             String orderId, String attempt, String authorization) {

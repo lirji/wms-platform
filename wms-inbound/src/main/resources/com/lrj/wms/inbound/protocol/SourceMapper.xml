@@ -78,12 +78,12 @@
     <!-- insertCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertCommand">
         INSERT IGNORE INTO source_command (id, enterprise_id, warehouse_id, command_id, source_operation_id, source_execution_id, business_effect_key, action, execution_attempt_id, attempt_no, previous_command_id, payload_digest, digest_version, payload_json, state, inventory_operation_id, posting_id, retry_at, compensates_command_id, safe_close_id, safe_close_version, safe_close_evidence, version, created_at, updated_at)
-        VALUES (#{commandId}, #{enterpriseId}, #{warehouseId}, #{commandId}, #{operationId}, #{executionId}, #{effectId}, #{action}, #{commandId}, #{attemptNo}, #{previousCommandId}, #{digest}, 1, CAST(#{payload} AS JSON), #{state}, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
+        VALUES (UUID(), #{enterpriseId}, #{warehouseId}, #{commandId}, #{operationId}, #{executionId}, #{effectId}, #{action}, #{commandId}, #{attemptNo}, #{previousCommandId}, #{digest}, 1, CAST(#{payload} AS JSON), #{state}, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
     </insert>
 
     <!-- findLatestCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="findLatestCommand" resultType="map">
-        SELECT command_id, state, payload_digest, posting_id, attempt_no
+        SELECT command_id, state, payload_digest, posting_id, attempt_no, business_effect_key, action, payload_json
         FROM source_command
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -103,7 +103,7 @@
 
     <!-- getCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="getCommand" resultType="map">
-        SELECT command_id, state, payload_digest, posting_id, business_effect_key, safe_close_id
+        SELECT command_id, state, payload_digest, posting_id, business_effect_key, safe_close_id, action, payload_json
         FROM source_command
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
