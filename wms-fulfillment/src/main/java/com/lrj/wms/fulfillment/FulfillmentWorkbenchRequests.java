@@ -14,7 +14,8 @@ public final class FulfillmentWorkbenchRequests {
             @NotBlank @Size(max = 64) String sourceOrderNo,
             @Size(max = 64) String digest,
             @NotNull @Size(min = 1, max = 200) List<@Valid FulfillmentLine> lines,
-            @Min(0) Long strategyVersion) { }
+            @Min(0) Long strategyVersion,
+            @Size(min = 1, max = 64) String ownerId) { }
     /** CancelFulfillmentRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record CancelFulfillmentRequest(
             @Size(max = 64) String clientOperationId,

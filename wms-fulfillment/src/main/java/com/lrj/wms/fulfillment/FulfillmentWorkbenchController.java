@@ -37,9 +37,12 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnBean(SqlSessionFactory.class)
 public class FulfillmentWorkbenchController {
     private final SqlSessionFactory sessions;
+    private final boolean messagingEnabled;
 
-    public FulfillmentWorkbenchController(SqlSessionFactory sessions) {
+    public FulfillmentWorkbenchController(SqlSessionFactory sessions,
+            @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}") boolean messagingEnabled) {
         this.sessions = sessions;
+        this.messagingEnabled = messagingEnabled;
     }
 
     @GetMapping("/fulfillments")
@@ -65,11 +68,13 @@ public class FulfillmentWorkbenchController {
     @PostMapping("/fulfillments")
     public ResponseEntity<Map<String, Object>> createFulfillment(@AuthenticationPrincipal Jwt jwt,
             @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.CreateFulfillmentRequest body) {
+        if (messagingEnabled && (body.ownerId() == null || body.ownerId().isBlank()))
+            throw new FulfillmentException("OWNER_REQUIRED", "自动履约必须明确货主");
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createOrder(
                     WmsJwtAuthorities.enterpriseId(jwt), body.sourceSystem(), body.sourceOrderNo(),
                     digest(body, idempotencyKey), body.lines().stream().map(FulfillmentWorkbenchRequests.FulfillmentLine::toModel).toList(),
-                    longValue(body.strategyVersion(), 1));
+                    longValue(body.strategyVersion(), 1), body.ownerId());
             session.commit();
             return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
         }

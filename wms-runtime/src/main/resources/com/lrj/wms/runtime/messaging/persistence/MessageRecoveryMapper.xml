@@ -16,9 +16,11 @@
         ORDER BY <include refid="idColumn"/> LIMIT #{page.fetchLimit}
     </select>
     <select id="lockMessage" resultType="map">
-        SELECT <include refid="idColumn"/> AS id, status, claim_epoch, CAST(payload AS CHAR) AS payload,
+        SELECT <include refid="idColumn"/> AS id, status, claim_epoch,
+        <choose><when test="queue == 'FULFILLMENT_OUTBOX'">CAST(COALESCE(delivery_payload,payload) AS CHAR)</when><otherwise>CAST(payload AS CHAR)</otherwise></choose> AS payload,
         <choose><when test="queue == 'INVENTORY_OUTBOX'">NULL AS error_code</when><otherwise>error_code</otherwise></choose>
         <if test="queue == 'INBOX'">, event_key, payload_hash, topic_name</if>
+        <if test="queue == 'FULFILLMENT_OUTBOX'">, event_type, attempt_id</if>
         FROM <include refid="table"/>
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND <include refid="idColumn"/>=#{messageId} FOR UPDATE
     </select>

@@ -63,6 +63,15 @@ public final class MessageRecoveryService {
                             "INVALID_COMMAND_CONTEXT", "STALE_EXECUTION_ATTEMPT").contains(String.valueOf(message.get("error_code")))) {
                 throw new MessageRecoveryException("MESSAGE_NOT_REPLAYABLE");
             }
+            if (outbox == MessageQueueMetrics.Queue.FULFILLMENT_OUTBOX && !"INBOX".equals(kind)
+                    && !"AllocationCompleted".equals(message.get("event_type"))) {
+                try {
+                    var authorization=AllocationAuthorizationMessage.parse(RuntimeMessage.JSON.readTree(String.valueOf(message.get("payload"))));
+                    if (!enterprise.equals(authorization.enterpriseId()) || !warehouse.equals(authorization.warehouseId())
+                            || !authorization.attemptId().equals(message.get("attempt_id")))
+                        throw new MessageRejectedException("AUTHORIZATION_ENVELOPE_MISMATCH");
+                } catch (MessageRejectedException invalid) { throw new MessageRecoveryException("MESSAGE_NOT_REPLAYABLE"); }
+            }
             String id = UUID.randomUUID().toString();
             var audit = new LinkedHashMap<String, Object>();
             audit.put("id", id); audit.put("enterpriseId", enterprise); audit.put("warehouseId", warehouse);

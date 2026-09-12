@@ -15,6 +15,16 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name="wms.messaging.enabled",havingValue="true")
 @EnableConfigurationProperties(KafkaSettings.class)
 public class FulfillmentMessagingConfiguration {
+    /** 与Inbox共用受控消息连接参数，发布确认后才改变本地Outbox状态。 */
+    @Bean(destroyMethod="close")
+    KafkaMessagePublisher fulfillmentKafkaPublisher(KafkaSettings settings) {
+        return new KafkaMessagePublisher(settings,"wms-fulfillment-outbox");
+    }
+    @Bean
+    MessageWorker fulfillmentOutboxWorker(SqlSessionFactory sessions,KafkaMessagePublisher publisher,KafkaSettings settings) {
+        var outbox=new FulfillmentOutboxPublisher(sessions,publisher,settings.topicPrefix(),Clock.systemUTC());
+        return new MessageWorker("fulfillment-outbox",outbox::publishDue);
+    }
     @Bean
     RuntimeInbox fulfillmentRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
         return new RuntimeInbox(sessions, Map.of(settings.topicPrefix()+".fulfillment.results", "wms-inventory"), Clock.systemUTC());
@@ -49,7 +59,8 @@ public class FulfillmentMessagingConfiguration {
     }
     @Bean(destroyMethod="close")
     KafkaDependencyHealth fulfillmentMessagingHealth(KafkaSettings settings,KafkaInboxConsumer consumer,
-            @org.springframework.beans.factory.annotation.Qualifier("fulfillmentInboxWorker") MessageWorker inbox) {
-        return new KafkaDependencyHealth(settings,()->consumer.isReceiving() && inbox.lastPulseSucceeded());
+            @org.springframework.beans.factory.annotation.Qualifier("fulfillmentInboxWorker") MessageWorker inbox,
+            @org.springframework.beans.factory.annotation.Qualifier("fulfillmentOutboxWorker") MessageWorker outbox) {
+        return new KafkaDependencyHealth(settings,()->consumer.isReceiving() && inbox.lastPulseSucceeded() && outbox.lastPulseSucceeded());
     }
 }

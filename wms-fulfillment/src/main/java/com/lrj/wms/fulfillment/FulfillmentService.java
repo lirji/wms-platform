@@ -63,6 +63,7 @@ public final class FulfillmentService {
         body.put("fulfillmentId", order.get("id"));
         body.put("id", order.get("id"));
         body.put("status", order.get("status"));
+        body.put("ownerId", order.get("owner_id"));
         body.put("sourceSystem", order.get("source_system"));
         body.put("sourceOrderNo", order.get("source_order_no"));
         body.put("activeAttemptId", order.get("active_attempt_id"));
@@ -124,23 +125,33 @@ public final class FulfillmentService {
     /** 按来源单号创建或重放履约单。异摘要拒绝。 */
     public Map<String, Object> createOrder(String enterpriseId, String sourceSystem, String sourceOrderNo,
             String digest, List<Map<String, Object>> lines, long strategyVersion) {
+        return createOrder(enterpriseId, sourceSystem, sourceOrderNo, digest, lines, strategyVersion, null);
+    }
+
+    /** 新客户端显式提供货主；同源重放必须匹配全部原事实，不能依赖客户端自报摘要。 */
+    public Map<String, Object> createOrder(String enterpriseId, String sourceSystem, String sourceOrderNo,
+            String digest, List<Map<String, Object>> lines, long strategyVersion, String ownerId) {
+        if (ownerId != null) requireId(ownerId, "INVALID_OWNER", "货主不能为空");
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         requireId(sourceSystem, "INVALID_SOURCE", "来源系统不能为空");
         requireId(sourceOrderNo, "INVALID_SOURCE", "来源单号不能为空");
         requireDigest(digest);
-        if (lines == null || lines.isEmpty()) {
-            throw new FulfillmentException("INVALID_LINE", "履约行不能为空");
+        if (lines == null || lines.isEmpty() || lines.size() > 200) {
+            throw new FulfillmentException("INVALID_LINE", "履约行必须非空且不超过200条");
         }
+        var requestedLines = canonicalOrderLines(lines, false);
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         String orderId = UUID.randomUUID().toString();
         mapper.insertOrderIgnore(orderId, enterpriseId, sourceSystem, sourceOrderNo, digest, ORDER_OPEN,
-                strategyVersion, now);
+                strategyVersion, ownerId, now);
         Map<String, Object> order = mapper.lockOrderBySource(enterpriseId, sourceSystem, sourceOrderNo);
         if (order == null) {
             throw new FulfillmentException("VERSION_CONFLICT", "履约单创建竞争");
         }
-        if (!digest.equals(String.valueOf(order.get("request_digest")))) {
+        if (!digest.equals(String.valueOf(order.get("request_digest")))
+                || !java.util.Objects.equals(ownerId, order.get("owner_id"))
+                || strategyVersion != ((Number) order.get("strategy_version")).longValue()) {
             throw new FulfillmentException("ORDER_CONFLICT", "同源单号请求摘要不一致");
         }
         if (orderId.equals(String.valueOf(order.get("id")))) {
@@ -151,7 +162,25 @@ public final class FulfillmentService {
                         now);
             }
         }
+        if (!requestedLines.equals(canonicalOrderLines(mapper.lockLines(enterpriseId, String.valueOf(order.get("id"))), true)))
+            throw new FulfillmentException("ORDER_CONFLICT", "同源单号货主或订单行内容不一致");
         return orderView(order);
+    }
+
+    /** 按原行号规范化，数值等值可重放，重复行与非法保质期在写库前拒绝。 */
+    private static Map<String, List<Object>> canonicalOrderLines(List<Map<String,Object>> lines, boolean stored) {
+        var result = new java.util.TreeMap<String, List<Object>>();
+        for (var line : lines) {
+            String id = required(line, stored ? "source_line_id" : "sourceLineId");
+            String sku = required(line, stored ? "sku_id" : "skuId");
+            String unit = required(line, stored ? "base_unit" : "baseUnit");
+            BigDecimal qty = requiredQty(line.get(stored ? "requested_qty" : "requestedQty")).stripTrailingZeros();
+            Object rawDays = line.get(stored ? "min_remaining_days" : "minRemainingDays");
+            int days = rawDays == null ? 0 : new BigDecimal(rawDays.toString()).intValueExact();
+            if (days < 0 || result.put(id, List.of(sku, unit, qty, days)) != null)
+                throw new FulfillmentException("INVALID_LINE", "行号重复或保质期条件无效");
+        }
+        return result;
     }
 
     /** 创建固定参与者 attempt，并 CAS 绑定为订单活动尝试。未知未终态不得重开。 */
@@ -529,6 +558,10 @@ public final class FulfillmentService {
         if (order == null || !attemptId.equals(order.get("active_attempt_id"))) {
             throw new FulfillmentException("ATTEMPT_SUPERSEDED", "旧attempt不能派发执行授权");
         }
+        // 已签发的屏障重放不能因后来的取消请求回退；撤销执行能力需走独立补偿协议。
+        if (order.get("owner_id") != null && cancelRequested(attempt.get("cancel_requested"))
+                && !ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state"))))
+            throw new FulfillmentException("CANCEL_REQUIRES_COMPENSATION", "取消已请求，须先处理原事务结果和库存补偿");
         if (ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state")))) {
             writeBarrierOutbox(mapper, enterpriseId, attemptId, attempt, participants);
             return attemptView(attempt, participants);
@@ -672,29 +705,41 @@ public final class FulfillmentService {
         insertOutbox(mapper, enterpriseId, attemptId, NO_WAREHOUSE, EVENT_ALLOCATION_COMPLETED,
                 "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
                         + "\",\"tcTerminalEvidence\":\"" + escape(evidence) + "\",\"warehouses\":\""
-                        + escape(warehouses) + "\"}", now);
+                        + escape(warehouses) + "\"}", null, now);
         List<Map<String, Object>> lines = mapper.listParticipantLines(enterpriseId, attemptId);
+        var delivery = AllocationAuthorizationFactory.snapshots(session, enterpriseId,
+                mapper.lockOrder(enterpriseId, String.valueOf(attempt.get("fulfillment_id"))), attempt, participants, lines);
         for (Map<String, Object> participant : participants) {
             String warehouseId = String.valueOf(participant.get("warehouse_id"));
             String reservationId = nullable(participant.get("reservation_id"));
             String payload = "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
                     + "\",\"warehouseId\":\"" + escape(warehouseId) + "\",\"reservationId\":\""
                     + escape(reservationId) + "\",\"lines\":" + linesJson(lines, warehouseId) + "}";
-            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_OUTBOUND_ORDER_REQUESTED, payload, now);
+            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_OUTBOUND_ORDER_REQUESTED, payload, delivery.get(warehouseId), now);
             insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_EXECUTION_AUTHORIZATION_REQUESTED,
-                    payload, now);
+                    payload, delivery.get(warehouseId), now);
         }
     }
 
     private static void insertOutbox(FulfillmentMapper mapper, String enterpriseId, String attemptId,
-            String warehouseId, String eventType, String payload, Timestamp now) {
-        mapper.insertOutboxIgnore(UUID.randomUUID().toString(), enterpriseId, attemptId, warehouseId, eventType,
+            String warehouseId, String eventType, String payload, String delivery, Timestamp now) {
+        String eventId = UUID.randomUUID().toString();
+        mapper.insertOutboxIgnore(eventId, enterpriseId, attemptId, warehouseId, eventType,
                 operationId(eventType, attemptId, warehouseId), payload, now);
         var existing = mapper.getBarrierOutbox(enterpriseId, attemptId, warehouseId, eventType);
         var json = JSON;
         if (existing == null || !operationId(eventType, attemptId, warehouseId).equals(existing.get("operation_id"))
                 || !json.readTree(payload).equals(json.readTree(String.valueOf(existing.get("payload"))))) {
             throw new FulfillmentException("BARRIER_OUTBOX_CONFLICT", "屏障事件原身份和正文不一致");
+        }
+        if (delivery != null) {
+            if (existing.get("delivery_payload") == null) {
+                if (!eventId.equals(existing.get("event_id")) || mapper.bindOutboxDelivery(eventId, delivery) != 1)
+                    throw new FulfillmentException("LEGACY_AUTHORIZATION_CONTEXT_MISSING", "旧事件缺完整授权快照，不自动补齐");
+            } else if (!com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(delivery).equals(
+                    com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(String.valueOf(existing.get("delivery_payload"))))) {
+                throw new FulfillmentException("BARRIER_OUTBOX_CONFLICT", "屏障投递快照与原始事实不一致");
+            }
         }
     }
 
@@ -760,6 +805,7 @@ public final class FulfillmentService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("id", order.get("id"));
         body.put("status", order.get("status"));
+        body.put("ownerId", order.get("owner_id"));
         body.put("requestDigest", order.get("request_digest"));
         body.put("activeAttemptId", order.get("active_attempt_id"));
         body.put("strategyVersion", order.get("strategy_version"));

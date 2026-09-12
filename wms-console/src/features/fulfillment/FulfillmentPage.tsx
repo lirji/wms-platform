@@ -36,6 +36,7 @@ export function FulfillmentPage() {
               body: {
                 sourceSystem: values.sourceSystem || "OMS",
                 sourceOrderNo: values.sourceOrderNo,
+                ownerId: values.ownerId,
                 strategyVersion: 1,
                 lines: [{
                   sourceLineId: values.sourceLineId || "SL-1",
@@ -48,6 +49,7 @@ export function FulfillmentPage() {
           >
             <Form.Item label="来源系统" name="sourceSystem" initialValue="OMS"><Input /></Form.Item>
             <Form.Item label="来源单号" name="sourceOrderNo" rules={[{ required: true }]}><Input /></Form.Item>
+            <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}><Input /></Form.Item>
             <Form.Item label="来源行" name="sourceLineId" initialValue="SL-1"><Input /></Form.Item>
             <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>
             <Form.Item label="请求数量" name="requestedQty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>

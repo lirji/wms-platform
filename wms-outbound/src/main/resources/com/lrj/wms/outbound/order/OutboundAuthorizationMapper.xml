@@ -9,6 +9,18 @@
         WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND attempt_id = #{attemptId}
     </select>
 
+    <insert id="insertEvidence">
+        INSERT INTO outbound_tcc_evidence(id,enterprise_id,warehouse_id,attempt_id,xid,tc_observed_status,
+            tc_terminal_evidence_ref,participant_set_hash,barrier_payload,version,created_at,updated_at)
+        VALUES(#{id},#{enterpriseId},#{warehouseId},#{attemptId},#{xid},'Committed',#{evidenceRef},#{hash},CAST(#{payload} AS JSON),0,#{now},#{now})
+        ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lockEvidence" resultType="map">
+        SELECT attempt_id,xid,tc_observed_status,tc_terminal_evidence_ref,participant_set_hash,barrier_payload
+        FROM outbound_tcc_evidence WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND attempt_id=#{attemptId}
+        FOR UPDATE
+    </select>
+
     <insert id="insertAuthorizationIgnore">
         INSERT IGNORE INTO outbound_execution_authorization (
             id, enterprise_id, warehouse_id, outbound_order_id, client_operation_id, authorization_id, attempt_id,

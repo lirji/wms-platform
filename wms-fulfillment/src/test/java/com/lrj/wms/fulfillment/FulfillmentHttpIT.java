@@ -83,10 +83,11 @@ class FulfillmentHttpIT {
     void createFulfillmentAndTransfer() throws Exception {
         String token = token(List.of("WH-A", "WH-B"));
         HttpResponse<String> fulfillment = post("/api/wms/v1/fulfillments", token, "KEY-FF-1",
-                "{\"sourceSystem\":\"OMS\",\"sourceOrderNo\":\"SO-HTTP-1\",\"strategyVersion\":1,"
+                "{\"sourceSystem\":\"OMS\",\"sourceOrderNo\":\"SO-HTTP-1\",\"ownerId\":\"OWNER\",\"strategyVersion\":1,"
                         + "\"lines\":[{\"sourceLineId\":\"SL-1\",\"skuId\":\"SKU-STD\",\"requestedQty\":\"3\","
                         + "\"baseUnit\":\"EA\"}]}");
         assertEquals(201, fulfillment.statusCode());
+        assertTrue(fulfillment.body().contains("\"ownerId\":\"OWNER\""));
         HttpResponse<String> listed = get("/api/wms/v1/fulfillments", token);
         assertEquals(200, listed.statusCode());
         assertTrue(listed.body().contains("SO-HTTP-1"));

@@ -4,8 +4,9 @@
 
     <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertOrderIgnore">
-        INSERT IGNORE INTO outbound_order (id, enterprise_id, warehouse_id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at, updated_at)
+        INSERT INTO outbound_order (id, enterprise_id, warehouse_id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{allocationId}, #{attemptId}, #{ownerId}, #{authId}, #{status}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- lockOrderByAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
@@ -29,8 +30,9 @@
 
     <!-- insertLineIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertLineIgnore">
-        INSERT IGNORE INTO outbound_line (id, enterprise_id, warehouse_id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, base_unit, stock_sync_status, version, created_at, updated_at)
+        INSERT INTO outbound_line (id, enterprise_id, warehouse_id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, base_unit, stock_sync_status, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{orderId}, #{orderLineId}, #{skuId}, #{qty}, 0, 0, 0, 0, 0, 0, 0, #{unit}, 'PENDING', 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->

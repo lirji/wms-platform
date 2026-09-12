@@ -42,6 +42,7 @@ class FulfillmentPersistence {
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(FulfillmentMapper.class);
+        config.addMapper(FulfillmentOutboxMapper.class);
         config.addMapper(AllocationRecoveryMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);

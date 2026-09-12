@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.FulfillmentOutboxMapper">
+    <select id="lockNext" resultType="map">
+        SELECT event_id,enterprise_id,attempt_id,warehouse_id,event_type,operation_id,payload,delivery_payload,
+               claim_epoch,retry_base_epoch,created_at
+        FROM fulfillment_outbox
+        WHERE (status='PENDING' AND next_attempt_at &lt;=#{now}) OR (status='CLAIMED' AND lease_until &lt;=#{now})
+        ORDER BY next_attempt_at,event_id LIMIT 1 FOR UPDATE SKIP LOCKED
+    </select>
+    <update id="claim">
+        UPDATE fulfillment_outbox SET status='CLAIMED',claim_epoch=claim_epoch+1,lease_until=#{lease},version=version+1,updated_at=#{now}
+        WHERE event_id=#{eventId} AND claim_epoch=#{epoch}
+          AND ((status='PENDING' AND next_attempt_at &lt;=#{now}) OR (status='CLAIMED' AND lease_until &lt;=#{now}))
+    </update>
+    <update id="finish">
+        UPDATE fulfillment_outbox SET status=#{state},error_code=#{error},lease_until=NULL,next_attempt_at=#{next},version=version+1,updated_at=#{now}
+        WHERE event_id=#{eventId} AND claim_epoch=#{epoch} AND status='CLAIMED'
+    </update>
+</mapper>

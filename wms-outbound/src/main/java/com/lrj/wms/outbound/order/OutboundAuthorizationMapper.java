@@ -9,6 +9,14 @@ public interface OutboundAuthorizationMapper {
     Map<String, Object> getEvidence(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("attemptId") String attemptId);
 
+    /** 原始消息证据只插入一次，冲突后必须逐字段核对，禁止覆盖旧证据。 */
+    int insertEvidence(@Param("id") String id,@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId,
+            @Param("attemptId") String attemptId,@Param("xid") String xid,@Param("evidenceRef") String evidenceRef,
+            @Param("hash") String hash,@Param("payload") String payload,@Param("now") Timestamp now);
+    /** 与建单/Inbox同事务锁定完整快照，避免并发重放变更权限。 */
+    Map<String,Object> lockEvidence(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId,
+            @Param("attemptId") String attemptId);
+
     int insertAuthorizationIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("outboundOrderId") String outboundOrderId,
             @Param("clientOperationId") String clientOperationId, @Param("authorizationId") String authorizationId,

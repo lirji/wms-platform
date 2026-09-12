@@ -12,6 +12,7 @@ public interface FulfillmentMapper {
     int insertOrderIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("sourceSystem") String sourceSystem, @Param("sourceOrderNo") String sourceOrderNo,
             @Param("digest") String digest, @Param("status") String status, @Param("strategyVersion") long strategyVersion,
+            @Param("ownerId") String ownerId,
             @Param("now") Timestamp now);
 
     /** 锁定来源单对应履约单。 */
@@ -174,6 +175,9 @@ public interface FulfillmentMapper {
     /** 重复屏障事件读取原正文，避免同身份不同内容被静默吞掉。 */
     Map<String,Object> getBarrierOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
             @Param("warehouseId") String warehouseId, @Param("eventType") String eventType);
+
+    /** 仅刚创建事件可在屏障事务内绑定快照，后续投递不得重算事实。 */
+    int bindOutboxDelivery(@Param("eventId") String eventId, @Param("payload") String payload);
 
     /** 核对本 attempt 已写的屏障事件数。 */
     /** countOutbox：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */

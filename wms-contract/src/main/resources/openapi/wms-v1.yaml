@@ -4025,6 +4025,11 @@ components:
         strategyVersion:
           type: "integer"
           minimum: 0
+        ownerId:
+          type: "string"
+          minLength: 1
+          maxLength: 64
+          description: "运行消息启用时必填；旧未知货主不得自动授权。"
     ExecutionAuthorizationRequest:
       type: "object"
       additionalProperties: false

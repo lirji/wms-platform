@@ -14,7 +14,7 @@
 | 脚本、文档、契约 | Python4测试通过；文档结构/链接通过；OpenAPI87路径及兼容契约校验通过 |
 | Compose | 默认与`wms.verify`自定义消息前缀静态config通过；出库前缀已统一使用环境配置，未启动栈 |
 | SBOM/OSV | 03:14:25生成成功；173组件/163个purl、309条许可证清单；OSV仍命中Tomcat11.0.24和fastjson1.2.83原有记录，无新增命中。新增error_prone_annotations2.21.1为测试传递依赖，Apache2.0。原有例外继续有效，不能当作零漏洞 |
-| Git/远程CI | 待推本阶段分支及正常合入main，不能将本地通过当作远程CI通过 |
+| Git/远程CI | 阶段95a1d46已推任务分支并快进远程main，两个ref已核对；main CI34713653573/分支CI34713636111运行中 |
 
 全仓日志：`/tmp/wms-c534-default.log`；smoke：`/tmp/wms-c534-smoke.log`；故障组合：`/tmp/wms-c534-failure.log`。关键数量与范围保存在本文，临时日志不是唯一进度依据。
 

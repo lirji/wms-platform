@@ -4,13 +4,14 @@
 
     <!-- insertOrderIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertOrderIgnore">
-        INSERT IGNORE INTO fulfillment_order (id, enterprise_id, source_system, source_order_no, request_digest, status, strategy_version, version, created_at, updated_at)
-        VALUES (#{id}, #{enterpriseId}, #{sourceSystem}, #{sourceOrderNo}, #{digest}, #{status}, #{strategyVersion}, 0, #{now}, #{now})
+        INSERT INTO fulfillment_order (id, enterprise_id, source_system, source_order_no, request_digest, status, strategy_version, owner_id, version, created_at, updated_at)
+        VALUES (#{id}, #{enterpriseId}, #{sourceSystem}, #{sourceOrderNo}, #{digest}, #{status}, #{strategyVersion}, #{ownerId}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- lockOrderBySource：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockOrderBySource" resultType="map">
-        SELECT id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
+        SELECT id, owner_id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
         FROM fulfillment_order
         WHERE enterprise_id=#{enterpriseId}
         AND source_system=#{sourceSystem}
@@ -19,7 +20,7 @@
 
     <!-- lockOrder：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockOrder" resultType="map">
-        SELECT id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
+        SELECT id, owner_id, source_system, source_order_no, request_digest, status, strategy_version, active_attempt_id, version
         FROM fulfillment_order
         WHERE enterprise_id=#{enterpriseId}
         AND id=#{id} FOR UPDATE
@@ -43,7 +44,7 @@
 
     <!-- lockLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLines" resultType="map">
-        SELECT source_line_id, sku_id, requested_qty, base_unit
+        SELECT source_line_id, sku_id, requested_qty, base_unit, min_remaining_days
         FROM fulfillment_line
         WHERE enterprise_id=#{enterpriseId}
         AND fulfillment_id=#{fulfillmentId}
@@ -282,12 +283,18 @@
 
     <!-- 幂等冲突只允许正文完全相同，不得静默忽略约束失败或覆盖原事件。 -->
     <select id="getBarrierOutbox" resultType="map">
-        SELECT operation_id,payload FROM fulfillment_outbox
+        SELECT event_id,operation_id,payload,delivery_payload FROM fulfillment_outbox
         WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId}
         AND warehouse_id=#{warehouseId} AND event_type=#{eventType} FOR UPDATE
     </select>
 
     <!-- countOutbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <!-- 快照与屏障同事务首次绑定；旧无上下文事件不允许在发布时猜测修复。 -->
+    <update id="bindOutboxDelivery">
+        UPDATE fulfillment_outbox SET delivery_payload=CAST(#{payload} AS JSON)
+        WHERE event_id=#{eventId} AND delivery_payload IS NULL AND status='PENDING'
+    </update>
+
     <select id="countOutbox" resultType="int">
         SELECT COUNT(*)
         FROM fulfillment_outbox
@@ -297,7 +304,7 @@
 
     <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listOrdersPage" resultType="map">
-        SELECT id, source_system, source_order_no, status, strategy_version, active_attempt_id, version, created_at
+        SELECT id, owner_id, source_system, source_order_no, status, strategy_version, active_attempt_id, version, created_at
         FROM fulfillment_order
         WHERE enterprise_id=#{enterpriseId}
         <if test="page.id != null">

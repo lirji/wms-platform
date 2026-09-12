@@ -59,9 +59,10 @@ public final class OutboundOrderService {
         requireId(attemptId, "INVALID_ATTEMPT", "attempt不能为空");
         requireId(ownerId, "INVALID_OWNER", "货主不能为空");
         // 建单请求中的授权标识不能证明 TCC 已提交；只能由核验入口绑定权威授权记录。
-        if (lines == null || lines.isEmpty()) {
-            throw new OutboundException("INVALID_LINE", "出库行不能为空");
+        if (lines == null || lines.isEmpty() || lines.size() > 200) {
+            throw new OutboundException("INVALID_LINE", "出库行必须非空且不超过200条");
         }
+        var requestedLines = canonicalAllocationLines(lines, false);
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         String orderId = UUID.randomUUID().toString();
@@ -71,6 +72,7 @@ public final class OutboundOrderService {
         if (order == null) {
             throw new OutboundException("VERSION_CONFLICT", "出库单创建竞争");
         }
+        if (!ownerId.equals(order.get("owner_id"))) throw new OutboundException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同分配尝试不能更换货主");
         if (orderId.equals(String.valueOf(order.get("id")))) {
             for (Map<String, Object> line : lines) {
                 mapper.insertLineIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, orderId,
@@ -78,7 +80,23 @@ public final class OutboundOrderService {
                         line.get("baseUnit") == null ? "EA" : String.valueOf(line.get("baseUnit")), now);
             }
         }
+        if (!requestedLines.equals(canonicalAllocationLines(mapper.listLines(enterpriseId, warehouseId, String.valueOf(order.get("id"))), true)))
+            throw new OutboundException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同分配尝试的原订单行不一致");
         return orderView(order);
+    }
+
+    /** 比较不可变分配事实；作业累计可以变化，但原货主、SKU、单位和数量不能变化。 */
+    private static Map<String, List<Object>> canonicalAllocationLines(List<Map<String,Object>> lines, boolean stored) {
+        var result = new java.util.TreeMap<String, List<Object>>();
+        for (var line : lines) {
+            String id = required(line, stored ? "order_line_id" : "orderLineId");
+            String sku = required(line, stored ? "sku_id" : "skuId");
+            Object unit = line.get(stored ? "base_unit" : "baseUnit");
+            BigDecimal qty = requiredQty(line.get(stored ? "allocated_qty" : "qty")).stripTrailingZeros();
+            if (result.put(id, List.of(sku, unit == null ? "EA" : String.valueOf(unit), qty)) != null)
+                throw new OutboundException("INVALID_LINE", "同仓原订单行不能重复");
+        }
+        return result;
     }
 
     /** 规划拣货任务。授权为空拒绝进入 PICKING。 */

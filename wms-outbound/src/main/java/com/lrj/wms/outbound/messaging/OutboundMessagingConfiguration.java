@@ -44,12 +44,13 @@ public class OutboundMessagingConfiguration {
     }
     @Bean
     RuntimeInbox outboundRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
-        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".outbound.results", "wms-inventory"), Clock.systemUTC());
+        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".outbound.results", "wms-inventory",
+                settings.topicPrefix() + ".outbound.authorizations", "wms-fulfillment"), Clock.systemUTC());
     }
     @Bean
     KafkaInboxConsumer outboundKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
         return new KafkaInboxConsumer(settings, settings.topicPrefix() + ".outbound-results",
-                List.of(settings.topicPrefix() + ".outbound.results"), inbox);
+                List.of(settings.topicPrefix() + ".outbound.results", settings.topicPrefix() + ".outbound.authorizations"), inbox);
     }
     @Bean
     MessageWorker outboundInboxWorker(RuntimeInbox inbox) {
@@ -57,6 +58,10 @@ public class OutboundMessagingConfiguration {
             long deadline = System.nanoTime() + java.time.Duration.ofSeconds(20).toNanos();
             for (int i = 0; i < 32 && System.nanoTime() < deadline && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
+                    if ("wms-fulfillment".equals(message.sourceService())) {
+                        new AllocationAuthorizationHandler(Clock.systemUTC()).apply(session, message);
+                        return;
+                    }
                     var body = message.payload();
                     if (!"InventoryCommandResult".equals(message.eventType()) || !"wms-outbound".equals(body.path("recipientService").asString())) {
                         throw new MessageRejectedException("UNSUPPORTED_RESULT_TYPE");
