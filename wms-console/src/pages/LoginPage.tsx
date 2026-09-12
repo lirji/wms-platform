@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { User } from "oidc-client-ts";
+import { Alert, Button } from "antd";
 import { createUserManager } from "../auth/oidc";
 import { sanitizeReturnTo } from "../auth/returnTo";
 import "./login.css";
@@ -81,10 +82,10 @@ export function LoginPage({ user }: { user: User | null }) {
           <p className="login-form-kicker">Casdoor SSO</p>
           <h2>登录后进入作业台</h2>
           <p className="login-form-lead">使用组织 <code>wms-platform</code> 的已开通账号。可见企业与仓范围只信令牌，不在页面写死。</p>
-          {error ? <p className="login-alert" role="alert">{error}</p> : null}
-          <button type="button" className="login-submit" disabled={redirecting} aria-busy={redirecting || undefined} onClick={() => void startLogin()}>
+          {error ? <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} /> : null}
+          <Button type="primary" size="large" block loading={redirecting} onClick={() => void startLogin()}>
             {redirecting ? "正在跳转统一身份…" : "使用统一身份登录"}
-          </button>
+          </Button>
           <p className="login-note">登录完成后回到本次打开的页面。若 403，是令牌缺少企业或仓范围，需要在身份侧补齐。</p>
         </section>
       </div>

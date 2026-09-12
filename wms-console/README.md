@@ -1,6 +1,6 @@
 # wms-console
 
-管理端与 PDA 适配页。数据只来自后端 API，禁止页面写死仓库、SKU 或库存。
+管理端与 PDA 适配页。React 19 + Ant Design 5。数据只来自后端 API，禁止页面写死仓库、SKU 或库存。
 
 ## 命令
 

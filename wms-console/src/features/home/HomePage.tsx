@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Card, Col, List, Row, Space, Statistic, Tag, Typography } from "antd";
 import { asOfMeta } from "../../api/envelope";
 import { EmptyState } from "../../shared/ui/EmptyState";
 import { errorBanner } from "../../shared/ui/errorBanner";
@@ -61,7 +62,7 @@ export function HomePage() {
   ].filter(Boolean);
 
   return (
-    <section className="page">
+    <Space orientation="vertical" size={16} style={{ display: "flex" }}>
       <PageHead
         eyebrow="作业总览"
         title="仓库工作台"
@@ -78,7 +79,7 @@ export function HomePage() {
       />
       {!ready ? <StatusBanner kind="empty" title="还没有可作业的仓库" detail="顶栏会列出当前令牌允许的仓；服务不可达时不会伪装成没有权限。" /> : null}
       {firstError ? errorBanner(firstError) : null}
-      <div className="kpi-grid">
+      <Row gutter={[12, 12]}>
         {[
           { label: "可访问仓", value: loading ? "…" : counts.warehouses, hint: "当前令牌可见" },
           { label: "SKU", value: loading ? "…" : counts.skus, hint: "企业主数据" },
@@ -87,53 +88,53 @@ export function HomePage() {
           { label: "入库单", value: loading ? "…" : counts.inbound, hint: "本仓收货单据" },
           { label: "出库单", value: loading ? "…" : counts.outbound, hint: "本仓出库单据" }
         ].map((item) => (
-          <article key={item.label} className="kpi-card">
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            <small>{item.hint}</small>
-          </article>
+          <Col xs={12} md={8} xl={4} key={item.label}>
+            <Card hoverable>
+              <Statistic title={item.label} value={item.value} />
+              <Typography.Text type="secondary">{item.hint}</Typography.Text>
+            </Card>
+          </Col>
         ))}
-      </div>
-      <div className="home-split">
-        <div className="panel">
-          <div className="toolbar">
-            <div>
-              <strong>作业入口</strong>
-              <span className="toolbar-hint">角标来自对应列表接口；打不开的服务显示「不可用」</span>
-            </div>
-          </div>
-          <div className="module-grid">
-            {MODULES.map((item) => {
-              const href = ready ? `/w/${warehouseId}/${item.to}` : ".";
-              const count = item.countKey ? counts[item.countKey as keyof typeof counts] : "按 cutoff";
-              return (
-                <Link key={item.to} className="module-card" to={href}>
-                  <span className="module-count">{loading ? "…" : count}</span>
-                  <strong>{item.title}</strong>
-                  <span>{item.hint}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="toolbar">
-            <div>
-              <strong>本仓注意</strong>
-              <span className="toolbar-hint">只陈述接口事实，不编造待办</span>
-            </div>
-          </div>
-          {loading ? <StatusBanner kind="loading" title="正在汇总本仓只读指标" /> : null}
-          {!loading && notes.length === 0 ? (
-            <EmptyState title="没有需要单独提示的查询异常" detail="单据与库存行数见左侧入口，不在这里写死待办清单。" />
-          ) : null}
-          {!loading && notes.length > 0 ? (
-            <ul className="note-list">
-              {notes.map((note) => <li key={note}>{note}</li>)}
-            </ul>
-          ) : null}
-        </div>
-      </div>
-    </section>
+      </Row>
+      <Row gutter={[12, 12]}>
+        <Col xs={24} xl={16}>
+          <Card title="作业入口" extra={<Typography.Text type="secondary">角标来自对应列表接口</Typography.Text>}>
+            <Row gutter={[12, 12]}>
+              {MODULES.map((item) => {
+                const href = ready ? `/w/${warehouseId}/${item.to}` : ".";
+                const count = item.countKey ? counts[item.countKey as keyof typeof counts] : "按 cutoff";
+                return (
+                  <Col xs={24} sm={12} key={item.to}>
+                    <Link to={href}>
+                      <Card size="small" hoverable>
+                        <Space orientation="vertical" size={4}>
+                          <Tag color="cyan">{loading ? "…" : count}</Tag>
+                          <Typography.Text strong>{item.title}</Typography.Text>
+                          <Typography.Text type="secondary">{item.hint}</Typography.Text>
+                        </Space>
+                      </Card>
+                    </Link>
+                  </Col>
+                );
+              })}
+            </Row>
+          </Card>
+        </Col>
+        <Col xs={24} xl={8}>
+          <Card title="本仓注意" extra={<Typography.Text type="secondary">只陈述接口事实</Typography.Text>}>
+            {loading ? <StatusBanner kind="loading" title="正在汇总本仓只读指标" /> : null}
+            {!loading && notes.length === 0 ? (
+              <EmptyState title="没有需要单独提示的查询异常" detail="单据与库存行数见左侧入口，不在这里写死待办清单。" />
+            ) : null}
+            {!loading && notes.length > 0 ? (
+              <List
+                dataSource={notes}
+                renderItem={(note) => <List.Item>{note}</List.Item>}
+              />
+            ) : null}
+          </Card>
+        </Col>
+      </Row>
+    </Space>
   );
 }

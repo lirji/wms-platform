@@ -42,6 +42,7 @@ export default defineConfig({
   },
   preview: { host: "127.0.0.1", port: uiPort },
   test: {
-    environment: "jsdom"
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"]
   }
 });

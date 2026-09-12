@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Flex, Typography } from "antd";
 
 export function PageHead({
   eyebrow,
@@ -12,13 +13,13 @@ export function PageHead({
   extra?: ReactNode;
 }) {
   return (
-    <div className="page-head">
+    <Flex className="page-head" justify="space-between" align="flex-start" gap={16} wrap="wrap">
       <div>
-        {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
-        <h1>{title}</h1>
-        <p className="page-sub">{sub}</p>
+        {eyebrow ? <Typography.Text type="secondary">{eyebrow}</Typography.Text> : null}
+        <Typography.Title level={3} style={{ margin: eyebrow ? "4px 0 0" : 0 }}>{title}</Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0, maxWidth: 640 }}>{sub}</Typography.Paragraph>
       </div>
-      {extra ? <div className="page-head-extra">{extra}</div> : null}
-    </div>
+      {extra ? <div>{extra}</div> : null}
+    </Flex>
   );
 }

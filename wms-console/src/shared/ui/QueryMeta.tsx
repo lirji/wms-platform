@@ -1,3 +1,5 @@
+import { Descriptions, Tag } from "antd";
+
 export function QueryMeta({
   warehouseId,
   warehouseName,
@@ -14,27 +16,13 @@ export function QueryMeta({
   rowCount?: string;
 }) {
   return (
-    <dl className="query-meta">
-      {warehouseId ? (
-        <div>
-          <dt>当前仓</dt>
-          <dd>{warehouseName || warehouseId}</dd>
-        </div>
-      ) : null}
-      <div>
-        <dt>asOf</dt>
-        <dd className={stale ? "is-stale" : undefined}>{asOf || "接口未返回"}</dd>
-      </div>
-      <div>
-        <dt>lagSeconds</dt>
-        <dd>{lagSeconds || "—"}</dd>
-      </div>
-      {rowCount !== undefined ? (
-        <div>
-          <dt>行数</dt>
-          <dd>{rowCount}</dd>
-        </div>
-      ) : null}
-    </dl>
+    <Descriptions size="small" bordered column={rowCount ? 4 : 3} className="query-meta">
+      {warehouseId ? <Descriptions.Item label="当前仓">{warehouseName || warehouseId}</Descriptions.Item> : null}
+      <Descriptions.Item label="asOf">
+        {stale ? <Tag color="warning">{asOf || "接口未返回"}</Tag> : (asOf || "接口未返回")}
+      </Descriptions.Item>
+      <Descriptions.Item label="lagSeconds">{lagSeconds || "—"}</Descriptions.Item>
+      {rowCount !== undefined ? <Descriptions.Item label="行数">{rowCount}</Descriptions.Item> : null}
+    </Descriptions>
   );
 }

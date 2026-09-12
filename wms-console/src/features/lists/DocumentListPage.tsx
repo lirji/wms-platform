@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
+import { Card, Input, Space } from "antd";
 import { asOfMeta } from "../../api/envelope";
 import { DataTable, type Column } from "../../shared/ui/DataTable";
-import { EmptyState } from "../../shared/ui/EmptyState";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
 import { QueryMeta } from "../../shared/ui/QueryMeta";
@@ -46,7 +46,7 @@ export function DocumentListPage({
   }, [query, rows]);
 
   return (
-    <section className="page">
+    <Space orientation="vertical" size={16} style={{ display: "flex" }}>
       <PageHead
         eyebrow={warehouseName || warehouseId || "未选仓"}
         title={title}
@@ -66,26 +66,20 @@ export function DocumentListPage({
         <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
       ) : null}
       {error ? errorBanner(error) : null}
-      <div className="panel">
-        <div className="toolbar">
-          <div>
-            <strong>业务列表</strong>
-            <span className="toolbar-hint">{loading ? "正在从对应服务读取" : `接口返回 ${rows.length} 条，当前显示 ${visible.length} 条`}</span>
-          </div>
-          <label className="toolbar-search">
-            <span>筛选已加载行</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="按已返回字段筛选，不请求新数据" />
-          </label>
-        </div>
-        {loading ? <StatusBanner kind="loading" title="加载中，请勿重复提交" /> : null}
-        {!loading && !error && rows.length === 0 ? (
-          <EmptyState title={empty} detail="空态来自接口，不在页面预置单据或库存。" />
-        ) : null}
-        {!loading && !error && rows.length > 0 && visible.length === 0 ? (
-          <EmptyState title="没有匹配当前筛选的行" detail="清空筛选后重新查看接口返回的全部行。" />
-        ) : null}
-        <DataTable rows={visible} columns={columns} />
-      </div>
-    </section>
+      <Card
+        title="业务列表"
+        extra={(
+          <Input.Search
+            allowClear
+            style={{ width: 280 }}
+            placeholder="筛选已返回字段，不请求新数据"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        )}
+      >
+        <DataTable rows={visible} columns={columns} loading={loading} emptyText={empty} />
+      </Card>
+    </Space>
   );
 }

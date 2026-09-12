@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
+import { Button, Card, Form, Input, Space } from "antd";
 import { api } from "../../api/client";
 import { pageItems, type ItemRecord } from "../../api/envelope";
 import { DataTable } from "../../shared/ui/DataTable";
-import { EmptyState } from "../../shared/ui/EmptyState";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
 import { useWorkspace } from "../../shell/WorkspaceContext";
@@ -37,34 +37,27 @@ export function ReconPage() {
   }
 
   return (
-    <section className="page">
+    <Space orientation="vertical" size={16} style={{ display: "flex" }}>
       <PageHead
         eyebrow={warehouseName || warehouseId || "未选仓"}
         title="对账差异"
         sub="按仓与 cutoff 查询服务端差异，页面不预置差异列表。"
       />
-      <form className="panel" onSubmit={load}>
-        <label>
-          cutoffId
-          <input value={cutoffId} onChange={(event) => setCutoffId(event.target.value)} required placeholder="由对账任务返回，不在页面写死" />
-        </label>
-        <button className="btn btn-primary" type="submit" disabled={busy || !cutoffId || !warehouseId || warehouseId === "_"}>
-          {busy ? "查询中" : "加载差异"}
-        </button>
-      </form>
+      <Card>
+        <Form layout="inline" onSubmitCapture={load}>
+          <Form.Item label="cutoffId" required>
+            <Input value={cutoffId} onChange={(event) => setCutoffId(event.target.value)} placeholder="由对账任务返回，不在页面写死" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={busy} disabled={!cutoffId || !warehouseId || warehouseId === "_"}>
+            加载差异
+          </Button>
+        </Form>
+      </Card>
       {error ? errorBanner(error) : null}
-      <div className="panel">
-        <div className="toolbar">
-          <div>
-            <strong>差异列表</strong>
-            <span className="toolbar-hint">{loaded ? `接口返回 ${rows.length} 条` : "输入 cutoff 后查询"}</span>
-          </div>
-        </div>
-        {loaded && rows.length === 0 ? (
-          <EmptyState title={`当前 cutoff ${cutoffId || "(未填)"} 没有差异`} detail="空结果来自服务端，不是页面预置。" />
-        ) : null}
+      <Card title="差异列表" extra={loaded ? `接口返回 ${rows.length} 条` : "输入 cutoff 后查询"}>
         <DataTable
           rows={rows}
+          emptyText={loaded ? `当前 cutoff ${cutoffId || "(未填)"} 没有差异` : "输入 cutoff 后查询"}
           columns={[
             { key: "id", label: "差异", keys: ["id", "caseId"] },
             { key: "status", label: "状态", keys: ["status"] },
@@ -72,7 +65,7 @@ export function ReconPage() {
             { key: "qty", label: "数量", qty: true, keys: ["qty", "deltaQty"] }
           ]}
         />
-      </div>
-    </section>
+      </Card>
+    </Space>
   );
 }

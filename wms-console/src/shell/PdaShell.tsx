@@ -1,5 +1,6 @@
 import { Link, Outlet, useParams } from "react-router-dom";
 import { User } from "oidc-client-ts";
+import { Button, Flex, Layout, Typography } from "antd";
 import { WorkspaceProvider } from "./WorkspaceContext";
 
 export function PdaShell({ user, token }: { user: User; token?: string }) {
@@ -7,23 +8,20 @@ export function PdaShell({ user, token }: { user: User; token?: string }) {
   const displayName = user.profile.name || user.profile.preferred_username || user.profile.sub;
   return (
     <WorkspaceProvider value={{ token, warehouseId }}>
-      <div className="app pda-shell">
-        <header className="topbar">
-          <Link className="brand" to={warehouseId ? `/w/${warehouseId}/inbound` : "/"}>
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 32 32"><path d="M4 13 16 5l12 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM12 27v-8h8v8M6 13h20" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
-            </span>
-            <span>
-              <strong>PDA 收货</strong>
-              <small>{warehouseId || "未选仓"} · {displayName}</small>
-            </span>
-          </Link>
-          <Link className="btn" to={warehouseId ? `/w/${warehouseId}` : "/"}>返回工作台</Link>
-        </header>
-        <main className="app-main">
+      <Layout className="app-shell">
+        <Layout.Header className="app-header">
+          <Flex align="center" justify="space-between">
+            <Link to={warehouseId ? `/w/${warehouseId}/inbound` : "/"}>
+              <Typography.Title level={4} style={{ margin: 0, color: "#0f172a" }}>PDA 收货</Typography.Title>
+              <Typography.Text type="secondary">{warehouseId || "未选仓"} · {displayName}</Typography.Text>
+            </Link>
+            <Link to={warehouseId ? `/w/${warehouseId}` : "/"}><Button type="primary">返回工作台</Button></Link>
+          </Flex>
+        </Layout.Header>
+        <Layout.Content className="app-content">
           <Outlet />
-        </main>
-      </div>
+        </Layout.Content>
+      </Layout>
     </WorkspaceProvider>
   );
 }

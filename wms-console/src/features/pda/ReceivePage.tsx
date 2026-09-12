@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { Button, Card, Form, Input, Space, Typography } from "antd";
 import { api, rememberKey } from "../../api/client";
 import { field, type ItemRecord } from "../../api/envelope";
 import { errorBanner } from "../../shared/ui/errorBanner";
@@ -54,10 +55,12 @@ export function ReceivePage() {
   }
 
   return (
-    <section className="pda">
+    <Space orientation="vertical" size={16} style={{ display: "flex", maxWidth: 520, margin: "0 auto" }}>
       <PageHead eyebrow={warehouseId || "未选仓"} title="PDA 收货" sub="扫码枪连续输入，成功失败同时用文字说明，不只靠颜色。" />
-      <div className="pda-card">
-        <p aria-live="assertive" className={`tone tone-${tone}`}>{feedback}</p>
+      <Card>
+        <Typography.Title level={5} type={tone === "err" ? "danger" : tone === "ok" ? "success" : "secondary"} aria-live="assertive">
+          {feedback}
+        </Typography.Title>
         {error ? errorBanner(error) : null}
         {result ? (
           <StatusBanner
@@ -67,22 +70,19 @@ export function ReceivePage() {
             detail={`physicalStatus=${field(result, "physicalStatus")} stockSyncStatus=${field(result, "stockSyncStatus")}`}
           />
         ) : null}
-        <form onSubmit={onScan}>
-          <label>
-            入库单
-            <input value={orderId} onChange={(event) => setOrderId(event.target.value)} required />
-          </label>
-          <label>
-            行/扫码
-            <input value={scan || lineId} onChange={(event) => setScan(event.target.value)} autoFocus required />
-          </label>
-          <label>
-            数量（字符串）
-            <input value={qty} onChange={(event) => setQty(event.target.value)} inputMode="decimal" required />
-          </label>
-          <button className="btn btn-primary" type="submit">回车提交</button>
-        </form>
-      </div>
-    </section>
+        <Form layout="vertical" onSubmitCapture={onScan} style={{ marginTop: 16 }}>
+          <Form.Item label="入库单" required>
+            <Input size="large" value={orderId} onChange={(event) => setOrderId(event.target.value)} />
+          </Form.Item>
+          <Form.Item label="行/扫码" required>
+            <Input size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
+          </Form.Item>
+          <Form.Item label="数量（字符串）" required>
+            <Input size="large" inputMode="decimal" value={qty} onChange={(event) => setQty(event.target.value)} />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" size="large" block>回车提交</Button>
+        </Form>
+      </Card>
+    </Space>
   );
 }

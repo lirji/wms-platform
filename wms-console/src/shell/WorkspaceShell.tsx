@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { User } from "oidc-client-ts";
+import { Avatar, Button, Flex, Layout, Menu, Select, Space, Typography } from "antd";
+import { LogoutOutlined, MobileOutlined, ShopOutlined } from "@ant-design/icons";
 import { api } from "../api/client";
 import { field, pageItems } from "../api/envelope";
 import { createUserManager } from "../auth/oidc";
@@ -74,10 +76,18 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
     navigate(`/w/${encodeURIComponent(next)}${leaf}`);
   }
 
+  const selected = useMemo(() => {
+    const match = NAV_GROUPS.flatMap((group) => group.items).find((item) => {
+      const href = hrefFor(warehouseId, item.to, item.pda);
+      return item.end ? location.pathname === href : location.pathname.startsWith(href);
+    });
+    return match ? [match.label] : [];
+  }, [location.pathname, warehouseId]);
+
   return (
     <WorkspaceProvider value={{ token, warehouseId, warehouseName: current?.name }}>
-      <div className="app">
-        <aside className="sidebar">
+      <Layout className="app-shell">
+        <Layout.Sider width={232} theme="dark" className="app-sider" breakpoint="lg" collapsedWidth={72}>
           <Link className="brand" to={warehouseId ? `/w/${warehouseId}` : "/"} aria-label="WMS 工作台首页">
             <span className="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 32 32"><path d="M4 13 16 5l12 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM12 27v-8h8v8M6 13h20" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
@@ -87,57 +97,57 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
               <small>仓储执行系统</small>
             </span>
           </Link>
-          <nav className="side-nav" aria-label="作业模块">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.title} className="side-group">
-                <p className="side-label">{group.title}</p>
-                {group.items.map((item) => {
-                  const href = hrefFor(warehouseId, item.to, item.pda);
-                  return (
-                    <NavLink
-                      key={item.label}
-                      to={href}
-                      end={item.end}
-                      className={({ isActive }) => isActive ? "side-link is-active" : "side-link"}
-                    >
-                      {item.label}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
-          <p className="side-foot">数据权威在后端 · 数量按字符串展示</p>
-        </aside>
-        <div className="workspace">
-          <header className="topbar">
-            <label className="warehouse-picker">
-              <span>作业仓</span>
-              <select
-                value={warehouseId}
-                disabled={loadState !== "ready" || warehouses.length === 0}
-                onChange={(event) => changeWarehouse(event.target.value)}
-              >
-                {loadState === "loading" ? <option value="">正在读取可访问仓…</option> : null}
-                {loadState === "error" ? <option value="">仓库服务不可达</option> : null}
-                {loadState === "ready" && warehouses.length === 0 ? <option value="">当前身份没有可访问仓</option> : null}
-                {warehouses.map((row) => (
-                  <option key={row.id} value={row.id}>{row.name} · {row.id}</option>
-                ))}
-              </select>
-            </label>
-            <div className="topbar-meta">
-              <span>本机时间 {clock} UTC</span>
-              <span className="topbar-user" title={displayName}>{displayName}</span>
-              <Link className="btn" to={warehouseId ? `/pda/${warehouseId}/receive` : "/"}>打开 PDA</Link>
-              <button type="button" className="btn" onClick={() => void createUserManager().signoutRedirect()}>退出</button>
-            </div>
-          </header>
-          <main className="app-main">
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={selected}
+            items={NAV_GROUPS.map((group) => ({
+              type: "group",
+              key: group.title,
+              label: group.title,
+              children: group.items.map((item) => ({
+                key: item.label,
+                icon: item.icon,
+                label: item.label,
+                onClick: () => navigate(hrefFor(warehouseId, item.to, item.pda))
+              }))
+            }))}
+          />
+          <Typography.Text className="side-foot">数据权威在后端 · 数量按字符串展示</Typography.Text>
+        </Layout.Sider>
+        <Layout>
+          <Layout.Header className="app-header">
+            <Flex align="center" justify="space-between" gap={16}>
+              <Space size={10}>
+                <ShopOutlined />
+                <Typography.Text type="secondary">作业仓</Typography.Text>
+                <Select
+                  style={{ minWidth: 280 }}
+                  value={warehouseId || undefined}
+                  disabled={loadState !== "ready" || warehouses.length === 0}
+                  placeholder={loadState === "error" ? "仓库服务不可达" : "正在读取可访问仓…"}
+                  options={warehouses.map((row) => ({ value: row.id, label: `${row.name} · ${row.id}` }))}
+                  onChange={changeWarehouse}
+                />
+              </Space>
+              <Space size={12}>
+                <Typography.Text type="secondary">本机 {clock} UTC</Typography.Text>
+                <Avatar style={{ background: "#0f766e" }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
+                <Typography.Text strong>{displayName}</Typography.Text>
+                <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
+                  打开 PDA
+                </Button>
+                <Button icon={<LogoutOutlined />} onClick={() => void createUserManager().signoutRedirect()}>
+                  退出
+                </Button>
+              </Space>
+            </Flex>
+          </Layout.Header>
+          <Layout.Content className="app-content">
             <Outlet />
-          </main>
-        </div>
-      </div>
+          </Layout.Content>
+        </Layout>
+      </Layout>
     </WorkspaceProvider>
   );
 }

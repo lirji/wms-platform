@@ -42,16 +42,16 @@
 
 ## 4. 前端栈
 
-仓库已锁定 React 19 + TypeScript + Vite 7 + `oidc-client-ts` + Vitest。这是约束，不是选型发现。
+仓库已锁定 React 19 + TypeScript + Vite 7 + `oidc-client-ts` + Vitest。2026-09-12 用户要求补上组件库：作业台使用 Ant Design 5（自定义青绿主题），不绑假数据。
 
 | 决策 | 选项 | 选择 | 拒绝原因 |
 | --- | --- | --- | --- |
 | 框架 | React / Vue | React | 现有锁文件、测试、Docker、OIDC 适配 |
 | 语言 | TypeScript / 无类型 | TypeScript | OpenAPI 与数量字符串契约 |
-| 样式 | tokens+CSS / utility / CSS-in-JS | tokens + 一份 CSS | 不引入第二套样式运行时 |
+| 样式 | tokens+CSS / Tailwind / Ant Design | Ant Design 5 + 少量布局 CSS | 用户要求组件库；表格/表单/布局用 Ant，行数据仍来自接口 |
 | 服务端数据 | fetch 包装 / 查询库 | fetch 包装 | 列表短、202 轮询有界，不需要第二缓存 |
 | 路由 | react-router | 框架默认 | 已用于登录与回调 |
-| 表格/表单 | 轻量 / 管理套件 | 轻量 | 列来自契约字段，不绑 admin kit 的假数据 |
+| 表格/表单 | 轻量 / 管理套件 | Ant Design Table / Form | 列来自契约字段，不预置业务行 |
 
 ## 5. 模块与目录（提议）
 

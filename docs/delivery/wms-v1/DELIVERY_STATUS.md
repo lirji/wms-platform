@@ -31,7 +31,7 @@
 - 2026-09-12：控制台登录/`returnTo`/OIDC 已在远程 main。
 - 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。
 - 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。
-- 2026-09-12：控制台视觉改为企业作业台（侧栏、KPI、密表）。AC-26 写作业链未做，不是 50 AC accepted。
+- 2026-09-12：控制台改为 Ant Design 作业台（侧栏、KPI、密表）。AC-26 写作业链未做，不是 50 AC accepted。
 
 ## 未完成
 

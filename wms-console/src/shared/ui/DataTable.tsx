@@ -1,3 +1,4 @@
+import { Table, Tag } from "antd";
 import { field, qtyField, type ItemRecord } from "../../api/envelope";
 
 export type Column = {
@@ -7,54 +8,42 @@ export type Column = {
   keys?: string[];
 };
 
-function chipTone(value: string): string {
+function chipColor(value: string): string {
   const upper = value.toUpperCase();
-  if (!value) {
-    return "muted";
-  }
   if (/(ACTIVE|OK|DONE|SUCCESS|CONFIRMED|APPLIED|AVAILABLE)/.test(upper)) {
-    return "ok";
+    return "success";
   }
   if (/(FAIL|ERROR|REJECT|EXPIRED|HOLD|FORBIDDEN)/.test(upper)) {
-    return "err";
+    return "error";
   }
   if (/(PEND|WAIT|TRY|STALE|UNKNOWN|RESERVED)/.test(upper)) {
-    return "warn";
+    return "warning";
   }
-  return "info";
+  return "processing";
 }
 
-export function DataTable({ rows, columns }: { rows: ItemRecord[]; columns: Column[] }) {
-  if (rows.length === 0) {
-    return null;
-  }
+export function DataTable({ rows, columns, loading, emptyText }: { rows: ItemRecord[]; columns: Column[]; loading?: boolean; emptyText?: string }) {
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={field(row, "id", "skuId") || String(index)}>
-              {columns.map((column) => {
-                const keys = column.keys ?? [column.key];
-                const value = column.qty ? qtyField(row, ...keys) : field(row, ...keys);
-                const chip = column.key === "status" || column.key === "physicalStatus" || column.key === "stockSyncStatus";
-                return (
-                  <td key={column.key} className={column.qty ? "is-qty" : undefined}>
-                    {chip && value ? <span className={`chip chip-${chipTone(value)}`}>{value}</span> : value || "—"}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table
+      size="middle"
+      loading={loading}
+      pagination={rows.length > 12 ? { pageSize: 12, showSizeChanger: false } : false}
+      rowKey={(row, index) => field(row, "id", "skuId") || String(index)}
+      dataSource={rows}
+      locale={{ emptyText: emptyText || "当前筛选没有行" }}
+      columns={columns.map((column) => ({
+        key: column.key,
+        title: column.label,
+        render: (_: unknown, row: ItemRecord) => {
+          const keys = column.keys ?? [column.key];
+          const value = column.qty ? qtyField(row, ...keys) : field(row, ...keys);
+          const chip = column.key === "status" || column.key === "physicalStatus" || column.key === "stockSyncStatus";
+          if (chip && value) {
+            return <Tag color={chipColor(value)}>{value}</Tag>;
+          }
+          return value || "—";
+        }
+      }))}
+    />
   );
 }

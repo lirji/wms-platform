@@ -1,3 +1,5 @@
+import { Alert } from "antd";
+
 export type BannerKind =
   | "loading"
   | "empty"
@@ -32,21 +34,36 @@ const LABELS: Record<BannerKind, string> = {
   success: "查询就绪"
 };
 
+function alertType(kind: BannerKind): "success" | "info" | "warning" | "error" {
+  if (kind === "error" || kind === "forbidden") {
+    return "error";
+  }
+  if (kind === "accepted" || kind === "sync-pending" || kind === "tcc" || kind === "stale" || kind === "serial-hold" || kind === "conflict") {
+    return "warning";
+  }
+  return "info";
+}
+
 export function StatusBanner({ kind, title, detail, operationId }: StatusBannerProps) {
+  const extras = [
+    detail,
+    operationId ? `operationId: ${operationId}` : "",
+    kind === "accepted" || kind === "sync-pending" ? "禁止当作业务已成功，请按原命令查询结果，不要新建设备动作。" : "",
+    kind === "tcc" ? "库存已预留，等待 Seata 全局事务完成。没有强制释放按钮。" : "",
+    kind === "conflict" ? "请确认最新记录后再提交；不会自动更换幂等键。" : "",
+    kind === "serial-hold" ? "待登记或待转移确认，禁止拣货或发运。" : ""
+  ].filter(Boolean);
   return (
-    <section className={`banner banner-${kind}`} role="status" aria-live="polite" data-kind={kind}>
-      <strong>{LABELS[kind]}</strong>
-      <div>
-        <p>{title}</p>
-        {detail ? <p>{detail}</p> : null}
-        {operationId ? <p>operationId: {operationId}</p> : null}
-        {kind === "accepted" || kind === "sync-pending" ? (
-          <p>禁止当作业务已成功，请按原命令查询结果，不要新建设备动作。</p>
-        ) : null}
-        {kind === "tcc" ? <p>库存已预留，等待 Seata 全局事务完成。没有强制释放按钮。</p> : null}
-        {kind === "conflict" ? <p>请确认最新记录后再提交；不会自动更换幂等键。</p> : null}
-        {kind === "serial-hold" ? <p>待登记或待转移确认，禁止拣货或发运。</p> : null}
-      </div>
-    </section>
+    <Alert
+      showIcon
+      type={alertType(kind)}
+      title={LABELS[kind]}
+      description={(
+        <div>
+          <p>{title}</p>
+          {extras.map((line) => <p key={line}>{line}</p>)}
+        </div>
+      )}
+    />
   );
 }
