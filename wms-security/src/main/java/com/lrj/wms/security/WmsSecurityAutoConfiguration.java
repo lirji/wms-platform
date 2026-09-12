@@ -58,6 +58,11 @@ public class WmsSecurityAutoConfiguration {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/metrics/**").access((authentication, context) -> {
+                            Object principal = authentication.get().getPrincipal();
+                            return new org.springframework.security.authorization.AuthorizationDecision(principal instanceof Jwt jwt
+                                    && WmsJwtAuthorities.operationScopes(jwt).contains("observability.read"));
+                        })
                         .anyRequest().authenticated())
                 .addFilterAfter(new OperationScopeFilter(),
                         org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)

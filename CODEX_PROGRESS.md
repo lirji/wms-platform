@@ -102,3 +102,14 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 全部整改之后才完整default/warehouse-it/tc-it/failure-it、CI、正常合并推main。目前ee255e0/967ad0d均未push，不停在第三批。
 
 - 21:51：第三批已提交 `9d32f8d`（41文件），契约复现/文档检查通过。工作树仅第四批R24执行器/CI/说明改动；Python测试2项通过，不是WMS容量实测。三个任务提交尚未推送。
+
+## 最新检查点 2026-09-12 21:58
+
+- R24执行器独立提交 `5b28597`：真实有界HTTP负载、最终只读业务断言、报告/CSV、无签署/无环境则非零；专属HTTP夹具2项通过，加入CI。不是WMS实际容量验收。当前四个任务提交均未push。
+- **当前工作树 R21（未提交）**：wms-runtime新增RuntimeReadiness、RequestCorrelationFilter，复用Boot4.1.1 actuator依赖；四服务显式readiness包含DB/OIDC检查、liveness分离、HTTP p95/p99指标；metrics需observability.read操作scope；错误正文/日志/响应头共用关联ID；smoke改测无配置readiness503。
+- `/tmp/wms-readiness-it.log` BUILD SUCCESS：DatabaseBudgetIT1（池耗尽DOWN/恢复UP）、OidcDisabledWebIT1、MasterdataHttpIT11及全单元；四服务 `/tmp/wms-readiness-smoke.log` PASS。随后补齐HttpJson/MasterdataHttp/DomainHttp/TenantAdmissionFilter错误ID，正在 **Maven session70926** `/tmp/wms-correlation-it.log`（MasterdataHttpIT + 所有单元）。不要并发Maven。通过后更新证据，独立提交R21核心；MQ指标/异步传播待R13/R15。
+- R13/R14/R15 尚未实施。只读确认Source T1 payload仍只有commandId/qty；要建立版本化消息契约与权威业务上下文，不能把Kafka发通就写完成。入库receive请求缺location/lot/quality；outbound行缺lot/quality（只有SKU/owner/order，task有source/target）；要显式补桶上下文并由inventory校验，不得猜DEFAULT桶或GOOD。StockCommandService有applyReceive/Pick/Ship，无applyPutaway；后者需与move/效果协议一起补。现有runtime无Kafka依赖，但根BOM已锁kafka-clients3.8.0，test-support已使用。
+- R14 AllocationRecoverySweep类存在但无Bean；TC terminal adapter在test-support/src/test/java/com/lrj/wms/probe/TerminalEvidenceAdapter.java。serial-registry服务仍无datasource/controller。TM归属wms-fulfillment已由用户确认（设计OQ01已关），OQ03只涉及单位/效期默认，不阻止用显式基础单位/UTC值做集成。
+- R15 InventoryCatalogJobs除TccWatch外都是inspectOnly。已有可复用ExpiryEligibilitySweep、JobRunService.reclaimExpired、SnapshotExportService分段、StockInternalReconcile、CountService.applyLine、SerialTransferLocalService；但Expiry/listReconcile仍固定首100，不能机械接线宣称全量恢复。档案清理需真实保留策略，不编造期限。
+- 后面 R22 UTC仍须考虑既有DATETIME按JVM墙钟写入（旧review明确记录，不能盲改读取把旧数据偏移）；R23putaway仍SYSTEM且先物理量后协议，需一起修复重放。
+- 完成剩余后全default/warehouse-it/tc-it/failure-it及CI、普通合并pushmain，禁止把局部测试当50AC或实测容量达标。下一步先等session70926，再继续R13/R14/R15。

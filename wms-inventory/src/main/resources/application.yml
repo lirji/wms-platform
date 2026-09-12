@@ -9,10 +9,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
   endpoint:
     health:
       show-details: never
+      group:
+        readiness:
+          include: readinessState,wmsReadiness
+        liveness:
+          include: livenessState
       probes:
         enabled: true
 seata:
@@ -30,3 +41,7 @@ wms:
       url: ${WMS_INVENTORY_JDBC_URL:}
       username: ${WMS_INVENTORY_DB_USER:}
       password: ${WMS_INVENTORY_DB_PASSWORD:}
+
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"

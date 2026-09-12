@@ -239,6 +239,24 @@ class MasterdataHttpIT {
                 .POST(HttpRequest.BodyPublishers.ofString(json)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    @Test
+    void readinessAndMetricsRequireRealConfigurationAndOperatorScope() throws Exception {
+        assertEquals(200, get("/actuator/health/readiness", null).statusCode());
+        assertEquals(403, get("/actuator/metrics", token(List.of("WH-A"))).statusCode());
+        String operator = token("ops", List.of("WH-A"), List.of("observability.read"));
+        assertEquals(200, get("/actuator/metrics", operator).statusCode());
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/wms/v1/skus"))
+                .header("Authorization", "Bearer " + token(List.of("WH-A")))
+                .header("X-Request-Id", "review-r21-request").GET().build();
+        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertEquals("review-r21-request", response.headers().firstValue("X-Request-Id").orElseThrow());
+        assertEquals(200, get("/actuator/metrics/http.server.requests", operator).statusCode());
+        var missing = get("/api/wms/v1/skus/NO-SUCH-SKU", token(List.of("WH-A")));
+        assertEquals(404, missing.statusCode());
+        assertTrue(missing.body().contains(missing.headers().firstValue("X-Request-Id").orElseThrow()));
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET();
         if (bearer != null) {

@@ -53,7 +53,7 @@ final class DomainHttp {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", UUID.randomUUID().toString());
+        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
         body.put("retryable", "VERSION_CONFLICT".equals(code) || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(code));
         return body;
     }

@@ -50,3 +50,8 @@ com.lrj.wms.outbound.order.OutboundPickIT#headerOnlyBecomesTerminalAfterEveryLin
 com.lrj.wms.outbound.order.OutboundPickIT#planningIsIdempotentAndAccountsForOutstandingTasks
 com.lrj.wms.inventory.recon.SnapshotExportIT#resumesAcrossTransactionsAndExportsEveryHistoricalBalance
 com.lrj.wms.inventory.compat.CompatibilityGateTest#malformedAndSpacedUnknownVersionsCannotBypassGate
+
+# R21：探针、指标权限与请求关联。
+com.lrj.wms.inventory.OidcDisabledWebIT#healthIsUpAndBusinessIsDenied
+com.lrj.wms.inventory.masterdata.MasterdataHttpIT#readinessAndMetricsRequireRealConfigurationAndOperatorScope
+com.lrj.wms.runtime.observability.RequestCorrelationTest#bindsAndRestoresContextEvenWhenRequestFails

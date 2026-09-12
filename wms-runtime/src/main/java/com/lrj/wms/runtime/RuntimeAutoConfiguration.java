@@ -18,4 +18,17 @@ public class RuntimeAutoConfiguration {
         return new com.lrj.wms.runtime.cache.ReadQueryCache(properties);
     }
     @Bean public RuntimeErrors runtimeErrors() { return new RuntimeErrors(); }
+    @Bean
+    public com.lrj.wms.runtime.observability.RuntimeReadiness wmsReadiness(
+            org.springframework.beans.factory.ObjectProvider<javax.sql.DataSource> sources,
+            org.springframework.core.env.Environment environment) {
+        return new com.lrj.wms.runtime.observability.RuntimeReadiness(sources::getIfAvailable, environment);
+    }
+
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<com.lrj.wms.runtime.observability.RequestCorrelationFilter> requestCorrelation() {
+        var bean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(new com.lrj.wms.runtime.observability.RequestCorrelationFilter());
+        bean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE + 10);
+        return bean;
+    }
 }

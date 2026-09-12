@@ -160,7 +160,7 @@ public class CountCommandController {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", UUID.randomUUID().toString());
+        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
         body.put("retryable", false);
         return body;
     }

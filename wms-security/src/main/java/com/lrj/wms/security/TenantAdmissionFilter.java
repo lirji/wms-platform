@@ -44,7 +44,7 @@ final class TenantAdmissionFilter extends OncePerRequestFilter {
             response.setStatus(invalid ? 400 : 413);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":\"INVALID_ARGUMENT\",\"message\":\"请求超出约束\",\"retryable\":false,\"requestId\":\""
-                    + java.util.UUID.randomUUID() + "\"}");
+                    + com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId() + "\"}");
             return;
         }
         var permit = gate.acquire(tenant);
@@ -53,7 +53,7 @@ final class TenantAdmissionFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", "1");
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":\"RATE_LIMITED\",\"message\":\"请求超过当前配额，请稍后重试\","
-                    + "\"retryable\":true,\"requestId\":\"" + java.util.UUID.randomUUID() + "\"}");
+                    + "\"retryable\":true,\"requestId\":\"" + com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId() + "\"}");
             return;
         }
         try { chain.doFilter(new com.lrj.wms.runtime.web.BoundedRequestBody(request), response); }

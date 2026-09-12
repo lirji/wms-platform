@@ -14,7 +14,13 @@ class DatabaseBudgetIT {
             mysql.start();
             var budget = new DatabaseBudget(1, 0, 300, 250, 1, 1000, 3000);
             try (var pool = RuntimeDataSources.create("budget-it", mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword(), budget)) {
+                var environment = new org.springframework.mock.env.MockEnvironment()
+                        .withProperty("wms.oidc.issuer", "https://issuer.test")
+                        .withProperty("wms.oidc.client-id", "wms-platform");
+                var readiness = new com.lrj.wms.runtime.observability.RuntimeReadiness(() -> pool, environment);
+                assertEquals("UP", readiness.health().getStatus().getCode());
                 try (var connection = pool.getConnection()) {
+                    assertEquals("DOWN", readiness.health().getStatus().getCode());
                     assertThrows(SQLException.class, pool::getConnection);
                     assertEquals(1, pool.getHikariPoolMXBean().getTotalConnections());
                 }
@@ -22,6 +28,7 @@ class DatabaseBudgetIT {
                     statement.setQueryTimeout(budget.statementTimeoutSeconds());
                     assertThrows(SQLException.class, () -> statement.executeQuery("SELECT SLEEP(4)"));
                 }
+                assertEquals("UP", readiness.health().getStatus().getCode());
                 try (var connection = pool.getConnection(); var statement = connection.createStatement(); var result = statement.executeQuery("SELECT 1")) {
                     assertTrue(result.next());
                     assertEquals(1, result.getInt(1));

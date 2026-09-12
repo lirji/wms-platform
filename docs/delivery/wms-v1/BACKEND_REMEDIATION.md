@@ -62,3 +62,11 @@ R01 生产装配回滚测试已通过，R02/R03 操作 scope 与调拨仓范围�
 ## R24 容量执行器
 
 已将签署输入校验后的空成功路径替换为真实有界HTTP负载与最终不变量断言，记录客户端p95/p99、请求CSV和输入摘要；429、业务断言失败、生成器饱和或缺必要输入均非成功退出。只接受显式隔离目标，不跟随重定向、不记录令牌，参数和边界见容量设计第10节。执行器2项专属HTTP夹具测试通过并加入CI；这不是实际WMS容量达标。签署输入/隔离负载环境仍未提供，S9-01/AC-27保持未验收。R24要求的正式事务装配证据由R01 ProductionTransactionsIT覆盖，组合CI尚待最终执行。
+
+## R21 运行探针与请求观测
+
+四服务 readiness 显式包含业务探针：OIDC issuer/client-id 缺失、未配置业务数据源、真实连接校验失败或池获取失败时不就绪；liveness 单独检查进程生命周期，不因数据库故障触发反复重启。探针不暴露连接凭据/异常详情。`/actuator/metrics` 需 JWT 作业权限 `observability.read`，组名不能冒充；HTTP请求指标启用p95/p99/直方图，仍需结合实际负载解释分位数，不作为容量承诺。
+
+请求头仅接受64字符内的安全关联ID，否则生成新ID；响应头、错误正文及日志MDC共用该ID，正常/异常结束恢复线程原上下文。未将租户/业务ID作为指标标签，不记录正文和令牌。异步业务与消息传播及业务积压告警继续随R13/R15补齐，此记录不代表完整链路追踪已经完成。
+
+`/tmp/wms-readiness-it.log` BUILD SUCCESS：DatabaseBudgetIT（真实池耗尽DOWN、释放后UP）、OidcDisabledWebIT（无配置存活UP但就绪503）、MasterdataHttpIT11项（正常就绪/指标权限/请求响应关联）及全部单元测试。四独立进程smoke全部通过，日志 `/tmp/wms-readiness-smoke.log`。最后补齐领域错误/限流响应的同ID后，`/tmp/wms-correlation-it.log` BUILD SUCCESS：MasterdataHttpIT11项（含404正文与响应头一致）及全模块单元测试。

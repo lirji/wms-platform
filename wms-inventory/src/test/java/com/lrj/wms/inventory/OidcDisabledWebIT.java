@@ -19,9 +19,12 @@ class OidcDisabledWebIT {
     void healthIsUpAndBusinessIsDenied() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         HttpResponse<String> health = client.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/actuator/health")).GET().build(),
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/actuator/health/liveness")).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
         assertEquals(200, health.statusCode());
+        HttpResponse<String> readiness = client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
+                + "/actuator/health/readiness")).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(503, readiness.statusCode());
         HttpResponse<String> warehouses = client.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/wms/v1/warehouses")).GET().build(),
                 HttpResponse.BodyHandlers.ofString());

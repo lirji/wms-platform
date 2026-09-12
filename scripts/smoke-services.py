@@ -40,14 +40,19 @@ def main():
             if port is None:
                 raise RuntimeError(f"{service} 启动超时")
             base = f"http://127.0.0.1:{port}"
-            with urllib.request.urlopen(base + "/actuator/health", timeout=5) as response:
+            with urllib.request.urlopen(base + "/actuator/health/liveness", timeout=5) as response:
                 assert json.load(response)["status"] == "UP"
+            try:
+                urllib.request.urlopen(base + "/actuator/health/readiness", timeout=5)
+                raise AssertionError("未配置数据库/OIDC不能就绪")
+            except urllib.error.HTTPError as error:
+                assert error.code == 503, error.code
             try:
                 urllib.request.urlopen(base + "/internal/unimplemented", timeout=5)
                 raise AssertionError("业务路径不应开放")
             except urllib.error.HTTPError as error:
                 assert error.code in (401, 403), error.code
-            print(f"PASS {service}: independent PID, health UP, business access denied")
+            print(f"PASS {service}: independent PID, liveness UP, readiness 503, business access denied")
     finally:
         # 只停止本脚本创建的进程，不按名字批量结束其他项目。
         for _, proc, log, _ in running:
