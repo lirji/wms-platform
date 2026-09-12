@@ -36,3 +36,7 @@ replay_pid*
 *.hprof
 *.orig
 *.rej
+
+# Python 工具测试生成的字节码
+__pycache__/
+*.pyc

@@ -58,3 +58,7 @@ R01 生产装配回滚测试已通过，R02/R03 操作 scope 与调拨仓范围�
 - R11：JSON 库严格解析完整对象，拒绝重复字段、畸形/尾随内容、非整数/未知版本；仅有效对象缺版本走旧版兼容。投影数量支持准确十进制字符串/数字，缺字段或错误类型不再默认为0，快照序列化正确转义。
 
 命令定向回归 `/tmp/wms-command-regression.log` BUILD SUCCESS，OutboundPickIT 5项、入库协议/观察/收货及出库协议/派工通过。JSON单测通过；第一次快照服务/HTTP定向通过。新增251桶跨事务历史导出、跨仓同命令键及兼容/HTTP组合回归 `/tmp/wms-third-batch-it.log` BUILD SUCCESS：SnapshotExportIT2、InboundReceiptIT4、ReceiptObservationIT2、OutboundHttpIT1、InventoryProjectionIT2、CompatibilityMatrixIT2及全部模块单元测试。必需测试门禁37项通过。首次OpenAPI新参数缩进错误已被契约测试拦截，改用参数引用后完整重跑通过；远程组合CI仍待全部批次集成。
+
+## R24 容量执行器
+
+已将签署输入校验后的空成功路径替换为真实有界HTTP负载与最终不变量断言，记录客户端p95/p99、请求CSV和输入摘要；429、业务断言失败、生成器饱和或缺必要输入均非成功退出。只接受显式隔离目标，不跟随重定向、不记录令牌，参数和边界见容量设计第10节。执行器2项专属HTTP夹具测试通过并加入CI；这不是实际WMS容量达标。签署输入/隔离负载环境仍未提供，S9-01/AC-27保持未验收。R24要求的正式事务装配证据由R01 ProductionTransactionsIT覆盖，组合CI尚待最终执行。

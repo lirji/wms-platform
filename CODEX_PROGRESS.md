@@ -100,3 +100,5 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 第三批正在独立提交。下一批已有**未验证交付的工作树改动**：scripts/run-capacity.sh、scripts/capacity-runner.py、scripts/tests/test_capacity_runner.py（R24执行器），不能混入第三批提交。执行器专属HTTP夹具2项通过，未对WMS做签署容量压测。
 - R13消息运行闭环、R14真实TM/TC/序列号、R15实际恢复任务、R21就绪观测仍待实施；R24要补输入/运行说明及CI；最后R22 UTC、R23操作人。现有出库证据夹具不是R14完成。入库putaway当前仍SYSTEM/先加量后协议，R23时一起校正幂等。
 - 全部整改之后才完整default/warehouse-it/tc-it/failure-it、CI、正常合并推main。目前ee255e0/967ad0d均未push，不停在第三批。
+
+- 21:51：第三批已提交 `9d32f8d`（41文件），契约复现/文档检查通过。工作树仅第四批R24执行器/CI/说明改动；Python测试2项通过，不是WMS容量实测。三个任务提交尚未推送。

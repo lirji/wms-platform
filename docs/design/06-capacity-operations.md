@@ -107,3 +107,25 @@ ES 首期不部署。若后续多条件检索证明关系库投影不足，使�
 ## 9. Seata运行预算
 
 新增TC高可用、持久化会话、事务分组映射与RM注册/认证；不是复用XXL调度库。跨仓Try与Confirm/Cancel各自计入库存数据库和Fence写入负载，监控TC重试、TRIED占用年龄和成功屏障延迟。迁移必须排空TCC，恢复需TC会话/各库存Fence/业务映射联合核对。版本锁和故障验证见09。
+
+## 10. 容量执行器输入与结果边界（R24）
+
+`run-capacity.sh --scenario agreed-peak` 现调用真正的有界 HTTP 执行器。缺输入、无最终业务断言、非隔离环境或超预算以非零退出，不能仅打印“输入接受”算通过。只运行 `correctness` 仍是库存并发正确性测试，不证明签署峰值。
+
+执行前由签署人提供 JSON 文件，并设置 `WMS_CAPACITY_INPUT`；令牌只通过 `WMS_CAPACITY_TOKEN` 环境变量传入。`WMS_CAPACITY_OUTPUT` 指定新的报告目录，默认 `.local/capacity/<UTC时间>`；已存在目录不会覆盖。签署字段是责任记录，执行器不验证电子签名。
+
+| 输入 | 必须约定的内容 |
+| --- | --- |
+| signedBy / signedAt / scenario | 签署人、ISO时间、`agreed-peak` |
+| D / L / P | 本文容量模型的正数输入，不从合成示例补值 |
+| environment / targetUrl | `isolated` 与获授权隔离环境的服务地址；基础地址不含凭据 |
+| load.durationSeconds / ratePerSecond / concurrency / timeoutSeconds | 测量时长、独立签署的HTTP到达率、有界并发和单请求超时；不把订单峰值直接当作库存HTTP率 |
+| load.maxClientP99Ms / maxErrorRate | 客户端端到端p99与错误比例通过条件，不能替代服务端p99目标 |
+| load.requests | 相对WMS路径、GET/POST、expectedStatuses、可选body/equals；顺序循环可重复条目表示请求权重 |
+| invariantChecks | 最终只读请求及非空equals断言；检查真实服务端数据中的负库存、重复过账等约定不变量 |
+
+`body`/`path` 中的 `{{commandId}}` 在每次负载请求中替换为唯一身份，同时写入 Idempotency-Key；固定业务身份适用于明确的重放场景，不能用同一请求无限重放冒充新增写入吞吐。`equals` 的键用点分路径读取响应字段，与期望JSON值比较；HTTP状态正确仍须满足业务断言。异步写入场景需提供能覆盖已提交效果的最终检查，不可仅检查202；当前执行器不替操作者推断等待时间或跨服务完成水位。
+
+单次最多256并发、100万请求、7200秒、单请求60秒、1MiB响应；不跟随HTTP重定向，不把令牌或请求正文写入报告。到达时工作线程全部占用则记录负载生成器拒绝并判失败，不无限排队以掩盖吞吐不足。报告提供完成数、错误、生成器拒绝、客户端p95/p99、实际速率、逐请求CSV、最终断言、代码提交和输入摘要。0仅表示本次已签署HTTP场景的配置断言通过；还需关联数据库锁等待、池/CPU/I/O、消息积压、投影延迟和真实业务数据验收。
+
+执行器测试使用专属进程内HTTP服务，验证实际发请求、429失败与最终不变量失败；此测试不是 WMS 容量证据。目前仍缺签署容量输入和获授权负载环境，S9-01/AC-27 保持未验收。
