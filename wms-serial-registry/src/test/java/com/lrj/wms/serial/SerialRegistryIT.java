@@ -64,18 +64,31 @@ class SerialRegistryIT {
         Thread b = new Thread(() -> claim("WH-B", "OP-B", clock, start, done, won, lost));
         a.start();
         b.start();
-        done.await();
+        assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS), "并发认领应在预算内完成");
         assertEquals(1, won.get());
         assertEquals(1, lost.get());
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM serial_registry WHERE enterprise_id='ENT-1' AND sku_id='SKU-S' "
                         + "AND normalized_serial='SN-1'", Integer.class));
+        // 获胜仓取决于真实并发调度；重放必须使用同一仓与原操作，不能假定A仓获胜。
+        Map<String, Object> winner = jdbc.queryForMap(
+                "SELECT owner_warehouse_id, claim_operation_id FROM serial_registry WHERE normalized_serial='SN-1'");
+        String winningWarehouse = String.valueOf(winner.get("owner_warehouse_id"));
+        String winningOperation = String.valueOf(winner.get("claim_operation_id"));
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> replay = new SerialRegistryService(session, clock).claim("ENT-1", "SKU-S", " sn-1 ",
-                    "WH-A", jdbc.queryForObject("SELECT claim_operation_id FROM serial_registry WHERE normalized_serial='SN-1'",
-                            String.class));
+                    winningWarehouse, winningOperation);
             assertEquals("CLAIMED", replay.get("state"));
+            assertEquals(winningWarehouse, replay.get("ownerWarehouseId"));
             session.commit();
+        }
+        // 另一仓即使知道获胜操作号，也不能借幂等重放绕过登记归属校验。
+        String losingWarehouse = "WH-A".equals(winningWarehouse) ? "WH-B" : "WH-A";
+        try (SqlSession session = sessions.openSession(false)) {
+            var denied = assertThrows(SerialRegistryException.class,
+                    () -> new SerialRegistryService(session, clock).claim("ENT-1", "SKU-S", "SN-1",
+                            losingWarehouse, winningOperation));
+            assertEquals("SERIAL_OWNER_MISMATCH", denied.code());
         }
         assertEquals(SerialRegistryService.routeBucket("ENT-1", "SKU-S", "SN-1"),
                 jdbc.queryForObject("SELECT route_bucket FROM serial_registry WHERE normalized_serial='SN-1'", Integer.class));

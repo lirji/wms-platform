@@ -149,3 +149,12 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 SerialRegistryHttpIT 与 SerialRegistryActivateIT 最新定向回归通过（2026-09-12 23:35，BUILD SUCCESS）：真实 MySQL、RSA JWT/JWKS、HTTP 权限边界、跨企业拒绝、重放和审计失败回滚。一次 Ryuk 连接失败发生在业务测试前；保留自动清理机制后重跑通过。TP99 unverified。
 
 部署配置新增 WMS_SERIAL_DB_PASSWORD、WMS_SERIAL_ALLOWED_SUBJECTS；后者必须匹配真实服务账户，空值会阻止登记数据库启用。30-serial-registry.sh 仅用于新数据卷初始化；既有卷需单独初始化登记库和授权，不能通过重建卷处理。当前只提交配置，未启动或部署服务。库存 HTTP 适配、序列号转移恢复和真实 TM/TC 接线尚未完成，R14 保持进行中。
+
+
+## 2026-09-13 阶段发布验证
+
+用户要求先发布当前整改分支，R13/R14/R15/R22 保持进行中。固定提交 7e258d0 在独立工作树 .local/backend-remediation-integrate 的完整默认 verify 于 00:12:57 BUILD SUCCESS：99 个测试类、200 个用例，失败/错误/跳过均为 0，耗时 17:29；必需集成用例门禁 55 项通过。四个实际 Jar 的独立进程 smoke（存活、未配置依赖不就绪、业务入口默认拒绝）通过；控制台类型检查、33 项测试及构建、Python 4 项测试、文档/契约/Compose 静态检查通过。原主目录回归因 23:50 外部切换到旧 main，编译类与文件迁移混版，已终止，不用于验收。
+
+远程分支运行 [34703330446](https://github.com/lirji/wms-platform/actions/runs/34703330446) 控制台成功，Java 在 SerialRegistryIT 暴露旧测试固定用 WH-A 重放的调度假设。测试现从数据库取实际获胜仓和操作号，增加另一仓借同操作号重放必须 SERIAL_OWNER_MISMATCH 的断言，并限制并发等待 10 秒；未放宽领域校验。修正后 SerialRegistryIT 及依赖模块单元测试于 00:13:38 BUILD SUCCESS（/tmp/wms-serial-race-publish-it.log）。
+
+本次发布范围为 14 个整改提交及上述测试修正；目标为 origin/main。新提交远程 CI 与 warehouse-it/tc-it/failure-it 组合结果仍需核验，默认回归通过不能替代这些结果；没有生产部署，也不是 24 项或 50 AC 完整验收。
