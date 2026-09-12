@@ -103,6 +103,7 @@ public final class JobRunService {
         body.put("claimEpoch", after.get("claim_epoch"));
         body.put("fenceToken", after.get("fence_token"));
         body.put("leaseUntil", after.get("lease_until"));
+        body.put("cursorKey", after.get("cursor_key"));
         return body;
     }
 
