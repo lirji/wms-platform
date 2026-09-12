@@ -81,6 +81,28 @@ class StockCommandIT {
     }
 
     @Test
+    void sameExternalKeyPostsIndependentlyInEachWarehouse() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        try (SqlSession session = sessions.openSession(false)) {
+            var masterdata = new MasterdataService(session, clock);
+            for (String warehouse : java.util.List.of("WH-KEY-A", "WH-KEY-B")) {
+                masterdata.createWarehouse(warehouse, "ENT-1", warehouse, warehouse, "Asia/Shanghai");
+                masterdata.createLocation("LOC-" + warehouse, "GATE-" + warehouse, "ENT-1", warehouse,
+                        "KEY-01", "A", "STORAGE", new BigDecimal("100"), "EA");
+                var bucket = StockBucketKey.of("ENT-1", warehouse, "OWNER-1", "LOC-" + warehouse, "SKU-KEY",
+                        MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_GOOD);
+                var result = new StockCommandService(session, clock).applyReceive("ENT-1", warehouse,
+                        StockCommandCodes.SOURCE_INBOUND, "SHARED-STOCK-KEY", "RECEIPT", "PART", "LINE", "DOC",
+                        "ACTOR", "EXEC", bucket, Quantity.parse("3", 0));
+                assertEquals("APPLIED", result.get("state"));
+            }
+            session.commit();
+        }
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM stock_command WHERE command_id='SHARED-STOCK-KEY'", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='SHARED-STOCK-KEY'", Integer.class));
+    }
+
+    @Test
     void applyReplayCancelTombstoneAndRejectLateApply() {
         StockBucketKey bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", "SKU-CMD", MasterdataCodes.NO_LOT,
                 InventoryCodes.QUALITY_GOOD);

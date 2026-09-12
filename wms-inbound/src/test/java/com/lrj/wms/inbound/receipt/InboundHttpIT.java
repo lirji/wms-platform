@@ -120,6 +120,9 @@ class InboundHttpIT {
         assertEquals(409, completedClaim.statusCode());
         try (Connection connection = DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(),
                 MYSQL.getPassword()); Statement statement = connection.createStatement()) {
+            try (var actor = statement.executeQuery("SELECT actor_id FROM source_execution WHERE command_id='CMD-P1'")) {
+                assertTrue(actor.next()); assertEquals("wms-wh-a", actor.getString(1));
+            }
             statement.executeUpdate("INSERT INTO inbound_task (id, enterprise_id, warehouse_id, task_type, document_id, "
                     + "document_line_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, version, created_at, "
                     + "updated_at) VALUES ('TASK-READY-1', 'ENT-1', 'WH-A', 'PUTAWAY', 'KEY-ASN-1', 'LINE-1', 4, 0, "

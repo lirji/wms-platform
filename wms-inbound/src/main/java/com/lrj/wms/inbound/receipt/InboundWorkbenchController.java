@@ -169,7 +169,7 @@ public class InboundWorkbenchController {
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.inboundOrderId(), body.lineId(),
                     taskId, firstNonBlank(body.locationId(), body.targetLocationId()),
                     firstNonBlank(body.locationType(), InboundReceiptService.LOCATION_STORAGE),
-                    qty(body.qty()));
+                    qty(body.qty()), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
             result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, body.inboundOrderId(), result, "PUTAWAY"));

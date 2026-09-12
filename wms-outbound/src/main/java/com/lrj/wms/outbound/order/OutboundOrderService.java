@@ -179,10 +179,16 @@ public final class OutboundOrderService {
     /** T3：仅新 inbox 增加 picked_posted。 */
     public Map<String, Object> consumePick(String enterpriseId, String warehouseId, String lineId, String eventId,
             String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        new SourceProtocolService(session, clock).requireResultFact(enterpriseId, warehouseId, commandId, "PICK", lineId);
+        if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+        }
         Map<String, Object> result = new SourceProtocolService(session, clock).consumeResult(enterpriseId, warehouseId,
                 eventId, commandId, resultState, postingId, postedQty);
         if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)) {
-            mapper().addPickedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED", now());
+            if (mapper().addPickedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED", now()) != 1) {
+                throw new OutboundException("VERSION_CONFLICT", "拣货回执累计与实物数量不一致");
+            }
         }
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
         return result;
@@ -257,6 +263,10 @@ public final class OutboundOrderService {
     /** T3：仅新 inbox 增加 shipped_posted。 */
     public Map<String, Object> consumeShip(String enterpriseId, String warehouseId, String lineId, String eventId,
             String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        new SourceProtocolService(session, clock).requireResultFact(enterpriseId, warehouseId, commandId, "SHIP", lineId);
+        if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+        }
         Map<String, Object> result = new SourceProtocolService(session, clock).consumeResult(enterpriseId, warehouseId,
                 eventId, commandId, resultState, postingId, postedQty);
         if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)) {

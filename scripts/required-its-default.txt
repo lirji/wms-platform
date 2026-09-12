@@ -58,3 +58,10 @@ com.lrj.wms.runtime.observability.RequestCorrelationTest#bindsAndRestoresContext
 
 # R15：实际调度入口必须处理后续分页，不能只打印日志。
 com.lrj.wms.inventory.jobs.ExpiryEligibilityIT#actualHandlerCommitsBoundedPagesAndDoesNotStarveLaterLots
+
+# R13 真实消息与本库事务恢复；不是完整收发主链的替代证据。
+com.lrj.wms.runtime.messaging.RuntimeInboxIT#businessEffectAndCompletionCommitTogetherAndConflictsAreIsolated
+com.lrj.wms.runtime.messaging.KafkaMessagingIT#retriesFailedPersistenceAndCommitsOnlyDurableInbox
+com.lrj.wms.inventory.InventoryMessagingIT#committedInventoryAutomaticallyReachesProjectionWithOriginalTimestamp
+com.lrj.wms.inventory.inventory.StockCommandIT#sameExternalKeyPostsIndependentlyInEachWarehouse
+com.lrj.wms.inbound.receipt.InboundReceiptIT#receiveInspectPutawayTotalsAndRejectOverReceive

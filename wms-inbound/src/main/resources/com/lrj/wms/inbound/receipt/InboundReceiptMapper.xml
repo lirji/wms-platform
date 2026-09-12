@@ -197,4 +197,8 @@
         AND document_id=#{orderId}
         ORDER BY created_at
     </select>
+    <select id="lockPutawayTask" resultType="map">
+        SELECT document_id, document_line_id, task_type, target_location_id, planned_qty, completed_qty, state, assignee_id
+        FROM inbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{taskId} FOR UPDATE
+    </select>
 </mapper>

@@ -5,7 +5,7 @@
     <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertIgnore">
         INSERT IGNORE INTO stock_command (id, enterprise_id, warehouse_id, source_service, command_id, action, business_effect_key, execution_attempt_id, attempt_no, previous_command_id, payload_digest, digest_version, state, settlement_digest, result_json, compensates_command_id, safe_close_id, safe_close_version, safe_close_evidence, version, created_at, updated_at)
-        VALUES (#{commandId}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{action}, #{effectId}, #{attemptId}, #{attemptNo}, #{previousCommandId}, #{digest}, #{digestVersion}, #{state}, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
+        VALUES (UUID(), #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{action}, #{effectId}, #{attemptId}, #{attemptNo}, #{previousCommandId}, #{digest}, #{digestVersion}, #{state}, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
     </insert>
 
     <!-- lockByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->

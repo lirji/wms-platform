@@ -7,6 +7,10 @@ import org.apache.ibatis.annotations.Param;
 
 /** 入库来源协议表。必须带企业/仓条件。 */
 public interface SourceMapper {
+    /** 回执绑定来源事实，禁止消息任意指定另一业务行。身份字段创建后不可修改。 */
+    Map<String, Object> commandFact(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("commandId") String commandId);
+
     /** insertEffect：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertEffect(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,
@@ -93,4 +97,7 @@ public interface SourceMapper {
     int updateEffectApplied(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("effectId") String effectId, @Param("commandId") String commandId, @Param("state") String state,
             @Param("now") Timestamp now);
+    /** 回执在效果锁之后锁命令，跨不同eventId只允许一次终态生效。 */
+    Map<String, Object> lockCommand(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("commandId") String commandId);
 }

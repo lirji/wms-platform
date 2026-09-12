@@ -123,3 +123,38 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - `KafkaMessagingIT`真实专属apache/kafka:3.8.0+mysql:8.4.11通过：第一次接收模拟提交前断连，重投后写库，重复消息唯一行，停止consumer。完整日志 `/tmp/wms-messaging-base-it.log` BUILD SUCCESS。查过Kafka3.8官方producer_config/consumer_config（https://kafka.apache.org/38/generated/producer_config.html 和 consumer_config.html），后续文档引用这些配置依据。
 - 下一步R13必须先补版本化业务上下文并接线：建议共享纯基础设施Inbox Mapper/worker（每服务本库，先durable入箱再ack，后台重试/隔离），service-specific应用适配；源码现有来源payload只有qty/key不能直接过账。入库RECEIVE按设计02-domain第4节必须先HOLD；质检移HOLD→GOOD并成对流水，不能给缺批次/库位的旧命令猜GOOD/DEFAULT桶。QualityQualificationService目前只记录资格，不实际搬质量桶，需一起补；StockCommandService只有Receive/Pick/Ship，Putaway须接move+posting同事务。库存原OutboxRecord缺事件时刻/桶身份，要从已提交outbox created_at与不可变余额维度补，不能以发送时刻伪造asOf。
 - R14真实TM/TC/serial服务、R15余下任务、R22旧数据UTC兼容、R23putawayactor与重放仍待。任务全部完成后再全profile/CI及普通合并pushmain。保持OQ03/真实设备/签署容量边界。
+
+## 最新检查点 2026-09-12 22:20（R13仍在实施）
+
+- R15三个实际handler已独立提交 `bab3e7b`；当前共6个本地任务提交，均未push。R15余下serial/reconcile/count/archive仍明确失败等待接线，未完成。
+- 当前工作树**R13消息基础+库存投影实际链路，未提交**。新增runtime/messaging：KafkaSettings（隐藏JAAS）、KafkaMessagePublisher（真实confirm）、KafkaInboxConsumer（durable receiver后offset；重连/关闭有界）、RuntimeMessage（严格版本/范围/原时刻/规范化内容摘要）、RuntimeInbox（本库claim epoch/retry8次/毒消息隔离）、MessageWorker（单线程固定延迟）、KafkaDependencyHealth（真实broker请求5秒缓存）；RuntimeDependencyCheck接入已有wmsReadiness。
+- RuntimeInbox的Mapper XML在wms-runtime/src/main/resources/com/lrj/wms/runtime/messaging/persistence；四服务Persistence已注册。四库追加同表DDL：inventoryV024、inboundV008、outboundV010、fulfillmentV009。runtime增加MyBatis与Kafka运行依赖、TC Kafka test。**共享Mapper仅操作各自物理库的通用Inbox，不跨服务业务表**。
+- RuntimeInbox.persist严格校验Topic→source来源、event身份内容；同事件不同payload隔离，格式错误隔离；原始offset唯一。worker领取后本库事务内应用业务+回执Outbox+DONE。首次RuntimeInboxIT暴露“回调直接JDBC写入、MyBatis dirty=false时close会重置autoCommit而误提交”的问题，已显式session.rollback(true)/commit(true)。`/tmp/wms-durable-inbox-it.log`重跑BUILD SUCCESS（真实迁移/Mapper、业务效果回滚、恢复、重复/篡改/畸形隔离），不是仅Mock。
+- 库存新增 `messaging/InventoryMessagingConfiguration`、`InventoryEventTransport`：wms.messaging.enabled=true时实际Outbox worker→Kafka topic `<prefix>.inventory.events`→本库runtime inbox→InventoryProjectionService。默认false仍未启用来源链路。不要在配置类加ConditionalOnBean（可能解析早于Persistence）；已去掉，启用却无DB直接装配失败。当前consumer只处理InventoryBalanceChanged，已知ReservationConfirmed对投影无作用；其他事件隔离。
+- OutboxRecord新增occurredAt，Mapper取原created_at；传输补不可变bucket owner/location/sku/lot/quality，查库后释放锁再发送。ledger Outbox payload已改JSON库序列化并在原事务固定requestId，历史无requestId用eventId稳定关联，重发不生成新内容。OutboxPublisher遇线程中断停止剩余批次，未处理领取等待租约恢复。
+- KafkaDependencyHealth参与wmsReadiness：真实Admin describeCluster超时1s，5秒缓存，检查消费者已加入组及两个worker状态；无分区正常副本以memberId判断已加入组。DB连接检查完成关闭连接后才检查MQ，不在网络探针时占DB连接。
+- **真实生产Bean装配 InventoryMessagingIT 已通过**：权威库存写7+2→Outbox→真实Kafka→durableInbox→projection9，原asOf不改成发送时间；随后暂停专属broker，落库1单位Outbox不标PUBLISHED，readiness变DOWN；解除暂停自动追到10且ledger仅3条。`/tmp/wms-mq-recovery-it.log` BUILD SUCCESS，OutboxPublisherIT/OutboxCrashRecoveryIT也通过。非inbound→inventory闭环，R13整体还没完成。
+- 依赖安全核查发现旧kafka-clients3.8.0**仅test scope**如今不能直接进运行：官方CVE-2026-35554（buffer race误投Topic）/33558（DEBUG泄漏），修复3.9.2。已向用户说明并把root kafka.version改3.9.2，broker保持apache/kafka:3.8.0，不改共享组件；VERSION_LOCK记录官方公告 https://kafka.apache.org/community/cve-list/ 与兼容文档。需要更新SBOM/OSV/许可证，不能把旧3.8测试结果冒充新客户端通过。
+- **当前唯一Maven：session64648，日志 `/tmp/wms-kafka392-it.log`**，选择KafkaMessagingIT,RuntimeInboxIT,InventoryMessagingIT,OutboxPublisherIT,OutboxCrashRecoveryIT，全单元随跑。不要并发Maven。
+- 下一步继续R13来源上下文/过账/回执：新T1信封必须持久化owner/sku/库位/lot/质量/原动作身份/actor/执行id/数量/单位；旧minimal payload不可猜桶。入库按已批准设计先HOLD，质量事件移HOLD→GOOD/REJECTED，现有QualityQualificationService只写资格没搬桶。Putaway须move+posting+回执同事务。SourceProtocol.consumeResult还需终态CAS保证不同回执eventId不重复增加posted。出库Pick/Ship需权威allocation/attempt与源/暂存桶。入出库service适配器、source_outbox真正publisher和结果consumer尚无；fulfillment/serial/R14真实TM/TC还没接。
+- 还须配置compose/.env中的Kafka/topic/ACL、安全/保留/恢复说明、可靠回执和隔离重放入口、消息指标；SBOM；R15余下任务；最后R22 UTC兼容既有数据、R23putaway actor/重放。当前实现不可宣称全部24项/50AC完成。完成后全profiles、CI、普通合并pushmain，不等待“继续”。
+
+
+## 最新检查点 2026-09-12 22:34
+
+- 仍在 fix/backend-review-remediation，6个已提交任务提交尚未push。本次工作树R13基础/库存投影+来源回执硬化+R23提前修复均未提交；无用户无关改动。
+- Kafka3.9.2新客户端 `/tmp/wms-kafka392-it.log` 已 BUILD SUCCESS：真实KafkaInbox/RuntimeInbox/InventoryMessaging（暂停broker恢复）/OutboxPublisher/OutboxCrashRecovery。不要再写“新客户端回归中”。VERSION_LOCK已更新。SBOM仍待重新生成；既有Tomcat/fastjson漏洞不隐瞒。
+- V025删除stock_command全局外部key主键CHECK，技术UUID替代，新增StockCommandIT两仓同key独立posting/ledger测试已通过。
+- 两来源SourceMapper.commandFact核验动作+事实行，T3用例先锁业务行再效果；consumeResult检查APPLIED原数量/凭证/active_command，不同eventId终态重放consumed=false，旧尝试迟到永久拒绝。updateEffectApplied只有APPLIED设置applied_command_id，非APPLIED数量必须0。SAFE_CLOSED但尚未换新attempt的迟到APPLIED是否拒绝仍需复核。
+- R23因消息原始身份依赖提前处理：putaway签名末尾新增commandId/actorId，HTTP传Idempotency-Key+JWT subject，所有内部test显式actor。新增ReceiptMapper.lockPutawayTask，先校验task/document/line/target/qty再恢复重放，只有首次命令增加实物；已有PLANNED任务可完成，已完成/取消/已部分完成或别人的任务拒绝新命令。满额重放/换键复用/换target冲突/保留原actor真实库已验证。
+- `/tmp/wms-callback-putaway-it.log` BUILD SUCCESS：InboundProtocol2、OutboundProtocol2、InboundReceipt4、StockCommand2、OutboundPick5、InboundHttp1、OutboxPublisher1、OutboxCrashRecovery1及全部单元。此前两次失败只是修改期间编译资源版本错配、测试仍按旧TASK-P1命令键统计；已修复再跑成功，后续Maven运行期间不要修改Java/XML。
+- 最新只增加 RuntimeMessage.parse 拒绝数字requestId和RuntimeMessageTest，以及InboundHttpIT直接查actor_id必须JWT subject。**唯一正在Maven session50409 `/tmp/wms-actor-http-it.log`**（InboundHttpIT+所有单元）。不要并发Maven；通过后 `scripts/generate-sbom.sh` 更新新增运行Kafka依赖/许可证/OSV。
+- Compose库存专属消息开关defaultfalse、topicPrefix/env已补；本项目kafka-init创建inventory.events（开发一分区一副本7天/256MiB上限），旧outboxtopics未删除。文档新 docs/implementation/MESSAGING_RUNTIME.md 明确范围/ACL/恢复与待办；check-docs/verify-contracts通过。尚未运行compose栈、不触共享组件。
+- scripts/required-its-default.txt新增消息3tests/StockCommand跨仓/R23主流程；检查时旧reports可能尚在，最终必须完整run。OutboxPublisher.finish返回CAS成功才计published，失去epoch不虚报。
+- 下一步先等待actorHTTP，SBOM，复核后拆分提交消息基础与来源回执/上架逻辑。随后继续R13完整来源命令上下文/发送/库存T2/结果Outbox/T3，不能停在基础闭环。source_outbox仍minimal qty payload，无可靠publisher；receive请求缺显式location/lot，按设计RECEIVE必须HOLD，质量资格目前没有实际HOLD转GOOD；StockCommandService无Putaway。
+- 余项R14真实TM/TC/serial、R15serial/reconcile/count/archive（3handler已提交其余仍fail）、R21异步积压指标、R22UTC与旧DATETIME兼容、全profiles/CI/main合并推送。OQ03/真实WCS/签署容量与50AC未具备，不虚构验收。
+
+- 22:38更新：actorHTTP+RuntimeMessage严格requestId单测已通过。首次SBOM发现新运行lz4-java1.10.1命中GHSA-xx22-p4ch-683r，依据维护者公告锁1.11.1；`/tmp/wms-lz4-it.log`真实LZ4压缩消息+Inbox回滚测试通过，再生SBOM172组件/162purl/304许可证，OSV只剩既有Tomcat/fastjson2组件命中。
+- 最后复核补充：两来源SAFE_CLOSED但未换新尝试时也拒绝APPLIED回执；T3 Received/Putaway/Pick累计检查影响行数，失败不能把命令当APPLIED。正在唯一Maven session（见最新tool）`/tmp/wms-source-callback-final-it.log`：InboundProtocolIT,OutboundProtocolIT,InboundReceiptIT,OutboundPickIT。通过后拆分提交消息基础与来源回执/上架。不要并发Maven或在本次编译期间修改Java/XML。
+
+- 22:39：消息基础已提交 `8e013c2`（42文件），仅库存投影链路。最后来源回执保护 `/tmp/wms-source-callback-final-it.log` BUILD SUCCESS（InboundProtocol2/OutboundProtocol2/InboundReceipt4/OutboundPick5+全部单元）；required 46项结构门禁通过，仍需最终组合全跑。当前无Maven。正在提交来源回执与R23及库存命令跨仓身份，随后继续R13主链。

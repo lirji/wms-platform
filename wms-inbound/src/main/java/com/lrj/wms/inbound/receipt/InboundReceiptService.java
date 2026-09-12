@@ -206,11 +206,17 @@ public final class InboundReceiptService {
     /** T3：仅新 inbox 增加 received_posted。 */
     public Map<String, Object> consumeReceive(String enterpriseId, String warehouseId, String lineId, String eventId,
             String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        new SourceProtocolService(session, clock).requireResultFact(enterpriseId, warehouseId, commandId, "RECEIVE", lineId);
+        if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+        }
         Map<String, Object> result = new SourceProtocolService(session, clock).consumeResult(enterpriseId, warehouseId,
                 eventId, commandId, resultState, postingId, postedQty);
         if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)) {
-            mapper().addReceivedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED",
-                    Timestamp.from(clock.instant()));
+            if (mapper().addReceivedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED",
+                    Timestamp.from(clock.instant())) != 1) {
+                throw new InboundException("VERSION_CONFLICT", "回执累计与实物数量不一致");
+            }
         }
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
         return result;
@@ -247,7 +253,10 @@ public final class InboundReceiptService {
 
     /** 上架实物：不超过已收未上架且质检合格量；目标必须是存储位。 */
     public Map<String, Object> putaway(String enterpriseId, String warehouseId, String orderId, String lineId,
-            String taskId, String targetLocationId, String targetLocationType, BigDecimal qty) {
+            String taskId, String targetLocationId, String targetLocationType, BigDecimal qty, String commandId, String actorId) {
+        requireIdentity("操作人", actorId);
+        requireIdentity("命令", commandId);
+        if (qty == null || qty.signum() <= 0) throw new InboundException("INVALID_QTY", "上架数量必须为正");
         if (targetLocationId == null || targetLocationId.isBlank()) {
             throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架库位不能为空");
         }
@@ -258,6 +267,27 @@ public final class InboundReceiptService {
         InboundReceiptMapper mapper = mapper();
         Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
         requireLineOrder(line, orderId);
+        var protocol = new SourceProtocolService(session, clock);
+        var task = mapper.lockPutawayTask(enterpriseId, warehouseId, taskId);
+        if (task != null && (!orderId.equals(task.get("document_id")) || !lineId.equals(task.get("document_line_id"))
+                || !targetLocationId.equals(task.get("target_location_id")) || !"PUTAWAY".equals(task.get("task_type"))
+                || qty.compareTo(decimal(task.get("planned_qty"))) != 0)) {
+            throw new com.lrj.wms.runtime.command.CommandConflictException();
+        }
+        var replay = protocol.replayIfPresent(SourceProtocolService.ACTION_PUTAWAY, "SUB_ACTION",
+                enterpriseId, warehouseId, commandId, orderId, taskId, lineId, qty);
+        if (replay != null) {
+            if (task == null) throw new InboundException("TASK_MISSING", "历史上架命令缺少对应任务");
+            replay.put("taskId", taskId); replay.put("lineId", lineId);
+            return replay;
+        }
+        if (task != null && ("COMPLETED".equals(task.get("state")) || "CANCELLED".equals(task.get("state"))
+                || decimal(task.get("completed_qty")).signum() != 0)) {
+            throw new InboundException("INVALID_TASK_STATE", "任务不能重复执行");
+        }
+        if (task != null && task.get("assignee_id") != null && !actorId.equals(task.get("assignee_id"))) {
+            throw new InboundException("TASK_ASSIGNEE_MISMATCH", "任务已由其他操作人领取");
+        }
         Map<String, Object> inspection = mapper.latestInspection(enterpriseId, warehouseId, lineId);
         if (inspection == null) {
             throw new InboundException("QC_REQUIRED", "上架前必须完成质检");
@@ -274,12 +304,19 @@ public final class InboundReceiptService {
         if (qty.compareTo(remain) > 0) {
             throw new InboundException("OVER_PUTAWAY", "上架超过已收未上架量");
         }
-        mapper().addPutawayPhysical(enterpriseId, warehouseId, lineId, qty, now);
-        mapper().insertTask(taskId, enterpriseId, warehouseId, "PUTAWAY", orderId, lineId, null, targetLocationId, qty,
-                "STARTED", now);
-        mapper().addTaskCompleted(enterpriseId, warehouseId, taskId, qty, "COMPLETED", now);
-        Map<String, Object> command = new SourceProtocolService(session, clock).submitPutaway(enterpriseId, warehouseId,
-                taskId, orderId, taskId, lineId, "SYSTEM", qty);
+        // 先确定来源命令是否首发；只有首发才累加实物。全部写入在调用方同一个本库事务。
+        Map<String, Object> command = protocol.submitPutaway(enterpriseId, warehouseId,
+                commandId, orderId, taskId, lineId, actorId, qty);
+        if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if (mapper.addPutawayPhysical(enterpriseId, warehouseId, lineId, qty, now) != 1) {
+                throw new InboundException("VERSION_CONFLICT", "上架行更新冲突");
+            }
+            if (task == null) mapper.insertTask(taskId, enterpriseId, warehouseId, "PUTAWAY", orderId, lineId, null,
+                    targetLocationId, qty, "STARTED", now);
+            if (mapper.addTaskCompleted(enterpriseId, warehouseId, taskId, qty, "COMPLETED", now) != 1) {
+                throw new InboundException("VERSION_CONFLICT", "上架任务更新冲突");
+            }
+        }
         command.put("taskId", taskId);
         command.put("lineId", lineId);
         return command;
@@ -288,11 +325,17 @@ public final class InboundReceiptService {
     /** T3：仅新 inbox 增加 putaway_posted。 */
     public Map<String, Object> consumePutaway(String enterpriseId, String warehouseId, String lineId, String eventId,
             String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        new SourceProtocolService(session, clock).requireResultFact(enterpriseId, warehouseId, commandId, "PUTAWAY", lineId);
+        if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+        }
         Map<String, Object> result = new SourceProtocolService(session, clock).consumeResult(enterpriseId, warehouseId,
                 eventId, commandId, resultState, postingId, postedQty);
         if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)) {
-            mapper().addPutawayPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED",
-                    Timestamp.from(clock.instant()));
+            if (mapper().addPutawayPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED",
+                    Timestamp.from(clock.instant())) != 1) {
+                throw new InboundException("VERSION_CONFLICT", "回执累计与实物数量不一致");
+            }
         }
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
         return result;

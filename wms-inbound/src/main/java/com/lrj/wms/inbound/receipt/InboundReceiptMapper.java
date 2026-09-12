@@ -8,6 +8,10 @@ import org.apache.ibatis.annotations.Param;
 
 /** 入库单/行/质检/任务。必须带企业/仓条件。 */
 public interface InboundReceiptMapper {
+    /** 上架任务维度和已完成量必须锁定，重放不能更改目标库位或原数量。 */
+    Map<String, Object> lockPutawayTask(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("taskId") String taskId);
+
     /** insertOrder：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertOrder(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("externalSource") String externalSource,

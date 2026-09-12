@@ -179,7 +179,15 @@ public final class SourceProtocolService {
         return body;
     }
 
-    /** T3：inbox + 过账累计。同 eventId 重放不二次加 posted。 */
+    /** 先核验不可变命令事实，再由用例锁业务行；T1/T3都遵循业务行→效果的锁顺序。 */
+    public void requireResultFact(String enterpriseId, String warehouseId, String commandId, String action, String lineId) {
+        var fact = session.getMapper(SourceMapper.class).commandFact(enterpriseId, warehouseId, commandId);
+        if (fact == null || !action.equals(fact.get("action")) || !lineId.equals(fact.get("fact_line_id"))) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISMATCH");
+        }
+    }
+
+    /** T3：命令终态和事件身份共同去重，业务用例与回执状态在同一事务提交。 */
     public Map<String, Object> consumeResult(String enterpriseId, String warehouseId, String eventId, String commandId,
             String resultState, String postingId, BigDecimal postedQty) {
         Timestamp now = Timestamp.from(clock.instant());
@@ -188,8 +196,33 @@ public final class SourceProtocolService {
         if (command == null) {
             throw new IllegalStateException("来源命令不存在");
         }
+        if (!java.util.Set.of("APPLIED", "REJECTED", "CANCELLED", "UNKNOWN").contains(resultState)
+                || postedQty == null || postedQty.signum() < 0 || !"APPLIED".equals(resultState) && postedQty.signum() != 0) {
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("INVALID_COMMAND_RESULT");
+        }
+        Map<String, Object> effect = mapper.lockEffect(enterpriseId, warehouseId, String.valueOf(command.get("business_effect_key")));
+        command = mapper.lockCommand(enterpriseId, warehouseId, commandId);
+        if ("APPLIED".equals(resultState)) {
+            if (postingId == null || postingId.isBlank()
+                    || com.lrj.wms.runtime.command.CommandReplay.quantity(command).compareTo(postedQty) != 0) {
+                throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_QUANTITY_MISMATCH");
+            }
+            if (command.get("safe_close_id") != null || !commandId.equals(String.valueOf(effect.get("active_command_id")))) {
+                throw new com.lrj.wms.runtime.messaging.MessageRejectedException("STALE_EXECUTION_ATTEMPT");
+            }
+        }
+        if (java.util.Set.of("APPLIED", "REJECTED", "CANCELLED").contains(String.valueOf(command.get("state")))) {
+            if (!resultState.equals(command.get("state")) || !java.util.Objects.equals(postingId, command.get("posting_id"))) {
+                throw new com.lrj.wms.runtime.messaging.MessageRejectedException("CONFLICTING_COMMAND_RESULT");
+            }
+            Map<String, Object> replay = view(command, String.valueOf(command.get("business_effect_key")));
+            replay.put("consumed", false);
+            return replay;
+        }
+        var resultPayload = new java.util.LinkedHashMap<String, Object>();
+        resultPayload.put("state", resultState); resultPayload.put("postingId", postingId);
         int inserted = mapper.insertInbox(eventId, enterpriseId, warehouseId, commandId, "InventoryCommandResult",
-                "{\"state\":\"" + resultState + "\",\"postingId\":\"" + postingId + "\"}", now);
+                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(resultPayload), now);
         if (inserted == 1) {
             mapper.updateCommandResult(enterpriseId, warehouseId, commandId, resultState, commandId, postingId, now);
             mapper.updateExecutionSync(enterpriseId, warehouseId, commandId, resultState, postedQty, now);

@@ -78,3 +78,22 @@ R01 生产装配回滚测试已通过，R02/R03 操作 scope 与调拨仓范围�
 `ExpiryEligibilityIT.actualHandlerCommitsBoundedPagesAndDoesNotStarveLaterLots` 通过真实handler连续处理201个批次（100/100/1），第四次不增加通知；既有试图过期后预占仍被拒绝，巡检不释放TCC预占。`/tmp/wms-job-wiring-it.log` 的Expiry/JobLease/Snapshot定向通过，新增handler测试在 `/tmp/wms-messaging-base-it.log` BUILD SUCCESS（ExpiryEligibilityIT2项）。此处不是官方XXL admin集群验收。
 
 `serialTransferRecovery`、`stockInternalReconcile`、`countApplyRecovery`、`archivePlanner` 尚待接入完整执行器，已由空日志成功改为明确失败；R15整体仍未完成。归档/删除不编造保留期限。消息基础真实Kafka/MySQL测试已经通过，但业务适配尚未接线，R13不能据此标完成。
+
+
+## R13 消息基础与库存投影运行链路（来源命令主链仍在实施）
+
+使用客户端 Kafka 3.9.2、隔离 broker 3.8.0 和真实 MySQL 验证应用 Bean：权威库存事务产生 Outbox，确认发布后标记 PUBLISHED；消费者先持久化本库 Inbox 再提交位点，业务应用和 DONE 同事务。暂停专属 broker 后 Outbox 保留、就绪探针 DOWN；恢复后自动追平投影，余额/流水没有重复。`/tmp/wms-kafka392-it.log` BUILD SUCCESS，覆盖 KafkaMessagingIT、RuntimeInboxIT、InventoryMessagingIT、OutboxPublisherIT、OutboxCrashRecoveryIT 及全部单元测试。投影 asOf 使用原事件时刻。
+
+Inbox 使用事件身份和规范化内容摘要双重校验；篡改、畸形和不支持的事件隔离；处理失败退避重试，领取代际拒绝旧 worker。提交失败会显式回滚同连接的业务写入，即使业务适配器不是通过 MyBatis 写入。消费者关闭/断连恢复有界，消息中的 requestId 在处理时绑定并在结束后清理。readiness 附加真实 broker 请求和消费线程状态；此探针不代表业务无积压。
+
+当前只接通 inventory.events → 库存查询投影；入出库完整命令上下文、T2 过账和 T3 消费、人工重放、业务积压告警仍待补齐，不能把这一段作为完整 R13 或首个收发闭环验收。配置默认关闭，生产消息权限和数据保留尚未签署。
+
+## 来源回执与 R23 上架审计（依赖 R13 提前处理）
+
+T3 现在核验命令动作、不可变事实行、过账数量和活动尝试，先锁业务行再锁效果，避免与 T1 反向锁序。不同回执 eventId 的同一终态重放不再次累计；迟到旧尝试不能覆盖新尝试。库存命令技术主键和外部命令作用域分离，追加 V025，真实 MySQL 验证同一外部键在两仓独立过账。
+
+上架把 JWT subject 写入来源执行记录；请求 Idempotency-Key 作为命令键。先恢复原事实再检查剩余量，重试校验任务/库位/数量并保留首次操作人；只有首次提交才增加实物和完成任务。取消/完成任务以及他人已领取任务不能作为新命令再执行。为真实消息提供可靠原始执行身份，此依赖提前于原定最后批次完成，不添加 SYSTEM 占位。
+
+`/tmp/wms-callback-putaway-it.log` BUILD SUCCESS：InboundProtocolIT2、OutboundProtocolIT2、InboundReceiptIT4、StockCommandIT2、OutboundPickIT5、InboundHttpIT1、OutboxPublisherIT1、OutboxCrashRecoveryIT1及全部单元测试。覆盖错误行回执、不同事件ID重复回执、满额上架换键重放/更换库位冲突、首次操作人不被重试覆盖、跨仓同键。正式HTTP测试随后增加直接查询 actor_id 的断言并通过：`/tmp/wms-actor-http-it.log` BUILD SUCCESS，JWT subject 为原始操作人。
+
+最后补充的安全关闭后迟到回执与过账累计影响行数检查也通过 `/tmp/wms-source-callback-final-it.log`（两来源协议、入库主流程、出库分批与全部单元）。默认必需报告检查46项通过；尚未把这些定向报告当作本次完整组合CI。

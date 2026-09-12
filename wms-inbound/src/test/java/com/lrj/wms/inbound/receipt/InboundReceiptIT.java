@@ -86,15 +86,24 @@ class InboundReceiptIT {
             InboundException over = assertThrows(InboundException.class, () -> service.receive("ENT-1", "WH-A", "ASN-1",
                     "LINE-1", "CMD-R2", "PART-2", "ACTOR", new BigDecimal("5")));
             assertEquals("OVER_RECEIVE", over.code());
+            assertThrows(com.lrj.wms.runtime.messaging.MessageRejectedException.class, () -> service.consumeReceive(
+                    "ENT-1", "WH-A", "WRONG-LINE", "EVT-WRONG", "CMD-R1", "APPLIED", "POST-R1", new BigDecimal("6")));
             service.consumeReceive("ENT-1", "WH-A", "LINE-1", "EVT-R1", "CMD-R1", "APPLIED", "POST-R1",
                     new BigDecimal("6"));
             service.consumeReceive("ENT-1", "WH-A", "LINE-1", "EVT-R1", "CMD-R1", "APPLIED", "POST-R1",
                     new BigDecimal("6"));
+            assertEquals(false, service.consumeReceive("ENT-1", "WH-A", "LINE-1", "EVT-R1-REDELIVERED", "CMD-R1",
+                    "APPLIED", "POST-R1", new BigDecimal("6")).get("consumed"));
             Map<String, Object> qc = service.inspect("ENT-1", "WH-A", "INSP-1", "LINE-1", new BigDecimal("6"),
                     BigDecimal.ZERO, "QC", 1L);
             assertEquals("ACCEPTED", qc.get("resultCode"));
             Map<String, Object> putaway = service.putaway("ENT-1", "WH-A", "ASN-1", "LINE-1", "TASK-P1", "LOC-1",
-                    InboundReceiptService.LOCATION_STORAGE, new BigDecimal("6"));
+                    InboundReceiptService.LOCATION_STORAGE, new BigDecimal("6"), "CMD-PUTAWAY", "PUTAWAY-ACTOR");
+            assertEquals("CMD-PUTAWAY", service.putaway("ENT-1", "WH-A", "ASN-1", "LINE-1", "TASK-P1", "LOC-1",
+                    InboundReceiptService.LOCATION_STORAGE, new BigDecimal("6"), "CMD-NEW-KEY", "SECOND-ACTOR").get("commandId"));
+            assertThrows(com.lrj.wms.runtime.command.CommandConflictException.class, () -> service.putaway("ENT-1", "WH-A",
+                    "ASN-1", "LINE-1", "TASK-P1", "LOC-CHANGED", InboundReceiptService.LOCATION_STORAGE,
+                    new BigDecimal("6"), "CMD-PUTAWAY", "PUTAWAY-ACTOR"));
             service.consumePutaway("ENT-1", "WH-A", "LINE-1", "EVT-P1", String.valueOf(putaway.get("commandId")),
                     "APPLIED", "POST-P1", new BigDecimal("6"));
             session.commit();
@@ -105,6 +114,8 @@ class InboundReceiptIT {
         assertEquals(0, jdbc.queryForObject(
                 "SELECT received_posted_qty FROM inbound_line WHERE id='LINE-1'", BigDecimal.class)
                 .compareTo(new BigDecimal("6.000000")));
+        assertEquals("PUTAWAY-ACTOR", jdbc.queryForObject("SELECT actor_id FROM source_execution WHERE command_id='CMD-PUTAWAY'", String.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM source_execution WHERE command_id='CMD-PUTAWAY'", Integer.class));
         assertEquals(0, jdbc.queryForObject(
                 "SELECT putaway_physical_qty FROM inbound_line WHERE id='LINE-1'", BigDecimal.class)
                 .compareTo(new BigDecimal("6.000000")));
@@ -113,7 +124,7 @@ class InboundReceiptIT {
                 .compareTo(new BigDecimal("6.000000")));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM quality_inspection WHERE id='INSP-1'", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM inbound_task WHERE id='TASK-P1'", Integer.class));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id IN ('CMD-R1','TASK-P1')",
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id IN ('CMD-R1','CMD-PUTAWAY')",
                 Integer.class));
     }
 
@@ -128,18 +139,18 @@ class InboundReceiptIT {
             service.receive("ENT-1", "WH-A", "ASN-QC", "LINE-QC", "CMD-QC", "PART-QC", "ACTOR", new BigDecimal("5"));
             InboundException beforeQc = assertThrows(InboundException.class,
                     () -> service.putaway("ENT-1", "WH-A", "ASN-QC", "LINE-QC", "TASK-NOQC", "LOC-1",
-                            InboundReceiptService.LOCATION_STORAGE, new BigDecimal("5")));
+                            InboundReceiptService.LOCATION_STORAGE, new BigDecimal("5"), "CMD-TASK-NOQC", "PUTAWAY-ACTOR"));
             assertEquals("QC_REQUIRED", beforeQc.code());
             Map<String, Object> qc = service.inspect("ENT-1", "WH-A", "INSP-QC", "LINE-QC", BigDecimal.ZERO,
                     new BigDecimal("5"), "QC", 1L);
             assertEquals(InboundReceiptService.RESULT_REJECTED, qc.get("resultCode"));
             InboundException rejected = assertThrows(InboundException.class,
                     () -> service.putaway("ENT-1", "WH-A", "ASN-QC", "LINE-QC", "TASK-REJ", "LOC-1",
-                            InboundReceiptService.LOCATION_STORAGE, new BigDecimal("5")));
+                            InboundReceiptService.LOCATION_STORAGE, new BigDecimal("5"), "CMD-TASK-REJ", "PUTAWAY-ACTOR"));
             assertEquals("QC_REJECTED", rejected.code());
             InboundException wrongLoc = assertThrows(InboundException.class,
                     () -> service.putaway("ENT-1", "WH-A", "ASN-QC", "LINE-QC", "TASK-SHIP", "LOC-SHP", "SHIPPING",
-                            new BigDecimal("5")));
+                            new BigDecimal("5"), "CMD-TASK-SHIP", "PUTAWAY-ACTOR"));
             assertEquals("INVALID_PUTAWAY_LOCATION", wrongLoc.code());
             session.commit();
         }
