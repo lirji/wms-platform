@@ -11,3 +11,17 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => false
   })
 });
+
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+Object.defineProperty(window, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverStub
+});
+
+const computedStyle = window.getComputedStyle.bind(window);
+window.getComputedStyle = ((element: Element) => computedStyle(element)) as typeof window.getComputedStyle;

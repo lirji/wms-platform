@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/AppProviders";
@@ -19,6 +19,7 @@ describe("InboundDetailPage", () => {
       </AppProviders>
     );
     expect(screen.getByRole("heading", { name: "入库单 ASN-1" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
     expect(screen.getByRole("button", { name: "提交收货" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "记录质检" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "提交上架" })).toBeTruthy();

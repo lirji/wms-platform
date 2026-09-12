@@ -15,8 +15,12 @@ export function CountPage() {
       empty={`当前仓 ${warehouseId || "(未选)"} 没有盘点计划`}
       paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/count-plans`] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/counts/${recordId(row, "id", "planId")}` : undefined}
-      actions={(
+      createLabel="创建计划"
+      createTitle="创建盘点计划"
+      createHint="表单在抽屉里。库位必须已有门禁。"
+      create={(
         <CommandCard
+          embedded
           title="创建盘点计划"
           hint="库位必须已有门禁。范围用逗号分隔库位。"
           operation={`count-create:${warehouseId}`}

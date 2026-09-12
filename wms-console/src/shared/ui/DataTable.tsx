@@ -38,7 +38,8 @@ export function DataTable({
 }) {
   return (
     <Table
-      size="middle"
+      size="small"
+      scroll={{ x: "max-content" }}
       loading={loading}
       pagination={rows.length > 12 ? { pageSize: 12, showSizeChanger: false } : false}
       rowKey={(row) => recordId(row) || field(row, "skuId", "lineId") || JSON.stringify(row)}

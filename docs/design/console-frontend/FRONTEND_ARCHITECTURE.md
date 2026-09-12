@@ -54,7 +54,7 @@
 | --- | --- | --- | --- |
 | 框架 | React / Vue | React | 现有锁文件、测试、Docker、OIDC 适配 |
 | 语言 | TypeScript / 无类型 | TypeScript | OpenAPI 与数量字符串契约 |
-| 样式 | tokens+CSS / Tailwind / Ant Design | Ant Design 5 + 少量布局 CSS | 用户要求组件库；表格/表单/布局用 Ant，行数据仍来自接口 |
+| 样式 | tokens+CSS / Tailwind / Ant Design | Ant Design 6 + 少量布局 CSS | 已锁定 Ant 为唯一组件库；Material 与 Tailwind 不当第二套 Table/Form |
 | 服务端数据 | fetch 包装 / 查询库 | fetch 包装 | 列表短、202 轮询有界，不需要第二缓存 |
 | 路由 | react-router | 框架默认 | 已用于登录与回调 |
 | 表格/表单 | 轻量 / 管理套件 | Ant Design Table / Form | 列来自契约字段，不预置业务行 |
@@ -98,7 +98,8 @@ wms-console/src/
 | loading | 保留过滤条件，按钮禁用 |
 | empty | 写明当前仓与过滤，给出允许动作 |
 | error / 5xx | 服务不可用，不伪装无权限 |
-| forbidden / 401/403 | 说明拒绝；动隐藏但不替代服务端权威 |
+| 401 | 登录过期或尚未登录，提示重新登录；禁止写成「权限不足」 |
+| 403 | 仓范围或作业权限不足；展示令牌仓与 scope，不展示 access_token |
 | 202 accepted | 处理中 + operationId，禁止显示成功 |
 | 409 | 最新记录 + 需重确认；不换幂等键 |
 | stale | asOf / lagSeconds 提示刷新 |
@@ -116,10 +117,22 @@ wms-console/src/
 | `--paper` | `#e8edf3` |
 | `--card` | `#ffffff` |
 | `--line` | `#d5deea` |
-| `--accent` | `#1d6b8a` |
+| `--accent` | `#0f766e`（Ant `colorPrimary`） |
 | `--ok` / `--warn` / `--err` | `#1a7a46` / `#9a6b12` / `#b42318` |
 | 半径 | 6–8px |
 | 字号 | 12 / 13 / 14 / 22 / 28（KPI） |
+
+### 页面配方（Ant Design 原语）
+
+| 模板 | 构成 | 禁止 |
+| --- | --- | --- |
+| 队列 | `PageHead` 右侧一个主按钮 + `Table`。建单进 `Drawer`+`Form`，不占列表上方整页 | 列表页内嵌 6–8 个纵向表单项 |
+| 单据 | 头 + 单据事实 + 明细表；`提交命令` 打开 `Drawer`，命令用 `Tabs`/`Card` | 收货/质检/上架/拣发五张卡叠在表下面把页拉到超长 |
+| 首页 | KPI + 2–3 个活队列表（入库/出库/任务） | 再印一遍侧栏的入口卡片墙 |
+| 登录 | 与作业台同色板，一列一主按钮 | 两列营销清单当主路径 |
+| 状态 | 一条 `Alert`：401 是会话，403 是仓/权限 | 把 401/5xx 写成「权限不足」 |
+
+Casdoor 令牌必须带作业 `scope`（`inbound.*` `outbound.*` `fulfillment.*` 等）以及 `warehouses` / `enterprise_id`。顶栏展示当前仓范围与权限名，不展示 access_token。
 
 ## 9. 视口策略
 
@@ -142,9 +155,23 @@ wms-console/src/
 
 作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，对账 APPROVE/REJECT。跨仓 ALLOCATED 仍要求 TC Committed 证据，页面不伪造确认。OpenAPI `GET /warehouses/{id}/tasks` 仍未实现，出库任务挂在出库单详情。
 
-## 11. 未决
+## 11. 落地细节
+
+| Topic | 本作业台 |
+| --- | --- |
+| Density | Table/Form/Button 用 Ant `size="small"`；建单与作业命令进 `Drawer` |
+| Scroll | 表 `scroll.x=max-content`；抽屉内表单自己滚，列表页不再被长表单撑高 |
+| Column | 标识、状态、数量优先；其余横向滚 |
+| Open-in | 建单/作业命令用抽屉；单据详情走路由 |
+| Feedback | 字段错在 Form；契约错一条 `Alert`；202 留在状态条，不当成功 toast |
+| Permission UI | 顶栏 Popover 展示仓范围与 permissionNames；401≠403 |
+| Batch | 无契约批量命令，不画空复选框 |
+| 快捷键 | 不另做桌面 keymap；扫码页只保留 Enter |
+
+## 12. 未决
 
 - 设备 UNKNOWN 与真实硬件仍 blocked（S8-05）
 - 主数据写 API 未实现，catalog 保持只读
 - 履约整单确认依赖真实 TC，控制台不能写成 ALLOCATED
-- AC-26 全链路现场走查（收货→上架→跨仓→拣→部分发→剩余取消）尚未用活数据验收，不是 50 AC accepted
+- AC-26 现场已走查但仍 open；跨仓 ALLOCATED 需真实 TC
+- Casdoor 权限与令牌 `scope` 必须覆盖作业命令，不能只发 `masterdata.read/write`

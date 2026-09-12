@@ -17,8 +17,12 @@ export function FulfillmentPage() {
         empty="当前企业没有履约单"
         paths={ready ? ["/api/wms/v1/fulfillments"] : []}
         hrefFor={(row) => ready ? `/w/${warehouseId}/fulfillment/${recordId(row, "id", "fulfillmentId")}` : undefined}
-        actions={(
+        createLabel="创建履约单"
+        createTitle="创建履约单"
+        createHint="表单在抽屉里。同源单号摘要冲突由服务端拒绝。"
+        create={(
           <CommandCard
+            embedded
             title="创建履约单"
             hint="同源单号摘要冲突由服务端拒绝。"
             operation={`fulfillment-create:${warehouseId}`}

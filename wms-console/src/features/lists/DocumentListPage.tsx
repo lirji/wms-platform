@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Card, Input, Space } from "antd";
+import { Card, Flex, Input, Space } from "antd";
 import { asOfMeta } from "../../api/envelope";
+import { CommandDrawer } from "../../shared/command/CommandDrawer";
 import { DataTable, type Column } from "../../shared/ui/DataTable";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
@@ -26,7 +27,10 @@ export function DocumentListPage({
   columns = DEFAULT_COLUMNS,
   empty,
   hrefFor,
-  actions
+  createLabel,
+  createTitle,
+  createHint,
+  create
 }: {
   title: string;
   sub: string;
@@ -35,7 +39,10 @@ export function DocumentListPage({
   columns?: Column[];
   empty: string;
   hrefFor?: (row: import("../../api/envelope").ItemRecord) => string | undefined;
-  actions?: ReactNode;
+  createLabel?: string;
+  createTitle?: string;
+  createHint?: string;
+  create?: ReactNode;
 }) {
   const { token, warehouseId, warehouseName } = useWorkspace();
   const [tick, setTick] = useState(0);
@@ -57,23 +64,33 @@ export function DocumentListPage({
         title={title}
         sub={warehouseId ? `${sub} · 当前仓 ${warehouseId}` : "尚未选仓，不会猜测仓库。"}
         extra={(
-          <QueryMeta
-            warehouseId={warehouseId}
-            warehouseName={warehouseName}
-            asOf={meta?.asOf}
-            lagSeconds={meta?.lagSeconds}
-            stale={meta?.stale}
-            rowCount={loading ? "读取中" : String(rows.length)}
-          />
+          <Flex align="center" gap={12} wrap="wrap">
+            <QueryMeta
+              warehouseId={warehouseId}
+              warehouseName={warehouseName}
+              asOf={meta?.asOf}
+              lagSeconds={meta?.lagSeconds}
+              stale={meta?.stale}
+              rowCount={loading ? "读取中" : String(rows.length)}
+            />
+            {create && createLabel ? (
+              <CommandDrawer
+                triggerLabel={createLabel}
+                title={createTitle || createLabel}
+                hint={createHint}
+                disabled={!token || !warehouseId || warehouseId === "_"}
+                onSubmitted={() => setTick((current) => current + 1)}
+              >
+                {create}
+              </CommandDrawer>
+            ) : null}
+          </Flex>
         )}
       />
       {extra === "tcc" ? (
         <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
       ) : null}
       {error ? errorBanner(error) : null}
-      <div onSubmitCapture={() => setTick((current) => current + 1)}>
-        {actions}
-      </div>
       <Card
         title="业务列表"
         extra={(

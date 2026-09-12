@@ -25,7 +25,7 @@ const LABELS: Record<BannerKind, string> = {
   empty: "无数据",
   accepted: "已受理，库存待同步",
   conflict: "版本冲突",
-  forbidden: "权限不足",
+  forbidden: "当前令牌无权访问该资源",
   stale: "查询陈旧",
   tcc: "跨仓预占等待全局完成",
   "sync-pending": "货已执行，库存待同步",

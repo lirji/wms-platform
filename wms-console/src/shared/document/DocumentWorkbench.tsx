@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, Col, Row, Space } from "antd";
+import { Button, Card, Space } from "antd";
 import { field, nestedRecords, type ItemRecord } from "../../api/envelope";
+import { CommandDrawer } from "../command/CommandDrawer";
 import { DataTable, type Column } from "../ui/DataTable";
 import { errorBanner } from "../ui/errorBanner";
 import { PageHead } from "../ui/PageHead";
@@ -39,13 +40,30 @@ export function DocumentWorkbench({
   commands: ReactNode;
   extra?: ReactNode;
 }) {
+  const [tick, setTick] = useState(0);
   const lines = nestedRecords(record, ...lineKeys);
+  void tick;
   return (
     <Space orientation="vertical" size={16} style={{ display: "flex" }}>
       <PageHead
         title={title}
         sub={sub}
-        extra={<Link to={backTo}><Button>{backLabel}</Button></Link>}
+        extra={(
+          <Space>
+            <CommandDrawer
+              triggerLabel="提交命令"
+              title="作业命令"
+              hint="一次只提交一个命令。202 不是成功。"
+              width={480}
+              onSubmitted={() => setTick((current) => current + 1)}
+            >
+              <Space orientation="vertical" size={12} style={{ display: "flex" }}>
+                {commands}
+              </Space>
+            </CommandDrawer>
+            <Link to={backTo}><Button>{backLabel}</Button></Link>
+          </Space>
+        )}
       />
       {loading ? <StatusBanner kind="loading" title="加载单据，命令暂不可重复提交" /> : null}
       {error ? errorBanner(error) : null}
@@ -57,13 +75,10 @@ export function DocumentWorkbench({
         <DataTable rows={lines} columns={[...LINE_COLUMNS, ...(extraColumns ?? [])]} emptyText="这张单还没有行" />
       </Card>
       {extra}
-      <Row gutter={[12, 12]}>
-        {commands}
-      </Row>
     </Space>
   );
 }
 
 export function CommandCol({ children }: { children: ReactNode }) {
-  return <Col xs={24} lg={12}>{children}</Col>;
+  return <div>{children}</div>;
 }

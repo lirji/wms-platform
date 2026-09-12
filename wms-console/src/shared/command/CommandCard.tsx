@@ -11,6 +11,7 @@ export function CommandCard({
   operation,
   submitLabel,
   disabled,
+  embedded,
   children,
   onRun,
   onDone
@@ -20,6 +21,7 @@ export function CommandCard({
   operation: string;
   submitLabel: string;
   disabled?: boolean;
+  embedded?: boolean;
   children: ReactNode;
   onRun: (idempotencyKey: string, values: Record<string, string>) => Promise<unknown>;
   onDone?: () => void;
@@ -46,8 +48,9 @@ export function CommandCard({
   }
 
   const accepted = Boolean(result && (result.physicalStatus || result.stockSyncStatus || result.operationId));
-  return (
-    <Card title={title} size="small">
+  const body = (
+    <>
+      {embedded ? <h3 style={{ marginTop: 0, fontSize: 14 }}>{title}</h3> : null}
       <p style={{ color: "rgba(0,0,0,0.45)", marginTop: 0 }}>{hint}</p>
       {error ? errorBanner(error) : null}
       {accepted ? (
@@ -61,12 +64,19 @@ export function CommandCard({
       {result && !accepted ? (
         <StatusBanner kind="success" title="已返回最新记录" detail={field(result, "status", "state")} />
       ) : null}
-      <Form layout="vertical" onFinish={(values) => void submit(values as Record<string, string>)} disabled={disabled || busy}>
+      <Form
+        layout="vertical"
+        size="small"
+        requiredMark="optional"
+        onFinish={(values) => void submit(values as Record<string, string>)}
+        disabled={disabled || busy}
+      >
         {children}
         <Button type="primary" htmlType="submit" loading={busy} disabled={disabled}>
           {submitLabel}
         </Button>
       </Form>
-    </Card>
+    </>
   );
+  return embedded ? <div>{body}</div> : <Card title={title} size="small">{body}</Card>;
 }

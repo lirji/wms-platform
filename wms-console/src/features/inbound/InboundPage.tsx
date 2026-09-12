@@ -15,8 +15,12 @@ export function InboundPage() {
       empty={`当前仓 ${warehouseId || "(未选)"} 没有入库单`}
       paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/inbound-orders`] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/inbound/${recordId(row, "id", "orderId")}` : undefined}
-      actions={(
+      createLabel="创建入库单"
+      createTitle="创建入库单"
+      createHint="表单在抽屉里，不占列表。外部单号冲突由服务端拒绝。"
+      create={(
         <CommandCard
+          embedded
           title="创建入库单"
           hint="外部单号冲突由服务端拒绝。数量按字符串提交。"
           operation={`inbound-create:${warehouseId}`}

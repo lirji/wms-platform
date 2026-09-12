@@ -4,6 +4,9 @@ export type WorkspaceValue = {
   token?: string;
   warehouseId: string;
   warehouseName?: string;
+  enterpriseId?: string;
+  warehouses?: string[];
+  scopes?: string[];
 };
 
 const WorkspaceContext = createContext<WorkspaceValue>({ warehouseId: "" });

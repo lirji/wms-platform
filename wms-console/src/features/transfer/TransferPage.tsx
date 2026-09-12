@@ -15,8 +15,12 @@ export function TransferPage() {
       empty="当前企业没有调拨单"
       paths={ready ? ["/api/wms/v1/transfers"] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/transfers/${recordId(row, "id", "transferId")}` : undefined}
-      actions={(
+      createLabel="创建调拨单"
+      createTitle="创建调拨单"
+      createHint="表单在抽屉里。源仓与目的仓不能相同。"
+      create={(
         <CommandCard
+          embedded
           title="创建调拨单"
           hint="源仓与目的仓不能相同。"
           operation={`transfer-create:${warehouseId}`}

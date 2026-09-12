@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { User } from "oidc-client-ts";
-import { Avatar, Button, Flex, Layout, Menu, Select, Space, Typography } from "antd";
-import { LogoutOutlined, MobileOutlined, ShopOutlined } from "@ant-design/icons";
+import { Avatar, Button, Flex, Layout, Menu, Popover, Select, Space, Tag, Typography } from "antd";
+import { LogoutOutlined, MobileOutlined, SafetyCertificateOutlined, ShopOutlined } from "@ant-design/icons";
 import { api } from "../api/client";
 import { field, pageItems } from "../api/envelope";
 import { createUserManager } from "../auth/oidc";
+import { tokenClaims } from "../auth/tokenClaims";
 import { NAV_GROUPS } from "./nav";
 import { rememberWarehouse } from "./warehouseSession";
 import { WorkspaceProvider } from "./WorkspaceContext";
@@ -38,6 +39,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const displayName = user.profile.name || user.profile.preferred_username || user.profile.sub;
+  const claims = useMemo(() => tokenClaims(token), [token]);
   const clock = useClock();
   const current = warehouses.find((row) => row.id === warehouseId);
 
@@ -85,7 +87,14 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
   }, [location.pathname, warehouseId]);
 
   return (
-    <WorkspaceProvider value={{ token, warehouseId, warehouseName: current?.name }}>
+    <WorkspaceProvider value={{
+      token,
+      warehouseId,
+      warehouseName: current?.name,
+      enterpriseId: claims.enterpriseId,
+      warehouses: claims.warehouses,
+      scopes: claims.scopes
+    }}>
       <Layout className="app-shell">
         <Layout.Sider width={232} theme="dark" className="app-sider" breakpoint="lg" collapsedWidth={72}>
           <Link className="brand" to={warehouseId ? `/w/${warehouseId}` : "/"} aria-label="WMS 工作台首页">
@@ -132,6 +141,24 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
               </Space>
               <Space size={12}>
                 <Typography.Text type="secondary">本机 {clock} UTC</Typography.Text>
+                <Popover
+                  title="当前令牌权限"
+                  content={(
+                    <Space orientation="vertical" size={8} style={{ maxWidth: 420 }}>
+                      <Typography.Text>企业 {claims.enterpriseId || "未声明"}</Typography.Text>
+                      <Typography.Text>仓范围 {claims.warehouses.length ? claims.warehouses.join(", ") : "无"}</Typography.Text>
+                      <div>
+                        {claims.scopes.length
+                          ? claims.scopes.map((scope) => <Tag key={scope}>{scope}</Tag>)
+                          : <Typography.Text type="secondary">令牌没有作业权限名</Typography.Text>}
+                      </div>
+                    </Space>
+                  )}
+                >
+                  <Button icon={<SafetyCertificateOutlined />}>
+                    {claims.scopes.length ? `${claims.scopes.length} 项权限` : "权限未声明"}
+                  </Button>
+                </Popover>
                 <Avatar style={{ background: "#0f766e" }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
                 <Typography.Text strong>{displayName}</Typography.Text>
                 <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/AppProviders";
@@ -18,6 +18,7 @@ describe("OutboundDetailPage", () => {
         </MemoryRouter>
       </AppProviders>
     );
+    fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
     expect(screen.getByRole("button", { name: "规划任务" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "确认拣货" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "确认包装" })).toBeTruthy();
