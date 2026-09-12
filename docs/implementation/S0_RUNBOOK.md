@@ -1,64 +1,76 @@
-# S0本地运行与验证
+# 本地运行与验证
 
-## 前置条件
+文件名保留以兼容已有链接；内容已按 `main c5c96e3`（2026-09-13）更新，覆盖当前实现。快速导航：[容器运行](../../deploy/README.md)、[连接清单](../operations/INFRASTRUCTURE.md)、[版本记录](VERSION_LOCK.md)、[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
 
-JDK21、Docker及网络可用；普通服务端口默认只监听127.0.0.1。测试会创建自己的临时容器和数据库；不会连接共享dev-infra进行故障注入。不要把探针迁移用于生产库存库。
+## 运行路径
 
-## 隔离本地中间件
+| 方式 | 前置与用途 | 边界 |
+| --- | --- | --- |
+| 全部容器 | Docker/Compose；按部署说明配置 `.env` 后运行 `./deploy/up.sh` | 容器内编译；五后端 + console；inventory 默认仅 Cell A |
+| 本机后端开发 | JDK 21、Maven Wrapper、Docker；隔离中间件 + 本机 JAR | 为目标服务设置 JDBC/用户/口令及 OIDC；不要同时占用容器应用端口 |
+| 本机前端开发 | Node 22、npm lock、可达后端与 OIDC | Vite 默认 `127.0.0.1:4181`，Docker 控制台为 18180 |
 
-`deploy/compose.local.yml` 是 WMS 自有中间件：三套 MySQL（应用/Cell A/Cell B）、Kafka 3.8.0、Redis 7、Seata Server 2.6.0、XXL-JOB admin 3.4.2。不加入 sibling `/Users/liruijun/personal/LLM/dev-infra` 网络，不 `depends_on` 共享容器，不修改该仓库。ordinary 共享实例仍在 dev-infra（MySQL 宿主 43306、Redis 46379、Kafka 49092、MinIO 49000/49001）。Seata 不在 dev-infra；XXL 不共用 drools-demo 的 18088 / mysql 3307。该文件只起中间件，不创建业务表。
+所有测试和故障注入使用本项目隔离容器，不能连接共享 dev-infra 或生产库。初次解析 Maven/npm/镜像需要网络。详细版本来自仓库声明，本次没有重新核验现场安装版本。
 
-要在容器内编译并启动 inbound/outbound/inventory/serial-registry/fulfillment 与 console，用根目录 `compose.yaml`（include 上述中间件）或 `./deploy/up.sh`。应用容器监听 `0.0.0.0`，inventory 接 Cell A；健康 UP 不代表业务验收。详见 `deploy/README.md`。
+## 配置与启动
+
+已有 `.env` 时直接核对，不复制覆盖。首次从 `.env.example` 建立本机配置并替换占位口令，还须设置 OIDC issuer/client ID、应用可达 JWKS 和序列号受信主体。默认模板不能直接通过完整 `up.sh` 就绪检查。仅起中间件可执行：
 
 ```bash
-cp .env.example .env
-# 把 change-me 换成仅本机使用的口令后再启动
+docker compose -p wms-local -f deploy/compose.local.yml --env-file .env config --quiet
 docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
-# 容器内编译并启动应用：
-./deploy/up.sh
 ```
 
-默认只绑 `127.0.0.1`：应用库 18306、Cell A 18307、Cell B 18308、Kafka 18992、Redis 18379、Seata 18091/控制台 17091、XXL admin 18080。避开本机已占用的 Apollo MySQL 13306、dev-infra 43306/46379/49092、drools XXL 18088。宿主机 Java 客户端连这些端口；容器内互访用服务名。`SEATA_IP` 默认 `127.0.0.1`，给本机进程用。`compose.yaml` 里的应用用 `/app/file.conf` 指向 `seata-server:8091`，不改中间件 advertised IP。XXL 空库首次登录为官方引导账号 `admin` / `123456`，登录后立即改密。官方 admin 镜像是 linux/amd64，Apple Silicon 会走模拟。初始化脚本只在空数据卷执行一次。
+初始化脚本仅在空数据卷运行，业务迁移在应用 JDBC 装配时执行。本机进程使用宿主端口（MySQL 18306/18307/18308、Kafka 18992 等），容器使用服务 DNS，完整映射见连接清单。Seata 本机和容器回调地址必须匹配客户端位置。
 
-故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、TCC HTTP 网关、业务 Outbox 或 XXL 集群/分片已验收。官方 admin 真实触发由 warehouse-it 的 `XxlAdminTriggerIT` 证明，不把 compose 健康检查当作该证据。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
-
-根目录 [`.gitignore`](../../.gitignore) 排除 Maven `target/`、IntelliJ `.idea/`、本机 `.env`、`.local/`（集成工作树、smoke 日志、CI 报告副本）、`wms-console` 的 `node_modules/`/`dist/`/`.vite/`/`coverage/`，以及崩溃/合并残留。编排口令模板只提交 `.env.example`；不要把 `.idea`、真实口令或前端安装/构建结果加回版本库。
-
-## 已创建的命令
-
-```bash
-./mvnw -B -ntp verify
-python3 scripts/check-required-its.py --suite default
-python3 scripts/smoke-services.py
-./mvnw -B -ntp -Pwarehouse-it verify
-./mvnw -B -ntp -Ptc-it verify
-./mvnw -B -ntp -Pfailure-it verify
-python3 scripts/check-required-its.py --suite failure
-./scripts/verify-contracts.sh
-./scripts/generate-sbom.sh
-./scripts/seed-local.sh --profile isolated-wms
-./scripts/run-capacity.sh --scenario agreed-peak
-./scripts/run-restore-drill.sh
-```
-
-前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路，以及官方 XXL admin 3.4.2 对隔离执行器的一次真实触发（`XxlAdminTriggerIT`，不是集群/分片）。tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。`check-required-its.py` 核对 AC-45..50 与 S9-03/S9-06 名单，缺测、跳过或失败即失败。`verify-contracts.sh` 核对已提交 OpenAPI 与 ActionEffectRequest 的 N/N-1 可选扩展。`generate-sbom.sh` 只在 `-Psbom` 下写候选 BOM/许可证/OSV 快照，不加入默认 verify，不是生产锁。`run-capacity.sh --scenario agreed-peak` 无签署输入则失败，不跑文档合成峰值。`run-restore-drill.sh` 无外部库时只跑 `IsolatedRestoreIT`。设备模拟与真实硬件证据必须分开记录。
-
-`seed-local.sh` 只接受 `--profile isolated-wms`，且必须显式提供 Cell A/B 库存库以及 inbound/outbound/fulfillment 的 JDBC / 用户 / 口令；拒绝 43306 与 `dev-infra`。它会把 WH-A 写入 Cell A、WH-B 写入 Cell B，写入 5 类 SKU、开账余额与投影、草稿盘点，以及入出库/履约/调拨演示单。履约 attempt 只写 `PLANNED`，不发明 TCC ALLOCATED。这不是控制台，也不接生产库。
-
-手工启动任一服务：
+本机只编译打包可执行 `./mvnw -B -ntp -DskipTests package`，它不算测试通过。配置目标服务环境后，例如启动 inventory：
 
 ```bash
 java -jar wms-inventory/target/wms-inventory-0.1.0-SNAPSHOT.jar
 ```
 
-inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆盖。`WMS_OIDC_ISSUER` 为空时业务路径 403；配置 issuer 后无令牌为 401，不得免认证回退。Casdoor 本地开通见 sibling auth-platform `deploy/wms-platform-provision.py`（凭据写入 `WMS_IAM_CREDENTIALS`，不进仓库）。inventory 仅在 `WMS_INVENTORY_JDBC_URL` 非空时 Flyway 并提供主数据读写 HTTP。健康状态不证明库存可用。`wms-console/` 已创建；未配置 OIDC 时停在 `/login` 配置态。本地 Vite 默认 `WMS_UI_PORT=4181` 并提供 `/healthz`。handoff 仍为 ready-for-verification，不是 accepted。
+默认后端端口依次为 inbound 18181、outbound 18182、inventory 18183、serial-registry 18184、fulfillment 18185，本机单服务可用 `WMS_HTTP_PORT` 覆盖。无 JDBC/鉴权配置时仅能检查进程存活，不能接业务。issuer 为空时业务路径拒绝；配置后仍需有效令牌和 scope/企业/仓权限。
 
-## CI与发布边界
+前端在 `wms-console/` 执行 `npm ci`、`npm run dev`；OIDC 环境和代理说明见[前端 README](../../wms-console/README.md)。未配置身份服务时控制台停在登录/配置态。已有本地 Casdoor 开通记录不代表本次已登录或生产 IdP 已选定。
 
-GitHub Actions运行构建、进程验证、warehouse-it、tc-it和failure-it，并把三类failsafe报告分别复制到`.local/reports/`后上传；没有部署步骤。提交说明或 PR 标题含 `[skip ci]`、`[ci skip]` 或 `[no ci]` 时跳过本次 verify（java 与 console 一并跳过）。代码改动不要带这些标记。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
+## 按改动选择验证
 
-终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。
+| 改动 | 首选检查 | 说明 |
+| --- | --- | --- |
+| 纯文档 | `python3 scripts/check-docs.py`、`git diff --check` | 链接、围栏、50 AC/任务编号及 SQL 注释；不是业务验收 |
+| Compose 文档/配置 | `docker compose --env-file .env.example config --quiet` | 只验证仓库模板可解析；不打印真实配置，不启动栈 |
+| API/权限/契约 | `./scripts/verify-contracts.sh` + 受影响 HTTP IT | 生成物一致与兼容检查；不能代替真实业务测试 |
+| 局部后端 | 受影响模块及依赖的测试 | 按失败场景选择，不因一项小改动重复跑全部探针 |
+| 前端 | `npm run typecheck`、`npm test`、`npm run build` | 在 `wms-console/` 执行；先 `npm ci` |
+| 跨服务组合/发布回归 | 下方完整命令 | Docker 不可用、缺必需测试、跳过或失败都不能算通过 |
 
-独立RM探针使用两个受控子JVM，经各自Cell的ShardingSphere执行Fence与库存事务；包含B故障/进程重启恢复和账号隔离。不是已实现正式入出库业务接口。
+完整后端回归与现有 CI 保持一致；默认全仓验证只执行一次，后续 profile 限定独立 test-support 模块：
 
-启动CAS探针验证活动槽与XID绑定；重复Try探针用真实`branchRegister`证明重试会换branchId，并由业务键拒绝改绑。HTTP网关Try探针用Seata Jakarta拦截器绑定请求头XID，代表已确认的`wms-fulfillment`入口，同XID重试不得新注册分支。业务屏障探针把只读`terminal_evidence`接到attempt/XID/epoch/参与者Fence，缺证据不得写ALLOCATED。上述探针在`tc-it`的`TcDatabaseEvidenceIT`中执行，不是正式履约服务。
+```bash
+./mvnw -B -ntp verify
+python3 scripts/check-required-its.py --suite default
+python3 scripts/smoke-services.py
+./mvnw -B -ntp -pl wms-test-support -Pwarehouse-it verify
+./mvnw -B -ntp -pl wms-test-support -Ptc-it verify
+./mvnw -B -ntp -pl wms-test-support -Pfailure-it verify
+python3 scripts/check-required-its.py --suite failure
+```
+
+第一条构建并执行测试；第二条核对默认必需 IT 名单；第三条才启动实际 JAR 做进程 smoke。`smoke-services.py` 当前覆盖 inbound/outbound/inventory/fulfillment，登记服务的真实进程验证在相应 IT 中；不能声称 smoke 覆盖五服务全部业务。
+
+`warehouse-it` 包含真实 MySQL、分片/Fence、Kafka 和官方 XXL admin 触发等探针；`tc-it` 覆盖真实 TC 查询限制、持久终态审计和恢复屏障；`failure-it` 对测试登记的资源注入故障。三组报告都写入 `wms-test-support/target/failsafe-reports`，需要留存时须在下一组运行前复制，CI 会分别归档。真实 TM/RM 执行链路另见[运行 RM](RUNTIME_TCC_RM.md)和[履约执行](FULFILLMENT_EXECUTION.md)，不再以早期探针的范围概括所有当前实现。
+
+## 数据、安全与专项验收
+
+- `./scripts/seed-local.sh --profile isolated-wms`：显式提供 Cell A/B 库存库及 inbound/outbound/fulfillment 的 JDBC、用户和口令；拒绝共享 dev-infra 地址。演示履约 attempt 只写 `PLANNED`，不制造 TCC `ALLOCATED`。
+- `./scripts/generate-sbom.sh`：单独生成 Maven 聚合 BOM、许可证与 OSV 快照，需要网络；不加入默认 verify。仅在依赖相关变化时刷新，历史命中不能声称已修复或最新无漏洞。
+- `./scripts/run-capacity.sh --scenario agreed-peak`：无签署容量输入时拒绝，不把合成峰值当目标。
+- `./scripts/run-restore-drill.sh`：没有外部库时仅执行隔离恢复测试；生产恢复承诺需要获授权目标和实测证据。
+
+真实设备与模拟器、单组件成功与业务恢复、代码回退与数据补偿分别记录。任务日志可保留在忽略的 `.local/` 或 `target/`，关键结论须进入交付证据；不要输出完整环境或带凭据进程参数。
+
+## CI 与发布边界
+
+[verify.yml](../../.github/workflows/verify.yml) 执行脚本/文档/契约检查、Java 默认验证、进程 smoke、三组独立 profile 和前端检查，并上传测试报告；没有生产部署步骤。后端复用未变代码基线 `3e2c720` 的 [main CI 通过证据](https://github.com/lirji/wms-platform/actions/runs/34721632607)；后续控制台变更的 CI 单独记录于[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。文档整理不冒充业务重跑。
+
+现有规则允许纯文档提交使用 `[skip ci]` / `[ci skip]` / `[no ci]`，不适用于代码修改；使用时仍先本地完成文档相关检查，并在交付摘要明确 CI 跳过。未完成远程 CI 不能记为成功。持续 Git 授权只涵盖正常提交/推送，不等同于生产部署授权。

@@ -30,7 +30,7 @@
 
 - 首次授权前收到晚取消，但TC已经Committed：保持`CANCEL_REQUIRES_COMPENSATION`且不签发授权。业务补偿仍须另行实现，不能向CONFIRMED分支发TCC Cancel或把取消标志当作库存已释放。
 - 原生RM仓的TC终态通知及资源迁移门禁仍遵循[原生RM限制](RUNTIME_TCC_RM.md)，不能删除意图解锁迁移。
-- 多物理cell当前共享Kafka库存消费者组的路由仍须整改；本执行器的仓级HTTP和履约确认/授权链路不证明所有入库、拣货、发运消息已正确按cell投递。
+- 多物理 Cell 的普通库存消息路由已后续落地，配置与证据见[多 Cell 消息](INVENTORY_CELL_MESSAGING.md)。本执行器的仓级 HTTP 证据不能替代序列号 PICK/SHIP 等剩余链路验收。
 - TC终态审计触发器仍是隔离环境候选，不由业务应用向共享/生产TC安装；无相应审计时不能启用自动执行。
 
 ## 验证

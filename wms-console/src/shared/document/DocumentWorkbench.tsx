@@ -152,12 +152,25 @@ export function DocumentWorkbench({
       />
       {loading ? <StatusBanner kind="loading" title="加载单据，命令暂不可重复提交" /> : null}
       {error ? errorBanner(error) : null}
+      {field(record, "stockSyncStatus") === "PENDING" ? (
+        <StatusBanner
+          kind="sync-pending"
+          title="货已执行，库存待同步"
+          operationId={field(record, "operationId", "commandId")}
+          detail="禁止当作业务已成功，也不要新开实物命令。"
+        />
+      ) : null}
+      {/HOLD|CLAIMED|TRANSFER/.test(field(record, "serialState", "qualityCode", "quality_code")) ? (
+        <StatusBanner kind="serial-hold" title={field(record, "serialState", "qualityCode")} />
+      ) : null}
       <Card title="单据">
         <Descriptions
           size="small"
           column={2}
           items={[
             { key: "status", label: "状态", children: field(record, "status", "state") || "—" },
+            { key: "physical", label: "实物", children: field(record, "physicalStatus") || "—" },
+            { key: "sync", label: "库存同步", children: field(record, "stockSyncStatus") || "—" },
             { key: "version", label: "版本", children: field(record, "version") || "—" },
             { key: "id", label: "标识", children: identifier ? <CopyId value={identifier} kind="单据" /> : "—" }
           ]}

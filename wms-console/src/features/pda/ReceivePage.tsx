@@ -1,11 +1,12 @@
 import { FormEvent, useRef, useState } from "react";
-import { Button, Card, Form, Input, Space, Typography } from "antd";
+import { Button, Card, Form, Input, type InputRef, Space, Typography } from "antd";
 import { api, clearKey, rememberKey } from "../../api/client";
 import { field, type ItemRecord } from "../../api/envelope";
 import { hasScope } from "../../auth/can";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
 import { StatusBanner } from "../../shared/ui/StatusBanner";
+import { countText, receiptObservation } from "../../shared/serial/serialIds";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 import { playScanTone } from "./tone";
 
@@ -21,8 +22,11 @@ export function ReceivePage() {
   const [error, setError] = useState<unknown>();
   const [locationId, setLocationId] = useState("");
   const [lotId, setLotId] = useState("");
+  const [serialText, setSerialText] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const scanRef = useRef<InputRef>(null);
+  const scanSequence = useRef(0);
 
   async function submit() {
     const nextLine = scan || lineId;
@@ -35,16 +39,30 @@ export function ReceivePage() {
     const key = rememberKey(operation);
     setFeedback("提交中");
     try {
+      const serialObservation = receiptObservation(serialText);
       const body = await api(`/api/wms/v1/warehouses/${warehouseId}/inbound-orders/${orderId}/receipts`, token, {
         method: "POST",
         idempotencyKey: key,
-        body: { lineId: nextLine, locationId, lotId, qty, clientOperationId: key, receiptPartId: `PART-${key}` }
-      });
-      clearKey(operation);
-      setResult(body as ItemRecord);
+        body: {
+          lineId: nextLine,
+          locationId,
+          lotId,
+          qty: serialObservation ? countText(serialObservation.serialIds) : qty,
+          clientOperationId: key,
+          receiptPartId: `PART-${key}`,
+          scanSequence: scanSequence.current,
+          ...(serialObservation ? { serialObservation } : {})
+        }
+      }) as ItemRecord;
+      const applied = field(body, "stockSyncStatus") === "APPLIED";
+      if (applied) {
+        clearKey(operation);
+        scanSequence.current += 1;
+      }
+      setResult(body);
       setError(undefined);
       setTone("ok");
-      setFeedback("扫码已受理");
+      setFeedback(applied ? "收货已同步" : "扫码已受理，库存待同步");
       playScanTone(true);
     } catch (caught) {
       setError(caught);
@@ -54,6 +72,7 @@ export function ReceivePage() {
     } finally {
       submitting.current = false;
       setBusy(false);
+      window.setTimeout(() => scanRef.current?.focus(), 0);
     }
   }
 
@@ -88,7 +107,7 @@ export function ReceivePage() {
             <Input size="large" value={orderId} onChange={(event) => setOrderId(event.target.value)} />
           </Form.Item>
           <Form.Item label="行/扫码" required>
-            <Input size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
+            <Input ref={scanRef} size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
           </Form.Item>
           <Form.Item label="收货库位" required>
             <Input size="large" value={locationId} onChange={(event) => setLocationId(event.target.value)} />
@@ -96,8 +115,11 @@ export function ReceivePage() {
           <Form.Item label="货品批次" required extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。">
             <Input size="large" value={lotId} onChange={(event) => setLotId(event.target.value)} />
           </Form.Item>
-          <Form.Item label="数量" required>
+          <Form.Item label="数量" required extra="填写序列号时按身份个数提交。">
             <Input size="large" inputMode="decimal" value={qty} onChange={(event) => setQty(event.target.value)} />
+          </Form.Item>
+          <Form.Item label="序列号观察" extra="序列号 SKU 每行一个。普通货品留空。">
+            <Input.TextArea rows={3} value={serialText} onChange={(event) => setSerialText(event.target.value)} placeholder={"SN-001\nSN-002"} />
           </Form.Item>
           <Button type="primary" htmlType="submit" size="large" block loading={busy} disabled={busy || !hasScope(scopes, "inbound.receive")}>回车提交</Button>
         </Form>

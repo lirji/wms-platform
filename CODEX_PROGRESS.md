@@ -18,18 +18,18 @@
 
 - outbound 来源SHIP/身份额度/可发运查询、inventory 原预占扣减/发运意图/持久恢复、registry 独立SHIPPED及历史凭证；V018/V042/V005追加迁移。
 - 原有来源、库存、登记HTTP IT补部分发运/重复/最终写失败/审计重排/旧领取代际测试；git diff为准。
-- scripts/generate-openapi.py、OpenAPI及scope（90路径）；DELIVERY_PLAN有限验收与本文件。
+- scripts/generate-openapi.py、OpenAPI及scope（91路径）；DELIVERY_PLAN有限验收与本文件。
 
 ## 未完成
 
-- OUT代码和定向验收已通过；当前待逻辑提交、整合main文档/控制台、必要集成门禁与发布。
+- OUT代码和定向验收已通过；已提交1dd3d18；当前待完成main文档/控制台整合、必要门禁与发布。
 - WATERMARK：可信来源关闭/库存过账/回执水位，禁止调用者字符串充当完整证明。
 - TRANSFER：公开序列调拨；TC：原资源/Fence/终态通知迁移；COMP：全局提交后取消补偿；FINAL：最后组合、R22结项及远程CI。
 - 外部 OQ-03、AC-26现场黑盒、真实WCS、容量/RTO/RPO和生产历史时间不能伪造。
 
 ## 当前问题
 
-- 唯一后端工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/serial-outbound-execution，HEAD dd22cd0；保留未提交SHIP代码。
+- 唯一后端工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/serial-outbound-execution，SHIP已提交1dd3d18，正在整合main4812941；未发布。
 - 定向数据库验收包括原身份分次发运、回执丢失/最后本地写失败、错证明、审计回滚、租约接管旧回执；其中登记端口故障夹具不称真实网络证明。
 - 不在Maven运行中修改源码；输出重定向.local，只读结果/首个相关错误；同类失败两次复核原因。
 - 原根控制台分支和文档分支保持不动，不从真实.env获取测试凭据。

@@ -21,6 +21,8 @@ describe("CatalogPage", () => {
     expect(screen.getByRole("button", { name: "创建库位" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "登记批次" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "创建仓库" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "追加单位" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "查看门禁" })).toBeTruthy();
   });
 
   it("hides create commands when the token has no write scope", () => {

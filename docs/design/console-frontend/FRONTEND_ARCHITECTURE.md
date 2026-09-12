@@ -195,7 +195,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 - 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要，文案是「导出快照」不是「导出全部」
 - 离线：线上写。BRIEF「待同步意图」只能显示服务端 202/`stockSyncStatus`，禁止 `localStorage` 库存队列
 
-作业详情提交已落地命令：入库收货/质检/上架，出库核验授权/拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，独立调整单审批应用，同仓移库与库存限制/释放，履约取消请求，任务回收/领取，仓任务领取，对账 APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。出库单状态 ALLOCATED 不是履约 ALLOCATED。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。
+作业详情提交已落地命令：入库收货/质检/上架（可选序列号观察/选择），出库核验授权/拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整（可选身份集合，空集合=全部未见），独立调整单审批应用，同仓移库与库存限制/释放，履约取消请求与 attempt 执行，任务回收/领取，仓任务领取，序列号恢复/消息重排，主数据单位与门禁查询，对账 APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。出库单状态 ALLOCATED 不是履约 ALLOCATED。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。拣/发序列号清单仍未公开，页面不发明。
 
 ## 11. 落地细节
 
@@ -293,12 +293,13 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 ## 12. 未决
 
-F7 已落地。不再把上表当未实现清单。
+F7 已落地。F-serial / F-202 / F-recovery / F-catalog 已接到现有抽屉与任务页，不另起 IA。
 
 仍 blocked / 不发明：
 
 - 设备 UNKNOWN 与真实硬件（S8-05）
 - 履约整单确认依赖真实 TC，不能写成 ALLOCATED
-- AC-26 仍 open
+- AC-26 仍 open（本轮补了 202 不换键、单据双状态、401 去登录；未做现场黑盒）
 - 出库 TCC 证据副本要由履约 outbox 消费写入；没有公开发明证据接口
+- 公开拣/发/调拨序列号清单未入契约，页面不发明
 - PDA 保留文字 + tone；可选短 beep，无音频设备时静默

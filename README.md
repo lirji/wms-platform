@@ -1,8 +1,10 @@
 # WMS 分布式仓储平台
 
-本目录是项目的详细设计与实施文档包，版本 **v0.4 / 2026-09-10**。当前已获授权进入S0工程与兼容验证，实际实现和测试状态以交付状态为准；尚无生产容量验证。
+本项目已包含 5 个独立后端进程和 React 作业控制台，覆盖入库、出库、库存、序列号登记与跨仓履约。当前仍在后端整改和验收阶段，尚未完成生产容量、真实设备与全部 50 项 AC 验收。
 
-已确认：第一版独立入库、出库、库存服务（三进程/三库/独立发布）；自营仓；支持批次、序列号和效期；库存不为负；支持跨仓分配；面向超大规模演进；定时调度采用 XXL-JOB，分库分表采用 ShardingSphere-JDBC；跨仓预占采用Seata TCC，其余链路本地事务与可靠消息。京东订单规模是用户提出的规模方向，不是已取得的京东数据或本系统承载证明。
+本轮文档按已发布 `main c5c96e3` 核对（2026-09-13）。从[文档总入口](docs/README.md)查看当前架构、运行方式、连接配置、数据与接口；已交付和剩余工作以[交付状态](docs/delivery/wms-v1/DELIVERY_STATUS.md)为准。原始设计中的独立查询服务、独立集成服务和部分基础设施仍是演进目标。
+
+已确认：自营仓；入库、出库、库存独立进程与数据所有权；支持批次、序列号和效期；库存不为负；跨仓预占采用 Seata TCC，其余链路使用本地事务与可靠消息。序列号唯一范围为企业 + SKU + SN，质检按收货批次处理。规模方向不等于已取得的容量证明。
 
 ## 阅读顺序
 
@@ -12,7 +14,7 @@
 | [领域详细设计](docs/design/02-domain.md) | 库存口径、业务规则、状态机、跨仓和序列号协议 |
 | [数据库与分片](docs/design/03-data-sharding.md) | 字段级模型、约束、索引、事务、路由及迁移 |
 | [API 与事件契约](docs/design/04-contracts.md) | 接口清单、请求结果、权限、幂等、错误和消息 |
-| [OpenAPI 3.1](wms-contract/src/main/resources/openapi/wms-v1.yaml) | S1 已落实的 HTTP 契约；未实现切片不得把文档存在当成业务已交付 |
+| [OpenAPI 3.1](wms-contract/src/main/resources/openapi/wms-v1.yaml) | 当前 HTTP 契约；接口存在不等于全部业务闭环已验收 |
 | [任务与对账](docs/design/05-jobs-reconciliation.md) | XXL-JOB、检查点、现有对账项目差距和接入方案 |
 | [容量与运维](docs/design/06-capacity-operations.md) | 参数化容量、压测、部署、监控、灰度、恢复 |
 | [决策与来源](docs/design/07-decisions-evidence.md) | 已确认/提议/待确认、版本验证清单、源码证据和官方来源 |
@@ -26,7 +28,7 @@
 | [具体实施计划](docs/delivery/wms-v1/DELIVERY_PLAN.md) | 唯一实施计划，阶段、任务、文件、依赖和 AC 验收矩阵 |
 | [Cursor 交接](docs/delivery/wms-v1/CURSOR_HANDOFF.md) | 页面、交互、接口、数据准备与前端验收 |
 | [设计评审](docs/delivery/wms-v1/REVIEW_REPORT.md) | 对关键竞态的评审及修正 |
-| [交付状态](docs/delivery/wms-v1/DELIVERY_STATUS.md) | 唯一当前状态、文档检查证据、实施未开始说明 |
+| [交付状态](docs/delivery/wms-v1/DELIVERY_STATUS.md) | 当前发布基线、能力边界、剩余整改和验收证据 |
 | [恢复入口](CODEX_PROGRESS.md) | 后续会话继续执行的上下文 |
 
 ## 本次边界
@@ -39,4 +41,6 @@
 
 ## 实施入口
 
-S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`；容器内编译启动应用见根目录 `compose.yaml` 与 `deploy/up.sh`（复制 `.env.example` 为 `.env` 后启动）。不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 在显式 JDBC 时迁移并提供主数据只读 HTTP；OIDC issuer 为空则业务接口拒绝。本地 Casdoor 开通脚本在 auth-platform `deploy/wms-platform-provision.py`。`wms-console/` 已创建；未配置 OIDC 时停在登录/配置态。
+从[本地运行与验证](docs/implementation/S0_RUNBOOK.md)选择容器或本机开发路径，容器步骤见[部署目录说明](deploy/README.md)。配置前先看[基础设施与连接清单](docs/operations/INFRASTRUCTURE.md)：`.env.example` 是模板，完整启动还需要 OIDC 与序列号受信主体配置；默认消息、原生 RM 和自动履约执行关闭。inventory 默认只连接 Cell A。
+
+本仓库 CI 不含生产部署。本机隔离验证不操作共享 dev-infra。文档整理不代表重新启动过环境或重新完成业务验收；本次复用已发布代码的既有 CI 证据。

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Form, Input } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
-import { nestedRecords } from "../../api/envelope";
+import { field, nestedRecords } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
 import { DataTable } from "../../shared/ui/DataTable";
@@ -19,6 +19,8 @@ export function OutboundDetailPage() {
   const { record, error, loading } = useDocument(token, path, tick);
   const reload = () => setTick((current) => current + 1);
   const tasks = nestedRecords(record, "tasks");
+  const serialHold = /HOLD|CLAIMED|TRANSFER/.test(field(record, "serialState", "qualityCode", "quality_code"));
+  const syncPending = field(record, "stockSyncStatus") === "PENDING";
 
   return (
     <DocumentWorkbench
@@ -113,10 +115,10 @@ export function OutboundDetailPage() {
               embedded
               requireScope="outbound.pick"
               title="拣货"
-              hint="返回 202。超过任务或行剩余量会被拒绝。"
+              hint="返回 202。超过任务或行剩余量会被拒绝。序列号拣货契约尚未公开，这里只提交数量。"
               operation={`pick:${outboundOrderId}`}
               submitLabel="确认拣货"
-              disabled={!token}
+              disabled={!token || serialHold || syncPending}
               onDone={reload}
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${values.taskId}/picks`, token, {
                 method: "POST",
@@ -157,7 +159,7 @@ export function OutboundDetailPage() {
               hint="必须已有本集货位、批次的拣货过账回执，且不能超过已包装未发量。"
               operation={`ship:${outboundOrderId}`}
               submitLabel="确认发运"
-              disabled={!token}
+              disabled={!token || serialHold || syncPending}
               onDone={reload}
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/shipments`, token, {
                 method: "POST",

@@ -93,6 +93,7 @@ export function DocumentListPage({
       title={secondary ? title : "业务列表"}
       extra={(
         <Space>
+          {secondary ? actions : null}
           {query ? <Button type="link" onClick={() => patch({ [queryKey]: undefined })}>清除筛选</Button> : null}
           <Input.Search
             allowClear

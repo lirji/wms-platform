@@ -1,5 +1,7 @@
 # WMS v1 Delivery Report
 
+本文件是早期 S9 阶段报告，保留当时的测量与缺口，不作为最新交付状态。后续真实 TM/TC/RM、消息和序列号能力已有新增证据；当前剩余项与 CI 以[交付状态](DELIVERY_STATUS.md)为准。完整 50 AC 仍未验收。
+
 ## Outcome
 
 **未完成。** S0–S7 与 S8-01/S8-04、S9-02/S9-03/S9-04/S9-06 已在远程 main。S8-02/S8-03 在 recon `origin/main`。S9-05 证据表已起草，但 50 项 AC 不能标通过。必要外部门禁仍 blocked。
