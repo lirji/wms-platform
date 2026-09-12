@@ -195,6 +195,16 @@ class OutboundHttpIT {
         assertEquals(200, replayAuth.statusCode());
     }
 
+    @Test
+    void serialQuantityMismatchIsRejectedBeforeTaskLookup() throws Exception {
+        var response = post("/api/wms/v1/warehouses/WH-A/tasks/UNKNOWN/picks", token(List.of("WH-A")), "BAD-SERIAL-QTY",
+                """
+                {"lotId":"NO_LOT","qty":2,"serialExecution":{"schemaVersion":1,
+                "identities":[{"serialId":"SN-ONE","ownerEpoch":1}]}}
+                """);
+        assertEquals(400, response.statusCode(), response.body());
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("Authorization", "Bearer " + bearer).GET().build(), HttpResponse.BodyHandlers.ofString());

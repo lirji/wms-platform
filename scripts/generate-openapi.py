@@ -83,6 +83,11 @@ cursor = [
 ]
 wh = ["- $ref: '#/components/parameters/WarehouseId'"]
 
+serial_stock_params = [f"- name: {name}\n  in: query\n  required: true\n  schema: {{type: string, minLength: 1, maxLength: 64}}" for name in ("ownerId", "skuId", "locationId")]
+serial_stock_params.append("- name: lotId\n  in: query\n  required: false\n  schema: {type: string, minLength: 1, maxLength: 64, default: NO_LOT}")
+get("/api/wms/v1/warehouses/{warehouseId}/serial-stock", "listSelectableSerialStock", "inventory", "inventory.read", ("200",),
+    "按完整合格库存桶查询当前可选择SN及实际ownerEpoch；游标绑定筛选范围，查询不预占，PICK仍核验", wh + cursor + serial_stock_params)
+
 post("/api/wms/v1/fulfillments", "createFulfillment", "fulfillment", "fulfillment.create",
      "FulfillmentCreateRequest", ("202",), "创建全局履约单，202表示受理而非已分配")
 get("/api/wms/v1/fulfillments/{fulfillmentId}", "getFulfillment", "fulfillment", "fulfillment.read",
@@ -971,12 +976,40 @@ components:
         clientOperationId:
           type: "string"
           maxLength: 64
+    SerialExecutionSelection:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, identities]
+      description: 本次出库完整身份选择；规范化SN唯一，数量等于身份数，旧归属代际不能替代当前库存。
+      properties:
+        schemaVersion:
+          type: integer
+          const: 1
+        identities:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [serialId, ownerEpoch]
+            properties:
+              serialId:
+                type: string
+                minLength: 1
+                maxLength: 64
+              ownerEpoch:
+                type: integer
+                format: int64
+                minimum: 0
     PickRequest:
       type: "object"
       additionalProperties: false
       required: ["qty"]
       description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
       properties:
+        serialExecution:
+          $ref: '#/components/schemas/SerialExecutionSelection'
         lotId:
           type: string
           minLength: 1

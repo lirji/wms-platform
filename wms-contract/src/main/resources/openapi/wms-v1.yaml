@@ -28,6 +28,55 @@ tags:
   - name: internal-registry
   - name: internal-inventory
 paths:
+  /api/wms/v1/warehouses/{warehouseId}/serial-stock:
+    get:
+      operationId: listSelectableSerialStock
+      tags: [inventory]
+      summary: 按完整合格库存桶查询当前可选择SN及实际ownerEpoch；游标绑定筛选范围，查询不预占，PICK仍核验
+      security:
+        - oidc: [inventory.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: ownerId
+  in: query
+  required: true
+  schema: {type: string, minLength: 1, maxLength: 64}
+        - name: skuId
+  in: query
+  required: true
+  schema: {type: string, minLength: 1, maxLength: 64}
+        - name: locationId
+  in: query
+  required: true
+  schema: {type: string, minLength: 1, maxLength: 64}
+        - name: lotId
+  in: query
+  required: false
+  schema: {type: string, minLength: 1, maxLength: 64, default: NO_LOT}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/wms/v1/fulfillments:
     post:
       operationId: createFulfillment
@@ -4285,12 +4334,40 @@ components:
         clientOperationId:
           type: "string"
           maxLength: 64
+    SerialExecutionSelection:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, identities]
+      description: 本次出库完整身份选择；规范化SN唯一，数量等于身份数，旧归属代际不能替代当前库存。
+      properties:
+        schemaVersion:
+          type: integer
+          const: 1
+        identities:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [serialId, ownerEpoch]
+            properties:
+              serialId:
+                type: string
+                minLength: 1
+                maxLength: 64
+              ownerEpoch:
+                type: integer
+                format: int64
+                minimum: 0
     PickRequest:
       type: "object"
       additionalProperties: false
       required: ["qty"]
       description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
       properties:
+        serialExecution:
+          $ref: '#/components/schemas/SerialExecutionSelection'
         lotId:
           type: string
           minLength: 1

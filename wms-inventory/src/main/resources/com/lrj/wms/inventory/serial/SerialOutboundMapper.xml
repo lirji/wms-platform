@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.serial.SerialOutboundMapper">
+ <insert id="insert">
+  INSERT INTO serial_pick_fact(id,enterprise_id,warehouse_id,command_id,operation_id,allocation_id,attempt_id,order_line_id,sku_id,serial_id,owner_epoch,source_balance_id,target_balance_id,created_at,updated_at)
+  VALUES(#{row.id},#{row.e},#{row.w},#{row.command},#{row.operation},#{row.allocation},#{row.attempt},#{row.orderLine},#{row.sku},#{row.serial},#{row.epoch},#{row.source},#{row.target},#{row.now},#{row.now})
+ </insert>
+ <select id="available" resultType="map" timeout="3">
+  SELECT s.serial_id id,s.serial_id serialId,s.owner_epoch ownerEpoch,b.owner_id ownerId,b.sku_id skuId,b.lot_id lotId,b.location_id locationId
+  FROM stock_balance b JOIN local_serial s ON s.enterprise_id=b.enterprise_id AND s.warehouse_id=b.warehouse_id AND s.balance_id=b.id
+  WHERE b.enterprise_id=#{e} AND b.warehouse_id=#{w} AND b.owner_id=#{owner} AND b.sku_id=#{sku} AND b.location_id=#{location}
+    AND b.lot_id=#{lot} AND b.quality_code='GOOD' AND b.on_hand_qty&gt;0 AND b.free_execution_claim_qty=0
+    AND s.state='AUTHORIZED' AND s.registry_state='ACTIVE' AND s.sku_id=b.sku_id AND s.lot_id=b.lot_id
+    AND NOT EXISTS(SELECT 1 FROM serial_pick_fact f WHERE f.enterprise_id=s.enterprise_id AND f.warehouse_id=s.warehouse_id
+      AND f.sku_id=s.sku_id AND f.owner_epoch=s.owner_epoch AND f.active_serial=s.serial_id)
+    <if test="page.id != null">AND s.serial_id&gt;#{page.id}</if>
+  ORDER BY s.serial_id LIMIT #{page.fetchLimit}
+ </select>
+</mapper>

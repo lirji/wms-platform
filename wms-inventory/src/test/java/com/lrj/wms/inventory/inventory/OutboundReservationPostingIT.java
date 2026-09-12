@@ -37,7 +37,7 @@ class OutboundReservationPostingIT {
         var config = new Configuration(new Environment("outbound-posting-it", new JdbcTransactionFactory(), ds));
         DatabaseInstants.configure(config);
         for (var mapper : List.of(MasterdataMapper.class, InventoryMapper.class, OutboxMapper.class,
-                CommandDedupMapper.class, EffectMapper.class, StockCommandMapper.class)) config.addMapper(mapper);
+                CommandDedupMapper.class, EffectMapper.class, StockCommandMapper.class,com.lrj.wms.inventory.serial.LocalSerialMapper.class,com.lrj.wms.inventory.serial.SerialOutboundMapper.class)) config.addMapper(mapper);
         sessions = new SqlSessionFactoryBuilder().build(config); jdbc = new JdbcTemplate(ds);
         try (var session = sessions.openSession(false)) {
             var md = new MasterdataService(session, CLOCK); md.createWarehouse("WH", "ENT", "WH", "隔离仓", "UTC");
@@ -103,6 +103,41 @@ class OutboundReservationPostingIT {
         amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='PAGED' AND location_id='STAGE'", "0");
         amount("SELECT remaining_qty FROM reservation_line WHERE order_line_id='OTHER' AND reservation_id=(SELECT id FROM reservation WHERE allocation_id='ALLOC-PAGED')", "5");
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM stock_command WHERE command_id='PAGE-TOO-LARGE'", Integer.class));
+    }
+
+    @Test void serialPickMovesExactEpochAndFinalIdentityFailureRollsBackAllQuantities() {
+        seed("SERIAL",5,true);
+        try(var session=sessions.openSession(false)) {
+            var inventory=session.getMapper(InventoryMapper.class);var bucket=inventory.lockBalanceByDimension("ENT","WH","OWNER","SOURCE","SERIAL","NO_LOT","GOOD");
+            var locals=session.getMapper(com.lrj.wms.inventory.serial.LocalSerialMapper.class);var now=java.sql.Timestamp.from(CLOCK.instant());
+            // 明确的本地已登记身份夹具；真实登记和消息进程另有验收，不用此夹具声称全球授权。
+            for(int n=1;n<=10;n++) {locals.insertIgnore(java.util.UUID.randomUUID().toString(),"ENT","WH","SERIAL-"+n,"SERIAL","NO_LOT",bucket.get("id").toString(),"AUTHORIZED","ORIGINAL-RECEIPT","ACTIVE",null,now);locals.updateState("ENT","WH","SERIAL-"+n,bucket.get("id").toString(),"AUTHORIZED","ACTIVE",null,1L,now);}session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertEquals("SERIAL_PICK_CONFLICT",assertThrows(InventoryException.class,() -> serialCommand(session,"SERIAL-WRONG-EPOCH","LINE",new com.lrj.wms.contract.messaging.SerialExecutionSelection(1,List.of(new com.lrj.wms.contract.messaging.SerialExecutionSelection.Identity("SERIAL-1",0))))).code());session.rollback();
+        }
+        try(var session=sessions.openSession(false)) {serialCommand(session,"SERIAL-FIRST","LINE",serialSelection("SERIAL-1","SERIAL-2"));session.commit();}
+        try(var session=sessions.openSession(false)) {serialCommand(session,"SERIAL-FIRST","LINE",serialSelection("serial-2","serial-1"));session.commit();}
+        try(var session=sessions.openSession(false)) {assertEquals("COMMAND_CONFLICT",assertThrows(InventoryException.class,() -> serialCommand(session,"SERIAL-FIRST","LINE",serialSelection("SERIAL-1","SERIAL-3"))).code());session.rollback();}
+        try(var session=sessions.openSession(false)) {assertEquals("SERIAL_PICK_CONFLICT",assertThrows(InventoryException.class,() -> serialCommand(session,"SERIAL-OTHER-LINE","OTHER",serialSelection("SERIAL-1"))).code());session.rollback();}
+        jdbc.execute("ALTER TABLE serial_pick_fact ADD CONSTRAINT fail_last_pick_identity CHECK(command_id<>'SERIAL-LAST' OR serial_id<>'SERIAL-4')");
+        try {try(var session=sessions.openSession(false)) {assertThrows(RuntimeException.class,() -> serialCommand(session,"SERIAL-LAST","LINE",serialSelection("SERIAL-3","SERIAL-4")));session.rollback();}}
+        finally {jdbc.execute("ALTER TABLE serial_pick_fact DROP CHECK fail_last_pick_identity");}
+        amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='SOURCE'","8");
+        amount("SELECT reserved_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='SOURCE'","8");
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_pick_fact WHERE command_id='SERIAL-LAST'",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.sku_id='SERIAL' AND b.location_id='STAGE'",Integer.class));
+        try(var session=sessions.openSession(false)) {serialCommand(session,"SERIAL-LAST","LINE",serialSelection("SERIAL-3","SERIAL-4"));session.commit();}
+        amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='STAGE'","4");
+        assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM serial_pick_fact WHERE sku_id='SERIAL' AND order_line_id='LINE' AND owner_epoch=1",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='SERIAL-FIRST'",Integer.class));
+    }
+    private static com.lrj.wms.contract.messaging.SerialExecutionSelection serialSelection(String... serials) {
+        return new com.lrj.wms.contract.messaging.SerialExecutionSelection(1,java.util.Arrays.stream(serials).map(sn -> new com.lrj.wms.contract.messaging.SerialExecutionSelection.Identity(sn,1L)).toList());
+    }
+    private static Map<String,Object> serialCommand(SqlSession session,String command,String line,com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        return new StockCommandService(session,CLOCK).applyOutbound("ENT","WH",command,"PICK","ORDER-SERIAL",command,"INTERNAL-LINE","actor","EXEC-"+command,line,
+                context("SERIAL","PICK"),Quantity.parse(Integer.toString(selection.identities().size()),0),null,selection);
     }
 
     private static void seed(String sku, int qty, boolean confirmed) {

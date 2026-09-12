@@ -141,6 +141,59 @@ class OutboundMessagingProcessesIT {
                     30, "重复或错误动作未处理", out, stock);
             decimal(outDb, "SELECT cancelled_posted_qty FROM outbound_line", "2");
             assertEquals(4, stockDb.queryForObject("SELECT COUNT(*) FROM stock_posting", Integer.class));
+            // 序列PICK使用同一真实来源/库存进程与Kafka；身份授权和TC仍是明确前置夹具。
+            seedSerial(inventory);
+            String selectable="http://127.0.0.1:"+inventoryPort+"/api/wms/v1/warehouses/WH/serial-stock?ownerId=OWNER&skuId=SERIAL-SKU&locationId=SOURCE&limit=1";
+            String reader=token(issuer,rsa,List.of("inventory.read"));
+            assertEquals(403,get(selectable,token).statusCode());
+            var choices=get(selectable,reader);assertEquals(200,choices.statusCode(),choices.body());
+            var firstChoice=RuntimeMessage.JSON.readTree(choices.body());assertEquals(1,firstChoice.path("items").size());assertEquals(1,firstChoice.path("items").get(0).path("ownerEpoch").asInt());
+            String cursor=firstChoice.path("nextCursor").asString();
+            var nextChoice=get(selectable+"&cursor="+cursor,reader);assertEquals(200,nextChoice.statusCode(),nextChoice.body());
+            assertNotEquals(firstChoice.path("items").get(0).path("serialId").asString(),RuntimeMessage.JSON.readTree(nextChoice.body()).path("items").get(0).path("serialId").asString());
+            assertEquals(400,get(selectable+"&cursor="+cursor+"&lotId=OTHER",reader).statusCode());assertEquals(400,get(selectable.replace("limit=1","limit=201"),reader).statusCode());
+            assertEquals(403,get(selectable.replace("/WH/","/FOREIGN/"),reader).statusCode());
+            var serialOrder=post(base+"/outbound-orders",token,"CREATE-SERIAL",json(Map.of("allocationId","ALLOC-SERIAL","attemptId","ATT-SERIAL","ownerId","OWNER","lines",List.of(Map.of("orderLineId","SERIAL-LINE","skuId","SERIAL-SKU","qty","3","baseUnit","EA")))));
+            assertEquals(201,serialOrder.statusCode(),serialOrder.body());
+            String serialOrderPath=base+"/outbound-orders/"+RuntimeMessage.JSON.readTree(serialOrder.body()).path("id").asString();
+            outDb.update("INSERT INTO outbound_tcc_evidence(id,enterprise_id,warehouse_id,attempt_id,xid,tc_observed_status,tc_terminal_evidence_ref,participant_set_hash,created_at,updated_at) VALUES ('FIXTURE-SERIAL','ENT','WH','ATT-SERIAL','fixture-serial-xid','Committed','fixture-serial-evidence',?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","e".repeat(64));
+            assertEquals(200,post(serialOrderPath+"/execution-authorizations",token,"AUTH-SERIAL",json(Map.of("attemptId","ATT-SERIAL","authorizationId","AUTH-SERIAL","xid","fixture-serial-xid","tcTerminalEvidenceRef","fixture-serial-evidence","participantSetHash","e".repeat(64)))).statusCode());
+            var serialPlan=post(serialOrderPath+"/pick-tasks",token,"PLAN-SERIAL",json(Map.of("orderLineId","SERIAL-LINE","sourceLocationId","SOURCE","stagingLocationId","STAGE","qty","3")));
+            assertEquals(201,serialPlan.statusCode(),serialPlan.body());
+            String serialPickPath=base+"/tasks/"+RuntimeMessage.JSON.readTree(serialPlan.body()).path("taskId").asString()+"/picks";
+            var serialPick=json(Map.of("qty","2","pickPartId","SERIAL-PART","lotId","NO_LOT","serialExecution",Map.of("schemaVersion",1,"identities",List.of(Map.of("serialId","PROCESS-SN-1","ownerEpoch",1),Map.of("serialId","PROCESS-SN-2","ownerEpoch",1)))));
+            assertEquals(400,post(serialPickPath,token,"SERIAL-BAD-VERSION",serialPick.replace("\"schemaVersion\":1","\"schemaVersion\":1.5")).statusCode());
+            assertEquals(400,post(serialPickPath,token,"SERIAL-BAD-EPOCH",serialPick.replace("\"ownerEpoch\":1","\"ownerEpoch\":1.5")).statusCode());
+            stockDb.execute("ALTER TABLE serial_pick_fact ADD CONSTRAINT fail_process_serial_pick CHECK(serial_id<>'PROCESS-SN-2')");
+            var serialAccepted=post(serialPickPath,token,"PROCESS-SERIAL-PICK",serialPick);assertEquals(202,serialAccepted.statusCode(),serialAccepted.body());
+            await(() -> stockDb.queryForObject("SELECT COUNT(*) FROM runtime_message_inbox WHERE source_service='wms-outbound' AND payload LIKE '%PROCESS-SERIAL-PICK%' AND claim_epoch>0",Integer.class)>0,30,"序列PICK未尝试",out,stock);
+            assertEquals(0,stockDb.queryForObject("SELECT COUNT(*) FROM serial_pick_fact",Integer.class));
+            decimal(stockDb,"SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL-SKU' AND location_id='SOURCE'","5");
+            stop(inventoryProcess);inventoryProcess=null;stockDb.execute("ALTER TABLE serial_pick_fact DROP CHECK fail_process_serial_pick");
+            inventoryProcess=start(root,"inventory",inventory,kafka,inventoryPort,issuer,logs);stock=inventoryProcess;
+            await(() -> applied(outDb,"PROCESS-SERIAL-PICK"),60,"序列PICK未从持久原身份恢复",out,stock);
+            assertEquals(2,outDb.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE command_id='PROCESS-SERIAL-PICK' AND state='PICKED'",Integer.class));
+            assertEquals(2,stockDb.queryForObject("SELECT COUNT(*) FROM serial_pick_fact WHERE command_id='PROCESS-SERIAL-PICK' AND order_line_id='SERIAL-LINE' AND owner_epoch=1",Integer.class));
+            assertEquals(2,stockDb.queryForObject("SELECT COUNT(*) FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.sku_id='SERIAL-SKU' AND b.location_id='STAGE'",Integer.class));
+            decimal(stockDb,"SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL-SKU' AND location_id='STAGE'","2");
+            var serialReplay=post(serialPickPath,token,"SERIAL-REPLAY",serialPick.replace("PROCESS-SN-1","process-sn-1"));assertEquals(202,serialReplay.statusCode(),serialReplay.body());
+            assertEquals(409,post(serialPickPath,token,"SERIAL-REPLAY",serialPick.replace("PROCESS-SN-1","PROCESS-SN-3")).statusCode());
+            var afterPick=get(selectable.replace("limit=1","limit=200"),reader);assertEquals(200,afterPick.statusCode(),afterPick.body());assertEquals(3,RuntimeMessage.JSON.readTree(afterPick.body()).path("items").size());
+            var stagedPick=get(selectable.replace("locationId=SOURCE","locationId=STAGE"),reader);assertEquals(200,stagedPick.statusCode(),stagedPick.body());assertEquals(0,RuntimeMessage.JSON.readTree(stagedPick.body()).path("items").size());
+            // 从实际入箱信封取发布器补齐后的上下文，保证探针抵达目标策略校验。
+            var originalSerial=(tools.jackson.databind.node.ObjectNode)RuntimeMessage.parse(stockDb.queryForObject("SELECT payload FROM runtime_message_inbox WHERE source_service='wms-outbound' AND status='DONE' AND payload LIKE '%PROCESS-SERIAL-PICK%' LIMIT 1",String.class)).payload();
+            assertEquals(2,originalSerial.path("outboundSchemaVersion").asInt());
+            var downgraded=originalSerial.deepCopy();downgraded.put("outboundSchemaVersion",1);
+            var wrongPolicy=originalSerial.deepCopy();((tools.jackson.databind.node.ObjectNode)wrongPolicy.path("postingContext")).put("skuId","SKU");
+            try(var publisher=new KafkaMessagePublisher(settings,"serial-version-probe")) {
+                publisher.publish("wms.process.outbound.commands","PROCESS-SERIAL-PICK",new RuntimeMessage(1,"SERIAL-DOWNGRADE","wms-outbound","ENT","WH","StockCommandRequested","PROCESS-SERIAL-PICK",1,Instant.now().toString(),"probe",downgraded).encode());
+                publisher.publish("wms.process.outbound.commands","PROCESS-SERIAL-PICK",new RuntimeMessage(1,"SERIAL-WRONG-POLICY","wms-outbound","ENT","WH","StockCommandRequested","PROCESS-SERIAL-PICK",1,Instant.now().toString(),"probe",wrongPolicy).encode());
+            }
+            await(() -> stockDb.queryForObject("SELECT COUNT(*) FROM runtime_message_inbox WHERE status='ISOLATED' AND (payload LIKE '%SERIAL-DOWNGRADE%' OR payload LIKE '%SERIAL-WRONG-POLICY%')",Integer.class)==2,30,"序列探针未隔离",out,stock);
+            assertEquals("UNSUPPORTED_OUTBOUND_SCHEMA",stockDb.queryForObject("SELECT error_code FROM runtime_message_inbox WHERE payload LIKE '%SERIAL-DOWNGRADE%'",String.class));
+            assertEquals("SERIAL_POLICY_MISMATCH",stockDb.queryForObject("SELECT error_code FROM runtime_message_inbox WHERE payload LIKE '%SERIAL-WRONG-POLICY%'",String.class));
+            assertEquals(1,stockDb.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='PROCESS-SERIAL-PICK'",Integer.class));
+
         } finally { stop(inventoryProcess); stop(outboundProcess); jwks.stop(0); }
     }
 
@@ -169,6 +222,30 @@ class OutboundMessagingProcessesIT {
             app.confirmTried("ENT", "WH", "SEED-CONFIRM", "SEED", "fixture", "ALLOC", "ATT", "fixture-xid", 1L, "ReservationTccAction");
             session.commit();
         }
+    }
+    private static void seedSerial(MySQLContainer inventory) {
+        var config=new Configuration(new Environment("serial-pick-fixtures",new JdbcTransactionFactory(),source(inventory)));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
+        for(var mapper:List.of(MasterdataMapper.class,com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class,
+                com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper.class,com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper.class,
+                com.lrj.wms.inventory.serial.LocalSerialMapper.class)) config.addMapper(mapper);
+        try(var session=new SqlSessionFactoryBuilder().build(config).openSession(false)) {
+            var clock=Clock.systemUTC();var now=java.sql.Timestamp.from(clock.instant());
+            new MasterdataService(session,clock).createSku(SkuPolicy.create("SERIAL-SKU","ENT","SERIAL-SKU","序列商品","EA",0,false,true,false,1,"ACTIVE"),"SERIAL-UNIT");
+            var bucket=com.lrj.wms.inventory.inventory.domain.StockBucketKey.of("ENT","WH","OWNER","SOURCE","SERIAL-SKU","NO_LOT","GOOD");
+            var app=new com.lrj.wms.inventory.inventory.InventoryApplicationService(session,clock);
+            app.receive("ENT","WH","SERIAL-RECEIVE","SERIAL-DOC","fixture",bucket,com.lrj.wms.inventory.inventory.domain.Quantity.parse("5",0));
+            app.reserveTried("ENT","WH","SERIAL-TRY","SERIAL-DOC","fixture","ALLOC-SERIAL","ATT-SERIAL","fixture-serial-xid",1L,"ReservationTccAction",1L,"d".repeat(64),List.of(
+                    new com.lrj.wms.inventory.inventory.ReservationLineInput(bucket,com.lrj.wms.inventory.inventory.domain.Quantity.parse("3",0),"SERIAL-LINE"),
+                    new com.lrj.wms.inventory.inventory.ReservationLineInput(bucket,com.lrj.wms.inventory.inventory.domain.Quantity.parse("2",0),"SERIAL-OTHER-LINE")));
+            app.confirmTried("ENT","WH","SERIAL-CONFIRM","SERIAL-DOC","fixture","ALLOC-SERIAL","ATT-SERIAL","fixture-serial-xid",1L,"ReservationTccAction");
+            String balance=session.getMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class).lockBalanceByDimension("ENT","WH","OWNER","SOURCE","SERIAL-SKU","NO_LOT","GOOD").get("id").toString();
+            var locals=session.getMapper(com.lrj.wms.inventory.serial.LocalSerialMapper.class);
+            for(int n=1;n<=5;n++) {String sn="PROCESS-SN-"+n;locals.insertIgnore(UUID.randomUUID().toString(),"ENT","WH",sn,"SERIAL-SKU","NO_LOT",balance,"AUTHORIZED","SERIAL-RECEIVE","ACTIVE",null,now);locals.updateState("ENT","WH",sn,balance,"AUTHORIZED","ACTIVE",null,1L,now);}session.commit();
+        }
+    }
+    private HttpResponse<String> get(String url,String token) throws Exception {
+        return http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(5)).header("Authorization","Bearer "+token).GET().build(),HttpResponse.BodyHandlers.ofString());
     }
     private Process start(Path root, String service, MySQLContainer db, KafkaContainer kafka, int port, String issuer, Path logs) throws Exception {
         Path jar = root.resolve("wms-" + service + "/target/wms-" + service + "-0.1.0-SNAPSHOT.jar");

@@ -35,6 +35,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}	outbo
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries	messaging.read
+GET	/api/wms/v1/warehouses/{warehouseId}/serial-stock	inventory.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks	task.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}	task.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/action-effects	task.read

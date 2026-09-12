@@ -17,6 +17,13 @@ public final class OutboundPostingService {
     /** 库位来自原任务，客户端只指定本次拣货实际批次；重试必须保持原上下文。 */
     public Map<String, Object> pick(String enterprise, String warehouse, String taskId, String commandId,
             String actor, BigDecimal qty, String partId, String lotId) {
+        return pick(enterprise,warehouse,taskId,commandId,actor,qty,partId,lotId,null);
+    }
+
+    /** 所选SN及epoch与原任务同时受理，来源表不向库存库跨域写入。 */
+    public Map<String,Object> pick(String enterprise,String warehouse,String taskId,String commandId,String actor,
+            BigDecimal qty,String partId,String lotId,com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        if(selection!=null) selection.requireQuantity(qty);
         var mapper = session.getMapper(OutboundOrderMapper.class);
         String orderId = mapper.taskOrderId(enterprise, warehouse, taskId);
         var order = require(orderId == null ? null : mapper.lockOrder(enterprise, warehouse, orderId), "UNKNOWN_ORDER");
@@ -25,7 +32,9 @@ public final class OutboundPostingService {
         var context = context(order, line, text(task, "source_location_id"), text(task, "target_location_id"), lotId);
         context.requireForAction("PICK");
         var result = new OutboundOrderService(session, clock).pickPartial(enterprise, warehouse, taskId, commandId, actor, qty, partId);
-        bind(enterprise, warehouse, result, line, context);
+        bind(enterprise,warehouse,result,line,context,selection);
+        if(selection!=null) new OutboundSerialService(session,clock).claim(enterprise,warehouse,text(result,"commandId"),taskId,
+                text(line,"id"),text(line,"order_line_id"),context,selection,Boolean.TRUE.equals(result.get("replayed")));
         return result;
     }
 
@@ -62,19 +71,27 @@ public final class OutboundPostingService {
         var command = session.getMapper(com.lrj.wms.outbound.protocol.SourceMapper.class).getCommand(enterprise, warehouse, commandId);
         var body = RuntimeMessage.JSON.readTree(text(command, "payload_json"));
         if (!body.has("postingContext")) return;
-        if (!body.path("outboundSchemaVersion").isIntegralNumber() || !body.path("outboundSchemaVersion").canConvertToInt() || body.path("outboundSchemaVersion").intValue() != 1)
+        if (!body.path("outboundSchemaVersion").isIntegralNumber() || !body.path("outboundSchemaVersion").canConvertToInt() || body.path("outboundSchemaVersion").intValue() != (body.hasNonNull("serialExecution")?2:1))
             throw new com.lrj.wms.runtime.messaging.MessageRejectedException("UNSUPPORTED_OUTBOUND_SCHEMA");
         var context = RuntimeMessage.JSON.treeToValue(body.path("postingContext"), StockPostingContext.class);
         context.requireForAction("PICK");
         if (session.getMapper(OutboundOrderMapper.class).addBucketPicked(enterprise, warehouse, lineId,
                 context.targetLocationId(), context.lotId(), qty, java.sql.Timestamp.from(clock.instant())) < 1)
             throw new OutboundException("VERSION_CONFLICT", "拣货回执额度更新冲突");
+        if(body.hasNonNull("serialExecution")) {
+            var selection=RuntimeMessage.JSON.treeToValue(body.path("serialExecution"),com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
+            selection.requireQuantity(qty);new OutboundSerialService(session,clock).posted(enterprise,warehouse,commandId,selection);
+        }
     }
 
     private void bind(String enterprise, String warehouse, Map<String, Object> result, Map<String, Object> line, StockPostingContext context) {
-        result.put("documentId", context.documentId());
-        new SourceCommandContextStore(session).bindOutbound(enterprise, warehouse, text(result, "commandId"), context,
-                text(line, "order_line_id"), Boolean.TRUE.equals(result.get("replayed")));
+        bind(enterprise,warehouse,result,line,context,null);
+    }
+    private void bind(String enterprise,String warehouse,Map<String,Object> result,Map<String,Object> line,StockPostingContext context,
+            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        result.put("documentId",context.documentId());
+        new SourceCommandContextStore(session).bindOutbound(enterprise,warehouse,text(result,"commandId"),context,
+                text(line,"order_line_id"),selection,Boolean.TRUE.equals(result.get("replayed")));
     }
     private static StockPostingContext context(Map<String, Object> order, Map<String, Object> line, String source, String target, String lot) {
         return new StockPostingContext(text(order, "id"), text(order, "owner_id"), text(line, "sku_id"), text(line, "base_unit"),

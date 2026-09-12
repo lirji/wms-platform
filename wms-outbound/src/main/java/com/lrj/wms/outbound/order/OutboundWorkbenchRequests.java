@@ -39,7 +39,12 @@ public final class OutboundWorkbenchRequests {
             @Size(min = 1, max = 64) String lotId,
             @Size(max = 64) String pickPartId,
             @Size(max = 64) String clientOperationId,
-            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) { }
+            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty,
+            @Valid com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution) {
+        /** 数量与身份必须一起在协议边界验证，避免业务异常被误报为服务端失败。 */
+        public PickRequest { if (serialExecution != null) serialExecution.requireQuantity(qty); }
+        public PickRequest(String lotId,String pickPartId,String clientOperationId,BigDecimal qty) {this(lotId,pickPartId,clientOperationId,qty,null);}
+    }
     /** PackRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record PackRequest(
             @NotBlank @Size(max = 64) String orderLineId,

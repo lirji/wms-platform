@@ -27,8 +27,9 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         String action = required(payload, "action");
         if (!(outbound ? Set.of("PICK", "SHIP", "CANCEL") : Set.of("RECEIVE", "QUALITY", "PUTAWAY")).contains(action))
             throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
+        // 序列出库使用独立V2：旧V1消费者会明确拒绝，不能在普通SKU上静默忽略新身份字段。
         if (outbound && (!payload.path("outboundSchemaVersion").isIntegralNumber()
-                || !payload.path("outboundSchemaVersion").canConvertToInt() || payload.path("outboundSchemaVersion").intValue() != 1))
+                || !payload.path("outboundSchemaVersion").canConvertToInt() || payload.path("outboundSchemaVersion").intValue() != (payload.hasNonNull("serialExecution")?2:1)))
             throw new MessageRejectedException("UNSUPPORTED_OUTBOUND_SCHEMA");
         StockPostingContext context;
         BigDecimal rawQty;
@@ -59,12 +60,25 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 serialObservation = RuntimeMessage.JSON.treeToValue(observation, com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
                 serialObservation.requireQuantity(rawQty);
             } catch (RuntimeException invalid) { throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED"); }
-        } else if (serialEnabled && !Set.of("CANCEL","QUALITY","PUTAWAY").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        } else if (serialEnabled && !Set.of("CANCEL","QUALITY","PUTAWAY","PICK").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
         else if (payload.hasNonNull("serialObservation")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if(payload.hasNonNull("serialQualityObservation") && (!serialEnabled || !"QUALITY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if(payload.hasNonNull("serialSelection") && (!serialEnabled || !"PUTAWAY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
+        com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution=null;
+        if(serialEnabled && "PICK".equals(action)) {
+            try {
+                var raw=payload.path("serialExecution");
+                if(!raw.isObject() || raw.properties().stream().anyMatch(p -> !Set.of("schemaVersion","identities").contains(p.getKey()))
+                        || !raw.path("schemaVersion").isIntegralNumber() || !raw.path("schemaVersion").canConvertToInt() || raw.path("schemaVersion").intValue()!=1
+                        || !raw.path("identities").isArray() || raw.path("identities").isEmpty() || raw.path("identities").size()>200) throw new IllegalArgumentException();
+                for(var identity:raw.path("identities"))
+                    if(!identity.isObject() || identity.properties().stream().anyMatch(p -> !Set.of("serialId","ownerEpoch").contains(p.getKey()))
+                            || !identity.path("serialId").isString() || !identity.path("ownerEpoch").isIntegralNumber() || !identity.path("ownerEpoch").canConvertToLong()) throw new IllegalArgumentException();
+                serialExecution=RuntimeMessage.JSON.treeToValue(raw,com.lrj.wms.contract.messaging.SerialExecutionSelection.class);serialExecution.requireQuantity(rawQty);
+            } catch(RuntimeException invalid) {throw new MessageRejectedException("INVALID_SERIAL_EXECUTION");}
+        } else if(payload.hasNonNull("serialExecution")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         boolean hasLot = !"NO_LOT".equals(context.lotId());
         if (flag(sku.get("lot_enabled")) != hasLot) throw new MessageRejectedException("LOT_POLICY_MISMATCH");
         if (hasLot) {
@@ -87,7 +101,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             command = new StockCommandService(session, clock).applyOutbound(enterprise, warehouse, commandId, action,
                     required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
                     required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "reservationOrderLineId"),
-                    context, qty, payload.hasNonNull("previousCommandId") ? required(payload, "previousCommandId") : null);
+                    context, qty, payload.hasNonNull("previousCommandId") ? required(payload, "previousCommandId") : null,serialExecution);
         } else if ("QUALITY".equals(action)) {
             com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
             try {

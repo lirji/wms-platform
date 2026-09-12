@@ -49,6 +49,7 @@ class OutboundPersistence {
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
         config.addMapper(OutboundOrderMapper.class);
+        config.addMapper(com.lrj.wms.outbound.order.OutboundSerialMapper.class);
         config.addMapper(OutboundTaskMapper.class);
         config.addMapper(OutboundAuthorizationMapper.class);
         return new SqlSessionFactoryBuilder().build(config);

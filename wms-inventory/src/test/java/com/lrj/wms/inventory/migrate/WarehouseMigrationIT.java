@@ -105,6 +105,7 @@ class WarehouseMigrationIT {
         // 存储迁移夹具保留逐身份租约、结果和原上下文，不把空表拷贝当作恢复验证。
         sourceJdbc.update("INSERT INTO count_adjustment_intent(id,enterprise_id,warehouse_id,plan_id,line_id,observation_id,operation_id,actor_id,context_json,context_hash,state,created_at,updated_at) VALUES('COUNT-ADJUST-M','ENT-1','WH-A','PLAN-M','LINE-M','OBS-M','COUNT-OP-M','operator',CAST(? AS JSON),?,'PENDING',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","{\"schemaVersion\":1,\"quantity\":\"0\"}","c".repeat(64));
         sourceJdbc.update("INSERT INTO count_serial_intent(id,enterprise_id,warehouse_id,adjustment_id,plan_id,serial_id,sku_id,operation_id,kind,from_epoch,state,result_json,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES('COUNT-SN-M','ENT-1','WH-A','COUNT-ADJUST-M','PLAN-M','SN-A','SKU','COUNT-OP-M','MISSING',3,'DONE',CAST(? AS JSON),7,4,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","{\"state\":\"MISSING\",\"ownerEpoch\":3}");
+        sourceJdbc.update("INSERT INTO serial_pick_fact(id,enterprise_id,warehouse_id,command_id,operation_id,allocation_id,attempt_id,order_line_id,sku_id,serial_id,owner_epoch,source_balance_id,target_balance_id,created_at,updated_at) VALUES('SERIAL-PICK-M','ENT-1','WH-A','PICK-M','OP-M','ALLOC-M','ATT-M','ORDER-LINE-M','SKU','SN-M',3,'SOURCE-B','TARGET-B',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
         sourceJdbc.update("INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,state,attempts,claim_epoch,next_attempt_at,created_at,updated_at) VALUES('RELEASE-MIGRATION','ENT-1','WH-A','SN-A','SKU','TRANSFER-M','RELEASE-M',3,?,'ISOLATED',12,15,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","b".repeat(64));
         try (SqlSession session = sourceSessions.openSession(false)) {
             WarehouseMigrationService migrate = new WarehouseMigrationService(session, sourceJdbc, targetJdbc, clock);
@@ -115,7 +116,7 @@ class WarehouseMigrationIT {
         }
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"));
-        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent"))
+        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent","serial_pick_fact"))
             assertEquals(sourceJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"),targetJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"));
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"));

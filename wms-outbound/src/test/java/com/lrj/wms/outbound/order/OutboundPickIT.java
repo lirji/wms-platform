@@ -45,6 +45,8 @@ class OutboundPickIT {
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(SourceMapper.class);
         config.addMapper(OutboundOrderMapper.class);
+        config.addMapper(OutboundSerialMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
 
@@ -246,6 +248,43 @@ class OutboundPickIT {
     }
 
     /** 仅本地测试的终态证据夹具；仍调用实际授权服务，不证明真实 TC 集成。 */
+    @Test void serialSelectionIsImmutableExclusiveAndPostedAtomically() {
+        var clock=Clock.fixed(NOW,ZoneOffset.UTC);String task,other,line;
+        var selected=selection("SN-1","SN-2");
+        try(var session=sessions.openSession(false)) {
+            var service=new OutboundOrderService(session,clock);
+            var created=service.createFromAllocation("ENT-1","WH-A","ALLOC-SERIAL","ATT-SERIAL","OWNER",null,List.of(Map.of("orderLineId","SERIAL-LINE","skuId","SERIAL-SKU","qty",new BigDecimal("5"),"baseUnit","EA")));
+            String order=created.get("id").toString();authorizeForTest(session,"ENT-1","WH-A",order,"ATT-SERIAL","AUTH-SERIAL");
+            task=service.planPickTask("ENT-1","WH-A",order,"SERIAL-LINE","LOC","STAGE",new BigDecimal("3"),"SERIAL-TASK").get("taskId").toString();
+            other=service.planPickTask("ENT-1","WH-A",order,"SERIAL-LINE","LOC","STAGE",new BigDecimal("2"),"SERIAL-TASK-OTHER").get("taskId").toString();
+            var result=new OutboundPostingService(session,clock).pick("ENT-1","WH-A",task,"SERIAL-P1","actor",new BigDecimal("2"),"SERIAL-PART","NO_LOT",selected);
+            line=result.get("lineId").toString();session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            var posting=new OutboundPostingService(session,clock);
+            assertEquals("SERIAL-P1",posting.pick("ENT-1","WH-A",task,"SERIAL-P1","actor",new BigDecimal("2.00"),"SERIAL-PART","NO_LOT",selection("sn-2","sn-1")).get("commandId"));session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertThrows(com.lrj.wms.runtime.command.CommandConflictException.class,() -> new OutboundPostingService(session,clock).pick("ENT-1","WH-A",task,"SERIAL-P1","actor",new BigDecimal("2"),"SERIAL-PART","NO_LOT",selection("SN-1","SN-3")));session.rollback();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertEquals("SERIAL_PICK_CONFLICT",assertThrows(OutboundException.class,() -> new OutboundPostingService(session,clock).pick("ENT-1","WH-A",other,"SERIAL-DUP","actor",BigDecimal.ONE,"SERIAL-DUP-PART","NO_LOT",selection("SN-2"))).code());session.rollback();
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT completed_qty FROM outbound_task WHERE id=?",BigDecimal.class,other).signum());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='SERIAL-DUP'",Integer.class));
+        jdbc.execute("ALTER TABLE outbound_serial_pick ADD CONSTRAINT fail_serial_last_receipt CHECK(command_id<>'SERIAL-P1' OR serial_id<>'SN-2' OR state<>'PICKED')");
+        try {try(var session=sessions.openSession(false)) {assertThrows(RuntimeException.class,() -> new OutboundOrderService(session,clock).consumePick("ENT-1","WH-A",line,"SERIAL-RESULT","SERIAL-P1","APPLIED","SERIAL-POSTING",new BigDecimal("2")));session.rollback();}}
+        finally {jdbc.execute("ALTER TABLE outbound_serial_pick DROP CHECK fail_serial_last_receipt");}
+        assertEquals(0,jdbc.queryForObject("SELECT picked_posted_qty FROM outbound_line WHERE id=?",BigDecimal.class,line).signum());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE command_id='SERIAL-P1' AND state='PICKED'",Integer.class));
+        try(var session=sessions.openSession(false)) {var service=new OutboundOrderService(session,clock);service.consumePick("ENT-1","WH-A",line,"SERIAL-RESULT","SERIAL-P1","APPLIED","SERIAL-POSTING",new BigDecimal("2"));service.consumePick("ENT-1","WH-A",line,"SERIAL-RESULT","SERIAL-P1","APPLIED","SERIAL-POSTING",new BigDecimal("2"));session.commit();}
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE command_id='SERIAL-P1' AND state='PICKED'",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT picked_posted_qty FROM outbound_line WHERE id=?",BigDecimal.class,line).compareTo(new BigDecimal("2")));
+    }
+    private static com.lrj.wms.contract.messaging.SerialExecutionSelection selection(String... serials) {
+        return new com.lrj.wms.contract.messaging.SerialExecutionSelection(1,java.util.Arrays.stream(serials).map(sn -> new com.lrj.wms.contract.messaging.SerialExecutionSelection.Identity(sn,1L)).toList());
+    }
+
     private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
             String orderId, String attempt, String authorization) {
         if (!session.getConfiguration().hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {

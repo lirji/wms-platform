@@ -531,6 +531,16 @@ public final class StockCommandService {
             String factParentId, String factPartId, String factLineId, String actorId, String sourceExecutionId,
             String reservationOrderLineId, com.lrj.wms.contract.messaging.StockPostingContext context,
             Quantity qty, String previousCommandId) {
+        return applyOutbound(enterpriseId,warehouseId,commandId,action,factParentId,factPartId,factLineId,actorId,sourceExecutionId,
+                reservationOrderLineId,context,qty,previousCommandId,null);
+    }
+
+    /** 序列PICK在原数量事务内落身份事实，普通命令摘要保持原样。 */
+    public Map<String,Object> applyOutbound(String enterpriseId,String warehouseId,String commandId,String action,
+            String factParentId,String factPartId,String factLineId,String actorId,String sourceExecutionId,String reservationOrderLineId,
+            com.lrj.wms.contract.messaging.StockPostingContext context,Quantity qty,String previousCommandId,
+            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        if(selection!=null) {if(!"PICK".equals(action)) throw new InventoryException("SERIAL_PICK_CONTEXT_REQUIRED","当前身份选择只可用于已接通的拣货动作");selection.requireQuantity(qty.toBigDecimal());}
         if (!java.util.Set.of("PICK", "SHIP", "CANCEL").contains(action))
             throw new InventoryException("INVALID_RESERVATION_CONTEXT", "未知出库动作");
         context.requireForAction(action);
@@ -541,6 +551,7 @@ public final class StockCommandService {
         String digest = com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(json.writeValueAsString(
                 java.util.List.of("OUTBOUND_POSTING_V1", enterpriseId, warehouseId, action, factParentId, factPartId,
                         factLineId, sourceExecutionId, reservationOrderLineId, context, qty.toBigDecimal().stripTrailingZeros().toPlainString())));
+        if(selection!=null) digest=CommandDigest.v1Parts("SERIAL_OUTBOUND_V1",digest,json.writeValueAsString(selection));
         Timestamp now = Timestamp.from(clock.instant());
         var effects = session.getMapper(EffectMapper.class); var commands = session.getMapper(StockCommandMapper.class);
         String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
@@ -568,10 +579,14 @@ public final class StockCommandService {
         new InventoryApplicationService(session, clock).postOutboundReservation(enterpriseId, warehouseId, operation,
                 context.documentId(), actorId, action, context.allocationId(), context.allocationAttemptId(),
                 reservationOrderLineId, source, target, qty);
+        if(selection!=null) new com.lrj.wms.inventory.serial.SerialOutboundStockService(session,clock).pick(enterpriseId,warehouseId,commandId,operation,
+                reservationOrderLineId,context,source,target,selection);
         String postingId = UUID.randomUUID().toString();
         String postingType = "SHIP".equals(action) ? StockCommandCodes.POSTING_SHIPMENT : "CANCEL".equals(action) ? "RELEASE" : StockCommandCodes.POSTING_PICK;
-        String manifest = json.writeValueAsString(Map.of("operationId", operation, "reservationOrderLineId", reservationOrderLineId,
-                "allocationId", context.allocationId(), "allocationAttemptId", context.allocationAttemptId()));
+        var manifestBody=new java.util.LinkedHashMap<String,Object>(Map.of("operationId",operation,"reservationOrderLineId",reservationOrderLineId,
+                "allocationId",context.allocationId(),"allocationAttemptId",context.allocationAttemptId()));
+        if(selection!=null) manifestBody.put("serialExecution",selection);
+        String manifest=json.writeValueAsString(manifestBody);
         if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
                 UUID.randomUUID().toString(), postingType, qty.toBigDecimal(), sourceExecutionId, context.documentId(), manifest, now) != 1
                 || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1

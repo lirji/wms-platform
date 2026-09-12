@@ -161,12 +161,13 @@ public class OutboundWorkbenchController {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             requireContext(body.lotId(), body.lotId());
+            if(body.serialExecution()!=null && body.lotId()==null) throw new OutboundException("SERIAL_PICK_CONTEXT_REQUIRED","序列拣货必须提供明确批次和过账上下文");
             Map<String, Object> result = body.lotId() == null
                     ? new OutboundOrderService(session, Clock.systemUTC()).pickPartial(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
                         taskId, com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId())
                     : new OutboundPostingService(session, Clock.systemUTC()).pick(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId,
-                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId(), body.lotId());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId(), body.lotId(), body.serialExecution());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "PICKED"));
         }
@@ -238,7 +239,7 @@ public class OutboundWorkbenchController {
         HttpStatus status = switch (error.code()) {
             case "UNKNOWN_ORDER", "UNKNOWN_LINE", "UNKNOWN_TASK" -> HttpStatus.NOT_FOUND;
             case "VERSION_CONFLICT", "TASK_NOT_CLAIMABLE", "TCC_NOT_COMMITTED", "EVIDENCE_MISMATCH", "AUTH_CONFLICT",
-                    "AUTH_REQUIRED", "IDEMPOTENCY_PAYLOAD_MISMATCH" -> HttpStatus.CONFLICT;
+                    "AUTH_REQUIRED", "IDEMPOTENCY_PAYLOAD_MISMATCH", "SERIAL_PICK_CONFLICT", "SERIAL_PICK_CONTEXT_REQUIRED" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));
