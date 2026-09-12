@@ -18,4 +18,4 @@
 
 ## 下一步
 
-发布 `feat/console-command-wiring`。S8-05 / S9-01 / AC-42 保持 blocked。不把命令接入写成 50 AC 或 AC-26 accepted。
+S8-05 / S9-01 / AC-42 保持 blocked。用 Casdoor 活数据走 AC-26 全链，且不伪造 TC 确认。不把命令接入写成 50 AC 或 AC-26 accepted。

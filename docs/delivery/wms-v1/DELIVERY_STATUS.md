@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
-| Git发布 | pass（本切片） | 远程 main 祖先含 `8351fd0` 与 `4dee112` |
+| Git发布 | pass（本切片） | 远程 main `f466efc`（含 Ant Design 作业台与 F5 命令接入） |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
 
 ## 本轮
@@ -32,7 +32,7 @@
 - 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。
 - 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。
 - 2026-09-12：控制台改为 Ant Design 作业台（侧栏、KPI、密表）。
-- 2026-09-12 F5：作业详情接到已落地写命令；跨仓 ALLOCATED 仍要真实 TC。不是 50 AC / AC-26 accepted。
+- 2026-09-12 F5：作业详情接到已落地写命令；跨仓 ALLOCATED 仍要真实 TC。已发布远程 main `f466efc`，Docker 控制台与四服务已按该提交重建。不是 50 AC / AC-26 accepted。
 
 ## 未完成
 
