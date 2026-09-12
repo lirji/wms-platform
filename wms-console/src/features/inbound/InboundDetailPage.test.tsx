@@ -10,7 +10,7 @@ describe("InboundDetailPage", () => {
     render(
       <AppProviders>
         <MemoryRouter initialEntries={["/w/WH-A/inbound/ASN-1"]}>
-          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A" }}>
+          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["inbound.receive", "quality.inspect", "inbound.putaway"] }}>
             <Routes>
               <Route path="/w/:warehouseId/inbound/:inboundOrderId" element={<InboundDetailPage />} />
             </Routes>
@@ -21,7 +21,25 @@ describe("InboundDetailPage", () => {
     expect(screen.getByRole("heading", { name: "入库单 ASN-1" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
     expect(screen.getByRole("button", { name: "提交收货" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "质检" }));
     expect(screen.getByRole("button", { name: "记录质检" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "上架" }));
     expect(screen.getByRole("button", { name: "提交上架" })).toBeTruthy();
+  });
+
+  it("hides inbound commands when the token has no job scopes", () => {
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={["/w/WH-A/inbound/ASN-1"]}>
+          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: [] }}>
+            <Routes>
+              <Route path="/w/:warehouseId/inbound/:inboundOrderId" element={<InboundDetailPage />} />
+            </Routes>
+          </WorkspaceProvider>
+        </MemoryRouter>
+      </AppProviders>
+    );
+    expect(screen.queryByRole("button", { name: "提交命令" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "提交收货" })).toBeNull();
   });
 });

@@ -19,10 +19,12 @@ export function FulfillmentPage() {
         hrefFor={(row) => ready ? `/w/${warehouseId}/fulfillment/${recordId(row, "id", "fulfillmentId")}` : undefined}
         createLabel="创建履约单"
         createTitle="创建履约单"
+        createScope="fulfillment.create"
         createHint="表单在抽屉里。同源单号摘要冲突由服务端拒绝。"
         create={(
           <CommandCard
             embedded
+            requireScope="fulfillment.create"
             title="创建履约单"
             hint="同源单号摘要冲突由服务端拒绝。"
             operation={`fulfillment-create:${warehouseId}`}
@@ -54,9 +56,12 @@ export function FulfillmentPage() {
         )}
       />
       <DocumentListPage
-        title="本仓出库单"
-        sub="拣、包装、部分发运、未拣取消回库在出库详情。"
+        secondary
+        title="本仓出库"
+        sub="次表面：拣、包装、部分发运、未拣取消回库在出库详情。"
         empty={`当前仓 ${warehouseId || "(未选)"} 没有出库单`}
+        queryKey="oq"
+        cursorKey="oc"
         paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/outbound-orders`] : []}
         hrefFor={(row) => ready ? `/w/${warehouseId}/outbound/${recordId(row)}` : undefined}
       />

@@ -1,3 +1,10 @@
+import { afterEach } from "vitest";
+import { cleanup } from "@testing-library/react";
+
+afterEach(() => {
+  cleanup();
+});
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
@@ -17,6 +24,11 @@ class ResizeObserverStub {
   unobserve() {}
   disconnect() {}
 }
+
+Object.defineProperty(navigator, "clipboard", {
+  configurable: true,
+  value: { writeText: async () => undefined }
+});
 
 Object.defineProperty(window, "ResizeObserver", {
   writable: true,

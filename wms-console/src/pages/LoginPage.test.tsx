@@ -12,7 +12,8 @@ describe("LoginPage", () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(screen.getByRole("heading", { name: /先确认身份/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "登录后进入作业台" })).toBeTruthy();
+    expect(screen.queryByText("统一登录")).toBeNull();
     expect(screen.getByRole("button", { name: "使用统一身份登录" })).toBeTruthy();
     expect(screen.getByText(/wms-platform/)).toBeTruthy();
   });

@@ -32,8 +32,10 @@ export function InboundDetailPage() {
       ]}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="收货" requireScope="inbound.receive">
             <CommandCard
+              embedded
+              requireScope="inbound.receive"
               title="收货"
               hint="不超过剩余应收。同幂等键重试不会换命令。"
               operation={`receive:${warehouseId}:${inboundOrderId}`}
@@ -50,8 +52,10 @@ export function InboundDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="质检" requireScope="quality.inspect">
             <CommandCard
+              embedded
+              requireScope="quality.inspect"
               title="质检"
               hint="accepted + rejected 不能超过已收实物。"
               operation={`qc:${warehouseId}:${inboundOrderId}`}
@@ -74,8 +78,10 @@ export function InboundDetailPage() {
               <Form.Item label="来源版本" name="sourceVersion" initialValue="1"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="上架" requireScope="inbound.putaway">
             <CommandCard
+              embedded
+              requireScope="inbound.putaway"
               title="上架"
               hint="目标必须是存储位。未质检或不合格会被拒绝。"
               operation={`putaway:${warehouseId}:${inboundOrderId}`}

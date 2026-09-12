@@ -17,10 +17,12 @@ export function TransferPage() {
       hrefFor={(row) => ready ? `/w/${warehouseId}/transfers/${recordId(row, "id", "transferId")}` : undefined}
       createLabel="创建调拨单"
       createTitle="创建调拨单"
+      createScope="transfer.create"
       createHint="表单在抽屉里。源仓与目的仓不能相同。"
       create={(
         <CommandCard
           embedded
+          requireScope="transfer.create"
           title="创建调拨单"
           hint="源仓与目的仓不能相同。"
           operation={`transfer-create:${warehouseId}`}

@@ -17,10 +17,12 @@ export function CountPage() {
       hrefFor={(row) => ready ? `/w/${warehouseId}/counts/${recordId(row, "id", "planId")}` : undefined}
       createLabel="创建计划"
       createTitle="创建盘点计划"
+      createScope="count.create"
       createHint="表单在抽屉里。库位必须已有门禁。"
       create={(
         <CommandCard
           embedded
+          requireScope="count.create"
           title="创建盘点计划"
           hint="库位必须已有门禁。范围用逗号分隔库位。"
           operation={`count-create:${warehouseId}`}

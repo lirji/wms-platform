@@ -69,13 +69,13 @@
 | 路由 | react-router | 框架默认 | 已用于登录与回调 |
 | 表格/表单 | 轻量 / 管理套件 | Ant `Table` / `Form` / `Drawer` / `Alert` | 列来自契约字段，不预置业务行 |
 
-BRIEF 曾假设「深青石板 + 琥珀」。落地以 Ant `colorPrimary=#0f766e` 为准，**不用琥珀当第二强调**，避免作业台变成营销金。`tokens.css` 里的 `--gold` / `--accent:#1d6b8a` 是过时平行色板，须并进 Ant theme，不再双轨。
+BRIEF 曾假设「深青石板 + 琥珀」。落地以 Ant `colorPrimary=#0f766e` 为准，**不用琥珀当第二强调**，避免作业台变成营销金。F7 已把 `tokens.css` 并进同一青绿轨，不再使用 `--gold` / `#1d6b8a`。
 
 ## 5. 模块与目录（提议）
 
 ```text
 wms-console/src/
-  app/           路由与会话装配（路由级按页拆分仍待落地）
+  app/           路由与会话装配；作业页 `lazy()` + `Suspense`
   auth/          OIDC、returnTo、令牌 claims
   api/           前缀路由、信封解析、幂等键
   design/        只服务 Ant ConfigProvider，不另养一套页面色
@@ -197,29 +197,29 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 ## 11. 落地细节
 
-| Topic | 本作业台 | 现网差距 |
+| Topic | 本作业台 | F7 落地 |
 | --- | --- | --- |
-| Density | Table/Form/Button `small`；桌面 `controlHeight=32`；PDA `large` | 主题仍是 36 |
-| Scroll | 壳 sticky；**表体**滚；`scroll.x`；表头 sticky | 表头未 sticky |
-| Column | 标识 160、状态 112、数量 112 右齐；长 id 省略 + tooltip + 复制 | 列宽全 auto |
-| Row actions | 打开单据为链接；危险命令在抽屉且 `danger` | 出库取消仍是主色提交 |
+| Density | Table/Form/Button `small`；桌面 `controlHeight=32`；PDA `large` | `theme.ts` `controlHeight=32` |
+| Scroll | 壳 sticky；**表体**滚；`scroll.x`；表头 sticky | `Table sticky` |
+| Column | 标识 180、状态 112、数量 112 右齐；长 id 省略 + tooltip + 复制 | `DataTable` 固定列宽 |
+| Row actions | 打开单据为链接；危险命令在抽屉且 `danger` | 取消剩余 / 在途损耗 `danger` |
 | Batch | 无契约批量则无复选框 | 已遵守 |
-| Filters | 一行；`?q=` `?cutoffId=` `?cursor=` | 筛选只在内存 |
-| Pagination | 契约 cursor；不把本页 12 条假装成分页权威 | `DataTable` 本地 pageSize=12 |
-| Open-in | 单据走路由；建单/命令走抽屉；Modal 只用于离开确认 | 单据命令抽屉里仍是叠卡，不是 Tabs |
-| Feedback | 字段→Form；契约→一条 Alert；瞬时→`message`（复制成功）；202 留状态条 | 409 把 `JSON.stringify(body)` 丢进详情 |
-| Loading | 表 skeleton；全页转圈只给首次进壳 | Table `loading` 转圈 |
-| Leave guard | 抽屉脏表单 Ant Modal | 无 |
+| Filters | 一行；`?q=` `?cutoffId=` `?cursor=` | 列表与对账写入 URL；履约出库用 `oq`/`oc` |
+| Pagination | 契约 cursor；不把本页 12 条假装成分页权威 | 首页 / 下一页，无本地 pageSize |
+| Open-in | 单据走路由；建单/命令走抽屉；Modal 只用于离开确认 | 抽屉内按 `CommandCol` 分页签，一次一个命令 |
+| Feedback | 字段→Form；契约→一条 Alert；瞬时→`message`（复制成功）；202 留状态条 | 409 只展示 code/message，不 dump JSON |
+| Loading | 表 skeleton；全页转圈只给首次进壳 | 空表 loading 用 skeleton 行 |
+| Leave guard | 抽屉脏表单 Ant Modal | `Modal.confirm` |
 | Icons | 仅 `@ant-design/icons`；图标+文字；仅关闭/溢出可纯图标 | 已基本遵守 |
-| CJK | PingFang SC / Noto Sans SC；数量 `tabular-nums`；中文行高 ≥1.5 | 数量未 tabular / 未右齐 |
+| CJK | PingFang SC / Noto Sans SC；数量 `tabular-nums`；中文行高 ≥1.5 | 数量右齐 + tabular |
 | Locale | 时间按仓时区展示，请求 UTC | 顶栏墙钟是本机 UTC 文本，可保留 |
-| Permission UI | 无 scope 则隐藏命令；深链 403 | 只 `disabled={!token}`，有 token 就画出全部命令 |
+| Permission UI | 无 scope 则隐藏命令；深链 403 | `hasScope`；PDA 无 `inbound.receive` 不提交 |
 | Overlay | 同时一个抽屉；Popover 可叠在顶栏 | 已遵守 |
-| Motion | ≤200ms；`prefers-reduced-motion` 即时 | 未声明 |
+| Motion | ≤200ms；`prefers-reduced-motion` 即时 | `styles.css` 已声明 |
 | Dark mode | 关 | 已遵守 |
-| 快捷键 | 见下表。不另做桌面 keymap | Esc 靠 kit；`r` 未接 |
+| 快捷键 | 见下表。不另做桌面 keymap | Esc 靠 kit；不抢浏览器查找 |
 | 打印 | 不做 | 已遵守 |
-| Id 复制 | 单据 id / operationId 旁「复制」，toast「已复制 {kind}」不回显全文 | 未做 |
+| Id 复制 | 单据 id / operationId 旁「复制」，toast「已复制 {kind}」不回显全文 | `CopyId` |
 | 离线条 | 不做本地待同步条 | 已遵守 |
 
 ### 无障碍
@@ -291,7 +291,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 ## 12. 未决
 
-架构已定、实现未跟上的项见 F7，不再当作产品未决。
+F7 已落地。不再把上表当未实现清单。
 
 仍 blocked / 不发明：
 
@@ -300,4 +300,4 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 - 履约整单确认依赖真实 TC，不能写成 ALLOCATED
 - AC-26 仍 open
 - `GET /warehouses/{id}/tasks` 未实现
-- BRIEF 的 PDA 声音：未接系统提示音前，必须保留文字+tone
+- PDA 保留文字 + tone；可选短 beep，无音频设备时静默

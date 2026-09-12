@@ -33,8 +33,10 @@ export function CountDetailPage() {
       ]}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="排空 / 冻结" requireScope="count.freeze">
             <CommandCard
+              embedded
+              requireScope="count.freeze"
               title="排空 / 冻结"
               hint="第一次提交排空，第二次在无在途时冻结。在途未清零返回冲突，不会假冻结。"
               operation={`count-freeze:${countPlanId}`}
@@ -49,8 +51,10 @@ export function CountDetailPage() {
               <Form.Item label="阶段" name="phase"><Input placeholder="空=按当前状态推进，QUIESCE 或 FREEZE" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="点数" requireScope="count.record">
             <CommandCard
+              embedded
+              requireScope="count.record"
               title="点数 / 复盘"
               hint="同 observation 重试。序列号行必须走身份集合，这里只录数量行。"
               operation={`count-observe:${countPlanId}`}
@@ -73,8 +77,10 @@ export function CountDetailPage() {
               <Form.Item label="轮次" name="roundNo" initialValue="1"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="复盘" requireScope="count.record">
             <CommandCard
+              embedded
+              requireScope="count.record"
               title="提交复盘"
               hint="所有快照行都点数后才能进入 REVIEWING。"
               operation={`count-review:${countPlanId}`}
@@ -89,8 +95,10 @@ export function CountDetailPage() {
               <Form.Item label="确认"><Input disabled value="提交当前计划进入复盘" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="审批" requireScope="adjustment.approve">
             <CommandCard
+              embedded
+              requireScope="adjustment.approve"
               title="审批"
               hint="未复盘不能审批。同审批标识重放。"
               operation={`count-approve:${countPlanId}`}
@@ -106,8 +114,10 @@ export function CountDetailPage() {
               <Form.Item label="确认"><Input disabled value="以当前操作者为审批人" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="按行调整" requireScope="adjustment.apply">
             <CommandCard
+              embedded
+              requireScope="adjustment.apply"
               title="按行调整"
               hint="盘亏不足以覆盖预占时行进入 RESERVATION_CONFLICT，已提交行不回滚。"
               operation={`count-apply:${countPlanId}`}

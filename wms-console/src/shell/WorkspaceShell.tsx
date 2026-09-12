@@ -86,6 +86,10 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
     return match ? [match.label] : [];
   }, [location.pathname, warehouseId]);
 
+  useEffect(() => {
+    document.getElementById("page-title")?.focus();
+  }, [location.pathname]);
+
   return (
     <WorkspaceProvider value={{
       token,
@@ -96,6 +100,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
       scopes: claims.scopes
     }}>
       <Layout className="app-shell">
+        <a className="skip-link" href="#main">跳到主内容</a>
         <Layout.Sider width={232} theme="dark" className="app-sider" breakpoint="lg" collapsedWidth={72}>
           <Link className="brand" to={warehouseId ? `/w/${warehouseId}` : "/"} aria-label="WMS 工作台首页">
             <span className="brand-mark" aria-hidden="true">
@@ -170,7 +175,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
               </Space>
             </Flex>
           </Layout.Header>
-          <Layout.Content className="app-content">
+          <Layout.Content className="app-content" id="main">
             <Outlet />
           </Layout.Content>
         </Layout>

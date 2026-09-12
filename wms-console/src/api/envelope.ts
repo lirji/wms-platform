@@ -44,6 +44,25 @@ export function recordId(row: ItemRecord, ...keys: string[]): string {
   return field(row, ...keys, "id", "orderId", "fulfillmentId", "transferId", "planId", "jobId", "caseId");
 }
 
+export function nextCursorOf(payload: unknown): string {
+  return field(asRecord(payload), "nextCursor");
+}
+
+export function withQuery(path: string, params: Record<string, string | undefined>): string {
+  const cut = path.indexOf("?");
+  const base = cut >= 0 ? path.slice(0, cut) : path;
+  const search = new URLSearchParams(cut >= 0 ? path.slice(cut + 1) : "");
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      search.set(key, value);
+    } else {
+      search.delete(key);
+    }
+  }
+  const query = search.toString();
+  return query ? `${base}?${query}` : base;
+}
+
 export function asOfMeta(payload: unknown): { asOf: string; lagSeconds: string; stale: boolean } {
   const record = payload && typeof payload === "object" ? payload as ItemRecord : {};
   const lag = Number(record.lagSeconds ?? 0);

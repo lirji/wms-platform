@@ -11,6 +11,6 @@
 | F4 | PDA 收货独立壳 | F1 | no | `src/features/pda` | 回车提交；202 文案非成功 | done 2026-09-12 | live API |
 | F5 | 作业命令接到已落地 HTTP | F3/F4 | no | `src/features/*` 详情页 + inbound/outbound/fulfillment/inventory 写接口 | 详情可提交收货/质检/上架/拣包发/取消/调拨/盘点/任务/对账；202 非成功 | done 2026-09-12 | live API；TCC ALLOCATED 仍需真实 TC |
 | F6 | 队列/单据变短；令牌权限可见 | F5 | no | `Drawer` 建单与命令、首页活队列、Casdoor 作业 scope | 列表页不再内嵌长表单；401≠403；顶栏能看到仓与权限 | done 2026-09-12 | live API + Casdoor；需重新登录拿新 JWT |
-| F7 | 按技能补齐密度与权限隐藏 | F6 | no | 登录一列、Ant token 单轨、列宽/复制 id、URL 筛选与 cursor、按 scope 隐藏命令、错误码对照、单据 Tabs | 登录不再两列营销墙；无 scope 的命令不画出；筛选进 URL；409 不 dump JSON | pending 2026-09-12 | live API |
+| F7 | 按技能补齐密度与权限隐藏 | F6 | no | 登录一列、Ant token 单轨、列宽/复制 id、URL 筛选与 cursor、按 scope 隐藏命令、错误码对照、单据 Tabs | 登录不再两列营销墙；无 scope 的命令不画出；筛选进 URL；409 不 dump JSON | done 2026-09-12 | live API |
 
-2026-09-12 技能复查：F0–F6 仍有效，不另起 IA。缺口是落地细节（列宽、cursor、权限隐藏、登录一列、错误码），不是新路由树。S8-05 / S9-01 保持 blocked。
+2026-09-12 技能复查：F0–F6 仍有效，不另起 IA。F7 已补齐落地细节。S8-05 / S9-01 保持 blocked。

@@ -12,17 +12,17 @@ export const wmsTheme: ThemeConfig = {
     colorBorder: "#e2e8f0",
     colorBgLayout: "#f1f5f9",
     colorBgContainer: "#ffffff",
-    borderRadius: 10,
+    borderRadius: 8,
     fontFamily: '"PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif',
     fontSize: 13,
-    controlHeight: 36,
+    controlHeight: 32,
     boxShadowSecondary: "0 10px 30px -18px rgba(15, 23, 42, 0.28)"
   },
   components: {
     Layout: {
       siderBg: "#07111f",
       headerBg: "rgba(255,255,255,0.86)",
-      headerHeight: 64,
+      headerHeight: 56,
       headerPadding: "0 20px",
       bodyBg: "#f1f5f9"
     },

@@ -38,8 +38,10 @@ export function FulfillmentDetailPage() {
       ]}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="准备跨仓分配" requireScope="fulfillment.execute">
             <CommandCard
+              embedded
+              requireScope="fulfillment.execute"
               title="准备跨仓分配"
               hint="每个履约行数量必须分完。没有真实 TC 时 attempt 会停在准备/尝试态。"
               operation={`attempt:${fulfillmentId}`}
@@ -68,8 +70,10 @@ export function FulfillmentDetailPage() {
               <Form.Item label="单位" name="baseUnit" initialValue="EA"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="生成本仓出库单" requireScope="fulfillment.execute">
             <CommandCard
+              embedded
+              requireScope="fulfillment.execute"
               title="生成本仓出库单"
               hint="进入拣货前必须有执行授权。跨仓未 ALLOCATED 时服务端仍可能拒绝后续库存同步。"
               operation={`outbound-from:${fulfillmentId}:${warehouseId}`}

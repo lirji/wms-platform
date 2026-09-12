@@ -17,10 +17,12 @@ export function InboundPage() {
       hrefFor={(row) => ready ? `/w/${warehouseId}/inbound/${recordId(row, "id", "orderId")}` : undefined}
       createLabel="创建入库单"
       createTitle="创建入库单"
+      createScope="inbound.create"
       createHint="表单在抽屉里，不占列表。外部单号冲突由服务端拒绝。"
       create={(
         <CommandCard
           embedded
+          requireScope="inbound.create"
           title="创建入库单"
           hint="外部单号冲突由服务端拒绝。数量按字符串提交。"
           operation={`inbound-create:${warehouseId}`}

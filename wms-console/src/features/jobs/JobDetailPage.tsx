@@ -43,8 +43,10 @@ export function JobDetailPage() {
       )}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="回收过期租约" requireScope="job.retry">
             <CommandCard
+              embedded
+              requireScope="job.retry"
               title="回收过期租约"
               hint="接管失联分片，不重新派发设备。"
               operation={`job-reclaim:${jobId}`}
@@ -59,8 +61,10 @@ export function JobDetailPage() {
               <Form.Item label="原因" name="reason" initialValue="lease-expired"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="领取就绪分片" requireScope="task.claim">
             <CommandCard
+              embedded
+              requireScope="task.claim"
               title="领取就绪分片"
               hint="没有 READY 分片时 claimed=false。"
               operation={`job-claim:${jobId}`}

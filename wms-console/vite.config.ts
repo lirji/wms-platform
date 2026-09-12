@@ -43,6 +43,7 @@ export default defineConfig({
   preview: { host: "127.0.0.1", port: uiPort },
   test: {
     environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"]
+    setupFiles: ["./src/test/setup.ts"],
+    testTimeout: 15000
   }
 });

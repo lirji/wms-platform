@@ -38,8 +38,10 @@ export function TransferDetailPage() {
       ]}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="源仓发出" requireScope="transfer.create">
             <CommandCard
+              embedded
+              requireScope="transfer.create"
               title="源仓发出"
               hint="不能超过计划数量。当前令牌必须能访问源仓。"
               operation={`transfer-issue:${transferId}`}
@@ -56,8 +58,10 @@ export function TransferDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="目的接收授权" requireScope="transfer.authorizeReceipt">
             <CommandCard
+              embedded
+              requireScope="transfer.authorizeReceipt"
               title="目的接收授权"
               hint="占用在途可收额度，返回 authorizationId 与 tokenVersion。"
               operation={`transfer-auth:${transferId}`}
@@ -79,8 +83,10 @@ export function TransferDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="目的仓接收" requireScope="transfer.receive">
             <CommandCard
+              embedded
+              requireScope="transfer.receive"
               title="目的仓接收"
               hint="必须带授权与版本。仓库必须是目的仓。"
               operation={`transfer-receive:${transferId}`}
@@ -107,8 +113,11 @@ export function TransferDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="确认在途损耗" requireScope="stock.move">
             <CommandCard
+              embedded
+              danger
+              requireScope="stock.move"
               title="确认在途损耗"
               hint="与接收额度竞争同一行。超过在途可定量拒绝。"
               operation={`transfer-loss:${transferId}`}

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Card, Flex, Input, Space } from "antd";
-import { asOfMeta } from "../../api/envelope";
+import { useSearchParams } from "react-router-dom";
+import { Button, Card, Flex, Input, Space } from "antd";
+import { asOfMeta, nextCursorOf, withQuery } from "../../api/envelope";
 import { CommandDrawer } from "../../shared/command/CommandDrawer";
 import { DataTable, type Column } from "../../shared/ui/DataTable";
 import { errorBanner } from "../../shared/ui/errorBanner";
@@ -11,12 +12,12 @@ import { useResource } from "../../shared/useResource";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
 const DEFAULT_COLUMNS: Column[] = [
-  { key: "id", label: "标识", keys: ["id", "orderId", "planId", "jobId", "caseId"] },
-  { key: "status", label: "状态", keys: ["status", "state"] },
-  { key: "skuId", label: "SKU", keys: ["skuId"] },
+  { key: "id", label: "标识", keys: ["id", "orderId", "planId", "jobId", "caseId"], kind: "id", copyKind: "单据" },
+  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+  { key: "skuId", label: "SKU", keys: ["skuId"], kind: "id", copyKind: "SKU" },
   { key: "qty", label: "数量", qty: true, keys: ["qty", "quantity", "onHandQty", "reservedQty"] },
-  { key: "physicalStatus", label: "实物", keys: ["physicalStatus"] },
-  { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus"] }
+  { key: "physicalStatus", label: "实物", keys: ["physicalStatus"], kind: "status" },
+  { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus"], kind: "status" }
 ];
 
 export function DocumentListPage({
@@ -30,7 +31,11 @@ export function DocumentListPage({
   createLabel,
   createTitle,
   createHint,
-  create
+  createScope,
+  create,
+  queryKey = "q",
+  cursorKey = "cursor",
+  secondary
 }: {
   title: string;
   sub: string;
@@ -42,13 +47,24 @@ export function DocumentListPage({
   createLabel?: string;
   createTitle?: string;
   createHint?: string;
+  createScope?: string | string[];
   create?: ReactNode;
+  queryKey?: string;
+  cursorKey?: string;
+  secondary?: boolean;
 }) {
   const { token, warehouseId, warehouseName } = useWorkspace();
+  const [search, setSearch] = useSearchParams();
+  const query = search.get(queryKey) ?? "";
+  const cursor = search.get(cursorKey) ?? "";
+  const resolved = (warehouseId ? paths : []).filter(Boolean).map((path) => withQuery(path, {
+    cursor: cursor || undefined,
+    limit: "50"
+  }));
   const [tick, setTick] = useState(0);
-  const { rows, payloads, error, loading } = useResource(token, warehouseId ? paths : [], tick);
-  const [query, setQuery] = useState("");
+  const { rows, payloads, error, loading } = useResource(token, resolved, tick);
   const meta = payloads[0] ? asOfMeta(payloads[0]) : null;
+  const nextCursor = payloads[0] ? nextCursorOf(payloads[0]) : "";
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) {
@@ -56,6 +72,59 @@ export function DocumentListPage({
     }
     return rows.filter((row) => JSON.stringify(row).toLowerCase().includes(needle));
   }, [query, rows]);
+
+  function patch(next: Record<string, string | undefined>) {
+    const merged = new URLSearchParams(search);
+    for (const [key, value] of Object.entries(next)) {
+      if (value) {
+        merged.set(key, value);
+      } else {
+        merged.delete(key);
+      }
+    }
+    setSearch(merged, { replace: true });
+  }
+
+  const list = (
+    <Card
+      size={secondary ? "small" : "default"}
+      title={secondary ? title : "业务列表"}
+      extra={(
+        <Space>
+          {query ? <Button type="link" onClick={() => patch({ [queryKey]: undefined })}>清除筛选</Button> : null}
+          <Input.Search
+            allowClear
+            style={{ width: 280 }}
+            placeholder="筛选已返回字段，写入地址栏"
+            value={query}
+            onChange={(event) => patch({ [queryKey]: event.target.value || undefined, [cursorKey]: undefined })}
+          />
+        </Space>
+      )}
+    >
+      <DataTable
+        caption={title}
+        rows={visible}
+        columns={columns}
+        loading={loading}
+        emptyText={query ? "当前筛选没有匹配。清除筛选后重试。" : empty}
+        hrefFor={hrefFor}
+        nextCursor={nextCursor}
+        hasCursor={Boolean(cursor)}
+        onFirstPage={() => patch({ [cursorKey]: undefined })}
+        onNextPage={() => nextCursor ? patch({ [cursorKey]: nextCursor }) : undefined}
+      />
+    </Card>
+  );
+
+  if (secondary) {
+    return (
+      <Space orientation="vertical" size={12} style={{ display: "flex" }}>
+        {error ? errorBanner(error) : null}
+        {list}
+      </Space>
+    );
+  }
 
   return (
     <Space orientation="vertical" size={16} style={{ display: "flex" }}>
@@ -78,8 +147,12 @@ export function DocumentListPage({
                 triggerLabel={createLabel}
                 title={createTitle || createLabel}
                 hint={createHint}
+                requireScope={createScope}
                 disabled={!token || !warehouseId || warehouseId === "_"}
-                onSubmitted={() => setTick((current) => current + 1)}
+                onSubmitted={() => {
+                  setTick((current) => current + 1);
+                  patch({ [cursorKey]: undefined });
+                }}
               >
                 {create}
               </CommandDrawer>
@@ -91,20 +164,7 @@ export function DocumentListPage({
         <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
       ) : null}
       {error ? errorBanner(error) : null}
-      <Card
-        title="业务列表"
-        extra={(
-          <Input.Search
-            allowClear
-            style={{ width: 280 }}
-            placeholder="筛选已返回字段，不请求新数据"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        )}
-      >
-        <DataTable rows={visible} columns={columns} loading={loading} emptyText={empty} hrefFor={hrefFor} />
-      </Card>
+      {list}
     </Space>
   );
 }

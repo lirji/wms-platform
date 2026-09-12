@@ -50,8 +50,10 @@ export function OutboundDetailPage() {
       )}
       commands={(
         <>
-          <CommandCol>
+          <CommandCol title="规划拣货" requireScope="outbound.pick">
             <CommandCard
+              embedded
+              requireScope="outbound.pick"
               title="规划拣货"
               hint="进入拣货前必须已有执行授权。"
               operation={`plan-pick:${outboundOrderId}`}
@@ -76,8 +78,10 @@ export function OutboundDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="拣货" requireScope="outbound.pick">
             <CommandCard
+              embedded
+              requireScope="outbound.pick"
               title="拣货"
               hint="返回 202。超过任务或行剩余量会被拒绝。"
               operation={`pick:${outboundOrderId}`}
@@ -94,8 +98,10 @@ export function OutboundDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="包装" requireScope="outbound.pack">
             <CommandCard
+              embedded
+              requireScope="outbound.pack"
               title="包装"
               hint="不能超过已拣未装量。"
               operation={`pack:${outboundOrderId}`}
@@ -112,8 +118,10 @@ export function OutboundDetailPage() {
               <Form.Item label="包裹号" name="packageNo"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="部分发运" requireScope="outbound.ship">
             <CommandCard
+              embedded
+              requireScope="outbound.ship"
               title="部分发运"
               hint="不能超过已包装未发量。货已发出、库存待同步时不要再点一次当新发运。"
               operation={`ship:${outboundOrderId}`}
@@ -130,8 +138,11 @@ export function OutboundDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol>
+          <CommandCol title="取消未拣回库" requireScope="outbound.pick">
             <CommandCard
+              embedded
+              danger
+              requireScope="outbound.pick"
               title="取消未拣回库"
               hint="只取消未拣剩余。已拣未发不会在这里直接回滚库存。"
               operation={`cancel:${outboundOrderId}`}
