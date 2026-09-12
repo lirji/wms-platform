@@ -547,3 +547,15 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | `ClosedLoopBlackBoxIT` 1 项 0 失败 | 定向 |
 
 结论：S5-06 本地 EG-04 pass。不能当作 AC-10/12/13/14/15/25 生产链路通过。S6 仍待 Git 发布后开始。
+
+## S6-01 调拨总单与操作键去重
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。履约本库，不是库存过账。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `TransferIT` | 建单+两子单；发出 4 重放不加量；超计划拒绝；接收 3 重放不加量；再收 2 `OVER_RECEIVE`；issued=4 received=3 | fulfillment 本库 |
+| `FulfillmentPlanIT` / `FulfillmentBarrierIT` | 回归 0 失败 | V004 未破坏分配 |
+| 定向 Maven | fulfillment 4 项 0 失败 | 定向 |
+
+结论：S6-01 本地 pass。不能当作 AC-16 生产通过。S6-01a 额度 token 仍 planned。

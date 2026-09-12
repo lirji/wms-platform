@@ -409,3 +409,11 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 丢失响应：拣货过账提交后再同 command 重放，不二次写 PICK posting；T3 同 event 不二次加 posted。
 - SKU-LOOP 关闭 lot/serial/expiry，单位 EA，未发明 OQ-03。
 - 确认：无 critical/high；AC-10/12/13/14/15/25 仍 planned；EG-04 仅本地同 JVM；未到 S8 不创建 `wms-console/`。
+
+## S6-01 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 调拨表在 fulfillment，不写库存余额。超发/超收先读行再写事实，避免失败操作留下孤儿 fact。
+- 去重键是 `enterprise+warehouse+action+operationId`。`received+loss+quota<=issued` 已落 CHECK；quota 本片恒为 0。
+- 确认：无 critical/high；AC-16 仍 planned；额度 token 留给 S6-01a；未到 S8 不创建 `wms-console/`。
