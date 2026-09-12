@@ -84,3 +84,25 @@
 - 授权切片更新：68767于03:28:53成功（9个定向IT+单元）；取消后原授权重放修正后62227于03:30:41成功。新增首次屏障前取消测试，当前唯一Maven78613（/tmp/wms-authorization-cancel-it.log）运行，只跑fulfillment/依赖；生产源码未再修改。required默认清单已追加4项，总78。当前仍未提交授权切片；下一步完成当前测试/文档与契约检查/逻辑提交，观察远程CI后继续TM/RM。
 
 - 授权收尾：78613于03:31:35 BUILD SUCCESS，快照3用例含首次签发前取消；当前没有运行Maven。代码/迁移/测试/控制台已完成定向验证，必需清单78；文档41/链接90通过。准备提交授权逻辑切片，95a1远程CI未结束前不推同ref。
+
+## 当前TM/RM切片（最新）
+
+- 授权切片已提交bd6adf0，尚未推送；95a1任务分支CI34713636111成功，main CI34713653573仍运行。
+- SeataTmDriver及TcAuditRecoveryIT已加入工作树，fulfillment同版本seata-all提升运行依赖。真实TC+HTTP定向6用例于03:39:22成功，/tmp/wms-tm-driver-first-it.log；并发关闭改进后需复测。当前没有Maven运行。
+- 正在实现库存真实RM：先落登记意图，再访问TC；未知登记不重复branchRegister；路由/企业/原XID校验与官方Fence同事务，空回滚同样校验。尚未验收，不把现有探针当运行服务。
+
+- bd6adf0已正常快进发布远程main和任务分支，两ref核验一致；95a1的main及分支CI均成功。当前新TM/RM改动仍未提交。
+- 首轮RM编译暴露Seata原生RM无四参凭据init，已按官方2.6.0修正为两参并显式要求私网隔离配置；不宣称TM密钥能保护RM。首轮IT在Flyway重复V035处失败（已有出库索引），新迁移改为V036，未改旧迁移。真实TC审计4用例仍通过；RM/迁移用例需重跑。
+
+## 原生RM最新执行状态（优先于历史条目）
+
+- 当前HEAD及远程main/任务分支均bd6adf072bb4f8db6448e0c1dd84963d97680873。bd6 main CI34715199124进行中、任务分支34715195926待更新，禁止推同ref打断。根用户工作树仍main f9710ef，未改动。
+- 新增TM/RM代码、V036、测试和文档均未提交。真实TM适配器TcAuditRecoveryIT 4项通过；MySQL RuntimeTccGatewayIT 2项于03:52:44与03:57:07均通过；WarehouseMigrationIT 5项于03:49:14通过，48表清单含RM意图。
+- 原生进程测试暴露并已修正：Fence动作名64字符上限改完整SHA256的Base64URL身份；RM缺全局状态响应处理器，补官方ClientOnResponseProcessor；TC通告地址与NAT连接地址不同，增加显式wms.tcc.xid-addresses；同Seata应用会回退投递其他cell，应用与资源均改为cell身份。
+- 当前唯一Maven session77885运行，日志/tmp/wms-runtime-rm-native-fifth-it.log，RuntimeRmProcessesIT及RuntimeTccGatewayIT。禁止并发Maven或修改Java/XML/配置，等退出。第五轮增加十秒事务预算、严格JSON类型和租户配额。第四轮A真实Confirm成功，B停机触发TC_COMMIT_UNKNOWN；测试仅接纳此明确未知码，仍必须证明原XID恢复。
+- 原生测试使用隔离TC、3个MySQL和两个实际库存Jar，日志wms-inventory/target/runtime-rm-processes/A.log/B.log。覆盖JWT、原分支重放、B重启Confirm、两仓Cancel、TC断连/恢复readiness；尚未通过，不算完整链路验收。
+- 下一步等待77885并修复实际失败，补门禁/默认关闭配置/文档，逻辑提交RM切片；继续履约自动执行器（目前只有TM适配，无持久化编排）、序列号观察/逐身份盘点/来源释放/可信水位。不要停在阶段提交，不等继续。
+
+- 原生RM收尾更新：7141于04:04:52 BUILD SUCCESS，最终13项通过，/tmp/wms-runtime-rm-final-it.log；此前62275于04:00:48原生进程独立通过。当前没有Maven。schema/Java契约、默认关闭Compose及必需清单82已补齐。准备检查/提交RM切片，之后继续履约自动执行器，bd6远程CI完成前不推同ref。
+
+- RM所有必要定向验证已通过：13个IT、必需82、公开API87、文档及4服务smoke；04:06:38 SBOM173/163purl刷新，OSV仍2个原命中，/tmp/wms-runtime-rm-sbom.log。当前没有Maven运行。准备逻辑提交；bd6main的全量Java已成功，后续warehouse/tc/failure专项仍运行，不能推同ref取消。

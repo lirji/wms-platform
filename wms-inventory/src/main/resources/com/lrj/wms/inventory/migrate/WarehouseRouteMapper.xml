@@ -62,4 +62,7 @@
         SELECT COUNT(*) FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
           AND state&lt;&gt;'OPEN' AND NOT(state='MAINTENANCE' AND reason_code &lt;=> 'WAREHOUSE_MIGRATION')
     </select>
+    <select id="runtimeTccIntents" resultType="int">
+        SELECT EXISTS(SELECT 1 FROM inventory_tcc_intent WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId})
+    </select>
 </mapper>

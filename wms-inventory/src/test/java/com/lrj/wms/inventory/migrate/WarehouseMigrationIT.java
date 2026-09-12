@@ -76,6 +76,25 @@ class WarehouseMigrationIT {
     }
 
     @Test
+    void localRmCompletionCannotReplaceTcTerminalProofForMigration() {
+        Clock clock=Clock.systemUTC();
+        try(var session=sourceSessions.openSession(false)) {
+            var master=new MasterdataService(session,clock);
+            master.createWarehouse("WH-RM","ENT-RM","RM","RM仓","UTC");
+            master.createLocation("LOC-RM","GATE-RM","ENT-RM","WH-RM","RM-LOC","A","STORAGE",new BigDecimal("100"),"EA");
+            new WarehouseMigrationService(session,sourceJdbc,targetJdbc,clock).prepare("ENT-RM","WH-RM","CELL-A","CELL-B");session.commit();
+        }
+        // 明确的本地已Confirm夹具；即便本地成功也不能凭此判定TC已收妥回执。
+        sourceJdbc.update("INSERT INTO inventory_tcc_intent(id,enterprise_id,warehouse_id,allocation_id,attempt_id,xid,action_name,cell_id,route_epoch,request_digest,request_payload,branch_id,state,created_at,updated_at) VALUES('RM-INTENT','ENT-RM','WH-RM','ALLOC','ATT','fixture-xid','fixture-action','CELL-A',1,?,'{}',1,'CONFIRMED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","a".repeat(64));
+        try(var session=sourceSessions.openSession(false)) {
+            assertEquals("MIGRATION_TCC_PROOF_REQUIRED",assertThrows(InventoryException.class,()->
+                    new WarehouseMigrationService(session,sourceJdbc,targetJdbc,clock).quiesce("ENT-RM","WH-RM")).code());
+        }
+        assertEquals("ACTIVE",sourceJdbc.queryForObject("SELECT state FROM warehouse_route WHERE enterprise_id='ENT-RM'",String.class));
+        assertEquals("OPEN",sourceJdbc.queryForObject("SELECT state FROM location_gate WHERE enterprise_id='ENT-RM'",String.class));
+    }
+
+    @Test
     void twoPhysicalDatabasesSwitchEpochAndRejectOldWrites() {
         Clock clock = Clock.systemUTC();
         try (SqlSession session = sourceSessions.openSession(false)) {

@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:59769f46-3178-39b8-bd64-5395c5d03b97",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-09-12T19:14:04Z",
+    "timestamp" : "2026-09-12T20:06:17Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -11924,53 +11924,17 @@
     {
       "ref" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
-        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-        "pkg:maven/com.xuxueli/xxl-job-core@3.4.2?type=jar",
-        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
-        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
-        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
-      "dependsOn" : [ ]
-    },
-    {
-      "ref" : "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
-      "dependsOn" : [
-        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
-        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
-        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
-      "dependsOn" : [
-        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-        "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
-        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
         "pkg:maven/org.apache.seata/seata-all@2.6.0?type=jar",
+        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
         "pkg:maven/com.xuxueli/xxl-job-core@3.4.2?type=jar",
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
         "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
         "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
       ]
-    },
-    {
-      "ref" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
-      "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/org.apache.seata/seata-all@2.6.0?type=jar",
@@ -12345,7 +12309,7 @@
         "pkg:maven/com.google.guava/failureaccess@1.0.1?type=jar",
         "pkg:maven/com.google.code.findbugs/jsr305@3.0.2?type=jar",
         "pkg:maven/org.checkerframework/checker-qual@3.37.0?type=jar",
-        "pkg:maven/com.google.errorprone/error_prone_annotations@2.49.0?type=jar",
+        "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
         "pkg:maven/com.google.j2objc/j2objc-annotations@2.8?type=jar"
       ]
     },
@@ -12362,11 +12326,48 @@
       "dependsOn" : [ ]
     },
     {
+      "ref" : "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
       "ref" : "pkg:maven/com.google.j2objc/j2objc-annotations@2.8?type=jar",
       "dependsOn" : [ ]
     },
     {
       "ref" : "pkg:maven/net.bytebuddy/byte-buddy@1.18.11?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
+        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
+        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "pkg:maven/org.apache.seata/seata-all@2.6.0?type=jar",
+        "pkg:maven/com.xuxueli/xxl-job-core@3.4.2?type=jar",
+        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
+        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
       "dependsOn" : [ ]
     },
     {

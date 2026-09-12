@@ -8,7 +8,7 @@
   </parent>
   <artifactId>wms-fulfillment</artifactId>
   <dependencies>
-    <dependency><groupId>org.apache.seata</groupId><artifactId>seata-all</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.apache.seata</groupId><artifactId>seata-all</artifactId></dependency>
     <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>

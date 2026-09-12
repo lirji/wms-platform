@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.tcc.RuntimeTccMapper">
+  <insert id="insert">
+    INSERT INTO inventory_tcc_intent(id,enterprise_id,warehouse_id,allocation_id,attempt_id,xid,action_name,cell_id,
+      route_epoch,request_digest,request_payload,state,created_at,updated_at)
+    VALUES(#{id},#{r.enterpriseId},#{r.warehouseId},#{r.allocationId},#{r.attemptId},#{xid},#{action},#{r.cellId},
+      #{r.routeEpoch},#{digest},#{payload},'REGISTERING',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    ON DUPLICATE KEY UPDATE id=id
+  </insert>
+  <select id="lock" resultType="map">
+    SELECT * FROM inventory_tcc_intent WHERE enterprise_id=#{enterprise} AND warehouse_id=#{warehouse}
+      AND allocation_id=#{allocation} AND attempt_id=#{attempt} FOR UPDATE
+  </select>
+  <update id="bindBranch">
+    UPDATE inventory_tcc_intent SET branch_id=#{branch},state='REGISTERED',updated_at=UTC_TIMESTAMP(6)
+    WHERE id=#{id} AND state='REGISTERING' AND branch_id IS NULL
+  </update>
+  <update id="tried">
+    UPDATE inventory_tcc_intent SET reservation_id=#{reservation},state='TRIED',updated_at=UTC_TIMESTAMP(6)
+    WHERE id=#{id} AND branch_id=#{branch} AND state='REGISTERED'
+  </update>
+  <update id="finished">
+    UPDATE inventory_tcc_intent SET state=#{state},updated_at=UTC_TIMESTAMP(6)
+    WHERE id=#{id} AND branch_id=#{branch} AND state IN ('REGISTERED','TRIED',#{state})
+  </update>
+</mapper>

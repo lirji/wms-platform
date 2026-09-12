@@ -6,6 +6,9 @@ import org.apache.ibatis.annotations.Param;
 
 /** 仓路由写令牌。无行表示尚未纳入迁移控制。 */
 public interface WarehouseRouteMapper {
+    /** 原生RM需要TC终态确认后才能迁移；不能仅凭本地Confirm成功移动仍可能回调的资源。 */
+    int runtimeTccIntents(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId);
+
     /** insertIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("cellId") String cellId,

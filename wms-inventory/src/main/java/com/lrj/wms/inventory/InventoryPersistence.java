@@ -49,7 +49,7 @@ class InventoryPersistence {
         return sessions(dataSource, new JdbcTransactionFactory(), budget);
     }
 
-    private static SqlSessionFactory sessions(DataSource dataSource, TransactionFactory transactions, DatabaseBudget budget) {
+    static SqlSessionFactory sessions(DataSource dataSource, TransactionFactory transactions, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("inventory", transactions, dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
@@ -57,6 +57,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(MasterdataMapper.class);
+        config.addMapper(com.lrj.wms.inventory.tcc.RuntimeTccMapper.class);
         config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class);

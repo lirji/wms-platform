@@ -27,7 +27,7 @@ public final class WarehouseMigrationStore {
             "expiry_notice", "projection_inbox", "inventory_view", "projection_checkpoint",
             "reconciliation_cutoff", "reconciliation_case", "source_execution_fact", "reconciliation_snapshot", "snapshot_part",
             "runtime_message_inbox", "message_recovery_audit", "stock_receipt_quality", "reconciliation_scan",
-            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit");
+            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit", "inventory_tcc_intent");
 
     private final SqlSessionFactory source;
     private final SqlSessionFactory target;

@@ -136,6 +136,8 @@ public final class WarehouseMigrationService {
         Timestamp now = Timestamp.from(clock.instant());
         Map<String, Object> route = requireState(enterpriseId, warehouseId, ACTIVE);
         WarehouseRouteMapper routes = source.getMapper(WarehouseRouteMapper.class);
+        if(routes.runtimeTccIntents(enterpriseId,warehouseId)>0)
+            throw new InventoryException("MIGRATION_TCC_PROOF_REQUIRED","原生RM需先核验TC终态及资源迁移方案，不能依据本地回调结果搬迁");
         if(routes.nonOpenGates(enterpriseId,warehouseId)>0)
             throw new InventoryException("MIGRATION_GATE_BUSY","先结束盘点或现有维护，迁移不能覆盖其他门禁");
         if (routes.casState(enterpriseId, warehouseId, ACTIVE, QUIESCING, string(route.get("target_cell_id")),

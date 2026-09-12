@@ -12,7 +12,6 @@ import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.seata.core.model.GlobalStatus;
-import org.apache.seata.tm.TMClient;
 import org.apache.seata.tm.api.GlobalTransactionContext;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
@@ -79,25 +78,26 @@ class TcAuditRecoveryIT {
                             new PortBinding(Ports.Binding.bindIpAndPort("127.0.0.1", tcPort), new ExposedPort(tcPort))))
                     .waitingFor(Wait.forListeningPort()).withStartupTimeout(Duration.ofMinutes(3))) {
                 tc.start();
-                System.setProperty("service.vgroupMapping.wms_recovery_group", "default");
-                System.setProperty("service.default.grouplist", "127.0.0.1:" + tcPort);
-                TMClient.init("wms-fulfillment", "wms_recovery_group");
-                var committed = GlobalTransactionContext.createNew();
-                committed.begin(30000, "real-audit-commit");
-                committedXid = committed.getXid();
-                commitAttempt = attempt("TC-REAL", committedXid, true);
-                assertTrue(port.read(committedXid).isEmpty());
-                new AllocationRecoverySweep(sessions, port, SCOPE, CLOCK).execute("TC-REAL");
-                assertEquals("TCC_TRYING", state(commitAttempt));
-                committed.commit();
-                var rollback = GlobalTransactionContext.createNew();
-                rollback.begin(30000, "real-audit-rollback");
-                rollbackXid = rollback.getXid();
-                rollbackAttempt = attempt("TC-REAL", rollbackXid, true);
-                rollback.rollback();
-                awaitTerminal(port, committedXid, "Committed");
-                awaitTerminal(port, rollbackXid, "Rollbacked");
-                assertEquals(GlobalStatus.Finished, GlobalTransactionContext.reload(committedXid).getStatus());
+                try (var tm = new SeataTmDriver(SCOPE,List.of("127.0.0.1:"+tcPort),null,null)) {
+                    committedXid = tm.begin("real-audit-commit",30000);
+                    assertNull(org.apache.seata.core.context.RootContext.getXID(),"返回的XID必须显式落库，不泄漏线程上下文");
+                    assertEquals("wms-fulfillment",admin.queryForObject("SELECT application_id FROM global_table WHERE xid=?",String.class,committedXid));
+                    org.apache.seata.core.context.RootContext.bind(committedXid);
+                    assertEquals("TM_CONTEXT_ALREADY_BOUND",assertThrows(FulfillmentException.class,()->tm.begin("nested",30000)).code());
+                    assertEquals(committedXid,org.apache.seata.core.context.RootContext.unbind());
+                    commitAttempt = attempt("TC-REAL", committedXid, true);
+                    assertTrue(port.read(committedXid).isEmpty());
+                    new AllocationRecoverySweep(sessions, port, SCOPE, CLOCK).execute("TC-REAL");
+                    assertEquals("TCC_TRYING", state(commitAttempt));
+                    tm.commit(committedXid);
+                    assertNull(org.apache.seata.core.context.RootContext.getXID());
+                    rollbackXid = tm.begin("real-audit-rollback",30000);
+                    rollbackAttempt = attempt("TC-REAL", rollbackXid, true);
+                    tm.rollback(rollbackXid);
+                    awaitTerminal(port, committedXid, "Committed");
+                    awaitTerminal(port, rollbackXid, "Rollbacked");
+                    assertEquals(GlobalStatus.Finished, GlobalTransactionContext.reload(committedXid).getStatus());
+                }
             }
             // 真实TC已停；新的适配器/恢复对象仍只依据持久化终态读取，非TM本地状态。
             var restarted = new JdbcTcStatusPort(auditSessions, SCOPE, null);

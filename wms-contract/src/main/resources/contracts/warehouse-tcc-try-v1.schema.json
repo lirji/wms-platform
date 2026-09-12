@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wms:warehouse-tcc-try:v1",
+  "title": "Warehouse TCC Try V1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "enterpriseId",
+    "warehouseId",
+    "ownerId",
+    "allocationId",
+    "attemptId",
+    "cellId",
+    "routeEpoch",
+    "lines"
+  ],
+  "properties": {
+    "enterpriseId": {
+      "$ref": "#/$defs/id"
+    },
+    "warehouseId": {
+      "$ref": "#/$defs/id"
+    },
+    "ownerId": {
+      "$ref": "#/$defs/id"
+    },
+    "allocationId": {
+      "$ref": "#/$defs/id"
+    },
+    "attemptId": {
+      "$ref": "#/$defs/id"
+    },
+    "cellId": {
+      "$ref": "#/$defs/id"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "routeEpoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/line"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "\\S"
+    },
+    "line": {
+      "type": "object",
+      "required": [
+        "orderLineId",
+        "skuId",
+        "sourceLocationId",
+        "lotId",
+        "qty",
+        "baseUnit",
+        "minRemainingDays"
+      ],
+      "properties": {
+        "orderLineId": {
+          "$ref": "#/$defs/id"
+        },
+        "skuId": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceLocationId": {
+          "$ref": "#/$defs/id"
+        },
+        "lotId": {
+          "$ref": "#/$defs/id"
+        },
+        "baseUnit": {
+          "$ref": "#/$defs/id"
+        },
+        "qty": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 100000000000000,
+              "multipleOf": 1e-06
+            },
+            {
+              "type": "string",
+              "pattern": "^(?!0+(?:\\.0+)?$)(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,6})?$"
+            }
+          ],
+          "description": "Positive decimal, at most 14 integer and 6 fractional digits."
+        },
+        "minRemainingDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      }
+    }
+  }
+}
