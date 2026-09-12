@@ -2,6 +2,34 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.count.CountMapper">
 
+    <!-- 调度方已经锁定审批计划；只扫描该计划可恢复的已观察行。 -->
+    <select id="nextRecovery" resultType="map">
+        SELECT id, recovery_epoch, recovery_attempts FROM count_line
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND count_plan_id=#{planId}
+          AND status IN ('OBSERVED','RESERVATION_CONFLICT') AND counted_qty IS NOT NULL
+          AND recovery_attempts &lt; 8
+          AND (recovery_lease_until IS NULL OR recovery_lease_until &lt;= #{now})
+          AND (recovery_next_at IS NULL OR recovery_next_at &lt;= #{now})
+        ORDER BY recovery_attempts, id LIMIT 1 FOR UPDATE SKIP LOCKED
+    </select>
+
+    <!-- 同一计划的领取短事务串行；业务调整在下一事务再次核验代际。 -->
+    <update id="claimRecovery">
+        UPDATE count_line SET recovery_attempts=recovery_attempts+1, recovery_epoch=recovery_epoch+1,
+            recovery_lease_until=#{leaseUntil}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
+          AND recovery_epoch=#{epoch} AND recovery_attempts &lt; 8
+          AND status IN ('OBSERVED','RESERVATION_CONFLICT')
+    </update>
+
+    <!-- 异常原文可能含数据库信息，仅落稳定错误码；不改变审批结果。 -->
+    <update id="failRecovery">
+        UPDATE count_line SET recovery_lease_until=NULL, recovery_next_at=#{nextAt},
+            recovery_error_code=#{errorCode}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
+          AND recovery_epoch=#{epoch} AND status IN ('OBSERVED','RESERVATION_CONFLICT')
+    </update>
+
     <!-- insertPlan：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertPlan">
         INSERT INTO count_plan (id, enterprise_id, warehouse_id, status, reason_code, scope_version, approved_by, approved_at, approval_id, version, created_at, updated_at)
@@ -139,7 +167,8 @@
 
     <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLine" resultType="map">
-        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version
+        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version,
+            recovery_epoch, recovery_attempts, recovery_error_code
         FROM count_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -149,7 +178,8 @@
 
     <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listLines" resultType="map">
-        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version
+        SELECT id, balance_id, location_id, snapshot_version, snapshot_qty, reserved_qty, counted_qty, status, version,
+            recovery_epoch, recovery_attempts, recovery_error_code
         FROM count_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}

@@ -72,3 +72,6 @@ com.lrj.wms.inbound.messaging.SourceOutboxIT#publishesOriginalSourceFactAndIsola
 
 # R13 正式进程HTTP→T1→Kafka→T2→回执→T3，含中断恢复和重复回执。
 com.lrj.wms.inventory.ReceiveMessagingProcessesIT#receiptSurvivesBrokerOutageAndUpdatesSourceExactlyOnce
+
+com.lrj.wms.inventory.count.CountIT#recoveryIsBoundedFencedAndContinuesAfterReservationConflict
+com.lrj.wms.inventory.count.CountIT#actualRecoveryHandlerCommitsAdjustmentAndOutboxAfterRollback

@@ -82,6 +82,110 @@ class CountIT {
     }
 
     @Test
+    void actualRecoveryHandlerCommitsAdjustmentAndOutboxAfterRollback() {
+        Clock clock = Clock.systemUTC();
+        String plan = "CP-HANDLER";
+        String lineId;
+        try (var session = sessions.openSession(false)) {
+            new MasterdataService(session, clock).createLocation("LOC-HANDLER", "GATE-HANDLER", "ENT-1", "WH-A",
+                    "HANDLER", "A", "STORAGE", new BigDecimal("100"), "EA");
+            var bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-HANDLER", "SKU-HANDLER",
+                    MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_GOOD);
+            new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "HANDLER-RCV", plan,
+                    "RECEIVER", bucket, Quantity.parse("10", 0));
+            var counts = new CountService(session, clock);
+            counts.create("ENT-1", "WH-A", plan, "CYCLE", List.of("LOC-HANDLER"));
+            counts.startQuiescing("ENT-1", "WH-A", plan);
+            counts.freeze("ENT-1", "WH-A", plan);
+            lineId = String.valueOf(session.getMapper(CountMapper.class).listLines("ENT-1", "WH-A", plan).getFirst().get("id"));
+            counts.observe("ENT-1", "WH-A", plan, lineId, "OBS-HANDLER", "7", "COUNTER", 1);
+            counts.submitReview("ENT-1", "WH-A", plan);
+            counts.approve("ENT-1", "WH-A", plan, "APP-HANDLER", "APPROVER");
+            session.commit();
+        }
+        try (var session = sessions.openSession(false)) {
+            new CountService(session, clock).applyLine("ENT-1", "WH-A", plan, lineId, "HANDLER-ABORTED", "ACTOR");
+            session.rollback();
+        }
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE operation_id='HANDLER-ABORTED'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='HANDLER-ABORTED'", Integer.class));
+        var beans = new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+        beans.registerSingleton("sqlSessionFactory", sessions);
+        var handler = new com.lrj.wms.inventory.jobs.InventoryCatalogJobs(
+                beans.getBeanProvider(com.lrj.wms.inventory.tcc.TccReservationWatch.class), beans.getBeanProvider(SqlSessionFactory.class));
+        com.xxl.job.core.context.XxlJobContext.setXxlJobContext(new com.xxl.job.core.context.XxlJobContext(
+                1, "ENT-1,WH-A," + plan, 1, System.currentTimeMillis(), "", 0, 1));
+        try { handler.countApplyRecovery(); handler.countApplyRecovery(); }
+        finally { com.xxl.job.core.context.XxlJobContext.setXxlJobContext(null); }
+        assertEquals(0, new BigDecimal("7").compareTo(jdbc.queryForObject(
+                "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC-HANDLER'", BigDecimal.class)));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event o JOIN stock_ledger l ON l.operation_id=o.operation_id WHERE l.document_id=? AND l.reason_code='COUNT_ADJUST'", Integer.class, plan));
+    }
+
+    @Test
+    void recoveryIsBoundedFencedAndContinuesAfterReservationConflict() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        String plan = "CP-RECOVERY";
+        try (SqlSession session = sessions.openSession(false)) {
+            var masterdata = new MasterdataService(session, clock);
+            masterdata.createLocation("LOC-REC", "GATE-REC", "ENT-1", "WH-A", "REC", "A", "STORAGE",
+                    new BigDecimal("1000"), "EA");
+            var inventory = new InventoryApplicationService(session, clock);
+            for (int i = 0; i < 23; i++) {
+                var bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-REC", "SKU-REC-" + i,
+                        MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_GOOD);
+                inventory.receive("ENT-1", "WH-A", "REC-RCV-" + i, plan, "ACTOR", bucket, Quantity.parse("10", 0));
+                if (i == 0) inventory.reserve("ENT-1", "WH-A", "REC-RSV", plan, "ACTOR", "REC-ALLOC", "REC-ATT",
+                        "rec-xid", 77L, "ReservationTccAction", 1L, DIGEST, bucket, Quantity.parse("6", 0), "REC-LINE");
+            }
+            var counts = new CountService(session, clock);
+            counts.create("ENT-1", "WH-A", plan, "CYCLE", List.of("LOC-REC"));
+            counts.startQuiescing("ENT-1", "WH-A", plan);
+            counts.freeze("ENT-1", "WH-A", plan);
+            session.commit();
+        }
+        // 冲突行排在首位，用真实预占完整性证明坏行不会饿死后续行。
+        jdbc.update("UPDATE count_line l JOIN stock_balance b ON b.id=l.balance_id SET l.id='000-REC-CONFLICT' WHERE l.count_plan_id=? AND b.sku_id='SKU-REC-0'", plan);
+        try (SqlSession session = sessions.openSession(false)) {
+            var counts = new CountService(session, clock);
+            for (var line : session.getMapper(CountMapper.class).listLines("ENT-1", "WH-A", plan)) {
+                String id = String.valueOf(line.get("id"));
+                counts.observe("ENT-1", "WH-A", plan, id, "OBS-REC-" + id, "3", "COUNTER", 1);
+            }
+            counts.submitReview("ENT-1", "WH-A", plan);
+            counts.approve("ENT-1", "WH-A", plan, "APP-REC", "APPROVER");
+            session.commit();
+        }
+        var recovery = new CountApplyRecovery(sessions, clock);
+        assertEquals(new CountApplyRecovery.Report(19, 1), recovery.execute("ENT-1", "WH-A", plan));
+        assertEquals(new CountApplyRecovery.Report(3, 0), recovery.execute("ENT-1", "WH-A", plan));
+        assertEquals(new CountApplyRecovery.Report(0, 0), recovery.execute("ENT-1", "WH-A", plan));
+        assertEquals(22, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE document_id=? AND reason_code='COUNT_ADJUST'", Integer.class, plan));
+        assertEquals(22, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event o JOIN stock_ledger l ON l.operation_id=o.operation_id WHERE l.document_id=? AND l.reason_code='COUNT_ADJUST'", Integer.class, plan));
+        assertEquals("FROZEN", jdbc.queryForObject("SELECT state FROM location_gate WHERE location_id='LOC-REC'", String.class));
+        assertEquals("RESERVATION_CONFLICT", jdbc.queryForObject("SELECT recovery_error_code FROM count_line WHERE id='000-REC-CONFLICT'", String.class));
+        assertEquals("job:countApplyRecovery", jdbc.queryForObject("SELECT actor_id FROM stock_ledger WHERE document_id=? AND reason_code='COUNT_ADJUST' LIMIT 1", String.class, plan));
+        // 新代际领取模拟崩溃接管，旧执行器的失败回写不能覆盖新的租约。
+        try (var session = sessions.openSession(false)) {
+            var mapper = session.getMapper(CountMapper.class);
+            mapper.lockPlan("ENT-1", "WH-A", plan);
+            assertEquals(1, mapper.claimRecovery("ENT-1", "WH-A", "000-REC-CONFLICT", 1,
+                    java.sql.Timestamp.from(NOW.plusSeconds(30))));
+            assertEquals(0, mapper.failRecovery("ENT-1", "WH-A", "000-REC-CONFLICT", 1,
+                    java.sql.Timestamp.from(NOW), "OLD_WORKER"));
+            session.commit();
+        }
+        for (int i = 1; i <= 6; i++) {
+            var restarted = new CountApplyRecovery(sessions, Clock.fixed(NOW.plusSeconds(i * 120L), ZoneOffset.UTC));
+            assertEquals(new CountApplyRecovery.Report(0, 1), restarted.execute("ENT-1", "WH-A", plan));
+        }
+        assertEquals(new CountApplyRecovery.Report(0, 0), new CountApplyRecovery(sessions,
+                Clock.fixed(NOW.plusSeconds(5000), ZoneOffset.UTC)).execute("ENT-1", "WH-A", plan));
+        assertEquals(8, jdbc.queryForObject("SELECT recovery_attempts FROM count_line WHERE id='000-REC-CONFLICT'", Integer.class));
+        assertEquals(22, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE document_id=? AND reason_code='COUNT_ADJUST'", Integer.class, plan));
+    }
+
+    @Test
     void quiesceFreezeObserveApproveAndReservationConflict() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         StockBucketKey good = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", "SKU-C", MasterdataCodes.NO_LOT,

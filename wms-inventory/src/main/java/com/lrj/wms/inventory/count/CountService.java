@@ -222,6 +222,9 @@ public final class CountService {
         }
         requireCountGate(inventory, counts, enterpriseId, warehouseId, planId, String.valueOf(line.get("location_id")),
                 InventoryCodes.CMD_COUNT_ADJUST);
+        if (line.get("counted_qty") == null) {
+            throw new InventoryException("COUNT_OBSERVATION_REQUIRED", "未点数不能调整");
+        }
         BigDecimal counted = decimal(line.get("counted_qty"));
         Map<String, Object> balance = inventory.lockBalanceById(enterpriseId, warehouseId,
                 String.valueOf(line.get("balance_id")));
@@ -246,10 +249,14 @@ public final class CountService {
             applySerialIdentities(enterpriseId, warehouseId, planId, line, operationId, now);
         }
         if (APPROVED.equals(planStatus)) {
-            counts.casPlanStatus(enterpriseId, warehouseId, planId, APPROVED, APPLYING, now);
+            if (counts.casPlanStatus(enterpriseId, warehouseId, planId, APPROVED, APPLYING, now) != 1) {
+                throw new InventoryException("VERSION_CONFLICT", "盘点计划状态竞争");
+            }
         }
         if (delta.compareTo(BigDecimal.ZERO) == 0) {
-            counts.casLineStatus(enterpriseId, warehouseId, lineId, String.valueOf(line.get("status")), LINE_ZERO, now);
+            if (counts.casLineStatus(enterpriseId, warehouseId, lineId, String.valueOf(line.get("status")), LINE_ZERO, now) != 1) {
+                throw new InventoryException("VERSION_CONFLICT", "盘点行状态竞争");
+            }
             return lineView(counts.lockLine(enterpriseId, warehouseId, planId, lineId));
         }
         if (inventory.casAdjust(enterpriseId, warehouseId, String.valueOf(balance.get("id")), delta, BigDecimal.ZERO,
@@ -258,11 +265,13 @@ public final class CountService {
         }
         Map<String, Object> after = inventory.lockBalanceById(enterpriseId, warehouseId,
                 String.valueOf(line.get("balance_id")));
-        inventory.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, operationId, 1,
-                String.valueOf(after.get("id")), delta, BigDecimal.ZERO, BigDecimal.ZERO, decimal(after.get("on_hand_qty")),
+        com.lrj.wms.inventory.inventory.InventoryLedgerWriter.record(session, inventory, enterpriseId, warehouseId, operationId, 1,
+                String.valueOf(after.get("id")), delta, BigDecimal.ZERO, decimal(after.get("on_hand_qty")),
                 decimal(after.get("reserved_qty")), decimal(after.get("free_execution_claim_qty")),
-                asLong(after.get("version")), "COUNT_ADJUST", planId, actorId, now, now);
-        counts.casLineStatus(enterpriseId, warehouseId, lineId, String.valueOf(line.get("status")), LINE_APPLIED, now);
+                asLong(after.get("version")), "COUNT_ADJUST", planId, actorId, now);
+        if (counts.casLineStatus(enterpriseId, warehouseId, lineId, String.valueOf(line.get("status")), LINE_APPLIED, now) != 1) {
+                throw new InventoryException("VERSION_CONFLICT", "盘点行状态竞争");
+            }
         return lineView(counts.lockLine(enterpriseId, warehouseId, planId, lineId));
     }
 
@@ -390,6 +399,10 @@ public final class CountService {
         body.put("reservedQty", line.get("reserved_qty"));
         body.put("countedQty", line.get("counted_qty"));
         body.put("status", line.get("status"));
+        body.put("recoveryAttempts", line.get("recovery_attempts"));
+        body.put("recoveryErrorCode", line.get("recovery_error_code"));
+        body.put("recoveryIsolated", ((Number) line.getOrDefault("recovery_attempts", 0)).intValue() >= 8
+                && !LINE_APPLIED.equals(line.get("status")) && !LINE_ZERO.equals(line.get("status")));
         return body;
     }
 

@@ -631,18 +631,9 @@ public final class InventoryApplicationService {
             int entryNo, String balanceId, BigDecimal onHandDelta, BigDecimal reservedDelta, BigDecimal onHandAfter,
             BigDecimal reservedAfter, BigDecimal claimAfter, long balanceVersion, String reason, String documentId,
             String actorId, Timestamp now) {
-        String ledgerId = UUID.randomUUID().toString();
-        mapper.insertLedger(ledgerId, enterpriseId, warehouseId, operationId, entryNo, balanceId, onHandDelta, reservedDelta,
-                BigDecimal.ZERO, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason, documentId, actorId, now,
-                now);
-        String payload = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of(
-                "schemaVersion", CompatibilityGate.CURRENT_EVENT_SCHEMA, "onHandDelta", onHandDelta.toPlainString(),
-                "reservedDelta", reservedDelta.toPlainString(), "onHandAfter", onHandAfter.toPlainString(),
-                "reservedAfter", reservedAfter.toPlainString(), "ledgerEntryId", ledgerId,
-                "requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId()));
-        session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
-                InventoryCodes.AGGREGATE_STOCK_BALANCE, balanceId, balanceVersion, InventoryCodes.EVENT_BALANCE_CHANGED,
-                operationId, payload, now);
+        InventoryLedgerWriter.record(session, mapper, enterpriseId, warehouseId, operationId, entryNo, balanceId,
+                onHandDelta, reservedDelta, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason,
+                documentId, actorId, now);
     }
 
     private Map<String, Object> ensureBalance(InventoryMapper mapper, StockBucketKey bucket, Timestamp now) {

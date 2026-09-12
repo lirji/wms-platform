@@ -74,7 +74,12 @@ public class InventoryCatalogJobs {
 
     @XxlJob(WmsJobCatalog.COUNT_APPLY_RECOVERY)
     public void countApplyRecovery() {
-        unavailableHandler(WmsJobCatalog.COUNT_APPLY_RECOVERY);
+        clearSchedulerContext();
+        String[] scope = requireScope(3);
+        var report = new com.lrj.wms.inventory.count.CountApplyRecovery(requireSessions(), java.time.Clock.systemUTC())
+                .execute(scope[0], scope[1], scope[2]);
+        XxlJobHelper.log("count applied={}, failed={}", report.applied(), report.failed());
+        if (report.failed() > 0) throw new IllegalStateException("盘点存在失败行，已记录退避与错误码，计划保持冻结");
     }
 
     @XxlJob(WmsJobCatalog.ARCHIVE_PLANNER)

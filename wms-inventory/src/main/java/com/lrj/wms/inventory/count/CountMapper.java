@@ -8,6 +8,19 @@ import org.apache.ibatis.annotations.Param;
 
 /** 盘点计划与快照。调用方必须带企业/仓条件。 */
 public interface CountMapper {
+    /** 计划锁之后领取一行，失败退避和租约使其他行仍能取得进展。 */
+    Map<String, Object> nextRecovery(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("planId") String planId, @Param("now") Timestamp now);
+
+    /** 领取本身独立提交，进程崩溃不会无限重置尝试预算。 */
+    int claimRecovery(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("epoch") long epoch, @Param("leaseUntil") Timestamp leaseUntil);
+
+    /** 按代际登记失败；已经终态或被接管的行不得被旧执行器覆盖。 */
+    int failRecovery(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("epoch") long epoch, @Param("nextAt") Timestamp nextAt,
+            @Param("errorCode") String errorCode);
+
     /** insertPlan：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertPlan(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("status") String status, @Param("reason") String reason,

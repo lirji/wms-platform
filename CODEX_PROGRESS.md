@@ -194,3 +194,14 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - **用户问题待答（必要业务范围，不能按超时默认）**：通过request_user_input_async询问“质检按每次收货分批（推荐）还是整条入库行（需分摊各批次）”。因为一行可多lot/location，仅行级accepted/rejected无法推断每桶HOLD→GOOD/REJECTED分配。等答前继续独立R15/R14/R21/R22，不能擅自选整行分摊。此前OQ03/真实WCS/签署容量仍未解决。
 - 接下来先记录/提交当前RECEIVE批次，再做独立整改；R13仍缺质量/PUTAWAY/PICK/SHIP/CANCEL、serial观察、消息人工重放与积压指标。R14真实TM/TC/serial服务未接，R15余下serial/reconcile/count/archive仍fail，R22时间兼容未做；R23已完成。最后必须全profiles/CI/普通merge push main，无生产部署。
 - R15只读发现：CountService.applyLine审批后按plan→line→balance锁、已APPLIED/ZERO重放，serial registry默认Unavailable；当前直接insertLedger**没有Outbox**，恢复接线时必须补投影事件且处理失败状态。StockInternalReconcile.execute固定首100余额、无界ledger/reserved/serial查询，不能机械调用宣称完整。历史DATETIME按JVM墙钟恢复，R22不可直接把旧值当UTC。
+
+
+## 最新检查点 2026-09-12 23:08
+
+- RECEIVE双进程闭环已提交 `af6f2a7`，目前10个本地任务提交未push；本批R15盘点恢复准备独立提交，全部本任务改动。
+- 新CountApplyRecovery：明确ent,wh,approvedPlan，每轮20行，每行领取先独立提交、30秒租约、epoch防旧写、8次预算（崩溃也消耗），业务逐行独立事务。失败另TX写稳定错误码+指数退避/抖动，不伪造审批、不自动解冻；serial registry缺失仍明确失败。
+- inventory V026追加count_line recovery_attempts/epoch/lease/next/error和索引；查询响应显示失败/耗尽。CountService补未观察拒绝、关键CAS影响行数检查；抽取InventoryLedgerWriter供原库存应用与盘点共用，余额/流水/Outbox同TX，避免盘点投影遗漏。
+- `/tmp/wms-count-recovery-it.log` BUILD SUCCESS：CountIT2（23行分页、冲突不饿死、旧epoch失败被拒、8次预算）、CountSerialIT2、CountFreezeRaceIT1、InventoryMessagingIT1和全单元。补充真实XXL handler+回滚后 `/tmp/wms-count-handler-it.log` BUILD SUCCESS：CountIT3+全单元。无运行Maven。
+- pending用户质检粒度问题仍无答；不能按超时假定。继续独立R21消息积压指标/人工恢复、R15余下任务、R14真实TM/TC/serial、R22固定时区兼容。R13仍只有RECEIVE和投影完整，其他动作未接通。
+- R22只读官方核实：https://dev.mysql.com/doc/connector-j/en/connector-j-time-instants.html 与 connector-j-connp-props-datetime-types-processing.html。仅HTTP转Z不足，当前RuntimeDataSources无明确connectionTimeZone、map DATETIME为LocalDateTime并使用JVM默认。必须保存旧库时区语义，不能直接重读旧值当UTC；尚无R22修改。
+- 下一步R21建议本库Inbox/Outbox有界指标采样（每状态最多1001行，created_at索引取最旧、5秒快照、采样stale可见，不在metrics HTTP中查询DB），低基数queue/state标签；随后审计重放必须保留claim_epoch，新增retry_base/独立预算，不能重置epoch。完成全部后全profiles/CI与普通merge/push main。OQ03/真实WCS/签署容量仍未验收。
