@@ -120,3 +120,12 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 调整操作身份由企业/仓/计划/行稳定派生，执行人记录为调度任务，审批人仍由计划单独记录。成功行不会重复写入；失败不回滚其他已提交行，部分失败不自动解冻。库存调整现在复用同事务的流水与Outbox写入，保证盘点结果进入可靠查询投影。序列号注册中心尚未接通时明确失败，仍计入恢复预算；不绕开身份校验。
 
 真实MySQL验证通过：23行按20行预算续跑，冲突行不阻塞后续22行；重启与重复执行无多余流水，旧代际失败回写被拒绝，8次预算后不再自动执行。实际XXL handler连续调用只产生一次调整，回滚同时清除流水与Outbox。`/tmp/wms-count-recovery-it.log` BUILD SUCCESS（CountIT2、CountSerialIT2、CountFreezeRaceIT1、InventoryMessagingIT1及全单元）；补充实际handler后的 `/tmp/wms-count-handler-it.log` BUILD SUCCESS（CountIT3及全单元）。人工恢复预算的审核入口、序列号恢复、内部对账及保留策略仍待后续切片。
+
+
+## R21 消息积压观测与告警检查
+
+当前实际消息服务 inbound/inventory 每5秒在独立线程采样本库Inbox/Outbox，公开受 `observability.read` 保护的低基数queue/state指标：PENDING/CLAIMED/ISOLATED深度（1001为下界）、最旧年龄、计数封顶与采样有效性。SQL每条1秒预算、状态/创建时间索引，指标抓取本身只读内存；查询失败保留旧快照并以sample.age识别失效。四库追加通用观测索引，outbound/fulfillment尚未启用消息Bean，不宣称已有真实业务流量指标。
+
+新增 `scripts/check-message-backlog.py` 读取实际鉴权指标，阈值显式输入；隔离/积压退出1，采样失效或鉴权/网络异常退出2，只有完整有效采样且阈值内退出0。输出JSON供已有监控接收，处置步骤见 `docs/implementation/MESSAGING_RUNTIME.md`。尚未配置生产通知渠道或签署SLO，不以脚本存在代表告警已经发送。
+
+`/tmp/wms-queue-metrics-it.log` BUILD SUCCESS：MessageQueueMetricsIT1（1005积压只计1001、隔离/年龄、采样表不可用后保留旧快照、恢复归零）、ReceiveMessagingProcessesIT1、InventoryMessagingIT1及全单元。第一次测试编译因SimpleMeterRegistry不实现AutoCloseable失败，改为finally显式close后全量定向重跑通过。Python全部4项（容量2+告警2）通过，沿用现有CI发现规则。另修复OperationScopeFilter拒绝响应仍另造requestId的问题，`/tmp/wms-scope-correlation-test.log`相关模块单测全部通过，403正文/响应头/MDC同一关联ID。

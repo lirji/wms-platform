@@ -52,6 +52,7 @@ class InventoryPersistence {
         Configuration config = new Configuration(new Environment("inventory", transactions, dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);

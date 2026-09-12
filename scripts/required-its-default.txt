@@ -75,3 +75,5 @@ com.lrj.wms.inventory.ReceiveMessagingProcessesIT#receiptSurvivesBrokerOutageAnd
 
 com.lrj.wms.inventory.count.CountIT#recoveryIsBoundedFencedAndContinuesAfterReservationConflict
 com.lrj.wms.inventory.count.CountIT#actualRecoveryHandlerCommitsAdjustmentAndOutboxAfterRollback
+
+com.lrj.wms.runtime.messaging.MessageQueueMetricsIT#boundedBacklogAndOldestAgeRemainVisibleWhenSamplingFails

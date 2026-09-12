@@ -21,6 +21,15 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(name = "wms.messaging.enabled", havingValue = "true")
 @EnableConfigurationProperties(KafkaSettings.class)
 public class InventoryMessagingConfiguration {
+    /** 监控独立线程有界采样，HTTP指标读取不触发数据库查询。 */
+    @Bean
+    MessageQueueMetrics inventoryQueueMetrics(SqlSessionFactory sessions, io.micrometer.core.instrument.MeterRegistry registry) {
+        return new MessageQueueMetrics(sessions, registry, MessageQueueMetrics.Queue.INVENTORY_OUTBOX, Clock.systemUTC());
+    }
+    @Bean
+    MessageWorker inventoryQueueMetricsWorker(MessageQueueMetrics metrics) {
+        return new MessageWorker("inventory-queue-metrics", metrics::sampleDue);
+    }
     @Bean(destroyMethod = "close")
     KafkaMessagePublisher inventoryKafkaPublisher(KafkaSettings settings) {
         return new KafkaMessagePublisher(settings, "wms-inventory-outbox");

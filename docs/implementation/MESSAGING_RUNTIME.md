@@ -37,3 +37,18 @@ Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGIN
 `ReceiveMessagingProcessesIT` 启动本次构建的 inbound/inventory 可执行Jar、专属两库/Kafka和测试JWKS，经真实JWT HTTP建单收货。broker暂停时202且来源PENDING，恢复后权威HOLD桶/流水/凭证和来源posted收敛；换键重试收货、不同eventId的同一回执都不重复累计。现场actor沿T1消息进入库存流水。该结果不替代质检/上架/出库链路，也不证明真实WCS或容量。
 
 库存消费按本库权威仓/SKU/库位状态、基础单位、精度、批次开关和owner/SKU所属关系校验；序列号商品缺少观察集合时隔离，不静默当普通库存。契约错误隔离、系统失败有界重试；结果Outbox与过账和Inbox DONE同事务。Kafka单次发布最多3次客户端重试且总截止5秒，来源Outbox再最多8次自动发送，避免多层无限重试。
+
+
+## 积压指标与告警检查
+
+启用消息的 inbound/inventory 后台每5秒采样本库Inbox和Outbox；只统计PENDING、CLAIMED、ISOLATED，指标标签仅queue/state。`wms.messaging.backlog` 最多计到1001（表示至少1001）；`backlog.capped=1`表示达到计数上限。`oldest.age`是该状态最早创建消息的年龄秒数，SQL用状态/创建时间索引直接定位。每个查询超时1秒，指标HTTP不查询数据库。这些是近似运行快照，不能用来证明库存业务不变量。
+
+`sample.available=0`表示还没有成功采样，`sample.age`表示距最近完整成功采样的秒数。任意查询失败保留旧快照，不能把它当作积压消失；同时检查采样新鲜度。尚未开启消息的服务没有这些指标，不能视为零积压。
+
+已有监控/调度可以调用 `scripts/check-message-backlog.py`：显式提供 `--base-url`、`--outbox INVENTORY_OUTBOX|SOURCE_OUTBOX`、`--max-depth`、`--max-age-seconds`、`--max-sample-age-seconds`，通过受控环境注入有 `observability.read` 权限的 `WMS_MONITOR_TOKEN`。阈值必须由运行方配置，脚本不内置生产SLO。退出0=当前阈值内，1=积压/隔离告警，2=采样失效/鉴权或连接异常。输出JSON不含令牌/地址/消息正文；不自动向他人发通知，尚未安装生产告警接收渠道。
+
+- `MESSAGE_ISOLATED`：核对来源权限、schema与失败类别，先修复原因，再使用受审计恢复入口；禁止改消息正文或删库消警。
+- `MESSAGE_BACKLOG`：核对broker/数据库、消息worker状态、消费组、最旧消息与处理预算；确保幂等后再调整并发，禁止无限扩池。
+- `SAMPLE_STALE` / `SAMPLE_UNAVAILABLE` / `METRICS_UNAVAILABLE`：先恢复采样、鉴权或连接；保持未知状态，不能宣称业务正常。
+
+Python HTTP夹具2项已通过，覆盖健康/隔离/超龄/旧快照/鉴权失败。真实MySQL有界计数与失败恢复、两个业务进程装配回归已通过，见整改证据。

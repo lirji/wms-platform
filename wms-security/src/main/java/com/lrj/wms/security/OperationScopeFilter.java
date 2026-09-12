@@ -51,7 +51,7 @@ final class OperationScopeFilter extends OncePerRequestFilter {
             response.setStatus(403);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":\"SCOPE_FORBIDDEN\",\"message\":\"缺少作业权限\",\"retryable\":false,\"requestId\":\""
-                    + java.util.UUID.randomUUID() + "\"}");
+                    + com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId() + "\"}");
             return;
         }
         chain.doFilter(request, response);

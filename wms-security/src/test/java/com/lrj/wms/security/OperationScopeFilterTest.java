@@ -37,6 +37,19 @@ class OperationScopeFilterTest {
         assertThrows(ScopeForbiddenException.class, () -> WmsJwtAuthorities.requireScope(jwt, "masterdata.write"));
     }
 
+    @Test void deniedScopeKeepsTheHttpCorrelationId() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt(Map.of())));
+        var request = new MockHttpServletRequest("POST", "/api/wms/v1/new-admin-action");
+        request.addHeader("X-Request-Id", "permission-correlation");
+        var response = new MockHttpServletResponse();
+        new com.lrj.wms.runtime.observability.RequestCorrelationFilter().doFilter(request, response,
+                (req, res) -> new OperationScopeFilter().doFilter(req, res, (ignoredRequest, ignoredResponse) -> fail("不应通过权限门禁")));
+        assertEquals(403, response.getStatus());
+        assertEquals("permission-correlation", response.getHeader("X-Request-Id"));
+        assertTrue(response.getContentAsString().contains("\"requestId\":\"permission-correlation\""));
+        assertNull(org.slf4j.MDC.get("requestId"));
+    }
+
     private static void assertRequest(String method, String path, Map<String, Object> claims, boolean allowed) throws Exception {
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt(claims)));
         var response = new MockHttpServletResponse();

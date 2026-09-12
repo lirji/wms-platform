@@ -205,3 +205,15 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - pending用户质检粒度问题仍无答；不能按超时假定。继续独立R21消息积压指标/人工恢复、R15余下任务、R14真实TM/TC/serial、R22固定时区兼容。R13仍只有RECEIVE和投影完整，其他动作未接通。
 - R22只读官方核实：https://dev.mysql.com/doc/connector-j/en/connector-j-time-instants.html 与 connector-j-connp-props-datetime-types-processing.html。仅HTTP转Z不足，当前RuntimeDataSources无明确connectionTimeZone、map DATETIME为LocalDateTime并使用JVM默认。必须保存旧库时区语义，不能直接重读旧值当UTC；尚无R22修改。
 - 下一步R21建议本库Inbox/Outbox有界指标采样（每状态最多1001行，created_at索引取最旧、5秒快照、采样stale可见，不在metrics HTTP中查询DB），低基数queue/state标签；随后审计重放必须保留claim_epoch，新增retry_base/独立预算，不能重置epoch。完成全部后全profiles/CI与普通merge/push main。OQ03/真实WCS/签署容量仍未验收。
+
+
+## 最新检查点 2026-09-12 23:14
+
+- R15盘点恢复已提交 **cd29555**，本分支共11个本地任务提交未push。本批R21消息积压指标/告警检查准备独立提交。
+- runtime新MessageQueueMetrics + Mapper XML：本库INBOX/INVENTORY_OUTBOX/SOURCE_OUTBOX静态选择，PENDING/CLAIMED/ISOLATED各最多1001行计数、索引最旧年龄；每查询1秒预算，5秒后台不可变快照，不在metricsHTTP查库；sample.age/available显示失效，标签只有queue/state。
+- inbound/inventory消息配置实际注册metrics+worker；四Persistence注册Mapper，追加索引迁移inboundV010/inventoryV027/outboundV012/fulfillmentV010。未给尚未接线的outbound/fulfillment伪造业务指标。
+- `scripts/check-message-backlog.py`：带observability.read令牌从env读取/禁重定向/响应64KiB/单请求2秒和全轮30秒截止；阈值显式输入，0正常、1隔离或积压、2未知/鉴权/采样失败，JSON无敏感数据，不主动通知第三方。Python告警2+容量2共4项通过。
+- `/tmp/wms-queue-metrics-it.log` **BUILD SUCCESS**：MessageQueueMetricsIT1真库1005→1001封顶/最旧/隔离/采样中途失败保留旧值/恢复、ReceiveMessagingProcessesIT1、InventoryMessagingIT1+全单元。初次SimpleMeterRegistry非AutoCloseable编译失败已修复，当前无Maven。required52项通过（现有报告检查，非最终全组合）。
+- 附带R21真实缺口：OperationScopeFilter 403正文原另造UUID，已改复用HTTP requestId；新增嵌套真实filter单测，`/tmp/wms-scope-correlation-test.log`相关模块全部单测通过。
+- 下一步R13人工受审计重放：必须按ent/wh/queue/id校验，禁止改payload，原事件身份保留；新增retry_base_epoch或独立预算，绝不重置claim_epoch。RuntimeInbox原processNext仅persist验证trusted来源，重放时还应复验topic→source/eventkey/hash；event_key空的畸形/不可信隔离绝不盲重放。来源旧minimal缺postingContext不可凭当前请求猜填。库存Outbox需用epoch-base做retry预算，保持旧workerfence。
+- pending质检粒度必要业务问题仍无答；继续独立事项。R14真实TM/TC/serial，R15serial/reconcile/archive，R22固定时区旧库兼容仍未实施；R13质量/PUTAWAY/PICK/SHIP/CANCEL未闭环。最终全profiles/CI/普通merge/pushmain尚未做，无生产部署。OQ03/真实WCS/签署容量与50AC保持未验收。

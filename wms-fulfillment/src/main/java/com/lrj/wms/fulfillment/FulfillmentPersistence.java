@@ -37,6 +37,7 @@ class FulfillmentPersistence {
         Configuration config = new Configuration(new Environment("fulfillment", new JdbcTransactionFactory(), dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(FulfillmentMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         config.addMapper(TransferMapper.class);
