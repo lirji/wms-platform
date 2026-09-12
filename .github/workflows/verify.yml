@@ -8,8 +8,20 @@ permissions:
 concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
+# 提交说明或 PR 标题含 [skip ci] / [ci skip] / [no ci] 时跳过。代码改动不要带这些标记。
 jobs:
   java:
+    if: >-
+      ${{
+        !(
+          contains(github.event.head_commit.message, '[skip ci]') ||
+          contains(github.event.head_commit.message, '[ci skip]') ||
+          contains(github.event.head_commit.message, '[no ci]') ||
+          contains(github.event.pull_request.title, '[skip ci]') ||
+          contains(github.event.pull_request.title, '[ci skip]') ||
+          contains(github.event.pull_request.title, '[no ci]')
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -41,6 +53,17 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
   console:
+    if: >-
+      ${{
+        !(
+          contains(github.event.head_commit.message, '[skip ci]') ||
+          contains(github.event.head_commit.message, '[ci skip]') ||
+          contains(github.event.head_commit.message, '[no ci]') ||
+          contains(github.event.pull_request.title, '[skip ci]') ||
+          contains(github.event.pull_request.title, '[ci skip]') ||
+          contains(github.event.pull_request.title, '[no ci]')
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

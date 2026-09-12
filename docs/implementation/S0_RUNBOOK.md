@@ -55,7 +55,7 @@ inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆
 
 ## CI与发布边界
 
-GitHub Actions运行构建、进程验证、warehouse-it、tc-it和failure-it，并把三类failsafe报告分别复制到`.local/reports/`后上传；没有部署步骤。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
+GitHub Actions运行构建、进程验证、warehouse-it、tc-it和failure-it，并把三类failsafe报告分别复制到`.local/reports/`后上传；没有部署步骤。提交说明或 PR 标题含 `[skip ci]`、`[ci skip]` 或 `[no ci]` 时跳过本次 verify（java 与 console 一并跳过）。代码改动不要带这些标记。远程main已存在，任务分支正常快进发布，不再有首次创建阻塞。生产部署始终另授权。
 
 终态审计的机制、故障验证与生产限制见[候选验证说明](TC_TERMINAL_EVIDENCE.md)。
 

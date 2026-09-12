@@ -3,7 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/seed-demo-ops`（基于 `origin/main` `45e92b1`）。
+- 任务分支：`feat/skip-ci`（基于 `origin/main` `71b9dee`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -11,7 +11,7 @@
 - 来源：已批准 DELIVERY_PLAN；持续 Git 发布；用户要求做到 S9 / 50 AC 且不必逐步确认。
 - 测试目标：localhost / Testcontainers MySQL 8.4.11。
 - 排除：生产部署、共享 dev-infra、编造 OQ-03、把 simulator 当真实设备、把合成峰值当签署容量。
-- 本轮用户要求把任务分支合入远程 main，并明确要求不等待进行中的 main verify。
+- 本轮用户要求 verify 支持 `[skip ci]`，并按持续授权合入远程 main。
 
 ## 门禁
 
@@ -19,11 +19,12 @@
 | --- | --- | --- |
 | EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
-| Git发布 | pass（本切片） | 用户授权快进合入：`feat/seed-demo-ops` 已在远程 main `38ef86e` |
+| Git发布 | pass（本切片） | 用户授权快进合入：`feat/skip-ci`（提交带 `[skip ci]`） |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
 
 ## 本轮
 
+- 2026-09-12：`verify.yml` 在提交说明或 PR 标题含 `[skip ci]` / `[ci skip]` / `[no ci]` 时跳过 java 与 console。不是 50 AC。
 - 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。已发布远程 main `38ef86e`。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。
 - `requireWritable` 不再把分片未声明/缺表伪装成停写；`TccFenceShardingIT` 纳入 `warehouse_route`。
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
