@@ -49,6 +49,9 @@ public final class SerialRegistryService {
         if (!operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
             throw new SerialRegistryException("SERIAL_ALREADY_CLAIMED", "序列号已被其他操作认领");
         }
+        if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
+            throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "认领仓与原操作归属不一致");
+        }
         return view(row);
     }
 
@@ -68,15 +71,15 @@ public final class SerialRegistryService {
         if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "激活仓与登记归属不一致");
         }
+        if (!operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "激活操作与认领不一致");
+        }
         String state = String.valueOf(row.get("state"));
         if (STATE_ACTIVE.equals(state)) {
             return view(row);
         }
         if (!STATE_CLAIMED.equals(state)) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能激活");
-        }
-        if (!operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
-            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "激活操作与认领不一致");
         }
         if (mapper.activateClaimed(enterpriseId, skuId, normalized, STATE_ACTIVE, now) != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "登记激活竞争");
@@ -381,6 +384,7 @@ public final class SerialRegistryService {
         body.put("transferId", row.get("transfer_id"));
         body.put("receiptOperationId", row.get("receipt_operation_id"));
         body.put("routeBucket", row.get("route_bucket"));
+        body.put("version", row.get("version"));
         return body;
     }
 

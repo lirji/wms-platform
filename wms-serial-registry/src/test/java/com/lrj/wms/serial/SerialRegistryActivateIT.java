@@ -66,6 +66,10 @@ class SerialRegistryActivateIT {
             SerialRegistryException other = assertThrows(SerialRegistryException.class,
                     () -> service.activate("ENT-1", "SKU-S", "sn-act", "WH-B", "OP-ACT"));
             assertEquals("SERIAL_OWNER_MISMATCH", other.code());
+            assertEquals("SERIAL_OWNER_MISMATCH", assertThrows(SerialRegistryException.class,
+                    () -> service.claim("ENT-1", "SKU-S", "SN-ACT", "WH-B", "OP-ACT")).code());
+            assertEquals("SERIAL_OPERATION_MISMATCH", assertThrows(SerialRegistryException.class,
+                    () -> service.activate("ENT-1", "SKU-S", "SN-ACT", "WH-A", "OTHER-OP")).code());
             session.commit();
         }
         assertEquals("ACTIVE", jdbc.queryForObject(

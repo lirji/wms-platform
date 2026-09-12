@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.serial.SerialHttpCommandMapper">
+    <!-- 重复键不修改原摘要与执行人，调用方锁定后比较。 -->
+    <insert id="insert">
+        INSERT INTO serial_http_command(id,enterprise_id,warehouse_id,command_id,request_hash,action,actor_id,created_at)
+        VALUES (#{id},#{enterprise},#{warehouse},#{command},#{hash},#{action},#{actor},#{now})
+        ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT request_hash,result FROM serial_http_command WHERE enterprise_id=#{enterprise} AND command_id=#{command} FOR UPDATE
+    </select>
+    <update id="finish">
+        UPDATE serial_http_command SET result=#{result}
+        WHERE enterprise_id=#{enterprise} AND command_id=#{command} AND result IS NULL
+    </update>
+</mapper>

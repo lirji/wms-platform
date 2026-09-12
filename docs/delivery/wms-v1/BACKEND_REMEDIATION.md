@@ -140,3 +140,12 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 `/tmp/wms-message-recovery-it.log` BUILD SUCCESS：MessageRecoveryIT1（八次失败后人工恢复、原代际8→9、旧完成拒绝、审计写失败完整回滚、跨仓/内容冲突/不可信消息拒绝）、RuntimeInboxIT1、OutboxPublisherIT1（库存Outbox12→13且恢复预算）、OutboxCrashRecoveryIT1、SourceOutboxIT1、ReceiveMessagingProcessesIT1（真实JWT缺权/错仓403、恢复202、重复请求及重复回执无二次累计）和全部单元。初次故障夹具使用MySQL trigger缺SUPER权限，改用本测试CHECK约束制造同位置写失败，不提升权限、不改共享数据库配置，重跑通过。
 
 追加来源Outbox17→18的真实Kafka恢复、旧minimal拒绝测试后，`/tmp/wms-source-recovery-final-it.log` BUILD SUCCESS（SourceOutboxIT1及所有单元）；同时修正专用202契约生成，74路径。Compose仅config静态校验，未启动生产栈。该恢复入口不代表质检/上架/出库主链或整个R13已完成。
+
+
+## R14 序列号登记服务基础（阶段发布）
+
+登记服务已接独立 MySQL、Flyway、受预算约束的连接池和真实 HTTP 接口：认领、激活、实时查询。仅受信服务主体且具有对应 scope、企业和仓权限可调用；X-Wms-Enterprise-Id 必须与已验签 JWT 企业一致。命令审计与登记变更同事务，HTTP 幂等键与原收货 operationId 各自固定。相同命令重放重新核验当前登记状态，不能返回历史 ACTIVE 绕过后续 MISSING；跨仓认领和其他 operation 激活均拒绝。
+
+SerialRegistryHttpIT 与 SerialRegistryActivateIT 最新定向回归通过（2026-09-12 23:35，BUILD SUCCESS）：真实 MySQL、RSA JWT/JWKS、HTTP 权限边界、跨企业拒绝、重放和审计失败回滚。一次 Ryuk 连接失败发生在业务测试前；保留自动清理机制后重跑通过。TP99 unverified。
+
+部署配置新增 WMS_SERIAL_DB_PASSWORD、WMS_SERIAL_ALLOWED_SUBJECTS；后者必须匹配真实服务账户，空值会阻止登记数据库启用。30-serial-registry.sh 仅用于新数据卷初始化；既有卷需单独初始化登记库和授权，不能通过重建卷处理。当前只提交配置，未启动或部署服务。库存 HTTP 适配、序列号转移恢复和真实 TM/TC 接线尚未完成，R14 保持进行中。

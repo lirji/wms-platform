@@ -9,10 +9,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
   endpoint:
     health:
       show-details: never
+      group:
+        readiness:
+          include: readinessState,wmsReadiness
+        liveness:
+          include: livenessState
       probes:
         enabled: true
 wms:
@@ -20,3 +31,14 @@ wms:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
     client-id: ${WMS_OIDC_CLIENT_ID:}
+
+  serial:
+    datasource:
+      url: ${WMS_SERIAL_JDBC_URL:}
+      username: ${WMS_SERIAL_DB_USER:}
+      password: ${WMS_SERIAL_DB_PASSWORD:}
+    access:
+      allowed-subjects: ${WMS_SERIAL_ALLOWED_SUBJECTS:}
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"

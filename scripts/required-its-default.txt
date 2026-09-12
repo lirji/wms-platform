@@ -79,3 +79,6 @@ com.lrj.wms.inventory.count.CountIT#actualRecoveryHandlerCommitsAdjustmentAndOut
 com.lrj.wms.runtime.messaging.MessageQueueMetricsIT#boundedBacklogAndOldestAgeRemainVisibleWhenSamplingFails
 
 com.lrj.wms.runtime.messaging.MessageRecoveryIT#auditedRetryPreservesIdentityAndFencingAndRejectsUntrustedMessages
+
+com.lrj.wms.serial.SerialRegistryHttpIT#serviceIdentityScopeWarehouseIdempotencyAndAuditAreEnforcedOverHttp
+com.lrj.wms.serial.SerialRegistryActivateIT#claimActivateReplayAndRejectOtherWarehouse

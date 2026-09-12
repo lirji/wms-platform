@@ -60,6 +60,7 @@ def main() -> int:
             ROOT / "wms-fulfillment/target/failsafe-reports",
             ROOT / "wms-inbound/target/failsafe-reports",
             ROOT / "wms-outbound/target/failsafe-reports",
+            ROOT / "wms-serial-registry/target/failsafe-reports",
         ]
     found = collect_cases(report_dirs)
     errors = []

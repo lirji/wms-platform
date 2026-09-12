@@ -25,6 +25,7 @@ tags:
   - name: recon
   - name: idempotency
   - name: common
+  - name: internal-registry
   - name: internal-inventory
 paths:
   /api/wms/v1/fulfillments:
@@ -3096,6 +3097,115 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/claims:
+    post:
+      operationId: claimSerialIdentity
+      tags: [internal-registry]
+      summary: 仅受信服务主体调用，JWT企业仓范围和原操作引用必需
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialIdentityCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/activations:
+    post:
+      operationId: activateSerialIdentity
+      tags: [internal-registry]
+      summary: 仅受信服务主体调用，JWT企业仓范围和原操作引用必需
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialIdentityCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities:
+    get:
+      operationId: getSerialIdentity
+      tags: [internal-registry]
+      summary: 查询实时全局登记，检查当前归属仓权限
+      security:
+        - oidc: [serial.registry.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+        - $ref: '#/components/parameters/SerialSkuQuery'
+        - $ref: '#/components/parameters/SerialQuery'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     oidc:
@@ -3103,6 +3213,22 @@ components:
       description: issuer 与 client 由 WMS_OIDC_ISSUER / WMS_OIDC_CLIENT_ID 指向已有提供方，仓库不写死密钥
       openIdConnectUrl: https://issuer.example.invalid/.well-known/openid-configuration
   parameters:
+    SerialEnterpriseHeader:
+      name: X-Wms-Enterprise-Id
+      in: header
+      required: true
+      description: 调用方预期企业，必须与签名JWT企业相同，避免误用另一租户服务令牌
+      schema: { $ref: '#/components/schemas/Id' }
+    SerialSkuQuery:
+      name: skuId
+      in: query
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    SerialQuery:
+      name: serial
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
     MessageQueue:
       name: queue
       in: path
@@ -3320,6 +3446,13 @@ components:
         code:
           type: string
           enum:
+            - SERIAL_ACCESS_FORBIDDEN
+            - SERIAL_NOT_FOUND
+            - SERIAL_OWNER_MISMATCH
+            - SERIAL_OPERATION_MISMATCH
+            - SERIAL_ALREADY_CLAIMED
+            - SERIAL_STATE_CONFLICT
+            - SERIAL_MISSING
             - INVALID_MESSAGE_QUEUE
             - INVALID_MESSAGE_STATE
             - INVALID_RECOVERY_REQUEST
@@ -4415,6 +4548,30 @@ components:
         executionAttemptId: { $ref: '#/components/schemas/Id' }
         attemptNo: { type: integer, minimum: 1 }
         previousCommandId: { $ref: '#/components/schemas/Id' }
+    SerialIdentityCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, operationId]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        operationId: { $ref: '#/components/schemas/Id' }
+    SerialIdentity:
+      type: object
+      additionalProperties: false
+      required: [id, state, normalizedSerial, ownerWarehouseId, ownerEpoch, claimOperationId, routeBucket, version]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        state: { type: string }
+        normalizedSerial: { type: string }
+        ownerWarehouseId: { $ref: '#/components/schemas/Id' }
+        ownerEpoch: { type: integer, format: int64 }
+        claimOperationId: { $ref: '#/components/schemas/Id' }
+        routeBucket: { type: integer, minimum: 0, maximum: 63 }
+        transferId: { type: [string, 'null'] }
+        receiptOperationId: { type: [string, 'null'] }
+        version: { $ref: '#/components/schemas/Version' }
     MessageRecoveryAccepted:
       type: object
       additionalProperties: false
