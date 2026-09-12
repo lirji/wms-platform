@@ -20,6 +20,14 @@ describe("API routing", () => {
     expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/pick-tasks")).toBe("outbound");
   });
 
+  it("routes warehouse tasks by required taskType", () => {
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks?taskType=PUTAWAY")).toBe("inbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks/T1?taskType=PUTAWAY")).toBe("inbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks/T1/claims?taskType=PICK")).toBe("outbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks?taskType=RESTOCK")).toBe("outbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks/T1/action-effects?taskType=PICK")).toBe("inventory");
+  });
+
   it("sends transfer receipts to fulfillment", () => {
     expect(serviceFor("/api/wms/v1/warehouses/WH-B/transfer-receipts")).toBe("fulfillment");
     expect(serviceFor("/api/wms/v1/transfers/TR-1/receipt-authorizations")).toBe("fulfillment");

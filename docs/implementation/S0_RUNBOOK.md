@@ -51,7 +51,7 @@ python3 scripts/check-required-its.py --suite failure
 java -jar wms-inventory/target/wms-inventory-0.1.0-SNAPSHOT.jar
 ```
 
-inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆盖。`WMS_OIDC_ISSUER` 为空时业务路径 403；配置 issuer 后无令牌为 401，不得免认证回退。Casdoor 本地开通见 sibling auth-platform `deploy/wms-platform-provision.py`（凭据写入 `WMS_IAM_CREDENTIALS`，不进仓库）。inventory 仅在 `WMS_INVENTORY_JDBC_URL` 非空时 Flyway 并提供主数据只读 HTTP。健康状态不证明库存可用。`wms-console/` 已创建；未配置 OIDC 时停在 `/login` 配置态。本地 Vite 默认 `WMS_UI_PORT=4181` 并提供 `/healthz`。handoff 仍为 ready-for-verification，不是 accepted。
+inbound/outbound/inventory默认端口18181/18182/18183，可用WMS_HTTP_PORT覆盖。`WMS_OIDC_ISSUER` 为空时业务路径 403；配置 issuer 后无令牌为 401，不得免认证回退。Casdoor 本地开通见 sibling auth-platform `deploy/wms-platform-provision.py`（凭据写入 `WMS_IAM_CREDENTIALS`，不进仓库）。inventory 仅在 `WMS_INVENTORY_JDBC_URL` 非空时 Flyway 并提供主数据读写 HTTP。健康状态不证明库存可用。`wms-console/` 已创建；未配置 OIDC 时停在 `/login` 配置态。本地 Vite 默认 `WMS_UI_PORT=4181` 并提供 `/healthz`。handoff 仍为 ready-for-verification，不是 accepted。
 
 ## CI与发布边界
 

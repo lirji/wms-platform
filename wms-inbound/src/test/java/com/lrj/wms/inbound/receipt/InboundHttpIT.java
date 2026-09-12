@@ -10,6 +10,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -107,6 +110,27 @@ class InboundHttpIT {
                         + "\"locationType\":\"STORAGE\",\"qty\":\"4\"}");
         assertEquals(202, putaway.statusCode());
         assertTrue(putaway.body().contains("\"physicalStatus\":\"PUTAWAY\""));
+        HttpResponse<String> tasks = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PUTAWAY", token);
+        assertEquals(200, tasks.statusCode());
+        assertTrue(tasks.body().contains("TASK-HTTP-1"));
+        HttpResponse<String> task = get("/api/wms/v1/warehouses/WH-A/tasks/TASK-HTTP-1", token);
+        assertEquals(200, task.statusCode());
+        HttpResponse<String> completedClaim = post("/api/wms/v1/warehouses/WH-A/tasks/TASK-HTTP-1/claims", token,
+                "CMD-CLAIM-DONE", "{\"expectedVersion\":1}");
+        assertEquals(409, completedClaim.statusCode());
+        try (Connection connection = DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(),
+                MYSQL.getPassword()); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("INSERT INTO inbound_task (id, enterprise_id, warehouse_id, task_type, document_id, "
+                    + "document_line_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, version, created_at, "
+                    + "updated_at) VALUES ('TASK-READY-1', 'ENT-1', 'WH-A', 'PUTAWAY', 'KEY-ASN-1', 'LINE-1', 4, 0, "
+                    + "'PLANNED', NULL, 0, 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))");
+        }
+        HttpResponse<String> claimed = post("/api/wms/v1/warehouses/WH-A/tasks/TASK-READY-1/claims", token, "CMD-CLAIM-1",
+                "{\"expectedVersion\":0}");
+        assertEquals(200, claimed.statusCode());
+        assertTrue(claimed.body().contains("\"claimEpoch\":1"));
+        HttpResponse<String> wrongType = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PICK", token);
+        assertEquals(400, wrongType.statusCode());
         HttpResponse<String> forbidden = get("/api/wms/v1/warehouses/WH-B/inbound-orders", token);
         assertEquals(403, forbidden.statusCode());
     }
@@ -128,7 +152,8 @@ class InboundHttpIT {
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-wh-a").issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
-                .claim("warehouses", warehouses).claim("scope", List.of("inbound.create", "inbound.read")).build();
+                .claim("warehouses", warehouses)
+                .claim("scope", List.of("inbound.create", "inbound.read", "task.read", "task.claim")).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));
         return jwt.serialize();

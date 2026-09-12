@@ -20,11 +20,22 @@ const PREFIX = {
   fulfillment: "/fulfillment-api"
 } as const;
 
+function queryValue(path: string, key: string): string | undefined {
+  const query = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
+  return new URLSearchParams(query).get(key) ?? undefined;
+}
+
 export function routeFor(path: string): string {
-  if (path.includes("/inbound-orders") || path.includes("/quality-inspections") || path.includes("/putaways")) {
+  if (path.includes("/action-effects")) {
+    return PREFIX.inventory + path;
+  }
+  const taskType = queryValue(path, "taskType");
+  if (path.includes("/inbound-orders") || path.includes("/quality-inspections") || path.includes("/putaways")
+    || taskType === "PUTAWAY") {
     return PREFIX.inbound + path;
   }
-  if (path.includes("/outbound-orders") || path.includes("/picks") || path.includes("/packings") || path.includes("/shipments")) {
+  if (path.includes("/outbound-orders") || path.includes("/picks") || path.includes("/packings") || path.includes("/shipments")
+    || taskType === "PICK" || taskType === "RESTOCK") {
     return PREFIX.outbound + path;
   }
   if (path.includes("/transfer-receipts") || path.includes("/receipt-authorizations")) {

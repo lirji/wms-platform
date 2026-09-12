@@ -3,7 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/console-ops-density`（基于 `feat/console-command-wiring`）。
+- 任务分支：`feat/contract-http-gaps`（基于远程 main `45e92b1`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -36,9 +36,10 @@
 - 2026-09-12 AC-26 现场走查：Casdoor 收货→质检→上架→跨仓准备（PLANNED）→拣→部分发→未拣回库。重复行主键改为 409。证据 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md)。仍 open。
 - 2026-09-12 F6：队列页抽屉建单、单据命令抽屉、首页活队列、401≠403；Casdoor 作业 scope 已补全。需重新登录。不是 50 AC / AC-26 accepted。
 - 2026-09-12 前端架构技能复查：不另起 IA。F7 已落地（登录一列、权限按 scope 隐藏、列宽/cursor/错误码、单据 Tabs）。用户要求合入远程 main 并重建 Docker console。不是 50 AC / AC-26 accepted。
+- 2026-09-12 F8：公开契约里已有领域的缺口接到 HTTP 与控制台。主数据写、仓任务 list/get/claim、流水/operation/效果、catalog 建档、jobs 仓任务、stock 流水、recon 导出快照。moves/holds 与 ALLOCATED 不编造。TP99 unverified。主线 verify 进行中时不推 main。不是 50 AC / AC-26 accepted。
 
 ## 未完成
 
-- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。上一轮 main verify `34683583780` 已取消，本轮在无进行中 main verify 时推送。
+- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。F8 任务分支待验证后推送；若 main verify 仍 running 则不推 main。
 
 无生产部署。

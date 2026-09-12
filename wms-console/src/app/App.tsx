@@ -23,6 +23,8 @@ const CountPage = lazy(() => import("../features/count/CountPage").then((module)
 const CountDetailPage = lazy(() => import("../features/count/CountDetailPage").then((module) => ({ default: module.CountDetailPage })));
 const JobsPage = lazy(() => import("../features/jobs/JobsPage").then((module) => ({ default: module.JobsPage })));
 const JobDetailPage = lazy(() => import("../features/jobs/JobDetailPage").then((module) => ({ default: module.JobDetailPage })));
+const TaskDetailPage = lazy(() => import("../features/jobs/TaskDetailPage").then((module) => ({ default: module.TaskDetailPage })));
+const StockLedgerPage = lazy(() => import("../features/stock/StockLedgerPage").then((module) => ({ default: module.StockLedgerPage })));
 const ReconPage = lazy(() => import("../features/recon/ReconPage").then((module) => ({ default: module.ReconPage })));
 const ReceivePage = lazy(() => import("../features/pda/ReceivePage").then((module) => ({ default: module.ReceivePage })));
 
@@ -73,6 +75,7 @@ export function App() {
                 <Route path="inbound" element={<InboundPage />} />
                 <Route path="inbound/:inboundOrderId" element={<InboundDetailPage />} />
                 <Route path="stock" element={<StockPage />} />
+                <Route path="stock/:balanceId" element={<StockLedgerPage />} />
                 <Route path="fulfillment" element={<FulfillmentPage />} />
                 <Route path="fulfillment/:fulfillmentId" element={<FulfillmentDetailPage />} />
                 <Route path="outbound/:outboundOrderId" element={<OutboundDetailPage />} />
@@ -82,6 +85,7 @@ export function App() {
                 <Route path="counts/:countPlanId" element={<CountDetailPage />} />
                 <Route path="jobs" element={<JobsPage />} />
                 <Route path="jobs/:jobId" element={<JobDetailPage />} />
+                <Route path="tasks/:taskId" element={<TaskDetailPage />} />
                 <Route path="recon" element={<ReconPage />} />
               </Route>
               <Route path="/pda/:warehouseId/receive" element={<PdaShell user={user} token={token} />}>

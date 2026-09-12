@@ -1,6 +1,7 @@
 package com.lrj.wms.outbound;
 
 import com.lrj.wms.outbound.order.OutboundOrderMapper;
+import com.lrj.wms.outbound.order.OutboundTaskMapper;
 import com.lrj.wms.outbound.protocol.SourceMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import javax.sql.DataSource;
@@ -40,6 +41,7 @@ class OutboundPersistence {
         Configuration config = new Configuration(new Environment("outbound", new JdbcTransactionFactory(), dataSource));
         config.addMapper(SourceMapper.class);
         config.addMapper(OutboundOrderMapper.class);
+        config.addMapper(OutboundTaskMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 }

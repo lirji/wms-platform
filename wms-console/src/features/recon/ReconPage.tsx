@@ -54,6 +54,42 @@ export function ReconPage() {
             加载差异
           </Button>
           <CommandDrawer
+            triggerLabel="导出快照"
+            title="导出对账快照"
+            hint="202 只表示受理。水位不齐会被服务端拒绝。这不是导出全部。"
+            triggerType="default"
+            requireScope="recon.export"
+            disabled={!warehouseId || warehouseId === "_"}
+          >
+            <CommandCard
+              embedded
+              requireScope="recon.export"
+              title="导出快照"
+              hint="必须带 cutoff 关闭时刻与三方水位。返回 snapshotJobId，不是成功。"
+              operation={`recon-export:${warehouseId}:${cutoffId || "draft"}`}
+              submitLabel="提交导出"
+              disabled={!token || !warehouseId || warehouseId === "_"}
+              onRun={(key, values) => api("/api/wms/v1/reconciliation-snapshots", token, {
+                method: "POST",
+                idempotencyKey: key,
+                body: {
+                  warehouseIds: [warehouseId],
+                  cutoffId: values.cutoffId || cutoffId,
+                  cutoff: values.cutoff,
+                  sourceWatermark: values.sourceWatermark,
+                  postingWatermark: values.postingWatermark,
+                  receiptWatermark: values.receiptWatermark
+                }
+              })}
+            >
+              <Form.Item label="cutoffId" name="cutoffId" initialValue={cutoffId} rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="关闭时刻 UTC" name="cutoff" rules={[{ required: true }]}><Input placeholder="2026-09-10T13:00:00Z" /></Form.Item>
+              <Form.Item label="sourceWatermark" name="sourceWatermark" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="postingWatermark" name="postingWatermark" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="receiptWatermark" name="receiptWatermark" rules={[{ required: true }]}><Input /></Form.Item>
+            </CommandCard>
+          </CommandDrawer>
+          <CommandDrawer
             triggerLabel="审批修复"
             title="审批修复"
             hint="这是次要动作。APPROVE / REJECT 不改页面余额。"

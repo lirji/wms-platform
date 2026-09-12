@@ -46,6 +46,7 @@ class InventoryPersistence {
         Configuration config = new Configuration(
                 new Environment("inventory", new SpringManagedTransactionFactory(), dataSource));
         config.addMapper(MasterdataMapper.class);
+        config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
         config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper.class);
@@ -58,6 +59,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.jobs.JobRunMapper.class);
         config.addMapper(com.lrj.wms.inventory.jobs.ExpiryEligibilityMapper.class);
         config.addMapper(com.lrj.wms.inventory.query.ProjectionMapper.class);
+        config.addMapper(com.lrj.wms.inventory.query.InventoryHttpQueryMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class);
         return new SqlSessionFactoryBuilder().build(config);

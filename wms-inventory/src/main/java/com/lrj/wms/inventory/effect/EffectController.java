@@ -2,6 +2,7 @@ package com.lrj.wms.inventory.effect;
 
 import com.lrj.wms.inventory.effect.domain.EffectCodes;
 import com.lrj.wms.inventory.effect.domain.EffectProtocolException;
+import com.lrj.wms.inventory.query.InventoryAuditService;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.time.Clock;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** 效果身份 HTTP；数据来自库存库，页面不得写死或刷新随机键重做。 */
@@ -35,6 +37,28 @@ public class EffectController {
     public EffectController(SqlSessionFactory sessions) {
         this.sessions = sessions;
         this.clock = Clock.systemUTC();
+    }
+
+    @GetMapping("/action-effects")
+    public Map<String, Object> list(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession()) {
+            return new InventoryAuditService(session).listEffects(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, null,
+                    cursor, limit == null ? 50 : limit);
+        }
+    }
+
+    @GetMapping("/tasks/{taskId}/action-effects")
+    public Map<String, Object> listByTask(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String taskId, @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession()) {
+            return new InventoryAuditService(session).listEffects(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
+                    taskId, cursor, limit == null ? 50 : limit);
+        }
     }
 
     /** 按权威事实登记或恢复 effect。 */

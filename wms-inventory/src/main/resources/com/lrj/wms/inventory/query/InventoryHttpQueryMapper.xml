@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.query.InventoryHttpQueryMapper">
+
+    <select id="getBalance" resultType="map">
+        SELECT id, sku_id, lot_id, location_id, quality_code, on_hand_qty, reserved_qty, version
+        FROM stock_balance
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{balanceId}
+    </select>
+
+    <!-- 按桶读不可变流水，游标为上一页最后 id -->
+    <select id="listLedger" resultType="map">
+        SELECT id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta, free_execution_claim_delta,
+               on_hand_after, reserved_after, free_execution_claim_after, balance_version, reason_code, document_id,
+               actor_id, occurred_at
+        FROM stock_ledger
+        WHERE enterprise_id = #{enterpriseId}
+          AND warehouse_id = #{warehouseId}
+          AND balance_id = #{balanceId}
+        <if test="cursor != null and cursor != ''">
+            AND id &gt; #{cursor}
+        </if>
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <!-- 按 operationId 在令牌仓范围内回读，禁止跨仓扩大 -->
+    <select id="listLedgerByOperation" resultType="map">
+        SELECT id, warehouse_id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta,
+               free_execution_claim_delta, on_hand_after, reserved_after, reason_code, document_id, occurred_at
+        FROM stock_ledger
+        WHERE enterprise_id = #{enterpriseId}
+          AND operation_id = #{operationId}
+        <if test="warehouseIds != null and warehouseIds.size() &gt; 0">
+            AND warehouse_id IN
+            <foreach collection="warehouseIds" item="warehouseId" open="(" separator="," close=")">
+                #{warehouseId}
+            </foreach>
+        </if>
+        <if test="warehouseIds == null or warehouseIds.size() == 0">
+            AND 1 = 0
+        </if>
+        ORDER BY warehouse_id, entry_no, id
+    </select>
+
+    <select id="listEffects" resultType="map">
+        SELECT id, action, fact_type, fact_parent_id, fact_part_id, fact_line_id, business_effect_key,
+               active_command_id, applied_command_id, attempt_no, state, version
+        FROM stock_effect
+        WHERE enterprise_id = #{enterpriseId}
+          AND warehouse_id = #{warehouseId}
+        <if test="taskId != null and taskId != ''">
+            AND fact_parent_id = #{taskId}
+        </if>
+        <if test="cursor != null and cursor != ''">
+            AND id &gt; #{cursor}
+        </if>
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+</mapper>

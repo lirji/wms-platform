@@ -85,6 +85,17 @@ public final class WmsJwtAuthorities {
         }
     }
 
+    /** 校验令牌具备指定 scope；缺权失败关闭，不回落放行。 */
+    public static void requireScope(Jwt jwt, String scope) {
+        if (scope == null || scope.isBlank()) {
+            throw new IllegalArgumentException("权限范围不能为空");
+        }
+        boolean allowed = authorities(jwt).stream().anyMatch(item -> scope.equals(item.getAuthority()));
+        if (!allowed) {
+            throw new ScopeForbiddenException(scope);
+        }
+    }
+
     private static List<String> stringValues(Jwt jwt, String claim) {
         Object value = jwt.getClaim(claim);
         List<String> result = new ArrayList<>();

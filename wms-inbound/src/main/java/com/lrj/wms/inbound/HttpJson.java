@@ -23,6 +23,19 @@ public final class HttpJson {
         return Map.of("items", rows, "limit", rows.size());
     }
 
+    public static Map<String, Object> cursorPage(Map<String, Object> source) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) source.get("items");
+        Map<String, Object> body = new LinkedHashMap<>(page(items == null ? List.of() : items));
+        if (source.get("limit") != null) {
+            body.put("limit", source.get("limit"));
+        }
+        if (source.get("nextCursor") != null) {
+            body.put("nextCursor", source.get("nextCursor"));
+        }
+        return body;
+    }
+
     public static Map<String, Object> row(Map<String, Object> source) {
         Map<String, Object> item = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : source.entrySet()) {

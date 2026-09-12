@@ -1,12 +1,14 @@
+import { recordId } from "../../api/envelope";
 import { DocumentListPage } from "../lists/DocumentListPage";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
 export function StockPage() {
   const { warehouseId } = useWorkspace();
+  const ready = warehouseId && warehouseId !== "_";
   return (
     <DocumentListPage
       title="库存台账"
-      sub="数量按字符串展示，不在浏览器做发运量运算。"
+      sub="数量按字符串展示，不在浏览器做发运量运算。打开一行查看流水。"
       empty={`当前仓 ${warehouseId || "(未选)"} 没有库存行`}
       columns={[
         { key: "skuId", label: "SKU", keys: ["skuId"] },
@@ -16,7 +18,8 @@ export function StockPage() {
         { key: "availableQty", label: "可用", qty: true, keys: ["availableQty"] },
         { key: "qualityCode", label: "质量", keys: ["qualityCode"] }
       ]}
-      paths={warehouseId && warehouseId !== "_" ? [`/api/wms/v1/inventory?warehouseIds=${encodeURIComponent(warehouseId)}`] : []}
+      paths={ready ? [`/api/wms/v1/inventory?warehouseIds=${encodeURIComponent(warehouseId)}`] : []}
+      hrefFor={(row) => ready ? `/w/${warehouseId}/stock/${recordId(row)}` : undefined}
     />
   );
 }

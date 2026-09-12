@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.receipt.InboundTaskMapper">
+
+    <select id="listTasks" resultType="map">
+        SELECT id, task_type, document_id, document_line_id, source_location_id, target_location_id, planned_qty,
+               completed_qty, state, assignee_id, claim_epoch, version
+        FROM inbound_task
+        WHERE enterprise_id = #{enterpriseId}
+          AND warehouse_id = #{warehouseId}
+          AND task_type = #{taskType}
+        <if test="cursor != null and cursor != ''">
+            AND id &gt; #{cursor}
+        </if>
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <select id="getTask" resultType="map">
+        SELECT id, task_type, document_id, document_line_id, source_location_id, target_location_id, planned_qty,
+               completed_qty, state, assignee_id, claim_epoch, version
+        FROM inbound_task
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{taskId}
+    </select>
+
+    <select id="lockTask" resultType="map">
+        SELECT id, task_type, document_id, document_line_id, planned_qty, completed_qty, state, assignee_id,
+               claim_epoch, version
+        FROM inbound_task
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{taskId}
+        FOR UPDATE
+    </select>
+
+    <update id="claimTask">
+        UPDATE inbound_task
+        SET assignee_id = #{workerId},
+            claim_epoch = #{epoch},
+            version = version + 1,
+            updated_at = #{now}
+        WHERE enterprise_id = #{enterpriseId}
+          AND warehouse_id = #{warehouseId}
+          AND id = #{taskId}
+          AND version = #{expectedVersion}
+    </update>
+</mapper>

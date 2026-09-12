@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper">
+
+    <!-- 按企业+仓标识读仓，供详情与写后回读 -->
+    <select id="getWarehouse" resultType="map">
+        SELECT id, code, name, timezone, state, version
+        FROM warehouse
+        WHERE enterprise_id = #{enterpriseId} AND id = #{warehouseId}
+    </select>
+
+    <!-- 按仓编码查重，避免同码异幂等键伪装新建 -->
+    <select id="getWarehouseByCode" resultType="map">
+        SELECT id, code, name, timezone, state, version
+        FROM warehouse
+        WHERE enterprise_id = #{enterpriseId} AND code = #{code}
+    </select>
+
+    <!-- 商品详情，含策略开关与精度 -->
+    <select id="getSku" resultType="map">
+        SELECT id, enterprise_id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, expiry_enabled,
+               policy_version, state, version
+        FROM sku
+        WHERE enterprise_id = #{enterpriseId} AND id = #{skuId}
+    </select>
+
+    <select id="getSkuByCode" resultType="map">
+        SELECT id, code, name, base_unit, quantity_scale, lot_enabled, serial_enabled, expiry_enabled,
+               policy_version, state, version
+        FROM sku
+        WHERE enterprise_id = #{enterpriseId} AND code = #{code}
+    </select>
+
+    <select id="getLocation" resultType="map">
+        SELECT id, code, zone_code, location_type, capacity_qty, capacity_unit, state, version
+        FROM location
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{locationId}
+    </select>
+
+    <select id="getLocationByCode" resultType="map">
+        SELECT id, code, zone_code, location_type, capacity_qty, capacity_unit, state, version
+        FROM location
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND code = #{code}
+    </select>
+
+    <select id="getLocationGate" resultType="map">
+        SELECT id, location_id, state, reason_code, fence_epoch, count_plan_id, version
+        FROM location_gate
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND location_id = #{locationId}
+    </select>
+
+    <select id="getLot" resultType="map">
+        SELECT id, owner_id, sku_id, lot_code, business_lot_key, produced_at, expires_at, source_date,
+               expiry_rule_version, version
+        FROM lot
+        WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{lotId}
+    </select>
+
+    <select id="getSkuUnit" resultType="map">
+        SELECT id, sku_id, unit_code, numerator, denominator, policy_version, version
+        FROM sku_unit
+        WHERE enterprise_id = #{enterpriseId} AND sku_id = #{skuId} AND unit_code = #{unitCode}
+    </select>
+
+    <select id="getIdempotency" resultType="map">
+        SELECT request_digest, resource_id
+        FROM write_idempotency
+        WHERE enterprise_id = #{enterpriseId}
+          AND warehouse_id = #{warehouseId}
+          AND client_operation_id = #{clientOperationId}
+    </select>
+
+    <!-- 同键冲突保持首写摘要，由服务层核对 digest -->
+    <insert id="insertIdempotency">
+        INSERT INTO write_idempotency
+            (id, enterprise_id, warehouse_id, client_operation_id, request_digest, resource_id, version, created_at, updated_at)
+        VALUES
+            (#{id}, #{enterpriseId}, #{warehouseId}, #{clientOperationId}, #{requestDigest}, #{resourceId}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE updated_at = updated_at
+    </insert>
+</mapper>

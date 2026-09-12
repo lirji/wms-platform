@@ -29,6 +29,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -173,6 +174,70 @@ class MasterdataHttpIT {
         assertEquals("SKU_NOT_FOUND", extract(missing.body(), "code"));
     }
 
+    @Test
+    void writesAndReadsMasterdataById() throws Exception {
+        String reader = token(List.of("WH-A"));
+        String writer = token("wms-ops", List.of("WH-A", "WH-C"), List.of("masterdata.read", "masterdata.write"));
+        HttpResponse<String> denied = post("/api/wms/v1/skus", reader, "KEY-SKU-DENY",
+                "{\"code\":\"SKU-HTTP\",\"name\":\"接口商品\",\"baseUnit\":\"EA\",\"quantityScale\":0,"
+                        + "\"lotEnabled\":false,\"serialEnabled\":false,\"expiryEnabled\":false,"
+                        + "\"clientOperationId\":\"KEY-SKU-DENY\"}");
+        assertEquals(403, denied.statusCode());
+        assertEquals("SCOPE_FORBIDDEN", extract(denied.body(), "code"));
+        HttpResponse<String> createdSku = post("/api/wms/v1/skus", writer, "KEY-SKU-HTTP",
+                "{\"code\":\"SKU-HTTP\",\"name\":\"接口商品\",\"baseUnit\":\"EA\",\"quantityScale\":0,"
+                        + "\"lotEnabled\":true,\"serialEnabled\":false,\"expiryEnabled\":false,"
+                        + "\"clientOperationId\":\"KEY-SKU-HTTP\"}");
+        assertEquals(201, createdSku.statusCode());
+        assertTrue(createdSku.body().contains("SKU-HTTP"));
+        HttpResponse<String> replaySku = post("/api/wms/v1/skus", writer, "KEY-SKU-HTTP",
+                "{\"code\":\"SKU-HTTP\",\"name\":\"接口商品\",\"baseUnit\":\"EA\",\"quantityScale\":0,"
+                        + "\"lotEnabled\":true,\"serialEnabled\":false,\"expiryEnabled\":false,"
+                        + "\"clientOperationId\":\"KEY-SKU-HTTP\"}");
+        assertEquals(201, replaySku.statusCode());
+        HttpResponse<String> mismatch = post("/api/wms/v1/skus", writer, "KEY-SKU-HTTP",
+                "{\"code\":\"SKU-OTHER\",\"name\":\"另一商品\",\"baseUnit\":\"EA\",\"quantityScale\":0,"
+                        + "\"lotEnabled\":false,\"serialEnabled\":false,\"expiryEnabled\":false,"
+                        + "\"clientOperationId\":\"KEY-SKU-HTTP\"}");
+        assertEquals(409, mismatch.statusCode());
+        HttpResponse<String> unit = post("/api/wms/v1/skus/SKU-HTTP/units", writer, "KEY-UNIT-HTTP",
+                "{\"unitCode\":\"CS\",\"numerator\":\"12\",\"denominator\":\"1\",\"clientOperationId\":\"KEY-UNIT-HTTP\"}");
+        assertEquals(201, unit.statusCode());
+        HttpResponse<String> warehouse = post("/api/wms/v1/warehouses", writer, "KEY-WH-C",
+                "{\"code\":\"WH-C\",\"name\":\"接口新仓\",\"timezone\":\"Asia/Shanghai\",\"clientOperationId\":\"KEY-WH-C\"}");
+        assertEquals(201, warehouse.statusCode());
+        HttpResponse<String> location = post("/api/wms/v1/warehouses/WH-A/locations", writer, "KEY-LOC-HTTP",
+                "{\"code\":\"HTTP\",\"zoneCode\":\"A\",\"locationType\":\"STORAGE\",\"clientOperationId\":\"KEY-LOC-HTTP\"}");
+        assertEquals(201, location.statusCode());
+        HttpResponse<String> lot = post("/api/wms/v1/warehouses/WH-A/lots", writer, "KEY-LOT-HTTP",
+                "{\"ownerId\":\"OWNER-SELF\",\"skuId\":\"SKU-HTTP\",\"lotCode\":\"LOT-HTTP\","
+                        + "\"businessLotKey\":\"ENT-DEMO/OWNER-SELF/SKU-HTTP/LOT-HTTP\",\"clientOperationId\":\"KEY-LOT-HTTP\"}");
+        assertEquals(201, lot.statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A", reader).statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/locations/WH-A-RCV", reader).statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/locations/WH-A-RCV/gate", reader).statusCode());
+        HttpResponse<String> sku = get("/api/wms/v1/skus/SKU-HTTP", reader);
+        assertEquals(200, sku.statusCode());
+        assertTrue(sku.body().contains("CS"));
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/lots/LOT-HTTP", reader).statusCode());
+        assertEquals(403, get("/api/wms/v1/warehouses/WH-B", reader).statusCode());
+        assertEquals(404, get("/api/wms/v1/skus/SKU-MISSING", reader).statusCode());
+        HttpResponse<String> ledger = get("/api/wms/v1/warehouses/WH-A/inventory/BAL-MISSING/ledger", reader);
+        assertEquals(404, ledger.statusCode());
+        assertEquals("BALANCE_NOT_FOUND", extract(ledger.body(), "code"));
+        HttpResponse<String> operation = get("/api/wms/v1/operations/OP-MISSING", reader);
+        assertEquals(404, operation.statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/action-effects", reader).statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/tasks/TASK-MISSING/action-effects", reader).statusCode());
+    }
+
+    private HttpResponse<String> post(String path, String bearer, String key, String json) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                .header("Authorization", "Bearer " + bearer).header("Idempotency-Key", key)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .POST(HttpRequest.BodyPublishers.ofString(json)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET();
         if (bearer != null) {
@@ -186,14 +251,18 @@ class MasterdataHttpIT {
     }
 
     private static String token(String subject, List<String> warehouses) throws Exception {
-        return signed(subject, warehouses);
+        return signed(subject, warehouses, List.of("masterdata.read"));
+    }
+
+    private static String token(String subject, List<String> warehouses, List<String> scopes) throws Exception {
+        return signed(subject, warehouses, scopes);
     }
 
     private static String token(String subject, String warehousesCsv) throws Exception {
-        return signed(subject, warehousesCsv);
+        return signed(subject, warehousesCsv, List.of("masterdata.read"));
     }
 
-    private static String signed(String subject, Object warehouses) throws Exception {
+    private static String signed(String subject, Object warehouses, List<String> scopes) throws Exception {
         RSAKey rsa = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -203,7 +272,7 @@ class MasterdataHttpIT {
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000))
                 .claim("enterprise_id", SeedCatalog.ENTERPRISE)
                 .claim("warehouses", warehouses)
-                .claim("scope", List.of("masterdata.read"))
+                .claim("scope", scopes)
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));

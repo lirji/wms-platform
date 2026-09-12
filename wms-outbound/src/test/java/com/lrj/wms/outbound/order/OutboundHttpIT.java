@@ -96,6 +96,17 @@ class OutboundHttpIT {
                         + "\"stagingLocationId\":\"LOC-S\",\"qty\":\"3\"}");
         assertEquals(201, planned.statusCode());
         String taskId = textBetween(planned.body(), "\"taskId\":\"", "\"");
+        HttpResponse<String> tasks = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PICK", token);
+        assertEquals(200, tasks.statusCode());
+        assertTrue(tasks.body().contains(taskId));
+        HttpResponse<String> task = get("/api/wms/v1/warehouses/WH-A/tasks/" + taskId, token);
+        assertEquals(200, task.statusCode());
+        HttpResponse<String> claimed = post("/api/wms/v1/warehouses/WH-A/tasks/" + taskId + "/claims", token,
+                "CMD-CLAIM-1", "{\"expectedVersion\":0}");
+        assertEquals(200, claimed.statusCode());
+        assertTrue(claimed.body().contains("\"claimEpoch\":1"));
+        HttpResponse<String> wrongType = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PUTAWAY", token);
+        assertEquals(400, wrongType.statusCode());
         HttpResponse<String> picked = post("/api/wms/v1/warehouses/WH-A/tasks/" + taskId + "/picks", token, "CMD-PICK-1",
                 "{\"qty\":\"2\"}");
         assertEquals(202, picked.statusCode());
@@ -139,7 +150,8 @@ class OutboundHttpIT {
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-wh-a").issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
-                .claim("warehouses", warehouses).claim("scope", List.of("outbound.create", "outbound.read")).build();
+                .claim("warehouses", warehouses)
+                .claim("scope", List.of("outbound.create", "outbound.read", "task.read", "task.claim")).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));
         return jwt.serialize();

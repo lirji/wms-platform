@@ -78,6 +78,15 @@ public class OperationsQueryController {
         }
     }
 
+    @GetMapping("/operations/{operationId}")
+    public Map<String, Object> operation(@AuthenticationPrincipal Jwt jwt, @PathVariable String operationId) {
+        try (SqlSession session = sessions.openSession()) {
+            return InventoryHttpJson.body(new InventoryAuditService(session).getOperation(
+                    WmsJwtAuthorities.enterpriseId(jwt), operationId,
+                    new ArrayList<>(WmsJwtAuthorities.warehouses(jwt))));
+        }
+    }
+
     @GetMapping("/warehouses/{warehouseId}/count-plans/{countPlanId}")
     public Map<String, Object> count(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String countPlanId) {

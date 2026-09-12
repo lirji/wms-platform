@@ -2,6 +2,7 @@ package com.lrj.wms.inbound;
 
 import com.lrj.wms.inbound.protocol.SourceMapper;
 import com.lrj.wms.inbound.receipt.InboundReceiptMapper;
+import com.lrj.wms.inbound.receipt.InboundTaskMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
@@ -40,6 +41,7 @@ class InboundPersistence {
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), dataSource));
         config.addMapper(SourceMapper.class);
         config.addMapper(InboundReceiptMapper.class);
+        config.addMapper(InboundTaskMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 }

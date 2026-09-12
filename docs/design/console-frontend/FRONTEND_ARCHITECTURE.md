@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | 仓主管 / 内勤 | 选仓、看活队列与陈旧查询 | `/w/:warehouseId` |
 | 收货员 | 建单、收货、质检、上架 | 入库队列 / 单据；PDA 收货 |
-| 库存 / 资料员 | 主数据只读、余额与 asOf | catalog / stock |
+| 库存 / 资料员 | 主数据读写、余额与 asOf、桶流水 | catalog / stock |
 | 履约 / 出库员 | 全局单、仓子单、拣包装发 | fulfillment / outbound |
 | 调拨 / 盘点员 | 发出接收、冻结点数调整 | transfers / counts |
 | PDA 操作员 | 扫码收货，同应用第二壳 | `/pda/:warehouseId/receive` |
@@ -25,10 +25,11 @@
 /callback                      OIDC 回调
 /                              已登录 → 跳到 /w/:warehouseId
 /w/:warehouseId                工作台首页（KPI + 活队列）
-/w/:warehouseId/catalog        商品 / 库位（只读）
+/w/:warehouseId/catalog        商品 / 库位 / 批次（有 masterdata.write 才建档）
 /w/:warehouseId/inbound                      入库列表 + 抽屉建单
 /w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架（命令抽屉）
 /w/:warehouseId/stock                        库存台账
+/w/:warehouseId/stock/:balanceId             库存流水
 /w/:warehouseId/fulfillment                  履约列表 + 本仓出库列表
 /w/:warehouseId/fulfillment/:fulfillmentId   准备分配 / 生成本仓出库单
 /w/:warehouseId/outbound/:outboundOrderId    规划拣货 / 拣 / 包 / 部分发 / 取消回库
@@ -36,9 +37,10 @@
 /w/:warehouseId/transfers/:transferId        发出 / 接收授权 / 接收 / 损耗
 /w/:warehouseId/counts                       盘点列表 + 抽屉建计划
 /w/:warehouseId/counts/:countPlanId          排空冻结 / 点数 / 复盘 / 审批 / 调整
-/w/:warehouseId/jobs                         任务列表
+/w/:warehouseId/jobs                         任务运行 + 仓执行任务（?taskType=）
 /w/:warehouseId/jobs/:jobId                  回收租约 / 领取分片
-/w/:warehouseId/recon                        对账查询 + 抽屉审批
+/w/:warehouseId/tasks/:taskId                领取仓任务（?taskType= 分域）
+/w/:warehouseId/recon                        对账查询 + 抽屉审批 / 次要导出快照
 /pda/:warehouseId/receive                    PDA 收货（独立壳）
 ```
 
@@ -190,10 +192,10 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 - 写操作：`Idempotency-Key`；`scanSequence` 仅在契约字段出现时递增，不本地伪造
 - 时区：展示可按仓，请求 UTC
 - TP99：前端不宣称达标
-- 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要；未接该命令前不画「导出全部」
+- 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要，文案是「导出快照」不是「导出全部」
 - 离线：线上写。BRIEF「待同步意图」只能显示服务端 202/`stockSyncStatus`，禁止 `localStorage` 库存队列
 
-作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，对账 APPROVE/REJECT。跨仓 ALLOCATED 仍要求 TC Committed 证据。OpenAPI `GET /warehouses/{id}/tasks` 仍未实现，出库任务挂在出库单详情。
+作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，仓任务领取，对账 APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。
 
 ## 11. 落地细节
 
@@ -296,8 +298,9 @@ F7 已落地。不再把上表当未实现清单。
 仍 blocked / 不发明：
 
 - 设备 UNKNOWN 与真实硬件（S8-05）
-- 主数据写 API 未实现，catalog 保持只读
 - 履约整单确认依赖真实 TC，不能写成 ALLOCATED
 - AC-26 仍 open
-- `GET /warehouses/{id}/tasks` 未实现
+- `POST /moves`、`stock-holds` 无库存域实现，不编造
+- 履约取消 / 出库 execution-authorizations 无独立可复用用例，不编造 ALLOCATED
+- 独立 adjustment 资源与 count-plan 调整不是同一张表，不另造调整单
 - PDA 保留文字 + tone；可选短 beep，无音频设备时静默

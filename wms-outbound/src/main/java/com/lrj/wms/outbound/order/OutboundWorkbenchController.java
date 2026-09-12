@@ -1,6 +1,7 @@
 package com.lrj.wms.outbound.order;
 
 import com.lrj.wms.outbound.HttpJson;
+import com.lrj.wms.security.ScopeForbiddenException;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.math.BigDecimal;
@@ -87,6 +88,49 @@ public class OutboundWorkbenchController {
         }
     }
 
+    @GetMapping("/tasks")
+    public Map<String, Object> listTasks(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "taskType") String taskType,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        WmsJwtAuthorities.requireScope(jwt, "task.read");
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession()) {
+            return HttpJson.cursorPage(new OutboundTaskService(session, Clock.systemUTC())
+                    .list(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskType, cursor, limit == null ? 50 : limit));
+        }
+    }
+
+    @GetMapping("/tasks/{taskId}")
+    public Map<String, Object> getTask(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String taskId) {
+        WmsJwtAuthorities.requireScope(jwt, "task.read");
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession()) {
+            return HttpJson.row(new OutboundTaskService(session, Clock.systemUTC())
+                    .get(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId));
+        }
+    }
+
+    @PostMapping("/tasks/{taskId}/claims")
+    public Map<String, Object> claim(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String taskId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        WmsJwtAuthorities.requireScope(jwt, "task.claim");
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        long expectedVersion = body.get("expectedVersion") instanceof Number number ? number.longValue() : -1L;
+        if (expectedVersion < 0) {
+            throw new OutboundException("INVALID_VERSION", "expectedVersion不能为空");
+        }
+        try (SqlSession session = sessions.openSession(false)) {
+            Map<String, Object> result = new OutboundTaskService(session, Clock.systemUTC()).claim(
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId, jwt.getSubject(), expectedVersion);
+            result.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+            session.commit();
+            return HttpJson.row(result);
+        }
+    }
+
     @PostMapping("/tasks/{taskId}/picks")
     public ResponseEntity<Map<String, Object>> pick(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String taskId, @RequestHeader("Idempotency-Key") String idempotencyKey,
@@ -144,6 +188,11 @@ public class OutboundWorkbenchController {
         }
     }
 
+    @ExceptionHandler(ScopeForbiddenException.class)
+    ResponseEntity<Map<String, Object>> scope(ScopeForbiddenException error) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(HttpJson.error("SCOPE_FORBIDDEN", "缺少任务权限"));
+    }
+
     @ExceptionHandler(WarehouseForbiddenException.class)
     ResponseEntity<Map<String, Object>> forbidden(WarehouseForbiddenException error) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(HttpJson.error("WAREHOUSE_FORBIDDEN", "无权访问该仓"));
@@ -153,7 +202,7 @@ public class OutboundWorkbenchController {
     ResponseEntity<Map<String, Object>> outbound(OutboundException error) {
         HttpStatus status = switch (error.code()) {
             case "UNKNOWN_ORDER", "UNKNOWN_LINE", "UNKNOWN_TASK" -> HttpStatus.NOT_FOUND;
-            case "VERSION_CONFLICT" -> HttpStatus.CONFLICT;
+            case "VERSION_CONFLICT", "TASK_NOT_CLAIMABLE" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));
