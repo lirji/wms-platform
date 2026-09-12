@@ -51,7 +51,7 @@ class SourceWindowIT {
             assertThrows(IllegalStateException.class,() -> service(session).read("ENT","PAGE","CUT",CUTOFF,null));session.commit();
         }
         posted("PAGE",201);
-        jdbc.execute("ALTER TABLE source_reconciliation_window ADD CONSTRAINT fail_window_final CHECK(state<>'COMPLETE')");
+        jdbc.execute("ALTER TABLE source_reconciliation_window ADD CONSTRAINT fail_window_final CHECK(warehouse_id<>'PAGE' OR state<>'COMPLETE')");
         try(var session=sessions.openSession(false)) {assertThrows(RuntimeException.class,() -> service(session).collect("ENT","PAGE","CUT",CUTOFF));session.rollback();}
         assertEquals(200L,jdbc.queryForObject("SELECT fact_count FROM source_reconciliation_window WHERE warehouse_id='PAGE'",Long.class));
         jdbc.execute("ALTER TABLE source_reconciliation_window DROP CHECK fail_window_final");
@@ -84,6 +84,25 @@ class SourceWindowIT {
         }
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='LOCK-OLD'",Integer.class));
     }
+    @Test void rejectedAndCancelledReceiptsCloseWithoutInventingPosting() {
+        try(var session=sessions.openSession(false)) {
+            submit(session,"TERMINAL","TERM-R",BASE);submit(session,"TERMINAL","TERM-C",BASE);session.commit();
+            var source=new SourceProtocolService(session,Clock.fixed(BASE.plusSeconds(1),ZoneOffset.UTC));
+            source.consumeResult("ENT","TERMINAL","RESULT-R","TERM-R","REJECTED",null,BigDecimal.ZERO);
+            source.consumeResult("ENT","TERMINAL","RESULT-C","TERM-C","CANCELLED",null,BigDecimal.ZERO);session.commit();
+        }
+        jdbc.update("UPDATE source_command SET payload_json=JSON_SET(payload_json,'$.postingContext',JSON_OBJECT('fixture',true)) WHERE warehouse_id='TERMINAL'");
+        try(var session=sessions.openSession(false)) {
+            assertEquals("COMPLETE",service(session).collect("ENT","TERMINAL","CUT",CUTOFF).get("state"));session.commit();
+            var page=service(session).read("ENT","TERMINAL","CUT",CUTOFF,null);assertEquals(2,page.facts().size());
+            assertEquals(java.util.Set.of("REJECTED","CANCELLED"),page.facts().stream().map(SourceWindowService.Fact::resultState).collect(java.util.stream.Collectors.toSet()));
+            for(var fact:page.facts()) {assertNull(fact.postingId());assertEquals("0",fact.postedQuantity());assertEquals("1",fact.quantity());}
+            // 终态回执不可被晚到成功替换，否则已签发的窗口不再不可变。
+            assertThrows(RuntimeException.class,() -> new SourceProtocolService(session,Clock.fixed(CUTOFF.plusSeconds(1),ZoneOffset.UTC))
+                    .consumeResult("ENT","TERMINAL","LATE","TERM-R","APPLIED","FAKE",BigDecimal.ONE));session.rollback();
+        }
+    }
+
     private static SourceWindowService service(org.apache.ibatis.session.SqlSession session) {return new SourceWindowService(session,Clock.fixed(CUTOFF.plusSeconds(30),ZoneOffset.UTC),"wms-outbound");}
     private static void submit(org.apache.ibatis.session.SqlSession session,String warehouse,String command,Instant when) {
         new SourceProtocolService(session,Clock.fixed(when,ZoneOffset.UTC)).submitShip("ENT",warehouse,command,"ORDER",command,"LINE","fixture",BigDecimal.ONE);

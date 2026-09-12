@@ -5469,15 +5469,16 @@ components:
           maxItems: 200
           items:
             type: object
-            required: [commandId, action, executionId, quantity, postedQuantity, postingId, occurredAt]
+            required: [commandId, action, executionId, quantity, postedQuantity, postingId, occurredAt, resultState]
             properties:
               commandId: { $ref: '#/components/schemas/Id' }
               action: { type: string, enum: [RECEIVE, QUALITY, PUTAWAY, PICK, SHIP, CANCEL] }
               executionId: { $ref: '#/components/schemas/Id' }
               quantity: { type: string }
               postedQuantity: { type: string }
-              postingId: { $ref: '#/components/schemas/Id' }
+              postingId: { type: [string, 'null'], maxLength: 64 }
               occurredAt: { type: string, format: date-time }
+              resultState: { type: string, enum: [APPLIED, REJECTED, CANCELLED], description: 拒绝或取消必须是零过账且无postingId，接收方仍须核对库存终态 }
     SerialShipmentCommand:
       $ref: '#/components/schemas/SerialMissingCommand'
       description: 结构与库存事实引用一致，但语义为原发运而非盘亏；expectedEpoch拒绝小数。

@@ -32,6 +32,7 @@
 
 - 唯一后端工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，已切新任务分支fix/reconciliation-watermark，基线365a1eb。发货分支fix/serial-outbound-execution保留。水位有未提交代码，未发布。
 - WATERMARK已补来源端：runtime SourceWindowService/Mapper；inbound V017、outbound V019的范围屏障和分页证明表；两来源SourceProtocolService的T1在范围锁之后取时间；两个受信HTTP Controller及默认关闭配置。collect每页200/查询201，缺T3不推进，read只输出完整窗口，原范围/时刻/事实链式摘要。
+- 来源证明提供端已本地提交695e84f，未推送任务分支/main；API93路径106操作，必需清单117项。文档与契约生成一致性已通过。来源T1回归.local/source-window-t1-regression.log于07:45:22成功：InboundProtocolIT2、OutboundProtocolIT2、OutboundPickIT7。当前无Maven运行。
 - 初版数据库触发器在MySQL binlog下因应用账号无SUPER失败（.local/source-window-it.log），已移除触发器，未提升权限/修改环境。改用应用事务屏障，所有旧来源写节点退出后才能开启WMS_RECONCILIATION_WINDOW_ENABLED及受信主体；不得宣称新旧写节点可同时签发可信窗口。
 - `.local/source-window-application-guard-it.log` 07:33:41 BUILD SUCCESS，SourceWindowIT2：201条分页/缺回执/最后写失败/重启摘要一致、在途T1阻塞关窗、拒绝关窗前新命令和其他仓不受影响。T3是明确数据库夹具。
 - 最终来源定向复验.local/source-window-final-it.log于07:38:34成功（SourceWindowIT2/来源HTTP3/契约5）；入库回归5已有通过。固定数组摘要跨语言向量.local/source-window-digest.log于07:39:23成功。无Maven在运行。
@@ -42,7 +43,7 @@
 
 ## 下一步建议
 
-1. 来源证明提供端已补契约（93路径）、配置与滚动说明，UTC只用DatabaseInstants.require；当前待暂存检查和独立逻辑提交。正式边界与证据在docs/implementation/RECONCILIATION_WATERMARK.md。不要重跑已通过检查或恢复触发器方案。
+1. 来源提供端695e84f之后补入REJECTED/CANCELLED零过账终态、固定数组摘要的resultState、未完成409、Compose开关透传；.local/source-window-terminal-fixed-it.log于07:49:46通过SourceWindowIT3/摘要向量1/契约5，Compose仅用.env.example解析通过。当前待提交这一完整补充，尚未发布来源水位；之后从库存侧继续。
 2. 核心缺口仍未修改：库存StockInternalReconcile.closeWindow仅凭非空字符串置complete、SnapshotExportService直接接受字符串。需要库存侧受信HTTP采集、持久逐页核对两个来源的原command/action/执行ID/postedQty/postingId及截止前库存凭证、完整计数/摘要，证据未齐不导出完整快照。不能建一个任意调用方可置complete的接口替代。
 3. 关闭时间还要防库存流水的迟提交/后补旧时间造成历史快照漂移。数据库触发器方案已因权限否决，不要重试提升权限；应复用明确的应用事务屏障及旧写节点退出前置。明确cutoff是排他边界，晚于cutoff才过账的来源必须保持不完整，新窗口再重做。
 4. 已通过OUT证据可复用，勿重跑整片。main CI34725376702仍需跟踪，旧双执行器19/20失败留在最终门禁；不推同ref取消进行中CI。

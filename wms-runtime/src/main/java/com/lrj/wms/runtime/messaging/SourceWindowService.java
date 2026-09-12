@@ -35,9 +35,12 @@ public final class SourceWindowService {
         var rows=mapper.page(e,w,Timestamp.from(cutoff),after);
         for(var row:rows.stream().limit(200).toList()) {
             // 缺命令原文或库存回执不能借数量相等推断成功，历史不完整数据必须修复来源。
-            if(!"APPLIED".equals(row.get("state")) || row.get("posting_id")==null || row.get("physical_qty")==null
-                    || row.get("posted_qty")==null || decimal(row.get("physical_qty")).compareTo(decimal(row.get("posted_qty")))!=0
-                    || !(row.get("has_posting_context") instanceof Number context) || context.intValue()!=1) return window;
+            String resultState=String.valueOf(row.get("state"));
+            if(!List.of("APPLIED","REJECTED","CANCELLED").contains(resultState) || row.get("physical_qty")==null
+                    || row.get("posted_qty")==null || !(row.get("has_posting_context") instanceof Number context) || context.intValue()!=1) return window;
+            if("APPLIED".equals(resultState)) {
+                if(row.get("posting_id")==null || decimal(row.get("physical_qty")).compareTo(decimal(row.get("posted_qty")))!=0) return window;
+            } else if(row.get("posting_id")!=null || decimal(row.get("posted_qty")).signum()!=0) return window;
             Fact fact=fact(row);digest=append(digest,fact);count++;after=fact.commandId();
         }
         String state=rows.size()<=200?"COMPLETE":"COLLECTING";
@@ -64,8 +67,8 @@ public final class SourceWindowService {
     }
     /** 固定数组顺序，不依赖某个JSON库对对象属性的枚举顺序。 */
     public static String append(String digest,Fact fact) {
-        return RuntimeMessage.hash(digest+"\n"+RuntimeMessage.JSON.writeValueAsString(List.of(fact.commandId(),fact.action(),fact.executionId(),
-                fact.quantity(),fact.postedQuantity(),fact.postingId(),fact.occurredAt())));
+        return RuntimeMessage.hash(digest+"\n"+RuntimeMessage.JSON.writeValueAsString(java.util.Arrays.asList(fact.commandId(),fact.action(),fact.executionId(),
+                fact.quantity(),fact.postedQuantity(),fact.postingId(),fact.occurredAt(),fact.resultState())));
     }
     private void validate(String e,String w,String id,Instant cutoff) {
         for(String value:List.of(e,w,id)) if(value.isBlank() || value.length()>64) throw new IllegalArgumentException("无效关窗范围");
@@ -77,14 +80,14 @@ public final class SourceWindowService {
     private static Fact fact(Map<String,Object> row) {
         return new Fact((String)row.get("command_id"),(String)row.get("action"),(String)row.get("source_execution_id"),
                 decimal(row.get("physical_qty")).stripTrailingZeros().toPlainString(),decimal(row.get("posted_qty")).stripTrailingZeros().toPlainString(),
-                (String)row.get("posting_id"),instant(row.get("executed_at")).toString());
+                (String)row.get("posting_id"),instant(row.get("executed_at")).toString(),(String)row.get("state"));
     }
     private static BigDecimal decimal(Object value) {return value instanceof BigDecimal d?d:new BigDecimal(value.toString());}
     private static Instant instant(Object value) {
         return com.lrj.wms.runtime.db.DatabaseInstants.require(value);
     }
     /** 原命令、物理量和已确认库存回执构成同一证明，不接受外部业务DTO。 */
-    public record Fact(String commandId,String action,String executionId,String quantity,String postedQuantity,String postingId,String occurredAt) { }
+    public record Fact(String commandId,String action,String executionId,String quantity,String postedQuantity,String postingId,String occurredAt,String resultState) { }
     /** 页正文与最终证明分开，丢失任意一页都无法通过最终摘要。 */
     public record Page(int schemaVersion,String sourceService,String enterpriseId,String warehouseId,String cutoffId,String cutoff,
             long factCount,String digest,List<Fact> facts,String nextCursor) { }

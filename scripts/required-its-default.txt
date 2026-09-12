@@ -181,4 +181,5 @@ com.lrj.wms.serial.SerialRegistryHttpIT#shipmentHasImmutableProofAndNeverReactiv
 # 来源关窗权威、在途事务与重启分页；不代替库存侧完整水位核验
 com.lrj.wms.outbound.protocol.SourceWindowIT#persistedPagesWaitForReceiptAndRollbackWithoutLosingOriginalDigest
 com.lrj.wms.outbound.protocol.SourceWindowIT#freezeWaitsForInFlightT1AndRejectsBackdatedNewCommand
+com.lrj.wms.outbound.protocol.SourceWindowIT#rejectedAndCancelledReceiptsCloseWithoutInventingPosting
 com.lrj.wms.outbound.order.OutboundHttpIT#sourceWindowRequiresTrustedSubjectAndReturnsOriginalScopedProof

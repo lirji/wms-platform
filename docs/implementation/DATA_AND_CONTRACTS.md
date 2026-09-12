@@ -54,4 +54,4 @@ sequenceDiagram
 
 ## 验证入口
 
-数据库语义由真实 MySQL 集成测试验证，单纯 Mock 不证明事务或并发正确。默认必需 IT 名单在[required-its-default.txt](../../scripts/required-its-default.txt)（本基线 117 项）；构建/profile/smoke 的准确命令见[运行与验证](S0_RUNBOOK.md)。既有结果见[阶段组合证据](REMEDIATION_VERIFICATION_2026-09-13.md)，其提交和范围必须一起阅读，不能把旧计数当成当前代码重测结果。
+数据库语义由真实 MySQL 集成测试验证，单纯 Mock 不证明事务或并发正确。默认必需 IT 名单在[required-its-default.txt](../../scripts/required-its-default.txt)（本基线 118 项）；构建/profile/smoke 的准确命令见[运行与验证](S0_RUNBOOK.md)。既有结果见[阶段组合证据](REMEDIATION_VERIFICATION_2026-09-13.md)，其提交和范围必须一起阅读，不能把旧计数当成当前代码重测结果。
