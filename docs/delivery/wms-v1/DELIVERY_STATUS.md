@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
-| Git发布 | pass（本切片） | 远程 main 祖先含 `8351fd0` 与 `4dee112` |
+| Git发布 | pass（本切片） | 远程 main `06d3d81`（`feat/console-frontend-ia` 快进） |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
 
 ## 本轮

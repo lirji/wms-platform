@@ -17,4 +17,4 @@
 
 ## 下一步
 
-发布 `feat/console-frontend-ia` 到远程 main。S8-05 / S9-01 / AC-42 / AC-26 写作业保持 blocked。不把前端重构写成 50 AC 通过。
+远程 main 已含 `06d3d81`。S8-05 / S9-01 / AC-42 / AC-26 写作业保持 blocked。不把前端重构写成 50 AC 通过。
