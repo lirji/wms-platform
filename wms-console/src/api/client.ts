@@ -25,26 +25,45 @@ function queryValue(path: string, key: string): string | undefined {
   return new URLSearchParams(query).get(key) ?? undefined;
 }
 
+function stripQuery(path: string, key: string): string {
+  const cut = path.indexOf("?");
+  if (cut < 0) {
+    return path;
+  }
+  const search = new URLSearchParams(path.slice(cut + 1));
+  search.delete(key);
+  const next = search.toString();
+  return next ? `${path.slice(0, cut)}?${next}` : path.slice(0, cut);
+}
+
 export function routeFor(path: string): string {
-  if (path.includes("/action-effects")) {
-    return PREFIX.inventory + path;
+  const serviceHint = queryValue(path, "service");
+  const cleaned = stripQuery(path, "service");
+  if (cleaned.includes("/serial-recoveries") || cleaned.includes("/operations/")) {
+    return PREFIX.inventory + cleaned;
   }
-  const taskType = queryValue(path, "taskType");
-  if (path.includes("/inbound-orders") || path.includes("/quality-inspections") || path.includes("/putaways")
+  if (cleaned.includes("/message-queues") && serviceHint && serviceHint in PREFIX) {
+    return PREFIX[serviceHint as keyof typeof PREFIX] + cleaned;
+  }
+  if (cleaned.includes("/action-effects")) {
+    return PREFIX.inventory + cleaned;
+  }
+  const taskType = queryValue(cleaned, "taskType");
+  if (cleaned.includes("/inbound-orders") || cleaned.includes("/quality-inspections") || cleaned.includes("/putaways")
     || taskType === "PUTAWAY") {
-    return PREFIX.inbound + path;
+    return PREFIX.inbound + cleaned;
   }
-  if (path.includes("/outbound-orders") || path.includes("/picks") || path.includes("/packings") || path.includes("/shipments")
+  if (cleaned.includes("/outbound-orders") || cleaned.includes("/picks") || cleaned.includes("/packings") || cleaned.includes("/shipments")
     || taskType === "PICK" || taskType === "RESTOCK") {
-    return PREFIX.outbound + path;
+    return PREFIX.outbound + cleaned;
   }
-  if (path.includes("/transfer-receipts") || path.includes("/receipt-authorizations")) {
-    return PREFIX.fulfillment + path;
+  if (cleaned.includes("/transfer-receipts") || cleaned.includes("/receipt-authorizations")) {
+    return PREFIX.fulfillment + cleaned;
   }
-  if (path.startsWith("/api/wms/v1/fulfillments") || path.startsWith("/api/wms/v1/transfers")) {
-    return PREFIX.fulfillment + path;
+  if (cleaned.startsWith("/api/wms/v1/fulfillments") || cleaned.startsWith("/api/wms/v1/transfers")) {
+    return PREFIX.fulfillment + cleaned;
   }
-  return PREFIX.inventory + path;
+  return PREFIX.inventory + cleaned;
 }
 
 export function serviceFor(path: string): keyof typeof PREFIX {
@@ -90,6 +109,9 @@ export async function api(path: string, token: string | undefined, options: Requ
       body: parsed
     };
     throw error;
+  }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    (parsed as { __httpStatus?: number }).__httpStatus = response.status;
   }
   return parsed;
 }

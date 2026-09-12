@@ -2,8 +2,8 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/contract-http-gaps`（合入远程 main `16b94f0` 后发布）。
+- 状态：in-progress；阶段：S9-05 证据汇总。控制台前端补面在 `feat/console-serial-jobs`。
+- 任务分支：`feat/console-serial-jobs`（基于远程 main `3e2c720`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -24,6 +24,7 @@
 
 ## 本轮
 
+- 2026-09-13：按前端缺口顺序落地控制台。序列号收货/质检/上架/盘点观察；202 不换幂等键并轮询 operation；单据双状态；任务页序列恢复/消息重排；履约 executions；主数据三表+单位+门禁只读。console 41 测 / typecheck / build 通过。不是 50 AC / AC-26 accepted。未发明拣/发序列号字段。
 - 2026-09-12：控制台 README 写明本机 Vite `4181` 与门户 Docker `18180` 分工。不是 50 AC。
 - 2026-09-12：`verify.yml` 在提交说明或 PR 标题含 `[skip ci]` / `[ci skip]` / `[no ci]` 时跳过 java 与 console。不是 50 AC。
 - 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。已发布远程 main `38ef86e`。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。
@@ -44,7 +45,7 @@
 
 ## 未完成
 
-- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。用户已要求取消进行中的 main verify 并推送本分支。
+- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 现场黑盒与真实 TC ALLOCATED。AC-42。公开拣/发序列号契约未入 OpenAPI。
 
 无生产部署。
 

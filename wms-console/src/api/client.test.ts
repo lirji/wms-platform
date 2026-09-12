@@ -34,4 +34,12 @@ describe("API routing", () => {
     expect(serviceFor("/api/wms/v1/transfers/TR-1/issues")).toBe("fulfillment");
     expect(serviceFor("/api/wms/v1/fulfillments/F1/attempts")).toBe("fulfillment");
   });
+
+  it("routes serial recoveries and hinted message queues", () => {
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/serial-recoveries")).toBe("inventory");
+    expect(serviceFor("/api/wms/v1/operations/OP-1")).toBe("inventory");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/message-queues/INBOX/messages?service=inbound")).toBe("inbound");
+    expect(routeFor("/api/wms/v1/warehouses/WH-A/message-queues/INBOX/messages?service=inbound"))
+      .toBe("/inbound-api/api/wms/v1/warehouses/WH-A/message-queues/INBOX/messages");
+  });
 });

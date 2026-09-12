@@ -20,6 +20,8 @@ describe("FulfillmentDetailPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
     expect(screen.getByRole("button", { name: "准备分配" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /^执行跨仓分配$/ }));
+    expect(screen.getByRole("button", { name: "提交执行" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^请求取消履约$/ }));
     expect(screen.getByRole("button", { name: "请求取消" })).toBeTruthy();
     expect(screen.getByText(/不会写成 ALLOCATED/)).toBeTruthy();

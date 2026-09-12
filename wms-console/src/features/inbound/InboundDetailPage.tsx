@@ -7,6 +7,8 @@ import { errorBanner } from "../../shared/ui/errorBanner";
 import { api } from "../../api/client";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
+import { SerialIdsField } from "../../shared/serial/SerialIdsField";
+import { countText, qualityObservation, receiptObservation, stockSelection } from "../../shared/serial/serialIds";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
@@ -54,16 +56,28 @@ export function InboundDetailPage() {
               submitLabel="提交收货"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/inbound-orders/${inboundOrderId}/receipts`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { lineId: values.lineId, locationId: values.locationId, lotId: values.lotId, qty: values.qty, receiptPartId: `PART-${key}`, clientOperationId: key }
-              })}
+              onRun={(key, values) => {
+                const serialObservation = receiptObservation(values.serialIds || "");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/inbound-orders/${inboundOrderId}/receipts`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    lineId: values.lineId,
+                    locationId: values.locationId,
+                    lotId: values.lotId,
+                    qty: serialObservation ? countText(serialObservation.serialIds) : values.qty,
+                    receiptPartId: `PART-${key}`,
+                    clientOperationId: key,
+                    ...(serialObservation ? { serialObservation } : {})
+                  }
+                });
+              }}
             >
               <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="收货库位" name="locationId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="货品批次" name="lotId" extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="数量" name="qty" extra="填写身份清单时按身份个数提交，不在浏览器做小数运算。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <SerialIdsField name="serialIds" label="序列号观察" extra="序列号 SKU 必填完整清单。数量按身份个数提交。" />
             </CommandCard>
           </CommandCol>
           <CommandCol title="质检" requireScope="quality.inspect">
@@ -76,19 +90,25 @@ export function InboundDetailPage() {
               submitLabel="记录质检"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/quality-inspections/${key}/results`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: {
-                  ...batchValues(values),
-                  acceptedQty: values.acceptedQty,
-                  rejectedQty: values.rejectedQty || "0"
-                }
-              })}
+              onRun={(key, values) => {
+                const serialQualityObservation = qualityObservation(values.acceptedSerials || "", values.rejectedSerials || "");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/quality-inspections/${key}/results`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    ...batchValues(values),
+                    acceptedQty: serialQualityObservation ? countText(serialQualityObservation.acceptedSerials) : values.acceptedQty,
+                    rejectedQty: serialQualityObservation ? countText(serialQualityObservation.rejectedSerials) : (values.rejectedQty || "0"),
+                    ...(serialQualityObservation ? { serialQualityObservation } : {})
+                  }
+                });
+              }}
             >
               <ReceiptBatchField rows={batches.rows} disabled={batches.loading || Boolean(batches.error)} />
-              <Form.Item label="累计合格量" name="acceptedQty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="累计合格量" name="acceptedQty" extra="填写合格身份时按身份个数提交。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
               <Form.Item label="累计不合格量" name="rejectedQty" initialValue="0"><Input inputMode="decimal" /></Form.Item>
+              <SerialIdsField name="acceptedSerials" label="累计合格身份" extra="序列号批次填写。未列出的原身份仍 HOLD。" />
+              <SerialIdsField name="rejectedSerials" label="累计不合格身份" extra="与合格身份互斥，合计最多 200。" />
             </CommandCard>
           </CommandCol>
           <CommandCol title="上架" requireScope="inbound.putaway">
@@ -101,23 +121,28 @@ export function InboundDetailPage() {
               submitLabel="提交上架"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${key}/putaways`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: {
-                  inboundOrderId,
-                  ...batchValues(values),
-                  locationId: values.locationId,
-                  targetLocationId: values.locationId,
-                  locationType: "STORAGE",
-                  qty: values.qty,
-                  clientOperationId: key
-                }
-              })}
+              onRun={(key, values) => {
+                const serialSelection = stockSelection(values.serialIds || "");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${key}/putaways`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    inboundOrderId,
+                    ...batchValues(values),
+                    locationId: values.locationId,
+                    targetLocationId: values.locationId,
+                    locationType: "STORAGE",
+                    qty: serialSelection ? countText(serialSelection.serialIds) : values.qty,
+                    clientOperationId: key,
+                    ...(serialSelection ? { serialSelection } : {})
+                  }
+                });
+              }}
             >
               <ReceiptBatchField rows={batches.rows} requireQuality disabled={batches.loading || Boolean(batches.error)} />
               <Form.Item label="存储库位" name="locationId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="数量" name="qty" extra="填写身份时按所选身份个数提交，可分次上架。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <SerialIdsField name="serialIds" label="上架身份" extra="序列号批次勾选本次要上架的合格身份，不必一次全部上架。" />
             </CommandCard>
           </CommandCol>
         </>
