@@ -282,21 +282,43 @@ class MasterdataHttpIT {
         String body="{\"expectedEpoch\":7,\"reason\":\"已核对原收货与登记冲突\"}";
         assertEquals(403,postRecovery(retry,token("wms-ops",List.of("WH-A"),List.of("messaging.read")),"DENIED",body).statusCode());
         assertEquals(409,postRecovery(retry,authorized,"STALE",body.replace(":7",":6")).statusCode());
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE intent_id='HTTP-INTENT-1'",Integer.class));
         jdbc.execute("ALTER TABLE serial_recovery_intent ADD CONSTRAINT reject_requeue CHECK (id<>'HTTP-INTENT-1' OR state='ISOLATED')");
         assertEquals(503,postRecovery(retry,authorized,"RETRY-HTTP",body).statusCode());
-        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE intent_id='HTTP-INTENT-1'",Integer.class));
         jdbc.execute("ALTER TABLE serial_recovery_intent DROP CHECK reject_requeue");
         var accepted=postRecovery(retry,authorized,"RETRY-HTTP",body); assertEquals(202,accepted.statusCode(),accepted.body());
         assertEquals(202,postRecovery(retry,authorized,"RETRY-HTTP",body).statusCode());
         assertEquals(409,postRecovery(retry,authorized,"RETRY-HTTP",body.replace("已核对","换依据")).statusCode());
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE intent_id='HTTP-INTENT-1'",Integer.class));
         assertEquals(8L,jdbc.queryForObject("SELECT claim_epoch FROM serial_recovery_intent WHERE id='HTTP-INTENT-1'",Long.class));
         assertEquals(0,jdbc.queryForObject("SELECT attempts FROM serial_recovery_intent WHERE id='HTTP-INTENT-1'",Integer.class));
         // 旧领取回执即使迟到，也不能在人工重排后覆盖新代际。
         try(var session=sessions.openSession(false)) {
             assertEquals(0,session.getMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-INTENT-1",7,"DONE",null,now,now));
             session.commit();
+        }
+    }
+    @Test void sourceReleaseUsesSameScopedRecoveryListAndAuditedRetry() throws Exception {
+        var jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.update("INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,state,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES('HTTP-RELEASE',?,'WH-A','HTTP-RELEASE-SN','SKU','TR','REL',4,?,'ISOLATED',9,12,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",SeedCatalog.ENTERPRISE,"a".repeat(64));
+        String path="/api/wms/v1/warehouses/WH-A/serial-recoveries";
+        String authorized=token("wms-ops",List.of("WH-A"),List.of("messaging.read","messaging.recover"));
+        var result=get(path+"?state=ISOLATED",authorized);assertEquals(200,result.statusCode(),result.body());
+        assertTrue(result.body().contains("SOURCE_RELEASE"));assertTrue(result.body().contains("HTTP-RELEASE"));
+        String body="{\"expectedEpoch\":9,\"reason\":\"已核实原调拨源仓释放流水\"}";
+        assertEquals(403,postRecovery(path+"/HTTP-RELEASE/retries",token("wms-ops",List.of("WH-B"),List.of("messaging.recover")),"REL-DENIED",body).statusCode());
+        jdbc.execute("ALTER TABLE serial_release_intent ADD CONSTRAINT release_requeue_failure CHECK(id<>'HTTP-RELEASE' OR state='ISOLATED')");
+        assertEquals(503,postRecovery(path+"/HTTP-RELEASE/retries",authorized,"REL-RETRY",body).statusCode());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE intent_id='HTTP-RELEASE'",Integer.class));
+        jdbc.execute("ALTER TABLE serial_release_intent DROP CHECK release_requeue_failure");
+        assertEquals(202,postRecovery(path+"/HTTP-RELEASE/retries",authorized,"REL-RETRY",body).statusCode());
+        assertEquals(202,postRecovery(path+"/HTTP-RELEASE/retries",authorized,"REL-RETRY",body).statusCode());
+        assertEquals(10L,jdbc.queryForObject("SELECT claim_epoch FROM serial_release_intent WHERE id='HTTP-RELEASE'",Long.class));
+        assertEquals(0,jdbc.queryForObject("SELECT attempts FROM serial_release_intent WHERE id='HTTP-RELEASE'",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            var now=java.sql.Timestamp.from(Instant.now());
+            assertEquals(0,session.getMapper(com.lrj.wms.inventory.serial.SerialReleaseMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-RELEASE",9,"DONE",null,now,now));session.commit();
         }
     }
     private HttpResponse<String> postRecovery(String path,String bearer,String command,String body) throws Exception {

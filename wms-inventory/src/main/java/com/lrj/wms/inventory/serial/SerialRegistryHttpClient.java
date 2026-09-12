@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /** 登记调用只传受控服务令牌，超时结果未知时交给持久化任务以同一动作身份恢复。 */
-public final class SerialRegistryHttpClient implements SerialRegistryPort, SerialCountRegistryPort, SerialTransferRegistryPort, AutoCloseable {
+public final class SerialRegistryHttpClient implements SerialRegistryPort, SerialCountRegistryPort, SerialTransferRegistryPort, SerialReleaseRegistryPort, AutoCloseable {
     private static final int MAX_BODY = 65536;
     private final URI base;
     private final Function<String,String> tokens;
@@ -65,6 +65,11 @@ public final class SerialRegistryHttpClient implements SerialRegistryPort, Seria
         validate(result,serial,Set.of("CLAIMED","ACTIVE","MISSING","FOUND_CLAIMED","TRANSFER_PREPARED","IN_TRANSIT","RECEIVING"));
         return result;
     }
+    /** 源仓事实以稳定命令键重放，核对历史凭证而非当前授权状态。 */
+    @Override public Map<String,Object> release(String e,String sku,String serial,String transfer,String wh,String ref,long epoch) {
+        var result=send("source-releases",e,Map.of("warehouseId",wh,"skuId",sku,"serial",normalize(serial),"transferId",transfer,"factRef",ref,"expectedEpoch",epoch));
+        SerialReleaseRecoveryService.requireProof(result,e,wh,sku,normalize(serial),transfer,ref,epoch);return result;
+    }
     @Override public Map<String,Object> startReceiving(String e,String sku,String serial,String transfer,String wh,String ref,long epoch) {
         var result=send("destination-receivings",e,Map.of("warehouseId",wh,"skuId",sku,"serial",normalize(serial),"transferId",transfer,"factRef",ref,"expectedEpoch",epoch));
         validate(result,serial,Set.of("RECEIVING","ACTIVE")); require(result,"transferId",transfer);
@@ -103,6 +108,7 @@ public final class SerialRegistryHttpClient implements SerialRegistryPort, Seria
             var request=HttpRequest.newBuilder(uri).timeout(timeout).header("Authorization","Bearer "+token)
                     .header("X-Wms-Enterprise-Id",enterprise).header("Accept","application/json")
                     .header("X-Request-Id",UUID.randomUUID().toString());
+            if(uri.getPath().equals(base.getPath()+"/source-releases")) request.header("X-Wms-Serial-Release-Proof","1");
             if(json==null) request.GET(); else request.header("Idempotency-Key",key).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json));
             var future=http.sendAsync(request.build(),info -> new LimitedBody());
             HttpResponse<byte[]> response;

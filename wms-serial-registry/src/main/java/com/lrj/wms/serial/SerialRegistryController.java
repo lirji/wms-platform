@@ -97,13 +97,18 @@ public final class SerialRegistryController {
     }
     @PostMapping("/source-releases")
     public Map<String,Object> sourceRelease(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
-            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody TransferFactCommand body) {
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise,
+            @RequestHeader(value="X-Wms-Serial-Release-Proof",required=false) String proofVersion, @Valid @RequestBody TransferFactCommand body) {
         require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
-        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"SOURCE_RELEASE",body,service -> {
+        if(proofVersion!=null && !"1".equals(proofVersion)) throw new SerialRegistryException("INVALID_PROOF_VERSION","不支持的源释放凭证版本");
+        var result=commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"SOURCE_RELEASE",body,service -> {
             var transfer=service.getTransfer(enterprise,body.skuId(),body.serial(),body.transferId());
             if(!body.warehouseId().equals(transfer.get("sourceWarehouseId"))) throw new ScopeForbiddenException("serial.registry.write");
             return service.observeSourceRelease(enterprise,body.skuId(),body.serial(),body.transferId(),body.factRef(),body.expectedEpoch());
         });
+        // 旧客户端的严格响应结构保持原样；新客户端显式请求历史证明，业务命令身份不随表示变化。
+        if(proofVersion==null) result.remove("sourceRelease");
+        return result;
     }
     @PostMapping("/destination-receivings")
     public Map<String,Object> startReceiving(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,

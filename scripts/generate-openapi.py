@@ -314,7 +314,7 @@ for suffix, operation, schema in [
     ("destination-confirmations", "confirmSerialDestination", "SerialTransferConfirmCommand")]:
     post("/internal/wms/v1/serial-identities/"+suffix, operation, "internal-registry", "serial.registry.write",
          schema, ("200",), "受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓",
-         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"], success_schema="SerialIdentity")
+         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"] + (["- in: header\n          name: X-Wms-Serial-Release-Proof\n          required: false\n          description: 显式请求原始源释放凭证，旧请求保持原身份响应\n          schema: { type: string, enum: ['1'] }"] if suffix == "source-releases" else []), success_schema="SerialIdentity")
 get("/internal/wms/v1/serial-identities/transfers/{transferId}", "getSerialTransfer", "internal-registry", "serial.registry.read", ("200",),
     "检查转移源或目的仓范围并查询原始释放/接收引用",
     ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/TransferId'",
@@ -1899,11 +1899,24 @@ components:
         toEpoch: { type: [integer, 'null'], format: int64 }
         sourceReleaseRef: { type: [string, 'null'] }
         targetReceiptRef: { type: [string, 'null'] }
+    SerialSourceReleaseProof:
+      type: object
+      additionalProperties: false
+      required: [enterpriseId, skuId, normalizedSerial, sourceWarehouseId, transferId, sourceReleaseRef, fromEpoch]
+      properties:
+        enterpriseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        normalizedSerial: { type: string }
+        sourceWarehouseId: { $ref: '#/components/schemas/Id' }
+        transferId: { $ref: '#/components/schemas/Id' }
+        sourceReleaseRef: { $ref: '#/components/schemas/Id' }
+        fromEpoch: { type: integer, format: int64, minimum: 0 }
     SerialIdentity:
       type: object
       additionalProperties: false
       required: [id, state, normalizedSerial, ownerWarehouseId, ownerEpoch, claimOperationId, routeBucket, version]
       properties:
+        sourceRelease: { $ref: '#/components/schemas/SerialSourceReleaseProof' }
         id: { $ref: '#/components/schemas/Id' }
         state: { type: string }
         normalizedSerial: { type: string }

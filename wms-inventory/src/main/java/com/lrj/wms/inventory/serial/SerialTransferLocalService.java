@@ -35,18 +35,32 @@ public final class SerialTransferLocalService {
     /** 源仓封闭本地授权。同转移同释放引用重放；旧 epoch 拒绝。 */
     public Map<String, Object> sealSource(String enterpriseId, String warehouseId, String serial, String transferId,
             long expectedEpoch, String releaseRef) {
+        SerialRecoveryService.requireWritable(session,enterpriseId,warehouseId);
+        if(expectedEpoch<0) throw new InventoryException("STALE_EPOCH","归属代际不能为负");
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         requireId(releaseRef, "INVALID_RELEASE", "源仓释放引用不能为空");
         String normalized = SerialReceiptService.normalize(serial);
         Timestamp now = Timestamp.from(clock.instant());
         LocalSerialMapper locals = session.getMapper(LocalSerialMapper.class);
+        InventoryMapper inventory = session.getMapper(InventoryMapper.class);
+        var location=session.getMapper(SerialReleaseMapper.class).location(enterpriseId,warehouseId,normalized);
+        if(location==null) throw new InventoryException("SERIAL_NOT_FOUND","本地序列号或源桶不存在");
+        // 与盘点冻结遵循相同顺序：门禁先于身份/余额；锁后重新验证读到的源桶。
+        var gate=inventory.lockGate(enterpriseId,warehouseId,String.valueOf(location.get("location_id")));
+        if(gate==null || !InventoryCodes.DECISION_ALLOW.equals(com.lrj.wms.inventory.inventory.domain.InventoryPolicy.decideGate(
+                String.valueOf(gate.get("state")),InventoryCodes.CMD_NORMAL_MUTATION)))
+            throw new InventoryException("STOCK_FROZEN","源库位门禁不允许序列号调拨发出");
         Map<String, Object> row = locals.lock(enterpriseId, warehouseId, normalized);
+        if(row!=null && !location.get("balance_id").equals(row.get("balance_id")))
+            throw new InventoryException("VERSION_CONFLICT","源身份在门禁锁定前已移位，重试原释放");
         if (row == null) {
             throw new InventoryException("SERIAL_NOT_FOUND", "本地没有该序列号");
         }
         if (STATE_SEALED.equals(String.valueOf(row.get("state")))) {
             if (transferId.equals(String.valueOf(row.get("transfer_id")))
-                    && releaseRef.equals(String.valueOf(row.get("source_release_ref")))) {
+                    && releaseRef.equals(String.valueOf(row.get("source_release_ref")))
+                    && expectedEpoch==asLong(row.get("owner_epoch"))) {
+                SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,true);
                 return view(row);
             }
             throw new InventoryException("SERIAL_OPERATION_MISMATCH", "源仓封闭引用与已记录不一致");
@@ -57,7 +71,6 @@ public final class SerialTransferLocalService {
         if (!SerialReceiptService.STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             throw new InventoryException("SERIAL_STATE_CONFLICT", "当前本地状态不能封闭");
         }
-        InventoryMapper inventory = session.getMapper(InventoryMapper.class);
         String balanceId = row.get("balance_id") == null ? null : String.valueOf(row.get("balance_id"));
         if (balanceId == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "源仓序列号没有绑定余额");
@@ -66,7 +79,12 @@ public final class SerialTransferLocalService {
         if (balance == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "源仓余额不存在");
         }
-        if (inventory.countLedger(enterpriseId, warehouseId, releaseRef) == 0) {
+        if(decimal(balance.get("reserved_qty")).signum()>0 || decimal(balance.get("free_execution_claim_qty")).signum()>0)
+            throw new InventoryException("RESERVATION_CONFLICT","源桶已有占用，不能猜测该序列号未被预占");
+        // 一个释放引用只能解释一条已封闭身份；不能借其他身份的流水跳过本次扣减。
+        if (inventory.countLedger(enterpriseId, warehouseId, releaseRef) != 0)
+            throw new InventoryException("SERIAL_OPERATION_MISMATCH","释放引用已被其他库存动作使用");
+        {
             if (inventory.casAdjust(enterpriseId, warehouseId, balanceId, new BigDecimal("-1"), BigDecimal.ZERO,
                     BigDecimal.ZERO, asLong(balance.get("version")), now) != 1) {
                 throw new InventoryException("RESERVATION_CONFLICT", "源仓封闭后不足覆盖预占");
@@ -81,6 +99,7 @@ public final class SerialTransferLocalService {
                 transferId, releaseRef, "TRANSFER_PREPARED", expectedEpoch, now) != 1) {
             throw new InventoryException("VERSION_CONFLICT", "源仓封闭竞争");
         }
+        SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,false);
         return view(locals.lock(enterpriseId, warehouseId, normalized));
     }
 
@@ -221,7 +240,7 @@ public final class SerialTransferLocalService {
     }
 
     private static void requireId(String value, String code, String message) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.isBlank() || value.length()>64) {
             throw new InventoryException(code, message);
         }
     }

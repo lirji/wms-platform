@@ -125,7 +125,16 @@ class SerialRegistryHttpIT {
         var release = new LinkedHashMap<String,Object>(receive); release.put("factRef","SOURCE-RELEASE");
         assertEquals(403,post("source-releases",destinationOnly,"TX-FORGED-SOURCE",RuntimeMessage.JSON.writeValueAsString(release)).statusCode());
         release.put("warehouseId","WH-A");
-        ok("source-releases",sourceOnly,"TX-RELEASE",release,"IN_TRANSIT");
+        assertFalse(ok("source-releases",sourceOnly,"TX-RELEASE",release,"IN_TRANSIT").has("sourceRelease"));
+        for(String proofVersion:List.of("2","1")) {
+            var replay=http.send(HttpRequest.newBuilder(URI.create(base()+"/internal/wms/v1/serial-identities/source-releases"))
+                    .header("Authorization","Bearer "+sourceOnly).header("X-Wms-Enterprise-Id","ENT").header("Idempotency-Key","TX-RELEASE")
+                    .header("X-Wms-Serial-Release-Proof",proofVersion).header("Content-Type","application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(RuntimeMessage.JSON.writeValueAsString(release))).build(),HttpResponse.BodyHandlers.ofString());
+            assertEquals(proofVersion.equals("1")?200:400,replay.statusCode(),replay.body());
+            if(proofVersion.equals("1")) assertEquals("SOURCE-RELEASE",RuntimeMessage.JSON.readTree(replay.body()).path("sourceRelease").path("sourceReleaseRef").asString());
+        }
+        assertFalse(ok("source-releases",sourceOnly,"TX-RELEASE",release,"IN_TRANSIT").has("sourceRelease"));
         ok("destination-receivings",destinationOnly,"TX-RECEIVE",receive,"RECEIVING");
         var confirmation = new LinkedHashMap<String,Object>(receive); confirmation.remove("expectedEpoch");
         var active=ok("destination-confirmations",destinationOnly,"TX-CONFIRM",confirmation,"ACTIVE");

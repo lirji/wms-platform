@@ -29,8 +29,11 @@ public final class SerialRecoveryOperations {
         if(!hash.equals(stored.get("request_hash"))) throw new InventoryException("IDEMPOTENCY_PAYLOAD_MISMATCH","同一重试命令参数不同");
         if(!id.equals(stored.get("id"))) return Map.of("recoveryId",stored.get("id"),"intentId",intent,"status","RETRY_ACCEPTED","replayed",true);
         var row=mapper.lock(e,w,intent);
+        var releases=session.getMapper(SerialReleaseMapper.class);
+        boolean release=row==null;
+        if(release) row=releases.lock(e,w,intent);
         if(row==null) throw new InventoryException("RESOURCE_NOT_FOUND","恢复意图不存在");
-        if(mapper.requeue(e,w,intent,epoch,now)!=1) throw new InventoryException("VERSION_CONFLICT","仅可重新排队当前代际的隔离意图");
+        if((release?releases.requeue(e,w,intent,epoch,now):mapper.requeue(e,w,intent,epoch,now))!=1) throw new InventoryException("VERSION_CONFLICT","仅可重新排队当前代际的隔离意图");
         return Map.of("recoveryId",id,"intentId",intent,"status","RETRY_ACCEPTED","replayed",false);
     }
     private SerialRecoveryOperations() { }

@@ -1,0 +1,26 @@
+-- 独立于目的收货意图，旧恢复执行器不会把源仓SEALED误判为过期意图。
+CREATE TABLE serial_release_intent (
+  id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '释放意图稳定标识，包含动作域',
+  enterprise_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '企业权限范围',
+  warehouse_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '源仓路由范围',
+  serial_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原始规范化序列号',
+  sku_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原始SKU',
+  transfer_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原始转移引用',
+  release_ref VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '已扣减源仓流水的原始释放引用',
+  from_epoch BIGINT NOT NULL COMMENT '源仓封闭时归属代际，不能从新归属猜测',
+  context_hash CHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '源桶、身份与原始事实摘要',
+  state VARCHAR(16) COLLATE utf8mb4_bin NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING、RUNNING、DONE或ISOLATED',
+  claim_epoch BIGINT NOT NULL DEFAULT 0 COMMENT '领取代际，拒绝旧执行器完成',
+  attempts INT NOT NULL DEFAULT 0 COMMENT '本轮自动尝试数，最多12次',
+  next_attempt_at DATETIME(6) NOT NULL COMMENT '下次尝试或租约截止UTC',
+  last_error VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '可审计错误码',
+  version BIGINT NOT NULL DEFAULT 0 COMMENT '记录并发版本',
+  created_at DATETIME(6) NOT NULL COMMENT '原始释放事实提交UTC',
+  updated_at DATETIME(6) NOT NULL COMMENT '恢复状态更新UTC',
+  PRIMARY KEY(id),
+  UNIQUE KEY uk_serial_release_transfer(enterprise_id,warehouse_id,serial_id,transfer_id),
+  KEY idx_serial_release_ready(enterprise_id,warehouse_id,state,next_attempt_at,id),
+  KEY idx_serial_release_list(enterprise_id,warehouse_id,created_at,id),
+  CONSTRAINT ck_serial_release_counters CHECK(from_epoch>=0 AND claim_epoch>=0 AND attempts BETWEEN 0 AND 12 AND version>=0),
+  CONSTRAINT ck_serial_release_state CHECK(state IN ('PENDING','RUNNING','DONE','ISOLATED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='源仓封闭及扣减同事务产生的不可变登记释放事实';

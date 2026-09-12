@@ -175,9 +175,9 @@ public final class SerialRegistryService {
         SerialTransferMapper transfers = session.getMapper(SerialTransferMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         Map<String, Object> transfer = lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
-        if (sameRef(transfer.get("source_release_ref"), sourceReleaseRef) && sameTransfer(row, transferId)
+        if (sameRef(transfer.get("source_release_ref"), sourceReleaseRef)
                 && expectedEpoch == asLong(transfer.get("from_epoch"))) {
-            return view(row);
+            return releasedView(row,transfer,enterpriseId,skuId,normalized);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch")) || expectedEpoch != asLong(transfer.get("from_epoch"))) {
             throw staleEpoch(row, expectedEpoch);
@@ -194,7 +194,17 @@ public final class SerialRegistryService {
                         STATE_IN_TRANSIT, transferId, expectedEpoch, now) != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "源仓释放确认竞争");
         }
-        return view(identities.lockIdentity(enterpriseId, skuId, normalized));
+        return releasedView(identities.lockIdentity(enterpriseId, skuId, normalized),
+                lockExistingTransfer(transfers,enterpriseId,skuId,normalized,transferId),enterpriseId,skuId,normalized);
+    }
+
+    /** 历史事实与当前授权分开返回：跨后续转移重放不会恢复旧仓授权或改写新归属。 */
+    private static Map<String,Object> releasedView(Map<String,Object> identity,Map<String,Object> transfer,String enterprise,String sku,String serial) {
+        var result=view(identity);
+        result.put("sourceRelease",Map.of("enterpriseId",enterprise,"skuId",sku,"normalizedSerial",serial,
+                "sourceWarehouseId",transfer.get("source_warehouse_id"),"transferId",transfer.get("transfer_id"),
+                "sourceReleaseRef",transfer.get("source_release_ref"),"fromEpoch",transfer.get("from_epoch")));
+        return result;
     }
 
     /**

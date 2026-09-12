@@ -153,3 +153,7 @@ com.lrj.wms.inventory.SerialReceiptBatchIT#movedGoodIdentityCannotBeDowngradedBy
 # 序列上架逐身份移动及最后写入回滚
 com.lrj.wms.inventory.SerialReceiptBatchIT#serialPutawayMovesOnlySelectedIdentitiesAndRejectsDoubleSelection
 com.lrj.wms.inventory.SerialReceiptBatchIT#finalPutawayIdentityWriteFailureRollsBackQuantityAndBatchQuota
+
+# 源释放有界恢复、隔离重排及迟到执行器
+com.lrj.wms.inventory.serial.SerialTransferRecoveryIT#sourceReleaseRetryBudgetIsolationAndLeaseRejectLateWorker
+com.lrj.wms.inventory.masterdata.MasterdataHttpIT#sourceReleaseUsesSameScopedRecoveryListAndAuditedRetry

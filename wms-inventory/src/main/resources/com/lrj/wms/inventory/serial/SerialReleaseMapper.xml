@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.serial.SerialReleaseMapper">
+  <select id="location" resultType="map">
+    SELECT s.balance_id,b.location_id FROM local_serial s JOIN stock_balance b
+      ON b.enterprise_id=s.enterprise_id AND b.warehouse_id=s.warehouse_id AND b.id=s.balance_id
+    WHERE s.enterprise_id=#{e} AND s.warehouse_id=#{w} AND s.serial_id=#{serial}
+  </select>
+  <insert id="insert">
+    INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,next_attempt_at,created_at,updated_at)
+    VALUES(#{row.id},#{row.e},#{row.w},#{row.serial},#{row.sku},#{row.transfer},#{row.ref},#{row.epoch},#{row.hash},#{row.now},#{row.now},#{row.now})
+    ON DUPLICATE KEY UPDATE id=id
+  </insert>
+  <select id="lock" resultType="map">
+    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,context_hash,state,claim_epoch,attempts
+    FROM serial_release_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} FOR UPDATE
+  </select>
+  <select id="next" resultType="map" timeout="3">
+    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,context_hash,state,claim_epoch,attempts
+    FROM serial_release_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w}
+    AND state IN ('PENDING','RUNNING') AND next_attempt_at &lt;= #{now}
+    ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+  </select>
+  <update id="claim">
+    UPDATE serial_release_intent SET state='RUNNING',claim_epoch=claim_epoch+1,attempts=attempts+1,next_attempt_at=#{until},version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND claim_epoch=#{epoch} AND attempts&lt;12
+  </update>
+  <update id="finish">
+    UPDATE serial_release_intent SET state=#{state},last_error=#{error},next_attempt_at=#{next},version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND claim_epoch=#{epoch} AND state IN ('PENDING','RUNNING')
+  </update>
+  <update id="requeue">
+    UPDATE serial_release_intent SET state='PENDING',attempts=0,claim_epoch=claim_epoch+1,next_attempt_at=#{now},last_error=NULL,version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND claim_epoch=#{epoch} AND state='ISOLATED'
+  </update>
+</mapper>

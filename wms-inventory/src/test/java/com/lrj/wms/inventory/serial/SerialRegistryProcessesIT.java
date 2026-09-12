@@ -67,7 +67,7 @@ class SerialRegistryProcessesIT {
             var config=new Configuration(new Environment("inventory",new JdbcTransactionFactory(),source));
             com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class); config.addMapper(MasterdataMapper.class); config.addMapper(InventoryMapper.class); config.addMapper(OutboxMapper.class);
-            config.addMapper(CommandDedupMapper.class); config.addMapper(LocalSerialMapper.class); config.addMapper(SerialRecoveryMapper.class);
+            config.addMapper(CommandDedupMapper.class); config.addMapper(LocalSerialMapper.class); config.addMapper(SerialReleaseMapper.class); config.addMapper(SerialRecoveryMapper.class);
             config.addMapper(SerialReceiptBatchMapper.class); config.addMapper(StockCommandMapper.class);
             config.addMapper(com.lrj.wms.inventory.quality.ReceiptQualityStockMapper.class);
             config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
@@ -110,6 +110,14 @@ class SerialRegistryProcessesIT {
                 assertEquals(2,registrySql.queryForObject("SELECT COUNT(*) FROM serial_http_command",Integer.class));
                 long epoch=registrySql.queryForObject("SELECT owner_epoch FROM serial_registry WHERE normalized_serial='SN'",Long.class);
                 post(base,token,"transfer-preparations",Map.of("warehouseId","A","targetWarehouseId","B","skuId","SKU","serial","SN","transferId","TRANSFER","operationId","PREPARE","expectedEpoch",epoch));
+                jdbc.execute("ALTER TABLE serial_release_intent ADD CONSTRAINT fail_release_fact CHECK (serial_id<>'SN')");
+                try(var session=sessions.openSession(false)) {
+                    assertThrows(RuntimeException.class,() -> new SerialTransferLocalService(session,at(now,180),unavailable).sealSource("ENT","A","SN","TRANSFER",epoch,"RELEASE"));
+                    session.rollback();
+                }
+                assertEquals("AUTHORIZED",state(jdbc,"A"));assertQuantity(jdbc,"A",1);
+                assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='RELEASE'",Integer.class));
+                jdbc.execute("ALTER TABLE serial_release_intent DROP CHECK fail_release_fact");
                 try(var session=sessions.openSession(false)) {
                     var transfers=new SerialTransferLocalService(session,at(now,180),unavailable);
                     transfers.sealSource("ENT","A","SN","TRANSFER",epoch,"RELEASE");
@@ -118,7 +126,13 @@ class SerialRegistryProcessesIT {
                 assertQuantity(jdbc,"A",0); assertQuantity(jdbc,"B",1); assertSerialCount(sessions,"A",0); assertSerialCount(sessions,"B",1);
                 assertEquals(1,new SerialRecoveryService(sessions,at(now,240),actual,actual).execute("ENT","B").failed());
                 assertEquals("HOLD_RECEIVED",state(jdbc,"B"));
-                post(base,token,"source-releases",Map.of("warehouseId","A","skuId","SKU","serial","SN","transferId","TRANSFER","factRef","RELEASE","expectedEpoch",epoch));
+                SerialReleaseRegistryPort lostRelease=(e,sku,sn,tr,wh,ref,from) -> {
+                    actual.release(e,sku,sn,tr,wh,ref,from);
+                    throw new SerialRegistryUnavailableException("注入：原释放已登记但源仓丢失回执");
+                };
+                assertEquals(1,new SerialReleaseRecoveryService(sessions,at(now,240),lostRelease).execute("ENT","A").failed());
+                assertEquals("PENDING",jdbc.queryForObject("SELECT state FROM serial_release_intent",String.class));
+                assertEquals("IN_TRANSIT",registrySql.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='SN'",String.class));
                 Thread.sleep(1100);
                 SerialTransferRegistryPort droppedConfirmation=new SerialTransferRegistryPort() {
                     public Map<String,Object> startReceiving(String e,String sku,String serial,String tr,String wh,String ref,long from) { return actual.startReceiving(e,sku,serial,tr,wh,ref,from); }
@@ -141,6 +155,25 @@ class SerialRegistryProcessesIT {
                     session.rollback();
                 }
                 assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_intent WHERE state='DONE'",Integer.class));
+                // 新一轮转移已经开始，旧释放重放只能确认历史事实，不能恢复旧仓归属。
+                post(base,token,"transfer-preparations",Map.of("warehouseId","B","targetWarehouseId","A","skuId","SKU","serial","SN","transferId","TRANSFER-2","operationId","PREPARE-2","expectedEpoch",epoch+1));
+                Thread.sleep(1100);
+                jdbc.execute("ALTER TABLE serial_release_intent ADD CONSTRAINT fail_release_done CHECK(state<>'DONE')");
+                assertEquals(1,new SerialReleaseRecoveryService(sessions,at(now,380),actual).execute("ENT","A").failed());
+                assertEquals("PENDING",jdbc.queryForObject("SELECT state FROM serial_release_intent",String.class));
+                jdbc.execute("ALTER TABLE serial_release_intent DROP CHECK fail_release_done");
+                assertEquals(1,new SerialReleaseRecoveryService(sessions,at(now,390),actual).execute("ENT","A").completed());
+                assertEquals("TRANSFER-2",registrySql.queryForObject("SELECT transfer_id FROM serial_registry WHERE normalized_serial='SN'",String.class));
+                assertEquals("B",registrySql.queryForObject("SELECT owner_warehouse_id FROM serial_registry WHERE normalized_serial='SN'",String.class));
+                assertEquals("SEALED",state(jdbc,"A"));assertQuantity(jdbc,"A",0);
+                try(var session=sessions.openSession(false)) {
+                    var transfers=new SerialTransferLocalService(session,clock,actual);
+                    assertEquals("SEALED",transfers.sealSource("ENT","A","SN","TRANSFER",epoch,"RELEASE").get("state"));
+                    assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> transfers.sealSource("ENT","A","SN","TRANSFER",epoch+1,"RELEASE"));session.rollback();
+                }
+                assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='RELEASE'",Integer.class));
+                assertEquals(1,registrySql.queryForObject("SELECT COUNT(*) FROM serial_http_command WHERE action='SOURCE_RELEASE'",Integer.class));
+
                 // 多个身份共享原收货命令，逐身份真实HTTP登记不能因操作ID相同而互相覆盖或再次加量。
                 var observation=new com.lrj.wms.contract.messaging.SerialReceiptObservation(1,List.of("BATCH-1","BATCH-2"));
                 var context=new com.lrj.wms.contract.messaging.StockPostingContext("BATCH-DOC","OWNER","SKU","EA","LOC-A",null,"NO_LOT","HOLD",null,null);
@@ -184,7 +217,7 @@ class SerialRegistryProcessesIT {
     }
     private void post(String base,String token,String action,Map<String,Object> body) throws Exception {
         var response=http.send(HttpRequest.newBuilder(URI.create(base+"/internal/wms/v1/serial-identities/"+action)).timeout(Duration.ofSeconds(3))
-                .header("Authorization","Bearer "+token).header("X-Wms-Enterprise-Id","ENT").header("Idempotency-Key",action).header("Content-Type","application/json")
+                .header("Authorization","Bearer "+token).header("X-Wms-Enterprise-Id","ENT").header("Idempotency-Key",SerialRegistryHttpClient.digest(action+RuntimeMessage.JSON.writeValueAsString(new TreeMap<>(body)))).header("Content-Type","application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(RuntimeMessage.JSON.writeValueAsString(body))).build(),HttpResponse.BodyHandlers.ofString());
         assertEquals(200,response.statusCode(),response.body());
     }

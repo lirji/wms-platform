@@ -86,5 +86,22 @@ class SerialRegistryHttpClientTest {
             first.get(2,TimeUnit.SECONDS); second.get(2,TimeUnit.SECONDS);
         } finally { release.countDown(); server.stop(0); callers.shutdownNow(); worker.shutdownNow(); }
     }
+    @Test void sourceReleaseRequiresOriginalProofAndNeverUsesCurrentOwnerAsProof() throws Exception {
+        var mode=new AtomicInteger();var keys=new ArrayList<String>();
+        var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/",exchange -> {
+            keys.add(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
+            var result=new HashMap<String,Object>(Map.of("state","ACTIVE","ownerWarehouseId","OTHER","ownerEpoch",9));
+            if(mode.get()!=1) result.put("sourceRelease",Map.of("enterpriseId","ENT","sourceWarehouseId",mode.get()==2?"OTHER":"WH","skuId","SKU","normalizedSerial","SN","transferId","TR","sourceReleaseRef","REL","fromEpoch",3));
+            byte[] body=RuntimeMessage.JSON.writeValueAsBytes(result);
+            exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,body.length);
+            try(var output=exchange.getResponseBody()) {output.write(body);}
+        });server.start();
+        try(var client=new SerialRegistryHttpClient(url(server),e -> "service.jwt.token",Duration.ofMillis(1500))) {
+            assertEquals("OTHER",client.release("ENT","SKU","SN","TR","WH","REL",3).get("ownerWarehouseId"));
+            for(int n=1;n<3;n++) {mode.set(n);assertThrows(SerialRegistryUnavailableException.class,() -> client.release("ENT","SKU","SN","TR","WH","REL",3));}
+            assertEquals(1,new HashSet<>(keys).size());
+        } finally {server.stop(0);}
+    }
     private static URI url(HttpServer server) { return URI.create("http://127.0.0.1:"+server.getAddress().getPort()); }
 }

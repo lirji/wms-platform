@@ -55,7 +55,7 @@ class SerialTransferRecoveryIT {
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
-        config.addMapper(LocalSerialMapper.class);
+        config.addMapper(LocalSerialMapper.class); config.addMapper(SerialReleaseMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
@@ -126,4 +126,56 @@ class SerialTransferRecoveryIT {
         assertEquals("AUTHORIZED", jdbc.queryForObject(
                 "SELECT state FROM local_serial WHERE warehouse_id='WH-B' AND serial_id='SN-RV'", String.class));
     }
+    @Test void sourceReleaseRetryBudgetIsolationAndLeaseRejectLateWorker() throws Exception {
+        Clock initial=Clock.fixed(NOW.plusSeconds(1000),ZoneOffset.UTC);
+        try(var session=sessions.openSession(false)) {
+            var master=new MasterdataService(session,initial);
+            master.createWarehouse("WH-BUDGET","ENT-BUDGET","BUDGET","预算测试仓","UTC");
+            master.createLocation("LOC-BUDGET","GATE-BUDGET","ENT-BUDGET","WH-BUDGET","BUDGET","A","STORAGE",new BigDecimal("100"),"EA");
+            var bucket=StockBucketKey.of("ENT-BUDGET","WH-BUDGET","OWNER-1","LOC-BUDGET","SKU-BUDGET",MasterdataCodes.NO_LOT,"HOLD");
+            new SerialReceiptService(session,initial,new SerialReceiptIT.MemoryRegistry()).receiveHold("ENT-BUDGET","WH-BUDGET","OP-BUDGET","DOC","ACTOR","SN-BUDGET",bucket);
+            session.commit();
+        }
+        jdbc.update("UPDATE location_gate SET state='FROZEN' WHERE enterprise_id='ENT-BUDGET'");
+        try(var session=sessions.openSession(false)) {
+            var error=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialTransferLocalService(session,initial,null).sealSource("ENT-BUDGET","WH-BUDGET","SN-BUDGET","TR-BUDGET",1,"REL-BUDGET"));
+            assertEquals("STOCK_FROZEN",error.code());session.rollback();
+        }
+        assertEquals("AUTHORIZED",jdbc.queryForObject("SELECT state FROM local_serial WHERE enterprise_id='ENT-BUDGET'",String.class));
+        jdbc.update("UPDATE location_gate SET state='OPEN' WHERE enterprise_id='ENT-BUDGET'");
+        try(var session=sessions.openSession(false)) {
+            new SerialTransferLocalService(session,initial,null).sealSource("ENT-BUDGET","WH-BUDGET","SN-BUDGET","TR-BUDGET",1,"REL-BUDGET");session.commit();
+        }
+        SerialReleaseRegistryPort unavailable=(e,sku,sn,tr,w,ref,epoch) -> {throw new SerialRegistryUnavailableException("注入断连");};
+        for(int n=0;n<12;n++) {
+            var clock=Clock.fixed(NOW.plusSeconds(1000+n*360L),ZoneOffset.UTC);
+            assertEquals(1,new SerialReleaseRecoveryService(sessions,clock,unavailable).execute("ENT-BUDGET","WH-BUDGET").failed());
+        }
+        assertEquals("ISOLATED",jdbc.queryForObject("SELECT state FROM serial_release_intent WHERE serial_id='SN-BUDGET'",String.class));
+        Clock retryTime=Clock.fixed(NOW.plusSeconds(10000),ZoneOffset.UTC);
+        assertEquals(0,new SerialReleaseRecoveryService(sessions,retryTime,unavailable).execute("ENT-BUDGET","WH-BUDGET").failed());
+        String id=jdbc.queryForObject("SELECT id FROM serial_release_intent WHERE serial_id='SN-BUDGET'",String.class);
+        try(var session=sessions.openSession(false)) {
+            SerialRecoveryOperations.retry(session,retryTime,"ENT-BUDGET","WH-BUDGET",id,"RETRY-BUDGET","operator",12,"已核实原释放事实");session.commit();
+        }
+        var entered=new java.util.concurrent.CountDownLatch(1);var resume=new java.util.concurrent.CountDownLatch(1);
+        SerialReleaseRegistryPort proof=(e,sku,sn,tr,w,ref,epoch) -> Map.of("sourceRelease",Map.of("enterpriseId",e,"sourceWarehouseId",w,"skuId",sku,"normalizedSerial",sn,"transferId",tr,"sourceReleaseRef",ref,"fromEpoch",epoch));
+        SerialReleaseRegistryPort late=(e,sku,sn,tr,w,ref,epoch) -> {
+            entered.countDown();try {assertTrue(resume.await(10,java.util.concurrent.TimeUnit.SECONDS));}
+            catch(InterruptedException ex) {Thread.currentThread().interrupt();throw new RuntimeException(ex);}
+            return proof.release(e,sku,sn,tr,w,ref,epoch);
+        };
+        var worker=java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var old=worker.submit(() -> new SerialReleaseRecoveryService(sessions,retryTime,late).execute("ENT-BUDGET","WH-BUDGET"));
+            assertTrue(entered.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            // 第一执行器不持有数据库连接/锁，租约超时后新执行器可以正常领取完成。
+            assertEquals(1,new SerialReleaseRecoveryService(sessions,Clock.fixed(retryTime.instant().plusSeconds(20),ZoneOffset.UTC),proof).execute("ENT-BUDGET","WH-BUDGET").completed());
+            resume.countDown();assertEquals(0,old.get(3,java.util.concurrent.TimeUnit.SECONDS).completed());
+        } finally {resume.countDown();worker.shutdownNow();}
+        assertEquals(15L,jdbc.queryForObject("SELECT claim_epoch FROM serial_release_intent WHERE id=?",Long.class,id));
+        assertEquals("DONE",jdbc.queryForObject("SELECT state FROM serial_release_intent WHERE id=?",String.class,id));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='REL-BUDGET'",Integer.class));
+    }
+
 }

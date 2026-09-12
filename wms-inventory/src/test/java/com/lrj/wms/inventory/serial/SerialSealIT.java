@@ -57,7 +57,7 @@ class SerialSealIT {
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
-        config.addMapper(LocalSerialMapper.class);
+        config.addMapper(LocalSerialMapper.class); config.addMapper(SerialReleaseMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);

@@ -38,8 +38,13 @@ public final class SerialRecoveryService {
 
     /** 每仓每次至多20条、20秒；每条最多12次自动尝试，失败保留HOLD与可见隔离状态。 */
     public Report execute(String e,String w) {
+        return execute(e,w,20);
+    }
+    /** 调度器可为收货和源释放各分配独立预算，单类积压不阻断另一类。 */
+    public Report execute(String e,String w,int seconds) {
+        if(seconds<1 || seconds>20) throw new IllegalArgumentException("登记恢复预算必须在1至20秒内");
         if(receipt==null || transfer==null) throw new IllegalStateException("未配置真实登记调用器");
-        int completed=0,failed=0; long deadline=System.nanoTime()+java.time.Duration.ofSeconds(20).toNanos();
+        int completed=0,failed=0; long deadline=System.nanoTime()+java.time.Duration.ofSeconds(seconds).toNanos();
         for(int n=0;n<20 && System.nanoTime()<deadline && !Thread.currentThread().isInterrupted();n++) {
             Map<String,Object> intent=claim(e,w); if(intent==null) break;
             String id=String.valueOf(intent.get("id")),serial=String.valueOf(intent.get("serial_id"));
