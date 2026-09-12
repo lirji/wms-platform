@@ -13,7 +13,7 @@
 
 ## 已修改文件
 
-- 当前未提交 R22：wms-runtime db 时间策略/Mapper/映射与游标，各服务 Persistence/HTTP 时间边界、新时间规则迁移；隔离 JDBC 夹具改为显式 UTC。R15 已提交 8019a45。
+- 当前未提交 R22：wms-runtime db 时间策略/Mapper/映射与游标，各服务 Persistence/HTTP 时间边界、新时间规则迁移；隔离 JDBC 夹具改为显式 UTC。R15 已提交 8019a45，R22 已提交 1247334。当前健康/CI 切片修改 MessageWorker、InventoryMessagingIT、MessageWorkerTest、verify.yml。
 
 - 当前 R15 切片：StockInternalReconcile/Mapper、ArchivePlanner/Mapper、InventoryCatalogJobs/Persistence、V030/V031 与 StockInternalReconcileIT。
 
@@ -33,6 +33,8 @@
 
 ## 当前问题
 
+- R14/15 后续核查：local_serial SEALED 已扣 on_hand，不应计入本地序列号数量；EXCEPTION/RECEIVING 已记 HOLD 仍应计入，当前 ReconciliationMapper 继承旧状态列表，需在序列号链路补验修正。登记全局唯一为企业/SKU/序列号，而 local_serial 仍为企业/仓/序列号，需核对并保留明确冲突，不可串 SKU。
+
 - 阶段发布验证：独立 worktree 的完整默认 verify 于 2026-09-13 00:12:57 成功，99 类/200 用例，无失败、错误或跳过；55 必需用例、四进程 smoke、Python 4 测试、文档/契约/Compose、控制台类型检查/33 测试/构建均通过。
 - 分支 CI 34703330446 控制台成功，Java 暴露并发测试固定 WH-A 的错误假设。已按实际获胜仓重放，并断言其他仓拒绝；定向真库验证于 00:13:38 成功。新提交远程 CI 待核验，不能把旧 CI 失败写成通过。
 
@@ -42,9 +44,9 @@
 
 ## 下一步建议
 
-1. 当前没有运行 Maven。R22 跨 JVM/HTTP/双进程真库于 00:59:43，通过追加会话校验于 01:01:02；四个实际种子重放/分页/发布于 01:03:13 BUILD SUCCESS（/tmp/wms-time-seed-pagination-it.log）。正在提交 R22。随后修复 MessageWorker 健康状态抖动和 CI profile 重复执行，再继续 R14 登记端口/恢复与真实 TM/TC、R13 出库，补仓迁移表清单。仅在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 工作，主目录 main 保持不动。
+1. 当前没有运行 Maven。R22 已提交 1247334。健康修复 /tmp/wms-messaging-health-it.log 于 01:05:24通过；最终代际单元 /tmp/wms-worker-generation-tests.log 于 01:06:24通过；CI单模块warehouse命令 /tmp/wms-ci-warehouse-only.log 于 01:09:05 BUILD SUCCESS。正在提交健康/CI切片，随后继续 R14 登记 HTTP/恢复、真实 TM/TC，接 R13 出库，补仓迁移清单。只在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 工作，根目录 main 不动。
 2. 随后补 R13 出库消息及 R14 真实登记/TM/TC 适配，接 R15 三任务和 R22 时间兼容；补迁移数据清单，更新契约与有意义的集成验证。
-3. main CI 34704623423 已失败：default/warehouse 通过，tc profile 重复运行 InventoryMessagingIT 时 readiness UP/DOWN 抖动；MessageWorker 每轮开始清空成功状态造成抖动，待修复最后完成状态/新鲜度并给启动健康断言有界等待。不能取消其他运行，不并发 Maven 写同一 target，不在 Maven 编译中修改 Java/XML。完成各逻辑单元后更新进度并提交，最终正常合并推送。
+3. main CI 34704623423 已失败：default/warehouse 通过，tc profile 重复运行 InventoryMessagingIT 时 readiness UP/DOWN 抖动；MessageWorker 每轮开始清空成功状态造成抖动，现已修复最后完成状态/新鲜度/代际，给启动健康断言有界等待；新提交远程CI仍待。不能取消其他运行，不并发 Maven 写同一 target，不在 Maven 编译中修改 Java/XML。完成各逻辑单元后更新进度并提交，最终正常合并推送。
 
 ## 恢复 Prompt
 

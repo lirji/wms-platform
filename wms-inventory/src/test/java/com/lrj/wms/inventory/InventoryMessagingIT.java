@@ -83,6 +83,9 @@ class InventoryMessagingIT {
         assertEquals(0, new BigDecimal("9").compareTo((BigDecimal) view.get("on_hand_qty")));
         assertEquals(2L, ((Number) view.get("source_version")).longValue());
         assertEquals(occurred, ExpiryPolicy.instantOf(view.get("as_of")));
+        // 投影提交和worker完成心跳不是同一时刻，首次探针还可能缓存启动时的DOWN。
+        long readyDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (System.nanoTime() < readyDeadline && !"UP".equals(readiness.health().getStatus().getCode())) Thread.sleep(100);
         assertEquals("UP", readiness.health().getStatus().getCode());
         // 只暂停本测试的专属broker；权威事务可落Outbox，不能伪报已经投递。
         KAFKA.getDockerClient().pauseContainerCmd(KAFKA.getContainerId()).exec();

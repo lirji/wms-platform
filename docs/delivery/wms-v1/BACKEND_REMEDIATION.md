@@ -201,3 +201,9 @@ JDBC 显式设置会话/连接偏移、保留瞬时与微秒、拒绝零日期�
 /tmp/wms-time-cross-jvm-it.log 于 00:59:43 BUILD SUCCESS：真实 MySQL 下上海/美西独立 JVM 验证新库 UTC、微秒、跨 JVM 分页和 DATE 不漂移；旧 +08 库未知来源拒绝、声明后不改写旧值、偏移不可覆盖；InboundHttpIT、ReceiveMessagingProcessesIT、StockInternalReconcileIT、SerialRegistryHttpIT、FulfillmentHttpIT 通过。增加会话/精度约束后 TimeSemanticsIT 于 01:01:02 再次通过；实际四个 Seed*ReplayIT、BoundedPaginationIT、SourceOutboxIT 于 01:03:13 BUILD SUCCESS（/tmp/wms-time-seed-pagination-it.log）。直接 JDBC 测试夹具同步为显式 UTC，不通过修改测试 JVM 全局时区隐藏问题。58 个必需用例清单新增跨 JVM 与两个 R15 故障恢复门禁，最终全量组合仍待。
 
 当前没有访问、转换或部署共享/生产数据库；其历史时区不能据此宣称已核实。R22 代码与定向证据已完成，整体整改仍有 R13/R14/R15 及最终验证工作。
+
+## 消息健康状态与 CI 回归（2026-09-13）
+
+上一阶段 main f9710ef 的远程 CI 34704623423 默认/warehouse 验证通过，在 tc profile 重复跑默认测试时暴露 InventoryMessagingIT 的 readiness 抖动。MessageWorker 原先每轮开始把状态清空，导致运行中的健康任务被瞬间判 DOWN；现在保存最近完整轮次结果并检查 30 秒新鲜度，失败立即降级，stop/start 以原子代际拒绝旧执行线程迟到结果。启动健康探针的断言按实际缓存与异步完成语义进行 15 秒有界等待，没有取消 UP/DOWN 断连验证。
+
+/tmp/wms-messaging-health-it.log 于 01:05:24 BUILD SUCCESS（实际 Kafka/MySQL 投影、暂停 broker 后 DOWN、恢复后自动投递及全部单元）；最终代际原子化单元 /tmp/wms-worker-generation-tests.log 于 01:06:24 BUILD SUCCESS。CI 保留默认全仓验证，后续 warehouse/tc/failure 只执行各自拥有独立探针的 wms-test-support 模块，避免再把默认业务测试重复三遍。调整后的 warehouse 命令于 01:09:05 BUILD SUCCESS（/tmp/wms-ci-warehouse-only.log），其余 profile 与远程新提交 CI 仍待最终执行，不将旧失败改写为成功。

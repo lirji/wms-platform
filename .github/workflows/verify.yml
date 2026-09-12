@@ -37,11 +37,12 @@ jobs:
       - run: ./mvnw -B -ntp verify
       - run: python3 scripts/check-required-its.py --suite default
       - run: python3 scripts/smoke-services.py
-      - run: ./mvnw -B -ntp -Pwarehouse-it verify
+      # 默认全仓验证已完成；后续profile只运行自身独立探针，避免重复执行所有业务IT三次。
+      - run: ./mvnw -B -ntp -pl wms-test-support -Pwarehouse-it verify
       - run: mkdir -p .local/reports/warehouse && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/warehouse/
-      - run: ./mvnw -B -ntp -Ptc-it verify
+      - run: ./mvnw -B -ntp -pl wms-test-support -Ptc-it verify
       - run: mkdir -p .local/reports/tc && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/tc/
-      - run: ./mvnw -B -ntp -Pfailure-it verify
+      - run: ./mvnw -B -ntp -pl wms-test-support -Pfailure-it verify
       - run: python3 scripts/check-required-its.py --suite failure
       - run: mkdir -p .local/reports/failure && cp wms-test-support/target/failsafe-reports/*.xml .local/reports/failure/
       - uses: actions/upload-artifact@v4
