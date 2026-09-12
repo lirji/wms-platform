@@ -47,10 +47,20 @@ public class InventoryMessagingConfiguration {
                 settings.topicPrefix() + ".inbound.commands", "wms-inbound", settings.topicPrefix() + ".outbound.commands", "wms-outbound"), Clock.systemUTC());
     }
 
+    /** RM按cell部署时不能继续共享无路由的消费组；明确配置在启动边界校验。 */
     @Bean
-    KafkaInboxConsumer inventoryKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
-        return new KafkaInboxConsumer(settings, settings.topicPrefix() + ".inventory-projection",
-                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands", settings.topicPrefix() + ".outbound.commands"), inbox);
+    InventoryCellRouting inventoryCellRouting(org.springframework.core.env.Environment env) {
+        boolean rm=env.getProperty("wms.tcc.rm.enabled",Boolean.class,false);
+        String cell=env.getProperty("wms.messaging.inventory-cell-id");
+        String rmCell=rm?env.getRequiredProperty("wms.tcc.rm.cell-id"):null;
+        if(cell==null||cell.isBlank()) cell=rmCell;
+        if(rm&&!java.util.Objects.equals(cell,rmCell)) throw new IllegalArgumentException("消息cell与RM资源cell不一致");
+        return new InventoryCellRouting(cell,env.getProperty("wms.messaging.inventory-routing-json"),rm);
+    }
+    @Bean
+    KafkaInboxConsumer inventoryKafkaInbox(KafkaSettings settings, RuntimeInbox inbox, InventoryCellRouting routing) {
+        return new KafkaInboxConsumer(settings, routing.group(settings.topicPrefix()),
+                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands", settings.topicPrefix() + ".outbound.commands"), routing.receiver(inbox));
     }
 
     @Bean
@@ -62,10 +72,11 @@ public class InventoryMessagingConfiguration {
     }
 
     @Bean
-    MessageWorker inventoryInboxWorker(RuntimeInbox inbox) {
+    MessageWorker inventoryInboxWorker(RuntimeInbox inbox, InventoryCellRouting routing) {
         return new MessageWorker("inventory-inbox", () -> {
             for (int i = 0; i < 32 && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
+                    routing.requireLocal(session,message);
                     if (java.util.Set.of("wms-inbound", "wms-outbound").contains(message.sourceService())) {
                         new StockCommandMessageHandler(Clock.systemUTC()).apply(session, message);
                         return;

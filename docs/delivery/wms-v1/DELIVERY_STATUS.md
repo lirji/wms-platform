@@ -148,3 +148,7 @@ V017及持久化回执完成，原请求重试保持原attempt及截止时间；
 [自动分配执行](../../implementation/FULFILLMENT_EXECUTION.md)新增V018执行命令/固定Try输入/启动状态/租约代际和原XID恢复；V019保存空事务清理的原TC回滚证据。公开执行入口需要完整原货主/仓/行/桶及权限，默认关闭。旧命令重试不begin，已发提交请求不因超时或晚取消转向回滚；业务放行仍依赖真实TC持久证据和所有仓确认。
 
 04:32:00 /tmp/wms-execution-final-it.log最终10IT通过，含实际fulfillment TM+双库存RM+outbound Jar、TC/Kafka/5库；最后Try回执写失败后重启保持原XID/branch并到达两仓出库授权。必需清单91、公开契约88路径。多cell普通库存消息路由、序列号/逐身份盘点/可信水位、TC资源迁移和晚取消补偿继续执行，不能把这次成功链路当作剩余四项全部完成。
+
+## R13 多cell普通库存消息路由
+
+[路由与恢复规则](../../implementation/INVENTORY_CELL_MESSAGING.md)已实现每cell消费组、完整清单筛选和同事务数据库代际校验；未知仓与陈旧路由隔离。04:42:04真实进程2IT及路由/信封单元通过，四Jar smoke、必需91、契约88、文档及Compose静态检查通过。RM重启readiness修复独立提交7ec2fbc。序列号来源身份、逐身份盘点与可信水位等仍继续。

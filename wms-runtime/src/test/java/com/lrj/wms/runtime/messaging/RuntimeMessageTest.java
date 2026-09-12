@@ -13,5 +13,6 @@ class RuntimeMessageTest {
         assertThrows(MessageRejectedException.class, () -> RuntimeMessage.parse(valid.replace("\"schemaVersion\":1", "\"schemaVersion\":2")));
         assertThrows(MessageRejectedException.class, () -> RuntimeMessage.parse(valid.replace("\"aggregateVersion\":1", "\"aggregateVersion\":1.5")));
         assertThrows(MessageRejectedException.class, () -> RuntimeMessage.parse(valid + "{}"));
+        assertThrows(MessageRejectedException.class, () -> RuntimeMessage.parse(valid.replace("\"schemaVersion\":1", "\"schemaVersion\":4294967297")));
     }
 }

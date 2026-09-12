@@ -66,7 +66,7 @@ public final class SourceOutboxPublisher {
         StockPostingContext context;
         try {
             body = (ObjectNode) RuntimeMessage.JSON.readTree(text(event, "payload"));
-            if (!body.has("postingContext") || !body.path("schemaVersion").isIntegralNumber() || body.path("schemaVersion").intValue() != 1) {
+            if (!body.has("postingContext") || !body.path("schemaVersion").isIntegralNumber() || !body.path("schemaVersion").canConvertToInt() || body.path("schemaVersion").intValue() != 1) {
                 throw new MessageRejectedException("LEGACY_COMMAND_CONTEXT_MISSING");
             }
             if (!RuntimeMessage.contentHash(body.path("postingContext").toString()).equals(body.path("postingContextDigest").asString())) {

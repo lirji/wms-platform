@@ -34,7 +34,8 @@ public record RuntimeMessage(int schemaVersion, String eventId, String sourceSer
         }
         try {
             JsonNode node = JSON.readTree(raw);
-            if (node == null || !node.isObject() || !node.path("schemaVersion").isIntegralNumber()) {
+            if (node == null || !node.isObject() || !node.path("schemaVersion").isIntegralNumber()
+                    || !node.path("schemaVersion").canConvertToInt() || node.path("schemaVersion").asInt() != 1) {
                 throw new MessageRejectedException("SCHEMA_UNSUPPORTED");
             }
             if (!node.path("aggregateVersion").isIntegralNumber() || !node.path("aggregateVersion").canConvertToLong()) {

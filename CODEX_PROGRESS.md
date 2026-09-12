@@ -63,3 +63,17 @@
 最新收尾：最终10IT已通过，必需清单已追加为91，契约专用执行响应共88路径；文档已同步。SBOM因POM/依赖未变复用0a1证据。当前准备默认关闭smoke、契约/文档/Compose检查及提交，之后继续多cell库存消息路由。
 
 执行器收尾检查通过：四个实际Jar默认关闭smoke、required91、88路径契约、文档43/链接100、Compose静态config与diff检查。当前没有Maven或smoke运行，准备逻辑提交；0a1远程两路Java仍在运行，不推同ref。
+
+## 当前多cell路由切片
+
+- 自动履约切片已提交2e8ddf4，连同e10ef1b尚未推送。0a1main正在TC专项，分支还在全量Java，不推同ref。
+- 新InventoryCellRouting：配置化企业仓/cell/代际清单、每cell+清单版本独立消费组；只跳过明确其他cell，未知仓/非法信封仍落Inbox，业务事务校验数据库ACTIVE/代际。RM+消息启用时必须配置清单，防止默认共用无路由组。
+- 顺带修正消息信封和来源Outbox版本整数溢出不能降级V1；新增路由单元边界及实际双cell普通收货/陈旧路由/未知仓隔离探针（在原自动分配进程测试内）。当前准备运行，尚未验收。
+
+多cell首轮51695失败：真实两仓收货APPLIED及无跨仓Inbox断言已到达，后续测试误用physical_qty列，改为实际on_hand_qty；陈旧路由隔离断言同时精确到ROUTE-STALE原事件。0a1main CI34716410427成功，分支34716400385失败，唯一失败RuntimeRmProcessesIT在B回调CONFIRMED后过早HTTP导致Connect；已补B的HTTP readiness等待。修复未验证前不发布后续提交。当前准备同批复验。
+
+Maven session83153已04:42:04成功退出，日志/tmp/wms-cell-routing-second-it.log；RuntimeRmProcessesIT和AllocationExecutionProcessesIT共2项通过及依赖单元通过。当前无Maven运行。CI readiness修复已独立提交7ec2fbc；多cell路由准备静态检查后提交。e10ef1b/2e8ddf4/7ec2fbc尚未推送；0a1远程两路CI已结束，main成功、分支失败已由7ec2fbc修复。
+
+后续序列号已读：InboundReceiptService.bindReceiveContext通过SourceCommandContextStore.bind同事务固化来源command/Outbox，目前不含serials；ReceiptQualityService只有累计质量数量，没有明确身份列表。StockCommandMessageHandler对serial_enabled且非CANCEL仍返回SERIAL_OBSERVATION_REQUIRED。需新增按收货批次的明确序列号列表、原列表重放校验、质量和移动身份，不能按数量猜测哪些SN受检。
+
+多cell收尾：04:42:04复验通过2个进程IT；契约88/必需91/文档44、四Jar smoke通过。Compose先因必填变量缺失失败，随后对compose.yaml与include的deploy/compose.local.yml均填仅解析占位值，静态config通过，未启动服务。当前准备提交并推送，之后继续序列号来源绑定。

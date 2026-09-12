@@ -65,7 +65,7 @@ class AllocationExecutionProcessesIT {
                 tc.start();int portA=port(),portB=port(),portF=port(),portO=port();
                 String advertised=tc.getContainerInfo().getNetworkSettings().getNetworks().get("bridge").getIpAddress()+":"+tcPort;
                 List<String> rm=List.of("--wms.tcc.rm.enabled=true","--wms.tcc.rm.network-isolation-confirmed=true","--wms.tcc.cluster-id=execution-it",
-                        "--wms.tcc.transaction-group=wms_execution_group","--wms.tcc.servers=127.0.0.1:"+tcPort,"--wms.tcc.xid-addresses="+advertised);
+                        "--wms.tcc.transaction-group=wms_execution_group","--wms.messaging.inventory-routing-json="+routing(),"--wms.tcc.servers=127.0.0.1:"+tcPort,"--wms.tcc.xid-addresses="+advertised);
                 var argsA=new ArrayList<>(rm);argsA.add("--wms.tcc.rm.cell-id=A");var argsB=new ArrayList<>(rm);argsB.add("--wms.tcc.rm.cell-id=B");
                 pa=start(root,"inventory",a,kafka,portA,issuer,logs,"A",argsA);pb=start(root,"inventory",b,kafka,portB,issuer,logs,"B",argsB);
                 await(()->healthy(portA)&&healthy(portB),75,"库存启动失败，日志="+logs,pa,pb);seed(a,"A");seed(b,"B");
@@ -118,9 +118,40 @@ class AllocationExecutionProcessesIT {
                 var replay=created(post(portF,path,operator,"EXECUTE",body),202);assertEquals("COMPLETED",replay.path("state").asString());
                 var visible=http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+portF+"/api/wms/v1/fulfillments/"+order)).header("Authorization","Bearer "+operator).GET().build(),HttpResponse.BodyHandlers.ofString());
                 assertEquals(200,visible.statusCode());assertEquals("COMPLETED",RuntimeMessage.JSON.readTree(visible.body()).path("execution").path("state").asString());
+                // 真实broker路由探针；命令正文为明确夹具，证明两个cell不再竞争同一库存消费组。
+                try(var publisher=new KafkaMessagePublisher(settings,"cell-routing-probe")) {
+                    publisher.publish("wms.execution.inbound.commands","A",receipt("A","ROUTE-A").encode());
+                    publisher.publish("wms.execution.inbound.commands","B",receipt("B","ROUTE-B").encode());
+                    await(()->count(sqlA,"SELECT COUNT(*) FROM stock_command WHERE command_id='ROUTE-A' AND state='APPLIED'")==1
+                            &&count(sqlB,"SELECT COUNT(*) FROM stock_command WHERE command_id='ROUTE-B' AND state='APPLIED'")==1,
+                            25,"两cell普通收货命令未各自落账",pa,pb,pf,po);
+                    assertEquals(0,count(sqlA,"SELECT COUNT(*) FROM runtime_message_inbox WHERE enterprise_id='ENT' AND warehouse_id='B'"));
+                    assertEquals(0,count(sqlB,"SELECT COUNT(*) FROM runtime_message_inbox WHERE enterprise_id='ENT' AND warehouse_id='A'"));
+                    assertEquals(1,sqlA.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE quality_code='HOLD'",BigDecimal.class).intValueExact());
+                    assertEquals(1,sqlB.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE quality_code='HOLD'",BigDecimal.class).intValueExact());
+                    publisher.publish("wms.execution.inbound.commands","A",receipt("A","ROUTE-A").encode());
+                    publisher.publish("wms.execution.inbound.commands","C",receipt("C","ROUTE-UNKNOWN").encode());
+                    sqlA.update("UPDATE warehouse_route SET route_epoch=2 WHERE enterprise_id='ENT' AND warehouse_id='A'");
+                    publisher.publish("wms.execution.inbound.commands","A",receipt("A","ROUTE-STALE").encode());
+                    await(()->count(sqlA,"SELECT COUNT(*) FROM runtime_message_inbox WHERE status='ISOLATED' AND error_code='CELL_ROUTE_CHANGED' AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.eventId'))='ROUTE-STALE'")==1
+                            &&count(sqlA,"SELECT COUNT(*) FROM runtime_message_inbox WHERE status='ISOLATED' AND error_code='CELL_ROUTE_UNREGISTERED'")==1
+                            &&count(sqlB,"SELECT COUNT(*) FROM runtime_message_inbox WHERE status='ISOLATED' AND error_code='CELL_ROUTE_UNREGISTERED'")==1,
+                            25,"未知仓或陈旧代际未保留隔离证据",pa,pb,pf,po);
+                    assertEquals(0,count(sqlA,"SELECT COUNT(*) FROM stock_command WHERE command_id='ROUTE-STALE'"));
+                    assertEquals(1,sqlA.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE quality_code='HOLD'",BigDecimal.class).intValueExact());
+                }
             }
         } finally {stop(pf);stop(pa);stop(pb);stop(po);jwks.stop(0);Files.deleteIfExists(tokens.resolve(RuntimeMessage.hash("ENT")+".jwt"));Files.deleteIfExists(tokens);}
     }
+    private static RuntimeMessage receipt(String wh,String command) {
+        var body=new LinkedHashMap<String,Object>();body.put("commandId",command);body.put("action","RECEIVE");body.put("qty","1");
+        body.put("factParentId","RECEIPT-"+command);body.put("factPartId","PART");body.put("factLineId","L1");body.put("actorId","operator");body.put("sourceExecutionId","EXEC-"+command);
+        body.put("postingContext",new com.lrj.wms.contract.messaging.StockPostingContext("DOC-"+command,"OWNER","SKU","EA","LOC",null,"NO_LOT","HOLD",null,null));
+        return new RuntimeMessage(1,command,"wms-inbound","ENT",wh,"StockCommandRequested",command,1,"2026-09-13T00:00:00Z",command,RuntimeMessage.JSON.readTree(RuntimeMessage.JSON.writeValueAsString(body)));
+    }
+    private static String routing(){return RuntimeMessage.JSON.writeValueAsString(Map.of("schemaVersion",1,"routes",List.of(
+            Map.of("enterpriseId","ENT","warehouseId","A","cellId","A","routeEpoch",1),
+            Map.of("enterpriseId","ENT","warehouseId","B","cellId","B","routeEpoch",1))));}
     private static MySQLContainer mysql(String db){return new MySQLContainer("mysql:8.4.11").withDatabaseName(db).withUsername("wms").withPassword(UUID.randomUUID().toString());}
     private Process start(Path root,String service,MySQLContainer db,KafkaContainer kafka,int port,String issuer,Path logs,String name,List<String> args)throws Exception{return start(root,service,db,kafka,port,issuer,logs,name,args,Map.of());}
     private Process start(Path root,String service,MySQLContainer db,KafkaContainer kafka,int port,String issuer,Path logs,String name,List<String> args,Map<String,String> extra)throws Exception{
