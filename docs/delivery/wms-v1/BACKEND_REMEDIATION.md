@@ -266,3 +266,9 @@ Try与TC证据是本消息测试明确提供的夹具，真实TC只读适配已�
 证据：/tmp/wms-outbound-bucket-final-it.log 2026-09-13 02:49:43 BUILD SUCCESS，出库双进程1、预占身份/并发/201分批真实MySQL3、入库分批双进程1、出库HTTP1/领域5/协议2及单元通过。最终回执信封与状态URL修正后，/tmp/wms-outbound-replay-final-it.log 02:51:39 BUILD SUCCESS，重新构建入库/出库/库存Jar，出库双进程1与HTTP1再通过。测试覆盖最后Outbox/Inbox写失败的全事务回滚、重启恢复、重复/换桶拒绝、错误来源动作/回执信封隔离。控制台33用例/typecheck/build通过，最后数量字段定向测试/build通过。默认必需用例74项。
 
 预占Try/Confirm和TC授权是该消息测试明确提供的夹具，不能据此声称真实履约TM/RM和授权传播完成。序列号PICK/SHIP需后续观察身份链；CANCEL不更改序列号。可信来源水位、盘点逐身份登记及最终组合CI继续实施。
+
+## 2026-09-13 当前阶段组合验证
+
+业务源码c5348d2通过全仓clean verify：108个测试类、223用例，失败/错误/跳过均0，默认必需74项通过；四个实际Jar独立进程smoke通过。failure-it3项及必需门禁通过，warehouse-it12和tc-it2复用同一未变test-support的通过证据，远程CI仍将重跑。Compose出库消息前缀已统一为环境配置，默认和自定义值验证通过。SBOM更新为173组件/163个purl，OSV仍为原有2项命中，未静默升级依赖。
+
+详细范围和日志索引见[阶段组合验证](../../implementation/REMEDIATION_VERIFICATION_2026-09-13.md)。准备正常推送这11个已验证逻辑切片及验证记录到远程main；本地通过不替代远程CI。R22代码与当前组合证据完成；R13/R14/R15剩余序列号观察、逐身份盘点、可信水位、正式TM/RM与授权传播继续执行。未部署生产、未转换共享历史数据，不代表50AC全部验收。

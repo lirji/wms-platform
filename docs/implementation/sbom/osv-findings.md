@@ -3,14 +3,14 @@
 由 `scripts/generate-sbom.sh` 根据 CycloneDX BOM 查询 [OSV](https://osv.dev)。
 这是一次有日期的只读快照，不是生产漏洞签署，也不自动升级依赖。
 
-- 扫描日期：2026-09-12
-- 组件数：172
-- 查询 purl 数：162
+- 扫描日期：2026-09-13
+- 组件数：173
+- 查询 purl 数：163
 - 命中记录：2
 
 ## 许可证计数（BOM 声明）
 
-- Apache-2.0: 151
+- Apache-2.0: 152
 - MIT: 5
 - EPL-2.0: 3
 - LGPL-2.1-only: 2

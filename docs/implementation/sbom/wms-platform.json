@@ -4,7 +4,7 @@
   "serialNumber" : "urn:uuid:59769f46-3178-39b8-bd64-5395c5d03b97",
   "version" : 1,
   "metadata" : {
-    "timestamp" : "2026-09-12T14:36:57Z",
+    "timestamp" : "2026-09-12T19:14:04Z",
     "lifecycles" : [
       {
         "phase" : "build"
@@ -6927,9 +6927,9 @@
     },
     {
       "type" : "library",
-      "bom-ref" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
+      "bom-ref" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
       "group" : "com.lrj.wms",
-      "name" : "wms-inventory",
+      "name" : "wms-fulfillment",
       "version" : "0.1.0-SNAPSHOT",
       "description" : "Parent pom providing dependency and plugin management for applications built with Maven",
       "licenses" : [
@@ -6939,89 +6939,15 @@
           }
         }
       ],
-      "purl" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
+      "purl" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
       "externalReferences" : [
         {
           "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot/wms-platform/wms-inventory"
+          "url" : "https://spring.io/projects/spring-boot/wms-platform/wms-fulfillment"
         },
         {
           "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-inventory"
-        }
-      ]
-    },
-    {
-      "type" : "library",
-      "bom-ref" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
-      "publisher" : "MyBatis.org",
-      "group" : "org.mybatis",
-      "name" : "mybatis-spring",
-      "version" : "3.0.5",
-      "description" : "An easy-to-use Spring bridge for MyBatis sql mapping framework.",
-      "scope" : "required",
-      "hashes" : [
-        {
-          "alg" : "MD5",
-          "content" : "50f6456f771f3fadb8ca4981c3967368"
-        },
-        {
-          "alg" : "SHA-1",
-          "content" : "8718fbef43de30ce121669245143dbc1b5400083"
-        },
-        {
-          "alg" : "SHA-256",
-          "content" : "5a9bcbc3e6d7586a1a301177b9a355a4c46080c0c6a568b8c434fae027fa3e3b"
-        },
-        {
-          "alg" : "SHA-512",
-          "content" : "bd2577654e83d6d6def4158665b6a57acc6cf39ed7567c76eca8ee90e65a8bee3153a78bcce20e2280ce9d0da22da28152bc7e145d6edf9bc36ee3b46ec74ea2"
-        },
-        {
-          "alg" : "SHA-384",
-          "content" : "121869bef5f50eaa0925b7d0ed1b06bf3d21333c5f35565a60b7fe667df5f5fb39b2a3abc08be9dd20bc7b9e708e7e44"
-        },
-        {
-          "alg" : "SHA3-384",
-          "content" : "90b92783edd0ccf5d713c904bdd8217d913dad7a69556916093cf374f333abb88d9f812194264e758eac6e6cd363d00f"
-        },
-        {
-          "alg" : "SHA3-256",
-          "content" : "0d8d12dff28be6e4f15a2e4606e6eb95259242f41d49e4f7e77788b63ee16b1e"
-        },
-        {
-          "alg" : "SHA3-512",
-          "content" : "2a23de8dd0ef5f94a843149e5b758f9c75ea218b11ecf1600d270cafe17a7bcb02913a2458f66f8a1ed1e8a36a13e50ab9593f8191821fbc6a46d41888194b8f"
-        }
-      ],
-      "licenses" : [
-        {
-          "license" : {
-            "id" : "Apache-2.0"
-          }
-        }
-      ],
-      "purl" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
-      "externalReferences" : [
-        {
-          "type" : "website",
-          "url" : "https://www.mybatis.org/spring/"
-        },
-        {
-          "type" : "build-system",
-          "url" : "https://github.com/mybatis/spring/actions"
-        },
-        {
-          "type" : "issue-tracker",
-          "url" : "https://github.com/mybatis/spring/issues"
-        },
-        {
-          "type" : "mailing-list",
-          "url" : "https://groups.google.com/forum/#!forum/mybatis-dev"
-        },
-        {
-          "type" : "vcs",
-          "url" : "https://github.com/mybatis/spring/"
+          "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-fulfillment"
         }
       ]
     },
@@ -10958,6 +10884,68 @@
     },
     {
       "type" : "library",
+      "bom-ref" : "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
+      "publisher" : "Google LLC",
+      "group" : "com.google.errorprone",
+      "name" : "error_prone_annotations",
+      "version" : "2.21.1",
+      "description" : "Error Prone is a static analysis tool for Java that catches common programming mistakes at compile-time.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "75fe4fe33d308dd6cee3b601de902d27"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "6d9b10773b5237df178a7b3c1b4208df7d0e7f94"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "d1f3c66aa91ac52549e00ae3b208ba4b9af7d72d68f230643553beb38e6118ac"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "530318bcdf1ed8eeee408fc5a0775f1792cbf012b4ec55217a4498c8d2983b230a4d071b9e115565b0411faa51dd938823d9b619beb6786212c375ad3d1ebd8a"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "88e628431966a9b5cc19f96159874cefde1558e51d2ce233a0c2d47914eb9c6256f95882605a87cc6629a21ff70b72b4"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "ebc750b211532fef9a84c3682d47f00b877e4082716ead1f4f883f02ab35bda8d5acfc475722215c4fe6ed9cfd54f43a"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "9b4f193bf2f541844c6b1b5cf2d1c7f6e9465b97804d155f34530b203184e1ae"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "1d76781cef387a185fd4fb69960394556062969bbbe0be74d0fb11f7c73758e5d35ff546ab04f6382c21c63705a1ffb975a549bf4d846fde54e412ecd4641485"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://errorprone.info/error_prone_annotations"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/google/error-prone/error_prone_annotations"
+        }
+      ]
+    },
+    {
+      "type" : "library",
       "bom-ref" : "pkg:maven/com.google.j2objc/j2objc-annotations@2.8?type=jar",
       "group" : "com.google.j2objc",
       "name" : "j2objc-annotations",
@@ -11049,9 +11037,9 @@
     },
     {
       "type" : "library",
-      "bom-ref" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
+      "bom-ref" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
       "group" : "com.lrj.wms",
-      "name" : "wms-fulfillment",
+      "name" : "wms-inventory",
       "version" : "0.1.0-SNAPSHOT",
       "description" : "Parent pom providing dependency and plugin management for applications built with Maven",
       "licenses" : [
@@ -11061,15 +11049,89 @@
           }
         }
       ],
-      "purl" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
+      "purl" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
       "externalReferences" : [
         {
           "type" : "website",
-          "url" : "https://spring.io/projects/spring-boot/wms-platform/wms-fulfillment"
+          "url" : "https://spring.io/projects/spring-boot/wms-platform/wms-inventory"
         },
         {
           "type" : "vcs",
-          "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-fulfillment"
+          "url" : "https://github.com/spring-projects/spring-boot/wms-platform/wms-inventory"
+        }
+      ]
+    },
+    {
+      "type" : "library",
+      "bom-ref" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
+      "publisher" : "MyBatis.org",
+      "group" : "org.mybatis",
+      "name" : "mybatis-spring",
+      "version" : "3.0.5",
+      "description" : "An easy-to-use Spring bridge for MyBatis sql mapping framework.",
+      "scope" : "required",
+      "hashes" : [
+        {
+          "alg" : "MD5",
+          "content" : "50f6456f771f3fadb8ca4981c3967368"
+        },
+        {
+          "alg" : "SHA-1",
+          "content" : "8718fbef43de30ce121669245143dbc1b5400083"
+        },
+        {
+          "alg" : "SHA-256",
+          "content" : "5a9bcbc3e6d7586a1a301177b9a355a4c46080c0c6a568b8c434fae027fa3e3b"
+        },
+        {
+          "alg" : "SHA-512",
+          "content" : "bd2577654e83d6d6def4158665b6a57acc6cf39ed7567c76eca8ee90e65a8bee3153a78bcce20e2280ce9d0da22da28152bc7e145d6edf9bc36ee3b46ec74ea2"
+        },
+        {
+          "alg" : "SHA-384",
+          "content" : "121869bef5f50eaa0925b7d0ed1b06bf3d21333c5f35565a60b7fe667df5f5fb39b2a3abc08be9dd20bc7b9e708e7e44"
+        },
+        {
+          "alg" : "SHA3-384",
+          "content" : "90b92783edd0ccf5d713c904bdd8217d913dad7a69556916093cf374f333abb88d9f812194264e758eac6e6cd363d00f"
+        },
+        {
+          "alg" : "SHA3-256",
+          "content" : "0d8d12dff28be6e4f15a2e4606e6eb95259242f41d49e4f7e77788b63ee16b1e"
+        },
+        {
+          "alg" : "SHA3-512",
+          "content" : "2a23de8dd0ef5f94a843149e5b758f9c75ea218b11ecf1600d270cafe17a7bcb02913a2458f66f8a1ed1e8a36a13e50ab9593f8191821fbc6a46d41888194b8f"
+        }
+      ],
+      "licenses" : [
+        {
+          "license" : {
+            "id" : "Apache-2.0"
+          }
+        }
+      ],
+      "purl" : "pkg:maven/org.mybatis/mybatis-spring@3.0.5?type=jar",
+      "externalReferences" : [
+        {
+          "type" : "website",
+          "url" : "https://www.mybatis.org/spring/"
+        },
+        {
+          "type" : "build-system",
+          "url" : "https://github.com/mybatis/spring/actions"
+        },
+        {
+          "type" : "issue-tracker",
+          "url" : "https://github.com/mybatis/spring/issues"
+        },
+        {
+          "type" : "mailing-list",
+          "url" : "https://groups.google.com/forum/#!forum/mybatis-dev"
+        },
+        {
+          "type" : "vcs",
+          "url" : "https://github.com/mybatis/spring/"
         }
       ]
     },
@@ -11110,9 +11172,9 @@
         "pkg:maven/com.lrj.wms/wms-inbound@0.1.0-SNAPSHOT?type=jar",
         "pkg:maven/com.lrj.wms/wms-integration@0.1.0-SNAPSHOT?type=jar",
         "pkg:maven/com.lrj.wms/wms-outbound@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
         "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
         "pkg:maven/com.lrj.wms/wms-test-support@0.1.0-SNAPSHOT?type=jar"
       ]
     },
@@ -11123,6 +11185,7 @@
     {
       "ref" : "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
+        "pkg:maven/com.lrj.wms/wms-contract@0.1.0-SNAPSHOT?type=jar",
         "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
         "pkg:maven/org.apache.kafka/kafka-clients@3.9.2?type=jar",
         "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
@@ -11859,6 +11922,37 @@
       "dependsOn" : [ ]
     },
     {
+      "ref" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+        "pkg:maven/com.xuxueli/xxl-job-core@3.4.2?type=jar",
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
+        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
+      ]
+    },
+    {
+      "ref" : "pkg:maven/com.google.errorprone/error_prone_annotations@2.21.1?type=jar",
+      "dependsOn" : [ ]
+    },
+    {
+      "ref" : "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
+      "dependsOn" : [
+        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
+        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
+        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
+        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
+        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
+        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
+      ]
+    },
+    {
       "ref" : "pkg:maven/com.lrj.wms/wms-inventory@0.1.0-SNAPSHOT?type=jar",
       "dependsOn" : [
         "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
@@ -12274,32 +12368,6 @@
     {
       "ref" : "pkg:maven/net.bytebuddy/byte-buddy@1.18.11?type=jar",
       "dependsOn" : [ ]
-    },
-    {
-      "ref" : "pkg:maven/com.lrj.wms/wms-serial-registry@0.1.0-SNAPSHOT?type=jar",
-      "dependsOn" : [
-        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
-        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
-        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
-      ]
-    },
-    {
-      "ref" : "pkg:maven/com.lrj.wms/wms-fulfillment@0.1.0-SNAPSHOT?type=jar",
-      "dependsOn" : [
-        "pkg:maven/com.lrj.wms/wms-runtime@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/com.lrj.wms/wms-security@0.1.0-SNAPSHOT?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-webmvc@4.1.1?type=jar",
-        "pkg:maven/org.springframework.boot/spring-boot-starter-actuator@4.1.1?type=jar",
-        "pkg:maven/com.xuxueli/xxl-job-core@3.4.2?type=jar",
-        "pkg:maven/org.mybatis/mybatis@3.5.19?type=jar",
-        "pkg:maven/org.springframework/spring-jdbc@7.0.9?type=jar",
-        "pkg:maven/com.mysql/mysql-connector-j@9.7.0?type=jar",
-        "pkg:maven/org.flywaydb/flyway-mysql@12.4.0?type=jar"
-      ]
     },
     {
       "ref" : "pkg:maven/com.lrj.wms/wms-test-support@0.1.0-SNAPSHOT?type=jar",

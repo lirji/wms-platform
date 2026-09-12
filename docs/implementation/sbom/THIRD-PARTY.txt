@@ -1,5 +1,5 @@
 
-Lists of 304 third-party dependencies.
+Lists of 309 third-party dependencies.
      (Public Domain) AOP alliance (aopalliance:aopalliance:1.0 - http://aopalliance.sourceforge.net)
      (Apache License, Version 2.0) LZ4 Java Compression (at.yawk.lz4:lz4-java:1.11.1 - https://github.com/yawkat/lz4-java)
      (EPL-2.0) (LGPL-2.1-only) Logback Classic Module (ch.qos.logback:logback-classic:1.5.38 - http://logback.qos.ch/logback-classic)
@@ -22,6 +22,7 @@ Lists of 304 third-party dependencies.
      (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.5.6-4 - https://github.com/luben/zstd-jni)
      (The Apache Software License, Version 2.0) FindBugs-jsr305 (com.google.code.findbugs:jsr305:3.0.2 - http://findbugs.sourceforge.net/)
      (Apache-2.0) Gson (com.google.code.gson:gson:2.13.2 - https://github.com/google/gson)
+     (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.21.1 - https://errorprone.info/error_prone_annotations)
      (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.36.0 - https://errorprone.info/error_prone_annotations)
      (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.49.0 - https://errorprone.info/error_prone_annotations)
      (The Apache Software License, Version 2.0) Guava InternalFutureFailureAccess and InternalFutures (com.google.guava:failureaccess:1.0.1 - https://github.com/google/guava/failureaccess)
@@ -33,9 +34,13 @@ Lists of 304 third-party dependencies.
      (The Apache Software License, Version 2.0) JSON.simple (com.googlecode.json-simple:json-simple:1.1.1 - http://code.google.com/p/json-simple/)
      (Unicode/ICU License) ICU4J (com.ibm.icu:icu4j:61.1 - http://icu-project.org/)
      (The Apache Software License, Version 2.0) json-path (com.jayway.jsonpath:json-path:2.10.0 - https://github.com/jayway/JsonPath)
+     (Apache License, Version 2.0) wms-contract (com.lrj.wms:wms-contract:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-contract)
+     (Apache License, Version 2.0) wms-fulfillment (com.lrj.wms:wms-fulfillment:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-fulfillment)
      (Apache License, Version 2.0) wms-integration (com.lrj.wms:wms-integration:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-integration)
+     (Apache License, Version 2.0) wms-outbound (com.lrj.wms:wms-outbound:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-outbound)
      (Apache License, Version 2.0) wms-runtime (com.lrj.wms:wms-runtime:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-runtime)
      (Apache License, Version 2.0) wms-security (com.lrj.wms:wms-security:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-security)
+     (Apache License, Version 2.0) wms-serial-registry (com.lrj.wms:wms-serial-registry:0.1.0-SNAPSHOT - https://spring.io/projects/spring-boot/wms-platform/wms-serial-registry)
      (The GNU General Public License, v2 with Universal FOSS Exception, v1.0) MySQL Connector/J (com.mysql:mysql-connector-j:9.7.0 - http://dev.mysql.com/doc/connector-j/en/)
      (The Apache Software License, Version 2.0) Nimbus JOSE+JWT (com.nimbusds:nimbus-jose-jwt:10.9.1 - https://bitbucket.org/connect2id/nimbus-jose-jwt)
      (Apache License, Version 2.0) config (com.typesafe:config:1.2.1 - https://github.com/typesafehub/config)
