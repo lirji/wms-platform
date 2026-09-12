@@ -11,7 +11,7 @@
 - 来源：已批准 DELIVERY_PLAN；持续 Git 发布；用户要求做到 S9 / 50 AC 且不必逐步确认。
 - 测试目标：localhost / Testcontainers MySQL 8.4.11。
 - 排除：生产部署、共享 dev-infra、编造 OQ-03、把 simulator 当真实设备、把合成峰值当签署容量。
-- 本轮用户要求把任务分支合入远程 main；当时没有进行中的 main verify。
+- 本轮用户要求把任务分支合入远程 main，并明确要求不等待进行中的 main verify。
 
 ## 门禁
 
@@ -19,12 +19,12 @@
 | --- | --- | --- |
 | EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
-| Git发布 | pass（本切片） | 用户授权快进合入：`feat/console-ops-density` 含 F6/F7（`4f63771`） |
+| Git发布 | pass（本切片） | 用户授权快进合入：`feat/seed-demo-ops` 已在远程 main `38ef86e` |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
 
 ## 本轮
 
-- 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。任务提交 `9d6d8f1`。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。
+- 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。已发布远程 main `38ef86e`。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。
 - `requireWritable` 不再把分片未声明/缺表伪装成停写；`TccFenceShardingIT` 纳入 `warehouse_route`。
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。
@@ -40,6 +40,6 @@
 
 ## 未完成
 
-- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。上一轮 main verify `34683583780` 已取消，本轮在无进行中 main verify 时推送。
+- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。用户要求直接推送后，进行中的 main verify `34687401763` 会被取消；新 verify `34689045437` 尚未核验。
 
 无生产部署。
