@@ -2,6 +2,7 @@ package com.lrj.wms.inventory.migrate;
 
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
@@ -40,25 +41,68 @@ public final class WarehouseMigrationService {
         this.clock = clock;
     }
 
-    /** 无路由行不拦截；已纳入迁移的非 ACTIVE 仓拒绝业务写。用 JDBC 以免未注册 Mapper 的 IT 崩溃。 */
+    /**
+     * 无路由行或不存在路由表/分片规则时不拦截；已纳入迁移的非 ACTIVE 仓拒绝业务写。
+     * 已注册 Mapper 时走 Mapper，避免未纳入分片规则的裸 JDBC 被误判为停写。
+     */
     public static void requireWritable(SqlSession session, String enterpriseId, String warehouseId) {
+        String state;
+        try {
+            state = readRouteState(session, enterpriseId, warehouseId);
+        } catch (InventoryException error) {
+            throw error;
+        } catch (Exception error) {
+            if (isAbsentRouteControl(error)) {
+                return;
+            }
+            throw new InventoryException("STALE_ROUTE", "读取仓路由失败: " + rootMessage(error));
+        }
+        if (state == null || state.isBlank() || "null".equals(state)) {
+            return;
+        }
+        if (!ACTIVE.equals(state)) {
+            throw new InventoryException("STALE_ROUTE", "仓路由已停写或已切走，拒绝旧库写入");
+        }
+    }
+
+    private static String readRouteState(SqlSession session, String enterpriseId, String warehouseId)
+            throws Exception {
+        if (session.getConfiguration().hasMapper(WarehouseRouteMapper.class)) {
+            Map<String, Object> row = session.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId);
+            return row == null ? null : string(row.get("state"));
+        }
         try (var statement = session.getConnection().prepareStatement(
                 "SELECT state FROM warehouse_route WHERE enterprise_id=? AND warehouse_id=?")) {
             statement.setString(1, enterpriseId);
             statement.setString(2, warehouseId);
             try (var rows = statement.executeQuery()) {
-                if (!rows.next()) {
-                    return;
-                }
-                if (!ACTIVE.equals(rows.getString(1))) {
-                    throw new InventoryException("STALE_ROUTE", "仓路由已停写或已切走，拒绝旧库写入");
-                }
+                return rows.next() ? rows.getString(1) : null;
             }
-        } catch (InventoryException error) {
-            throw error;
-        } catch (Exception error) {
-            throw new InventoryException("STALE_ROUTE", "读取仓路由失败");
         }
+    }
+
+    static boolean isAbsentRouteControl(Throwable error) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (current instanceof SQLException sql && "42S02".equals(sql.getSQLState())) {
+                return true;
+            }
+            String text = String.valueOf(current.getMessage()).toLowerCase();
+            if (text.contains("doesn't exist") || text.contains("does not exist") || text.contains("unknown table")
+                    || text.contains("cannot find table") || text.contains("can not find table")
+                    || text.contains("no table rule") || text.contains("table rule of")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String rootMessage(Throwable error) {
+        Throwable current = error;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
     }
 
     public Map<String, Object> prepare(String enterpriseId, String warehouseId, String sourceCell, String targetCell) {

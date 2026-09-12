@@ -13,6 +13,7 @@ import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -98,6 +99,7 @@ class TccFenceShardingIT {
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
+        config.addMapper(WarehouseRouteMapper.class);
         SqlSessionFactory sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         template = new TransactionTemplate(
@@ -303,8 +305,8 @@ class TccFenceShardingIT {
 
     private static String yaml(String warehouse) {
         StringBuilder tables = new StringBuilder();
-        for (String table : List.of("warehouse", "location", "location_gate", "stock_balance", "stock_ledger",
-                "reservation", "reservation_line", "outbox_event", "command_dedup")) {
+        for (String table : List.of("warehouse", "location", "location_gate", "warehouse_route", "stock_balance",
+                "stock_ledger", "reservation", "reservation_line", "outbox_event", "command_dedup")) {
             tables.append("      ").append(table).append(":\n        actualDataNodes: cell.").append(table)
                     .append("\n        databaseStrategy:\n          standard:\n            shardingColumn: warehouse_id\n")
                     .append("            shardingAlgorithmName: cell_route\n");
