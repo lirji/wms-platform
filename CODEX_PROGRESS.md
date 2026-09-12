@@ -7,9 +7,9 @@
 ## 已完成
 
 - 远程main与任务分支fix/backend-serial-remediation已发布至545ae48：普通消息闭环/按收货分批质量上架、实际TM/TC/原生RM及履约执行恢复、多cell消息路由、序列收货批次/身份质检/分次上架/源释放可靠恢复。
-- 34cc417原分支和main CI均完整成功。545ae48新任务分支CI34719958715已成功；main CI34719965152仍运行，结束前不能推main取消它。
-- HEAD f30eb4a盘点完整身份输入已提交未推，空集合、原轮次/原身份重放、整数版本和实际HTTP已验证，最终24IT/四Jar smoke通过。
-- 当前WIP逐身份盘点：V040两表及52表迁移；不可变行原操作/主体/观察/身份快照；逐SN事务外登记、持久DONE凭证，齐备READY后原行数量/身份/流水/APPLIED同事务。原生FOUND写实际epoch与receipt操作，保存原历史。
+- 34cc417原分支和main CI均完整成功。545ae48任务分支CI34719958715与main CI34719965152均已成功。
+- f30eb4a盘点完整身份输入及5fadba4逐身份恢复均已推fix/backend-serial-remediation；该分支CI34721451349运行。输入，空集合、原轮次/原身份重放、整数版本和实际HTTP已验证，最终24IT/四Jar smoke通过。
+- 5fadba4已提交逐身份盘点：V040两表及52表迁移；不可变行原操作/主体/观察/身份快照；逐SN事务外登记、持久DONE凭证，齐备READY后原行数量/身份/流水/APPLIED同事务。原生FOUND写实际epoch与receipt操作，保存原历史。
 - 第二轮63452于05:53:16结束：31IT中30通过；实际登记Jar丢激活回执和最后本地写失败后恢复通过，租约接管解冻后旧回执无更新通过，迁移新表完整数据通过。唯一失败为HTTP测试使用不存在count.apply权限，被正确403拒绝；已按原契约修正adjustment.apply，未放宽服务权限。
 
 ## 已修改文件
@@ -31,7 +31,7 @@
 
 ## 当前问题
 
-- 唯一工作树/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，所有exec显式workdir；分支fix/backend-serial-remediation，HEAD f30eb4a，remote545ae48。根用户工作树main f9710ef保持不动。
+- 唯一工作树/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，所有exec显式workdir；分支fix/count-serial-reservation从5fadba4建立，以保留5fadba4正在运行的旧分支CI。remote main545ae48当前CI已成功，本保护切片本地11IT/109门禁通过，准备将三提交正常发布main。根用户工作树main f9710ef保持不动。
 - 所有集成测试仅隔离Testcontainers；真实登记进程测试的库存侧由测试JVM调用，不称公开全链。没有其他Maven、smoke或Git会话。
 - 真实登记首次epoch=1（0仍是合法协议值），历史MISSING后FOUND为2；已修复新夹具原来误用0，没改服务规则。C3本地MISSING夹具epoch1。
 - PRESENT也先等待原收货/转移授权，再固定快照；不能先固化HOLD的0然后授权1导致永久冲突。等待不耗行预算；包括旧执行器在计划COMPLETED后回执，已无更新退出。
@@ -50,3 +50,9 @@
 ## 恢复 Prompt
 
 请读取本文件，在唯一工作树fix/backend-serial-remediation继续。先确认唯一Maven60291和/tmp/wms-count-route-final-it.log；禁止构建中编辑源码。完成盘点逐身份切片，继续R13/R14/R15/R22剩余，不重复已发布工作，不等我“继续”。
+
+## 当前独立占用保护收尾（优先）
+
+19432已06:00:56 SUCCESS11IT，/tmp/wms-count-reserved-it.log；必需109。有MISSING且桶有reserved/free_execution_claim时，stage在任何远程登记前拒绝，validateLocal最终再核对，防净零数量身份替换撤销已占用SN授权。CountSerialIT新增实际数据库前置失败/无意图/解除后继续测试。
+当前准备提交fix/count-serial-reservation（依赖5fadba4），推新任务分支后立即fetch并正常推HEAD:main，545 main CI已结束可推。不要推5fad旧分支取消它的CI。
+另有未跟踪docs/implementation/SERIAL_OUTBOUND_DESIGN.md，是下一序列PICK/SHIP设计，明确未实施；不要混入本占用修复提交。原收货/质量/上架/源释放和盘点已完成阶段不重做，继续按该设计接通序列PICK/SHIP、可信水位等。

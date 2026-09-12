@@ -228,6 +228,26 @@ class CountSerialIT {
             assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> new CountService(session,clock,registry).observeIdentities("INPUT-ROLLBACK","WH-INPUT-ROLLBACK","CP-INPUT-ROLLBACK",line,"OBS-ROLLBACK","0","ACTOR",1,List.of())).code());session.rollback();
         }
     }
+    @Test void netZeroIdentityReplacementCannotMarkMissingFromOccupiedBucket() {
+        var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String e="RESERVED-SN",w="WH-RESERVED-SN",plan="CP-RESERVED-SN",line=serialCountFixture(e,registry,clock);
+        try(var session=sessions.openSession(false)) {
+            var counts=new CountService(session,clock);counts.observeIdentities(e,w,plan,line,"OBS-RESERVED-SN","2","counter",1,List.of("RESERVED-SN-A","RESERVED-SN-C"));
+            counts.submitReview(e,w,plan);counts.approve(e,w,plan,"APPROVAL-RESERVED-SN","approver");session.commit();
+        }
+        // 隔离的占用状态夹具，分别验证预占与设备自由执行领取；不以此证明真实TCC授权链。
+        for(String field:List.of("reserved_qty","free_execution_claim_qty")) {
+            jdbc.update("UPDATE stock_balance SET "+field+"=1 WHERE enterprise_id=?",e);
+            try(var session=sessions.openSession(false)) {
+                assertEquals("COUNT_SERIAL_RESERVED_CONFLICT",assertThrows(InventoryException.class,() -> new CountSerialAdjustmentService(session,clock).stage(e,w,plan,line,"RESERVED-OP","operator")).code());session.rollback();
+            }
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM count_adjustment_intent WHERE enterprise_id=?",Integer.class,e));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM count_serial_intent WHERE enterprise_id=?",Integer.class,e));
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE enterprise_id=? AND state='AUTHORIZED'",Integer.class,e));
+            jdbc.update("UPDATE stock_balance SET "+field+"=0 WHERE enterprise_id=?",e);
+        }
+        try(var session=sessions.openSession(false)) {assertEquals("PENDING",new CountSerialAdjustmentService(session,clock).stage(e,w,plan,line,"RESERVED-OP","operator").get("state"));session.commit();}
+    }
     @Test void presentReceiptMustAuthorizeBeforeAdjustmentSnapshotWithoutBurningRowBudget() {
         var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
         String e="PRESENT",w="WH-PRESENT",plan="CP-PRESENT",line=serialCountFixture(e,registry,clock);

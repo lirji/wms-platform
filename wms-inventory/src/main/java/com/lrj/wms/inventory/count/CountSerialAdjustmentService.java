@@ -42,6 +42,8 @@ public final class CountSerialAdjustmentService {
         var input=RuntimeMessage.JSON.readValue(String.valueOf(observed.get("serial_input_json")),com.lrj.wms.contract.messaging.SerialCountObservation.class);
         input.requireQuantity(new BigDecimal(line.get("counted_qty").toString()));
         var sightings=counts.listObservationSerials(e,w,observation);
+        // 预占尚未绑定具体SN时，不能猜测盘亏的是自由身份；尤其净数量不变的替换也会撤销原授权。
+        requireUnoccupiedMissing(balance,sightings.stream().anyMatch(row -> "MISSING".equals(row.get("presence_code"))));
         if(sightings.size()>400) throw new InventoryException("COUNT_SERIAL_BATCH_LIMIT","盘点身份超过恢复预算");
         var locals=session.getMapper(LocalSerialMapper.class);var identities=new ArrayList<Map<String,Object>>();
         var baseline=new TreeSet<String>();var seen=new TreeSet<String>();
@@ -114,6 +116,7 @@ public final class CountSerialAdjustmentService {
         var balance=session.getMapper(InventoryMapper.class).lockBalanceById(e,w,context.get("balanceId").toString());
         if(balance==null || new BigDecimal(balance.get("on_hand_qty").toString()).compareTo(new BigDecimal(context.get("onHand").toString()))!=0)
             throw new InventoryException("COUNT_SERIAL_CONTEXT_CONFLICT","登记期间原桶实物量已改变");
+        requireUnoccupiedMissing(balance,((List<Map<String,Object>>)context.get("identities")).stream().anyMatch(row -> "MISSING".equals(row.get("kind"))));
         var locals=session.getMapper(LocalSerialMapper.class);var baseline=new TreeSet<String>();
         for(var item:(List<Map<String,Object>>)context.get("identities")) {
             String serial=item.get("serial").toString(),kind=item.get("kind").toString();var before=(Map<String,Object>)item.get("local");var current=snapshot(locals.lock(e,w,serial));
@@ -122,6 +125,11 @@ public final class CountSerialAdjustmentService {
                 throw new InventoryException("COUNT_SERIAL_CONTEXT_CONFLICT","在途登记期间原身份发生变化，拒绝旧凭证落地");
         }
         requireBaseline(counts,e,w,context.get("balanceId").toString(),baseline);
+    }
+    private static void requireUnoccupiedMissing(Map<String,Object> balance,boolean missing) {
+        if(missing && (new BigDecimal(balance.get("reserved_qty").toString()).signum()>0
+                || new BigDecimal(balance.get("free_execution_claim_qty").toString()).signum()>0))
+            throw new InventoryException("COUNT_SERIAL_RESERVED_CONFLICT","盘亏涉及已占用桶，先释放或重分配后再登记身份，不能等量替换绕过");
     }
     private static Map<String,Object> snapshot(Map<String,Object> local) {
         if(local==null) return null;
