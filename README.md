@@ -35,4 +35,4 @@
 
 ## 实施入口
 
-S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`（复制 `.env.example` 为 `.env` 后启动）；不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 在显式 JDBC 时迁移并提供主数据只读 HTTP；OIDC issuer 为空则业务接口拒绝。本地 Casdoor 开通脚本在 auth-platform `deploy/wms-platform-provision.py`。尚未开始 `wms-console/`。
+S0实际命令见[本地运行手册](docs/implementation/S0_RUNBOOK.md)，候选版本与尚未完成的验证见[版本记录](docs/implementation/VERSION_LOCK.md)。隔离本地中间件见 `deploy/compose.local.yml`；容器内编译启动应用见根目录 `compose.yaml` 与 `deploy/up.sh`（复制 `.env.example` 为 `.env` 后启动）。不修改共享 dev-infra，也不把编排起来当作业务验收。inventory 在显式 JDBC 时迁移并提供主数据只读 HTTP；OIDC issuer 为空则业务接口拒绝。本地 Casdoor 开通脚本在 auth-platform `deploy/wms-platform-provision.py`。`wms-console/` 已创建；未配置 OIDC 时停在登录/配置态。

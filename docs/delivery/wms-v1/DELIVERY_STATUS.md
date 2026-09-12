@@ -28,6 +28,7 @@
 - `requireWritable` 不再把分片未声明/缺表伪装成停写；`TccFenceShardingIT` 纳入 `warehouse_route`。
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。
+- 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console；隔离项目 `wms-local`。健康 UP / 未配 OIDC 的 403 已核。不是 S9-05 或设备验收。
 
 ## 未完成
 

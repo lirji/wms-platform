@@ -6,15 +6,19 @@ JDK21、Docker及网络可用；普通服务端口默认只监听127.0.0.1。测
 
 ## 隔离本地中间件
 
-`deploy/compose.local.yml` 是 WMS 自有栈：三套 MySQL（应用/Cell A/Cell B）、Kafka 3.8.0、Redis 7、Seata Server 2.6.0、XXL-JOB admin 3.4.2。不加入 sibling `/Users/liruijun/personal/LLM/dev-infra` 网络，不 `depends_on` 共享容器，不修改该仓库。ordinary 共享实例仍在 dev-infra（MySQL 宿主 43306、Redis 46379、Kafka 49092、MinIO 49000/49001）。Seata 不在 dev-infra；XXL 不共用 drools-demo 的 18088 / mysql 3307。本编排不启动 inbound/outbound/inventory JAR，也不创建业务表。
+`deploy/compose.local.yml` 是 WMS 自有中间件：三套 MySQL（应用/Cell A/Cell B）、Kafka 3.8.0、Redis 7、Seata Server 2.6.0、XXL-JOB admin 3.4.2。不加入 sibling `/Users/liruijun/personal/LLM/dev-infra` 网络，不 `depends_on` 共享容器，不修改该仓库。ordinary 共享实例仍在 dev-infra（MySQL 宿主 43306、Redis 46379、Kafka 49092、MinIO 49000/49001）。Seata 不在 dev-infra；XXL 不共用 drools-demo 的 18088 / mysql 3307。该文件只起中间件，不创建业务表。
+
+要在容器内编译并启动 inbound/outbound/inventory/serial-registry/fulfillment 与 console，用根目录 `compose.yaml`（include 上述中间件）或 `./deploy/up.sh`。应用容器监听 `0.0.0.0`，inventory 接 Cell A；健康 UP 不代表业务验收。详见 `deploy/README.md`。
 
 ```bash
 cp .env.example .env
 # 把 change-me 换成仅本机使用的口令后再启动
 docker compose -p wms-local -f deploy/compose.local.yml --env-file .env up -d
+# 容器内编译并启动应用：
+./deploy/up.sh
 ```
 
-默认只绑 `127.0.0.1`：应用库 18306、Cell A 18307、Cell B 18308、Kafka 18992、Redis 18379、Seata 18091/控制台 17091、XXL admin 18080。避开本机已占用的 Apollo MySQL 13306、dev-infra 43306/46379/49092、drools XXL 18088。宿主机 Java 客户端连这些端口；容器内互访用服务名。`SEATA_IP` 默认 `127.0.0.1`，给本机进程用；若以后把应用放进同一 compose 网络，需改成对容器可达的地址。XXL 空库首次登录为官方引导账号 `admin` / `123456`，登录后立即改密。官方 admin 镜像是 linux/amd64，Apple Silicon 会走模拟。初始化脚本只在空数据卷执行一次。
+默认只绑 `127.0.0.1`：应用库 18306、Cell A 18307、Cell B 18308、Kafka 18992、Redis 18379、Seata 18091/控制台 17091、XXL admin 18080。避开本机已占用的 Apollo MySQL 13306、dev-infra 43306/46379/49092、drools XXL 18088。宿主机 Java 客户端连这些端口；容器内互访用服务名。`SEATA_IP` 默认 `127.0.0.1`，给本机进程用。`compose.yaml` 里的应用用 `/app/file.conf` 指向 `seata-server:8091`，不改中间件 advertised IP。XXL 空库首次登录为官方引导账号 `admin` / `123456`，登录后立即改密。官方 admin 镜像是 linux/amd64，Apple Silicon 会走模拟。初始化脚本只在空数据卷执行一次。
 
 故障注入必须另起项目名、端口与网段，例如 `COMPOSE_PROJECT_NAME=wms-fault`、`WMS_COMPOSE_SUBNET=10.89.41.0/24` 并使用另一套 `.env`，禁止 `docker kill` / `compose down` 共享 dev-infra。本机 Docker 默认地址池已被其他项目占满，因此本编排固定私有网段，避免创建网络失败。compose 能解析或容器 healthy 不等于 Kafka 投递、TCC HTTP 网关、业务 Outbox 或 XXL 集群/分片已验收。官方 admin 真实触发由 warehouse-it 的 `XxlAdminTriggerIT` 证明，不把 compose 健康检查当作该证据。CI 仍用 Testcontainers，不把本文件加入流水线 `up`。
 

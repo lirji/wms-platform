@@ -7,6 +7,7 @@
 | 组件 | 本轮版本 | 已验证范围 |
 | --- | --- | --- |
 | JDK | Microsoft OpenJDK 21.0.11+10-LTS | 本机编译/进程启动 |
+| 容器编译 JDK/JRE | eclipse-temurin:21.0.8_9-jdk-jammy / 21.0.8_9-jre-jammy | `compose.yaml` 在容器内 `mvn package`；可用 `WMS_JDK_IMAGE`/`WMS_JRE_IMAGE` 换同标签镜像站。不是生产锁 |
 | Maven / Wrapper | 3.9.12 / 3.3.4 only-script | Wrapper生成并用于构建；分发URL为Maven Central |
 | Spring Boot | 4.1.1 | 三个独立进程启动，健康端点及默认拒绝业务访问 |
 | MyBatis starter | 4.1.0 | 依赖可解析；MyBatis原生会话+Mapper真实MySQL条件更新；Boot的MyBatis自动配置连接ShardingSphere通过 |

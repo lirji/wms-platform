@@ -1,0 +1,164 @@
+# 在容器内编译并启动本仓库已选定的可运行进程。
+# 中间件版本与账号沿用 deploy/compose.local.yml / VERSION_LOCK，不另起一套栈。
+# 不加入 sibling dev-infra 网络；故障注入另起项目名与网段。
+name: wms-local
+
+include:
+  - path: deploy/compose.local.yml
+
+x-app-env: &app-env
+  WMS_BIND_ADDRESS: "0.0.0.0"
+  WMS_OIDC_ISSUER: ${WMS_OIDC_ISSUER:-}
+  WMS_OIDC_JWK_SET_URI: ${WMS_OIDC_JWK_SET_URI:-}
+  WMS_OIDC_CLIENT_ID: ${WMS_OIDC_CLIENT_ID:-}
+  JAVA_TOOL_OPTIONS: ${WMS_APP_JAVA_OPTS:--Xms128m -Xmx384m}
+
+x-app-build: &app-build
+  context: .
+  dockerfile: deploy/app.Dockerfile
+  target: runtime
+  args:
+    JDK_IMAGE: ${WMS_JDK_IMAGE:-eclipse-temurin:21.0.8_9-jdk-jammy}
+    JRE_IMAGE: ${WMS_JRE_IMAGE:-eclipse-temurin:21.0.8_9-jre-jammy}
+
+x-app-health: &app-health
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 50s
+
+services:
+  inbound:
+    image: wms-platform-java:local
+    build: *app-build
+    command: ["/app/wms-inbound.jar"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WMS_HTTP_PORT: "18181"
+      WMS_INBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_inbound?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_INBOUND_DB_USER: wms_inbound
+      WMS_INBOUND_DB_PASSWORD: ${WMS_INBOUND_DB_PASSWORD:?set WMS_INBOUND_DB_PASSWORD}
+    depends_on:
+      mysql-apps:
+        condition: service_healthy
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_INBOUND_HOST_PORT:-18181}:18181"
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18181/actuator/health/readiness"]
+    mem_limit: ${WMS_APP_MEMORY_LIMIT:-768m}
+    networks: [wms-local]
+
+  outbound:
+    image: wms-platform-java:local
+    build: *app-build
+    command: ["/app/wms-outbound.jar"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WMS_HTTP_PORT: "18182"
+      WMS_OUTBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_outbound?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_OUTBOUND_DB_USER: wms_outbound
+      WMS_OUTBOUND_DB_PASSWORD: ${WMS_OUTBOUND_DB_PASSWORD:?set WMS_OUTBOUND_DB_PASSWORD}
+    depends_on:
+      mysql-apps:
+        condition: service_healthy
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_OUTBOUND_HOST_PORT:-18182}:18182"
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18182/actuator/health/readiness"]
+    mem_limit: ${WMS_APP_MEMORY_LIMIT:-768m}
+    networks: [wms-local]
+
+  inventory:
+    image: wms-platform-java:local
+    build: *app-build
+    command: ["/app/wms-inventory.jar"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WMS_HTTP_PORT: "18183"
+      WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_INVENTORY_DB_USER: wms_inventory_a
+      WMS_INVENTORY_DB_PASSWORD: ${WMS_INVENTORY_A_DB_PASSWORD:?set WMS_INVENTORY_A_DB_PASSWORD}
+    depends_on:
+      mysql-cell-a:
+        condition: service_healthy
+      seata-server:
+        condition: service_healthy
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_INVENTORY_HOST_PORT:-18183}:18183"
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18183/actuator/health/readiness"]
+    mem_limit: ${WMS_APP_MEMORY_LIMIT:-768m}
+    networks: [wms-local]
+
+  serial-registry:
+    image: wms-platform-java:local
+    build: *app-build
+    command: ["/app/wms-serial-registry.jar"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WMS_HTTP_PORT: "18184"
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_SERIAL_HOST_PORT:-18184}:18184"
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18184/actuator/health/readiness"]
+    mem_limit: ${WMS_APP_MEMORY_LIMIT:-512m}
+    networks: [wms-local]
+
+  fulfillment:
+    image: wms-platform-java:local
+    build: *app-build
+    command: ["/app/wms-fulfillment.jar"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WMS_HTTP_PORT: "18185"
+      WMS_FULFILLMENT_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_fulfillment?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_FULFILLMENT_DB_USER: wms_fulfillment
+      WMS_FULFILLMENT_DB_PASSWORD: ${WMS_FULFILLMENT_DB_PASSWORD:?set WMS_FULFILLMENT_DB_PASSWORD}
+    depends_on:
+      mysql-apps:
+        condition: service_healthy
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_FULFILLMENT_HOST_PORT:-18185}:18185"
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18185/actuator/health/readiness"]
+    mem_limit: ${WMS_APP_MEMORY_LIMIT:-768m}
+    networks: [wms-local]
+
+  console:
+    build:
+      context: ./wms-console
+      dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${WMS_NODE_IMAGE:-node:22-alpine}
+        NGINX_IMAGE: ${WMS_NGINX_IMAGE:-nginx:1.27-alpine}
+        VITE_OIDC_ISSUER: ${WMS_OIDC_ISSUER:-}
+        VITE_OIDC_CLIENT_ID: ${WMS_OIDC_CLIENT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      inbound:
+        condition: service_healthy
+      outbound:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      fulfillment:
+        condition: service_healthy
+    ports:
+      - "${WMS_BIND_ADDRESS:-127.0.0.1}:${WMS_CONSOLE_HOST_PORT:-18180}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: ${WMS_CONSOLE_MEMORY_LIMIT:-128m}
+    networks: [wms-local]
