@@ -1,5 +1,6 @@
 package com.lrj.wms.inventory.recon;
 
+import com.lrj.wms.inventory.compat.CompatibilityGate;
 import com.lrj.wms.inventory.jobs.JobRunException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -64,6 +65,7 @@ public final class SnapshotExportService {
                     String.valueOf(balance.get("sku_id")), String.valueOf(balance.get("lot_id")), null,
                     decimal(balance.get("on_hand_qty")), String.valueOf(balance.get("base_unit")), cutoffId,
                     postingWatermark);
+            CompatibilityGate.requireQuantityFact(fact);
             lines.add(toJson(fact));
             rows++;
         }

@@ -1,5 +1,6 @@
 package com.lrj.wms.inventory.inventory;
 
+import com.lrj.wms.inventory.compat.CompatibilityGate;
 import com.lrj.wms.inventory.inventory.domain.CommandDigest;
 import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
@@ -220,8 +221,8 @@ public final class InventoryApplicationService {
             throw new InventoryException("VERSION_CONFLICT", "预占头状态冲突");
         }
         Map<String, Object> after = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
-        String payload = "{\"reservationId\":\"" + after.get("id") + "\",\"state\":\"" + ReservationState.CONFIRMED
-                + "\",\"xid\":\"" + xid + "\",\"branchId\":" + branchId + "}";
+        String payload = CompatibilityGate.decorateEvent("{\"reservationId\":\"" + after.get("id") + "\",\"state\":\""
+                + ReservationState.CONFIRMED + "\",\"xid\":\"" + xid + "\",\"branchId\":" + branchId + "}");
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_RESERVATION, String.valueOf(after.get("id")), longValue(after.get("version")),
                 InventoryCodes.EVENT_RESERVATION_CONFIRMED, operationId, payload, now);
@@ -544,9 +545,10 @@ public final class InventoryApplicationService {
         mapper.insertLedger(ledgerId, enterpriseId, warehouseId, operationId, entryNo, balanceId, onHandDelta, reservedDelta,
                 BigDecimal.ZERO, onHandAfter, reservedAfter, claimAfter, balanceVersion, reason, documentId, actorId, now,
                 now);
-        String payload = "{\"onHandDelta\":\"" + onHandDelta.toPlainString() + "\",\"reservedDelta\":\""
-                + reservedDelta.toPlainString() + "\",\"onHandAfter\":\"" + onHandAfter.toPlainString()
-                + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString() + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}";
+        String payload = CompatibilityGate.decorateEvent("{\"onHandDelta\":\"" + onHandDelta.toPlainString()
+                + "\",\"reservedDelta\":\"" + reservedDelta.toPlainString() + "\",\"onHandAfter\":\""
+                + onHandAfter.toPlainString() + "\",\"reservedAfter\":\"" + reservedAfter.toPlainString()
+                + "\",\"ledgerEntryId\":\"" + ledgerId + "\"}");
         session.getMapper(OutboxMapper.class).insertPending(UUID.randomUUID().toString(), enterpriseId, warehouseId,
                 InventoryCodes.AGGREGATE_STOCK_BALANCE, balanceId, balanceVersion, InventoryCodes.EVENT_BALANCE_CHANGED,
                 operationId, payload, now);

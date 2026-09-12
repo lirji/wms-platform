@@ -1,5 +1,6 @@
 package com.lrj.wms.inventory.query;
 
+import com.lrj.wms.inventory.compat.CompatibilityGate;
 import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.jobs.JobRunException;
@@ -111,6 +112,7 @@ public final class InventoryProjectionService {
                 return applied;
             }
             String payload = String.valueOf(next.get("payload"));
+            CompatibilityGate.requireEvent(payload);
             BigDecimal onHand = decimalField(payload, "onHandAfter");
             BigDecimal reserved = decimalField(payload, "reservedAfter");
             Timestamp asOf = timestampOf(next.get("occurred_at"));

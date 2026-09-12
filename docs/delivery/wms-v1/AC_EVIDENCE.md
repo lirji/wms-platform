@@ -34,14 +34,14 @@
 | AC-22 | local-pass | `InventoryProjectionIT` | 重建追平现场 |
 | AC-23 | local-pass | `StockInternalReconcileIT` | 工作台审批现场 |
 | AC-24 | local-pass | recon-wms 分类/消费测试；WMS `SnapshotExportIT` | WMS+recon 真实联调 |
-| AC-25 | blocked | 出库 simulator / UNKNOWN sweep | 无授权真实设备 |
+| AC-25 | blocked | 出库 simulator / UNKNOWN sweep（仅模拟，单独列） | 无授权真实设备/协议环境（S8-05） |
 | AC-26 | open | console 状态条单测 + 构建 | 未做 Cursor UI 黑盒/OIDC 联调 |
 | AC-27 | blocked | 无 | 缺签署容量输入（OQ-05） |
 | AC-28 | blocked | 无 | 缺仓迁移演练环境 |
-| AC-29 | open | 摘要版本/身份 IT 局部 | N/N-1 矩阵未跑 |
+| AC-29 | local-pass | `CompatibilityMatrixIT`/`CompatibilityGateTest`/`verify-contracts.sh` | 无生产滚动升级/开关演练现场 |
 | AC-30 | blocked | 无 | 缺隔离恢复与实测 RTO/RPO |
 | AC-31 | local-pass | `SeedReplayIT` + `seed-local.sh` | console 演示数据网络检查 |
-| AC-32 | local-pass | CI `warehouse-it`/`failure-it` 无文件则失败 | 远程 runner 最终证明 |
+| AC-32 | local-pass | CI `warehouse-it`/`failure-it` 无文件则失败；`check-required-its.py` 禁止 skip | 远程 runner 最终证明 |
 | AC-33 | local-pass | 三库账号/独立进程 smoke | 独立发布负例 |
 | AC-34 | local-pass | T1/T2/T3 协议 IT | 跨进程崩溃现场 |
 | AC-35 | local-pass | 取消墓碑/乱序 IT | 并发取消生产链 |
@@ -59,8 +59,8 @@
 | AC-47 | local-pass | 分批/换键 IT | HTTP-MQ 离线重报 |
 | AC-48 | local-pass | 安全关闭 IT | 旧回执并发现场 |
 | AC-49 | local-pass | UNKNOWN/STARTED 拒绝重做 | 设备核验入口 |
-| AC-50 | local-pass | 补偿一次入账 IT | 版本共存现场 |
+| AC-50 | local-pass | 补偿一次入账 IT；`FailureDigestReplayIT` 旧摘要重放 | 版本共存生产现场 |
 
-未决：OQ-03 单位/效期默认不得编造。S8-05 无授权设备保持 blocked。S9-01/02/04 缺签署容量与隔离恢复环境。
+未决：OQ-03 单位/效期默认不得编造。S8-05 无授权设备保持 blocked，模拟不得当作硬件通过。S9-01/02/04 缺签署容量与隔离恢复环境。S9-03 本地矩阵已有；S9-06 已把 AC-45..50 列入 CI 必选名单。
 
 总体：**不能**把本表当作 50 AC 已通过。
