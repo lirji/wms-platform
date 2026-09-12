@@ -24,7 +24,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         }
         JsonNode payload = message.payload();
         String action = required(payload, "action");
-        if (!"RECEIVE".equals(action)) throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
+        if (!Set.of("RECEIVE", "QUALITY").contains(action)) throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
         StockPostingContext context;
         BigDecimal rawQty;
         try {
@@ -55,10 +55,28 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         catch (RuntimeException invalid) { throw new MessageRejectedException("QUANTITY_PRECISION_MISMATCH"); }
         String commandId = required(payload, "commandId");
         var bucket = StockBucketKey.of(enterprise, warehouse, context.ownerId(), context.sourceLocationId(), context.skuId(), context.lotId(), context.qualityCode());
-        var command = new StockCommandService(session, clock).applyReceive(enterprise, warehouse, message.sourceService(), commandId,
+        Map<String, Object> command;
+        if ("QUALITY".equals(action)) {
+            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
+            try {
+                var rawDecision = payload.path("qualityDecision");
+                if (!rawDecision.path("sourceVersion").isIntegralNumber() || !rawDecision.path("sourceVersion").canConvertToLong()
+                        || !rawDecision.path("receiptCommandId").isString() || !rawDecision.path("inspectionId").isString()) throw new IllegalArgumentException();
+                decision = RuntimeMessage.JSON.treeToValue(rawDecision, com.lrj.wms.contract.messaging.ReceiptQualityDecision.class);
+                Quantity.of(decision.acceptedQty(), ((Number) sku.get("quantity_scale")).intValue());
+                Quantity.of(decision.rejectedQty(), ((Number) sku.get("quantity_scale")).intValue());
+                if (rawQty.compareTo(decision.inspectedQty()) != 0 || !decision.receiptCommandId().equals(required(payload, "factParentId"))
+                        || !Long.toString(decision.sourceVersion()).equals(required(payload, "factPartId"))) throw new IllegalArgumentException();
+            } catch (RuntimeException invalid) { throw new MessageRejectedException("INVALID_QUALITY_DECISION"); }
+            command = new StockCommandService(session, clock).applyQuality(enterprise, warehouse, commandId,
+                    required(payload, "factLineId"), context.documentId(), required(payload, "actorId"),
+                    required(payload, "sourceExecutionId"), bucket, decision);
+        } else {
+            command = new StockCommandService(session, clock).applyReceive(enterprise, warehouse, message.sourceService(), commandId,
                 required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
                 context.documentId(), required(payload, "actorId"), required(payload, "sourceExecutionId"), bucket, qty,
                 payload.hasNonNull("previousCommandId") ? required(payload, "previousCommandId") : null);
+        }
         String effectiveCommand = String.valueOf(command.get("commandId"));
         if (!commandId.equals(effectiveCommand)) throw new MessageRejectedException("SOURCE_COMMAND_IDENTITY_MISMATCH");
         String state = String.valueOf(command.get("state"));

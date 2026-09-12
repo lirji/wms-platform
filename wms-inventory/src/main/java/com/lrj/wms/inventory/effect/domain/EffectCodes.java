@@ -9,6 +9,7 @@ public final class EffectCodes {
     public static final String SOURCE_INVENTORY = "wms-inventory";
 
     public static final String ACTION_RECEIVE = "RECEIVE";
+    public static final String ACTION_QUALITY = "QUALITY";
     public static final String ACTION_PUTAWAY = "PUTAWAY";
     public static final String ACTION_PICK = "PICK";
     public static final String ACTION_MOVE = "MOVE";
@@ -32,7 +33,7 @@ public final class EffectCodes {
     public static final String STATE_CANCELLED = "CANCELLED";
     public static final String STATE_SAFE_CLOSED = "SAFE_CLOSED";
 
-    private static final Set<String> ACTIONS = Set.of(ACTION_RECEIVE, ACTION_PUTAWAY, ACTION_PICK, ACTION_MOVE,
+    private static final Set<String> ACTIONS = Set.of(ACTION_RECEIVE, ACTION_QUALITY, ACTION_PUTAWAY, ACTION_PICK, ACTION_MOVE,
             ACTION_SHIP, ACTION_RETURN, ACTION_COMPENSATE, ACTION_COUNT_ADJUST);
     private static final Set<String> FACTS = Set.of(FACT_RECEIPT_PART, FACT_SUB_ACTION, FACT_SHIPMENT_PART,
             FACT_CASE_PART, FACT_ADJUSTMENT_LINE);

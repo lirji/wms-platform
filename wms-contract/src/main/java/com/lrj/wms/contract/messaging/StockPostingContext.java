@@ -18,7 +18,7 @@ public record StockPostingContext(String documentId, String ownerId, String skuI
     /** 按动作约束必需维度，不能把缺库位、批次或分配身份默认为任意可用库存。 */
     public void requireForAction(String action) {
         switch (action) {
-            case "RECEIVE" -> {
+            case "RECEIVE", "QUALITY" -> {
                 if (!"HOLD".equals(qualityCode) || targetLocationId != null || allocationId != null || allocationAttemptId != null) {
                     throw new IllegalArgumentException("收货必须进入明确的HOLD桶");
                 }

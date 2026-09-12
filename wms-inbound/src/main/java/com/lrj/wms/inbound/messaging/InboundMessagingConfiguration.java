@@ -76,6 +76,9 @@ public class InboundMessagingConfiguration {
                     switch (String.valueOf(fact.get("action"))) {
                         case "RECEIVE" -> service.consumeReceive(message.enterpriseId(), message.warehouseId(), lineId, message.eventId(),
                                 commandId, body.path("state").asString(), postingId, qty);
+                        case "QUALITY" -> new com.lrj.wms.inbound.receipt.ReceiptQualityService(session, Clock.systemUTC())
+                                .consume(message.enterpriseId(), message.warehouseId(), lineId, message.eventId(), commandId,
+                                        body.path("state").asString(), postingId, qty);
                         case "PUTAWAY" -> service.consumePutaway(message.enterpriseId(), message.warehouseId(), lineId, message.eventId(),
                                 commandId, body.path("state").asString(), postingId, qty);
                         default -> throw new MessageRejectedException("UNSUPPORTED_RESULT_ACTION");

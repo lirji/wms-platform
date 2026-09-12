@@ -158,3 +158,14 @@ SerialRegistryHttpIT 与 SerialRegistryActivateIT 最新定向回归通过（202
 远程分支运行 [34703330446](https://github.com/lirji/wms-platform/actions/runs/34703330446) 控制台成功，Java 在 SerialRegistryIT 暴露旧测试固定用 WH-A 重放的调度假设。测试现从数据库取实际获胜仓和操作号，增加另一仓借同操作号重放必须 SERIAL_OWNER_MISMATCH 的断言，并限制并发等待 10 秒；未放宽领域校验。修正后 SerialRegistryIT 及依赖模块单元测试于 00:13:38 BUILD SUCCESS（/tmp/wms-serial-race-publish-it.log）。
 
 本次发布范围为 14 个整改提交及上述测试修正；目标为 origin/main。新提交远程 CI 与 warehouse-it/tc-it/failure-it 组合结果仍需核验，默认回归通过不能替代这些结果；没有生产部署，也不是 24 项或 50 AC 完整验收。
+
+
+## R13 按收货分批质检（2026-09-13）
+
+用户确认质检范围为每次收货分批。原 RECEIVE commandId 绑定不可变库位/批次/货主/SKU/单据，质检请求新增 receiptCommandId，以递增 sourceVersion 表示该批累计 accepted/rejected，未检数量保持 HOLD。质检只能在该批收货凭证确认后受理；前一版本未生效时拒绝跨版本更新，累计数量不能超过该批，不能降到该批已上架量以下。旧行级请求仅在消息关闭时兼容，不为历史缺失上下文猜测库存桶。
+
+T1 的 inbound_receipt_quality/inbound_quality_revision、原操作者、来源命令和 Outbox 同事务；QUALITY 使用已有受信消息通道。T2 以本库原收货凭证+流水校验维度和数量，按稳定顺序锁定 HOLD/GOOD/REJECTED 三桶，质量差额守恒变化、流水、投影事件、库存命令凭证及结果 Outbox 同事务。T3 收到可信过账回执才更新该批 applied_version，不能把 HTTP202 当作质量已生效。
+
+/tmp/wms-batch-quality-it.log 已 BUILD SUCCESS：原入库域/HTTP 回归和实际两个 Jar + 两个 MySQL + Kafka + RSA JWT 的分批质检链路。两批同一行不同库位互不混用，超批数量拒绝、重复/迟到事件不重复转桶，最后状态更新注入 CHECK 失败时转桶与流水回滚，恢复后自动续跑。等值小数格式和严格消息版本检查的补充验证另见最新进度。TP99 unverified。分批上架与出库链路尚未完成，R13保持进行中。
+
+补充验证 /tmp/wms-batch-quality-final-it.log 于 00:30:25 BUILD SUCCESS：超出本批但未超整行的质检仍拒绝，2 与 2.0 重放一致；双进程故障恢复/迟到消息及所有单元测试通过。

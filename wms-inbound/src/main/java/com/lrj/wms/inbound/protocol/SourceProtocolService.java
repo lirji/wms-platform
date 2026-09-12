@@ -17,6 +17,7 @@ public final class SourceProtocolService {
     public static final String SOURCE = "wms-inbound";
     public static final String ACTION_RECEIVE = "RECEIVE";
     public static final String ACTION_PUTAWAY = "PUTAWAY";
+    public static final String ACTION_QUALITY = "QUALITY";
 
     private final SqlSession session;
     private final Clock clock;
@@ -126,6 +127,45 @@ public final class SourceProtocolService {
             throw new IllegalStateException("VERSION_CONFLICT");
         }
         return submission(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId, ACTION_PUTAWAY, qty, false);
+    }
+
+    /** T1：分批质检版本命令，结论与来源Outbox同事务固定。 */
+    public Map<String, Object> submitQuality(String enterpriseId, String warehouseId, String commandId, String parentId,
+            String partId, String lineId, String actorId, com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
+        BigDecimal qty = decision.inspectedQty();
+        Timestamp now = Timestamp.from(clock.instant());
+        SourceMapper mapper = session.getMapper(SourceMapper.class);
+        String digest = sha256(ACTION_QUALITY + '\u001f' + commandId + '\u001f' + qty.toPlainString());
+        String effectCandidate = UUID.randomUUID().toString();
+        mapper.insertEffect(effectCandidate, enterpriseId, warehouseId, SOURCE, ACTION_QUALITY, "SUB_ACTION", parentId,
+                partId, lineId, commandId, "REGISTERED", now);
+        String effectId = mapper.findEffectId(enterpriseId, warehouseId, SOURCE, ACTION_QUALITY, "SUB_ACTION", parentId,
+                partId, lineId);
+        mapper.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> existing = mapper.getCommand(enterpriseId, warehouseId, commandId);
+        if (existing != null) {
+            return submission(existing, effectId, ACTION_QUALITY, qty, true);
+        }
+        Map<String, Object> latest = mapper.findLatestCommand(enterpriseId, warehouseId, effectId);
+        if (latest != null) {
+            return submission(latest, effectId, ACTION_QUALITY, qty, true);
+        }
+        String executionId = UUID.randomUUID().toString();
+        var body = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.createObjectNode();
+        body.put("commandId", commandId); body.put("qty", qty);
+        body.set("qualityDecision", com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.valueToTree(decision));
+        String payload = body.toString();
+        if (mapper.insertCommand(enterpriseId, warehouseId, commandId, commandId, executionId, effectId, ACTION_QUALITY, 1L,
+                null, digest, payload, "PENDING", now) != 1) {
+            return submission(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId, ACTION_QUALITY, qty, true);
+        }
+        mapper.insertExecution(executionId, enterpriseId, warehouseId, commandId, ACTION_QUALITY, qty, actorId, now);
+        mapper.insertOutbox(UUID.randomUUID().toString(), enterpriseId, warehouseId, commandId, "StockCommandRequested",
+                payload, now);
+        if (mapper.casBindActive(enterpriseId, warehouseId, effectId, commandId, 1L, "OPEN", now) != 1) {
+            throw new IllegalStateException("VERSION_CONFLICT");
+        }
+        return submission(mapper.getCommand(enterpriseId, warehouseId, commandId), effectId, ACTION_QUALITY, qty, false);
     }
 
     /** 未过账命令安全关闭，之后才允许同一效果的下一尝试。 */

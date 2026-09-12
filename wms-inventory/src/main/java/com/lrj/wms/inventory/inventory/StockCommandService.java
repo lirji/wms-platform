@@ -323,6 +323,43 @@ public final class StockCommandService {
                 commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
     }
 
+    /** 分批质检的命令、质量转桶、凭证与效果一次提交，迟到重复命令只恢复原凭证。 */
+    public Map<String, Object> applyQuality(String enterpriseId, String warehouseId, String commandId,
+            String factLineId, String documentId, String actorId, String sourceExecutionId, StockBucketKey hold,
+            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
+        String sourceService = StockCommandCodes.SOURCE_INBOUND, action = EffectCodes.ACTION_QUALITY;
+        Timestamp now = Timestamp.from(clock.instant());
+        var effects = session.getMapper(EffectMapper.class);
+        var commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1(action, documentId, hold, decision.inspectedQty().toPlainString(),
+                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(decision));
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
+                EffectCodes.FACT_SUB_ACTION, decision.receiptCommandId(), Long.toString(decision.sourceVersion()), factLineId, now);
+        var effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        var reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId, action, effectId, effect, null, digest);
+        if (reused != null) return view(reused);
+        long attempt = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId, action,
+                effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null)
+            return get(enterpriseId, warehouseId, sourceService, commandId);
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attempt, EffectCodes.STATE_OPEN, now) != 1)
+            throw new InventoryException("VERSION_CONFLICT", "质检效果绑定冲突");
+        String operation = UUID.nameUUIDFromBytes(("QUALITY/" + enterpriseId + "/" + warehouseId + "/" + commandId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        new com.lrj.wms.inventory.quality.ReceiptQualityStockService(session, clock).apply(enterpriseId, warehouseId,
+                operation, documentId, actorId, hold, decision);
+        String postingId = UUID.randomUUID().toString();
+        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("operationId", operation));
+        if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
+                UUID.randomUUID().toString(), "QUALITY", decision.inspectedQty(), sourceExecutionId, documentId, manifest, now) != 1
+                || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1
+                || commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                    StockCommandCodes.CMD_APPLIED, com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("postingId", postingId)), now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "质检凭证写入冲突");
+        }
+        return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
+    }
+
     /** 拣货过账：短拣转桶。同命令重放不二次移动。 */
     public Map<String, Object> applyPick(String enterpriseId, String warehouseId, String sourceService, String commandId,
             String factParentId, String factPartId, String factLineId, String documentId, String actorId,

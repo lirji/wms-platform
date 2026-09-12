@@ -71,6 +71,7 @@ class ReceiveMessagingProcessesIT {
                 var masterdata = new MasterdataService(session, Clock.systemUTC());
                 masterdata.createWarehouse("WH", "ENT", "WH", "测试仓", "UTC");
                 masterdata.createLocation("LOC", "GATE", "ENT", "WH", "LOC", "A", "RECEIVING", new BigDecimal("100"), "EA");
+                masterdata.createLocation("LOC-B", "GATE-B", "ENT", "WH", "LOC-B", "A", "RECEIVING", new BigDecimal("100"), "EA");
                 masterdata.createSku(SkuPolicy.create("SKU", "ENT", "SKU", "测试商品", "EA", 0, false, false, false, 1, "ACTIVE"), "UNIT");
                 session.commit();
             }
@@ -78,7 +79,7 @@ class ReceiveMessagingProcessesIT {
             String base = "http://127.0.0.1:" + inboundPort + "/api/wms/v1/warehouses/WH";
             var created = post(base + "/inbound-orders", token, "ORDER", """
                     {"sourceSystem":"ERP","externalNo":"EXT","ownerId":"OWNER","lines":[
-                    {"lineId":"LINE","externalLineId":"EXT-LINE","skuId":"SKU","expectedQty":"3","unit":"EA"}]}
+                    {"lineId":"LINE","externalLineId":"EXT-LINE","skuId":"SKU","expectedQty":"5","unit":"EA"}]}
                     """);
             assertEquals(201, created.statusCode(), created.body());
             String receiptPath = base + "/inbound-orders/ORDER/receipts";
@@ -136,6 +137,57 @@ class ReceiveMessagingProcessesIT {
             assertEquals(retryMessage.encode(), inDb.queryForObject("SELECT payload FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'", String.class));
             assertEquals(0, inDb.queryForObject("SELECT received_posted_qty FROM inbound_line WHERE id='LINE'", BigDecimal.class).compareTo(new BigDecimal("3")));
             assertEquals(1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            // 同一入库行两次收货到不同库位，质检必须分别命中自己的HOLD库存。
+            String secondReceipt = "{\"lineId\":\"LINE\",\"qty\":\"2\",\"receiptPartId\":\"PART-B\",\"locationId\":\"LOC-B\",\"lotId\":\"NO_LOT\"}";
+            assertEquals(202, post(receiptPath, token, "RECEIVE-B", secondReceipt).statusCode());
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='RECEIVE-B'", String.class)),
+                    30, "第二批收货未完成", in, stock);
+            String qualityToken = token(issuer, rsa, List.of("quality.inspect"));
+            String qualityPath = base + "/quality-inspections/INSPECT-A/results";
+            String qualityBody = "{\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-CMD\",\"acceptedQty\":\"2\",\"rejectedQty\":\"1\",\"sourceVersion\":1}";
+            assertEquals(403, post(qualityPath, token, "QUALITY-A", qualityBody).statusCode());
+            assertEquals(400, post(qualityPath, qualityToken, "QUALITY-OVER", qualityBody.replace("\"2\"", "\"4\"")).statusCode());
+            var qualityAccepted = post(qualityPath, qualityToken, "QUALITY-A", qualityBody);
+            assertEquals(202, qualityAccepted.statusCode(), qualityAccepted.body());
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='QUALITY-A'", String.class)),
+                    30, "第一批质检未完成，日志=" + logs, in, stock);
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='REJECTED'", BigDecimal.class).compareTo(BigDecimal.ONE));
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC-B' AND quality_code='HOLD'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            assertEquals(202, post(qualityPath, qualityToken, "QUALITY-REPLAY", qualityBody.replace("\"2\"", "\"2.0\"")).statusCode());
+            assertEquals(409, post(qualityPath, qualityToken, "QUALITY-A", qualityBody.replace("\"2\"", "\"1\"")).statusCode());
+            String qualityB = "{\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-B\",\"acceptedQty\":\"2\",\"rejectedQty\":\"0\",\"sourceVersion\":1}";
+            assertEquals(202, post(base + "/quality-inspections/INSPECT-B/results", qualityToken, "QUALITY-B", qualityB).statusCode());
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='QUALITY-B'", String.class)),
+                    30, "第二批质检未完成", in, stock);
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC-B' AND quality_code='GOOD'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            int beforeRevision = stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            // 在最后质量状态更新注入数据库约束失败，证明前面的转桶、流水和结果不能单独提交。
+            stockDb.execute("ALTER TABLE stock_receipt_quality ADD CONSTRAINT reject_quality_test_revision CHECK (receipt_command_id <> 'RECEIVE-CMD' OR source_version < 2)");
+            String revised = qualityBody.replace("\"2\"", "\"3\"").replace("\"1\"", "\"0\"").replace("\"sourceVersion\":1", "\"sourceVersion\":2");
+            assertEquals(202, post(base + "/quality-inspections/INSPECT-A-V2/results", qualityToken, "QUALITY-A-V2", revised).statusCode());
+            await(() -> stockDb.queryForObject("SELECT COUNT(*) FROM runtime_message_inbox WHERE payload LIKE '%QUALITY-A-V2%' AND error_code='PROCESSING_FAILED'", Integer.class) == 1,
+                    20, "未触发质检事务失败", in, stock);
+            assertEquals(beforeRevision, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            assertEquals(0, stockDb.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='QUALITY-A-V2'", Integer.class));
+            stockDb.execute("ALTER TABLE stock_receipt_quality DROP CHECK reject_quality_test_revision");
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='QUALITY-A-V2'", String.class)),
+                    30, "质检修复后未恢复", in, stock);
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'", BigDecimal.class).compareTo(new BigDecimal("3")));
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='REJECTED'", BigDecimal.class).signum());
+            assertEquals(0, stockDb.queryForObject("SELECT SUM(on_hand_qty) FROM stock_balance", BigDecimal.class).compareTo(new BigDecimal("5")));
+            assertEquals(2L, inDb.queryForObject("SELECT applied_version FROM inbound_receipt_quality WHERE receipt_command_id='RECEIVE-CMD'", Long.class));
+            int finalLedgers = stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            String previousWire = stockDb.queryForObject("SELECT payload FROM runtime_message_inbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.payload.commandId'))='QUALITY-A'", String.class);
+            var previousMessage = RuntimeMessage.parse(previousWire);
+            try (var publisher = new KafkaMessagePublisher(settings, "late-quality-probe")) {
+                publisher.publish("wms.process.inbound.commands", "late-quality", new RuntimeMessage(1, "LATE-QUALITY", "wms-inbound", "ENT", "WH",
+                        previousMessage.eventType(), previousMessage.aggregateId(), previousMessage.aggregateVersion(), previousMessage.occurredAt(),
+                        previousMessage.requestId(), previousMessage.payload()).encode());
+            }
+            await(() -> stockDb.queryForObject("SELECT COUNT(*) FROM runtime_message_inbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.eventId'))='LATE-QUALITY' AND status='DONE'", Integer.class) == 1,
+                    20, "迟到质检重放未消费", in, stock);
+            assertEquals(finalLedgers, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;

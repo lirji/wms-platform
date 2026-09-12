@@ -106,8 +106,8 @@ post("/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/recei
      "记录收货事实；涉及库存同步返回202",
      wh + ["- $ref: '#/components/parameters/InboundOrderId'"])
 post("/api/wms/v1/warehouses/{warehouseId}/quality-inspections/{inspectionId}/results",
-     "recordQualityResult", "inbound", "quality.inspect", "QualityResultRequest", ("200",),
-     "记录质检结果", wh + ["- $ref: '#/components/parameters/InspectionId'"])
+     "recordQualityResult", "inbound", "quality.inspect", "QualityResultRequest", ("200", "202"),
+     "分批累计质检以202受理并等待库存确认；消息关闭时保留旧行级200路径", wh + ["- $ref: '#/components/parameters/InspectionId'"], success_schema="QualityResultEnvelope")
 post("/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/claims", "claimTask", "task",
      "task.claim", "VersionedReasonRequest", ("200",), "领取任务",
      wh + ["- $ref: '#/components/parameters/TaskId'"])
@@ -573,6 +573,13 @@ components:
         code:
           type: string
           enum:
+            - RECEIPT_BATCH_REQUIRED
+            - UNKNOWN_RECEIPT_BATCH
+            - RECEIPT_NOT_POSTED
+            - RECEIPT_CONTEXT_MISMATCH
+            - QUALITY_VERSION_CONFLICT
+            - QUALITY_ALREADY_PUTAWAY
+            - INVALID_QUALITY_DECISION
             - SERIAL_ACCESS_FORBIDDEN
             - SERIAL_NOT_FOUND
             - SERIAL_OWNER_MISMATCH
@@ -817,11 +824,26 @@ components:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
           description: "精确十进制；必须大于0"
+    QualityResultEnvelope:
+      type: object
+      description: 分批质检受理结果；state=APPLIED才代表库存生效，202不代表已完成
+      additionalProperties: true
+      properties:
+        commandId: { $ref: '#/components/schemas/Id' }
+        inspectionId: { $ref: '#/components/schemas/Id' }
+        state: { type: string }
+        receiptCommandId: { $ref: '#/components/schemas/Id' }
+        replayed: { type: boolean }
     QualityResultRequest:
       type: "object"
       additionalProperties: false
       required: ["lineId","acceptedQty","rejectedQty"]
       properties:
+        receiptCommandId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 原收货分批命令；消息启用时必填，累计质检仅影响该批
         lineId:
           type: "string"
           maxLength: 64
@@ -829,11 +851,11 @@ components:
         acceptedQty:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
-          description: "精确十进制；不得小于0"
+          description: "本批本版本累计量，精确十进制且不得小于0"
         rejectedQty:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
-          description: "精确十进制；不得小于0"
+          description: "本批本版本累计量，精确十进制且不得小于0"
         sourceVersion:
           type: "integer"
           minimum: 1

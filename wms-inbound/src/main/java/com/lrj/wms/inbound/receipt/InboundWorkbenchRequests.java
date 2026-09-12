@@ -45,7 +45,13 @@ public final class InboundWorkbenchRequests {
             @NotBlank @Size(max = 64) String lineId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true) BigDecimal acceptedQty,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true) BigDecimal rejectedQty,
-            @Min(1) Long sourceVersion) { }
+            @Min(1) Long sourceVersion,
+            @Size(max = 64) String receiptCommandId) {
+        /** 旧客户端的行级请求仅在消息关闭时兼容。 */
+        public InspectRequest(String lineId, BigDecimal acceptedQty, BigDecimal rejectedQty, Long sourceVersion) {
+            this(lineId, acceptedQty, rejectedQty, sourceVersion, null);
+        }
+    }
     /** ClaimRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record ClaimRequest(
             @NotNull @Min(0) Long expectedVersion,

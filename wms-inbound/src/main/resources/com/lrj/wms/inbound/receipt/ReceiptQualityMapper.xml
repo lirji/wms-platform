@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inbound.receipt.ReceiptQualityMapper">
+    <!-- 收货命令必须真正关联本企业仓的入库行和单据，维度从原T1正文恢复。 -->
+    <select id="receipt" resultType="map">
+        SELECT c.command_id, c.state, c.payload_json, e.fact_line_id AS line_id, l.order_id, l.sku_id, l.base_unit, o.owner_id
+        FROM source_command c JOIN source_effect e ON e.id=c.business_effect_key AND e.enterprise_id=c.enterprise_id
+          AND e.warehouse_id=c.warehouse_id AND e.action=c.action
+        JOIN inbound_line l ON l.id=e.fact_line_id AND l.enterprise_id=c.enterprise_id AND l.warehouse_id=c.warehouse_id
+        JOIN inbound_order o ON o.id=l.order_id AND o.enterprise_id=l.enterprise_id AND o.warehouse_id=l.warehouse_id
+        WHERE c.enterprise_id=#{ent} AND c.warehouse_id=#{wh} AND c.command_id=#{receipt} AND c.action='RECEIVE'
+    </select>
+    <insert id="initialize">
+        INSERT INTO inbound_receipt_quality (id,enterprise_id,warehouse_id,receipt_command_id,inbound_line_id,state,created_at,updated_at)
+        VALUES (#{id},#{ent},#{wh},#{receipt},#{line},'OPEN',#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT id,receipt_command_id,inbound_line_id,source_version,applied_version,accepted_qty,rejected_qty,
+          putaway_qty,active_command_id,state,version FROM inbound_receipt_quality
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} FOR UPDATE
+    </select>
+    <!-- 最多匹配三个唯一键；不能只取其中一个而忽略另一个身份冲突。 -->
+    <select id="revisions" resultType="map">
+        SELECT id,command_id,request_hash,source_version FROM inbound_quality_revision
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND (id=#{inspection} OR command_id=#{command}
+          OR (receipt_command_id=#{receipt} AND source_version=#{sourceVersion})) ORDER BY id LIMIT 3
+    </select>
+    <insert id="insertRevision">
+        INSERT INTO inbound_quality_revision (id,enterprise_id,warehouse_id,receipt_command_id,source_version,command_id,
+          request_hash,actor_id,accepted_qty,rejected_qty,created_at)
+        VALUES (#{inspection},#{ent},#{wh},#{receipt},#{sourceVersion},#{command},#{hash},#{actor},#{accepted},#{rejected},#{now})
+    </insert>
+    <update id="accept">
+        UPDATE inbound_receipt_quality SET source_version=#{sourceVersion},active_command_id=#{command},
+          accepted_qty=#{accepted},rejected_qty=#{rejected},state='PENDING',version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} AND version=#{expected}
+          AND source_version=applied_version AND source_version+1=#{sourceVersion} AND putaway_qty &lt;= #{accepted}
+    </update>
+    <update id="applied">
+        UPDATE inbound_receipt_quality SET applied_version=CASE WHEN #{state}='APPLIED' THEN source_version ELSE applied_version END,
+          state=#{state},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND active_command_id=#{command} AND state='PENDING'
+    </update>
+</mapper>

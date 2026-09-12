@@ -112,16 +112,30 @@ public class InboundWorkbenchController {
     }
 
     @PostMapping("/quality-inspections/{inspectionId}/results")
-    public Map<String, Object> inspect(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
-            @PathVariable String inspectionId, @jakarta.validation.Valid @RequestBody InboundWorkbenchRequests.InspectRequest body) {
+    public ResponseEntity<Map<String, Object>> inspect(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String inspectionId, @RequestHeader(value = "Idempotency-Key", required = false) String commandId,
+            @jakarta.validation.Valid @RequestBody InboundWorkbenchRequests.InspectRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        if (messagingEnabled && (body.receiptCommandId() == null || body.receiptCommandId().isBlank())) {
+            throw new InboundException("RECEIPT_BATCH_REQUIRED", "消息质检必须明确原收货批次命令");
+        }
         try (SqlSession session = sessions.openSession(false)) {
+            if (body.receiptCommandId() != null) {
+                com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
+                try { decision = new com.lrj.wms.contract.messaging.ReceiptQualityDecision(body.receiptCommandId(), inspectionId,
+                        longValue(body.sourceVersion(), 1), body.acceptedQty(), body.rejectedQty()); }
+                catch (IllegalArgumentException invalid) { throw new InboundException("INVALID_QUALITY_DECISION", "分批质检数量或版本无效"); }
+                var result = new ReceiptQualityService(session, Clock.systemUTC()).inspect(WmsJwtAuthorities.enterpriseId(jwt),
+                        warehouseId, body.lineId(), commandId, jwt.getSubject(), decision);
+                session.commit();
+                return ResponseEntity.accepted().body(HttpJson.row(result));
+            }
             Map<String, Object> result = new InboundReceiptService(session, Clock.systemUTC()).inspect(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, inspectionId, body.lineId(),
                     qty(body.acceptedQty()), qty(body.rejectedQty()), jwt.getSubject(),
                     longValue(body.sourceVersion(), 1));
             session.commit();
-            return HttpJson.row(result);
+            return ResponseEntity.ok(HttpJson.row(result));
         }
     }
 

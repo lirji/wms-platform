@@ -353,6 +353,34 @@ public final class InventoryApplicationService {
                 reservedDelta, documentId, actorId, now);
     }
 
+    /** 质量转换一次锁定同库位的三个质量桶，先校验守恒，再原子写流水与Outbox。 */
+    public void reclassifyQuality(String enterpriseId, String warehouseId, String operationId, String documentId,
+            String actorId, StockBucketKey hold, Map<String, BigDecimal> deltas) {
+        requireSameScope(enterpriseId, warehouseId, hold);
+        if (!"HOLD".equals(hold.qualityCode()) || !deltas.keySet().equals(java.util.Set.of("HOLD", "GOOD", "REJECTED"))
+                || deltas.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add).signum() != 0) {
+            throw new InventoryException("INVALID_QUALITY_DELTA", "质量变化必须在本批三个质量桶内守恒");
+        }
+        requireWritable(enterpriseId, warehouseId);
+        InventoryMapper mapper = mapper();
+        requireGate(mapper, enterpriseId, warehouseId, hold.locationId(), InventoryCodes.CMD_NORMAL_MUTATION);
+        Timestamp now = now();
+        var buckets = StockBucketKey.lockOrder(deltas.keySet().stream().map(quality -> StockBucketKey.of(
+                enterpriseId, warehouseId, hold.ownerId(), hold.locationId(), hold.skuId(), hold.lotId(), quality)).toList());
+        var locked = new java.util.LinkedHashMap<StockBucketKey, Map<String, Object>>();
+        for (var bucket : buckets) locked.put(bucket, ensureBalance(mapper, bucket, now));
+        int entry = 0;
+        for (var bucket : buckets) {
+            BigDecimal delta = deltas.get(bucket.qualityCode());
+            if (delta.signum() == 0) continue;
+            var row = locked.get(bucket);
+            apply(mapper, enterpriseId, warehouseId, String.valueOf(row.get("id")), delta, BigDecimal.ZERO,
+                    longValue(row.get("version")), now, "STOCK_INSUFFICIENT", "原收货质量库存已被占用或移出，不能重分类");
+            writeLedger(mapper, enterpriseId, warehouseId, operationId, ++entry, bucket, "QUALITY_RECLASSIFY", delta,
+                    BigDecimal.ZERO, documentId, actorId, now);
+        }
+    }
+
     /**
      * 短拣：只转本次 q 的实物与预占，源行留下剩余。全量拣货仍可用 move(..., true)。
      */

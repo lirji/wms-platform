@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.quality.ReceiptQualityStockMapper">
+    <!-- 原收货凭证与第一条收货流水共同证明数量和不可变桶维度，完全在本库内查询。 -->
+    <select id="receipt" resultType="map">
+        SELECT p.quantity,p.source_document_id,b.owner_id,b.location_id,b.sku_id,b.lot_id,b.quality_code
+        FROM stock_posting p JOIN stock_ledger l ON l.enterprise_id=p.enterprise_id AND l.warehouse_id=p.warehouse_id
+          AND l.operation_id=p.command_id AND l.entry_no=1 AND l.on_hand_delta=p.quantity AND l.reason_code='RECEIVE'
+        JOIN stock_balance b ON b.id=l.balance_id AND b.enterprise_id=l.enterprise_id AND b.warehouse_id=l.warehouse_id
+        WHERE p.enterprise_id=#{ent} AND p.warehouse_id=#{wh} AND p.source_service='wms-inbound'
+          AND p.command_id=#{receipt} AND p.action='RECEIVE'
+    </select>
+    <insert id="initialize">
+        INSERT INTO stock_receipt_quality (id,enterprise_id,warehouse_id,receipt_command_id,created_at,updated_at)
+        VALUES (#{id},#{ent},#{wh},#{receipt},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT id,receipt_command_id,source_version,accepted_qty,rejected_qty,putaway_qty,version
+        FROM stock_receipt_quality WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} FOR UPDATE
+    </select>
+    <update id="apply">
+        UPDATE stock_receipt_quality SET source_version=#{sourceVersion},accepted_qty=#{accepted},rejected_qty=#{rejected},
+          version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} AND version=#{expected}
+          AND source_version+1=#{sourceVersion} AND putaway_qty &lt;= #{accepted}
+    </update>
+</mapper>
