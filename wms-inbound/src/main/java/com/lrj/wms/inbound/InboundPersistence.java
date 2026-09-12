@@ -40,6 +40,7 @@ class InboundPersistence {
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(SourceMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);

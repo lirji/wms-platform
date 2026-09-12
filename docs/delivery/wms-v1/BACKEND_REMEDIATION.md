@@ -129,3 +129,14 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 新增 `scripts/check-message-backlog.py` 读取实际鉴权指标，阈值显式输入；隔离/积压退出1，采样失效或鉴权/网络异常退出2，只有完整有效采样且阈值内退出0。输出JSON供已有监控接收，处置步骤见 `docs/implementation/MESSAGING_RUNTIME.md`。尚未配置生产通知渠道或签署SLO，不以脚本存在代表告警已经发送。
 
 `/tmp/wms-queue-metrics-it.log` BUILD SUCCESS：MessageQueueMetricsIT1（1005积压只计1001、隔离/年龄、采样表不可用后保留旧快照、恢复归零）、ReceiveMessagingProcessesIT1、InventoryMessagingIT1及全单元。第一次测试编译因SimpleMeterRegistry不实现AutoCloseable失败，改为finally显式close后全量定向重跑通过。Python全部4项（容量2+告警2）通过，沿用现有CI发现规则。另修复OperationScopeFilter拒绝响应仍另造requestId的问题，`/tmp/wms-scope-correlation-test.log`相关模块单测全部通过，403正文/响应头/MDC同一关联ID。
+
+
+## R13 受审计消息重试
+
+已增加按企业/仓隔离的消息元数据分页与人工重试HTTP入口，分别要求messaging.read/recover。仅ISOLATED且expectedEpoch匹配可受理；原消息内容、事件ID与claim_epoch保持不变，retry_base_epoch只用于新一轮有界预算。审计记录JWT操作者、原因、原消息/请求摘要及原代际，与重新排队同事务。相同请求键不会再次恢复预算，不同内容冲突；不可信/被篡改Inbox、来源旧minimal上下文和过期动作不可通过该入口绕过核对。
+
+入口默认关闭，运行方确认所有worker完成支持新预算的升级后才能设置WMS_MESSAGING_RECOVERYENABLED=true；这避免新旧worker混跑时旧预算算法立即重新隔离。追加迁移可先扩展，原消息内容不回填不改写。202使用独立MessageRecoveryAccepted响应schema，不冒用业务完成状态。OpenAPI新增两路径，权限与共享Controller路径纳入自动核对。
+
+`/tmp/wms-message-recovery-it.log` BUILD SUCCESS：MessageRecoveryIT1（八次失败后人工恢复、原代际8→9、旧完成拒绝、审计写失败完整回滚、跨仓/内容冲突/不可信消息拒绝）、RuntimeInboxIT1、OutboxPublisherIT1（库存Outbox12→13且恢复预算）、OutboxCrashRecoveryIT1、SourceOutboxIT1、ReceiveMessagingProcessesIT1（真实JWT缺权/错仓403、恢复202、重复请求及重复回执无二次累计）和全部单元。初次故障夹具使用MySQL trigger缺SUPER权限，改用本测试CHECK约束制造同位置写失败，不提升权限、不改共享数据库配置，重跑通过。
+
+追加来源Outbox17→18的真实Kafka恢复、旧minimal拒绝测试后，`/tmp/wms-source-recovery-final-it.log` BUILD SUCCESS（SourceOutboxIT1及所有单元）；同时修正专用202契约生成，74路径。Compose仅config静态校验，未启动生产栈。该恢复入口不代表质检/上架/出库主链或整个R13已完成。

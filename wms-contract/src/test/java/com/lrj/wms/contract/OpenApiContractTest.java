@@ -96,7 +96,7 @@ class OpenApiContractTest {
             contracts.put(key, scope);
             assertEquals(scope, rules.get(key), "运行权限与契约不一致 " + key);
         }));
-        for (String module : List.of("inbound", "outbound", "inventory", "fulfillment")) {
+        for (String module : List.of("inbound", "outbound", "inventory", "fulfillment", "security")) {
             try (var files = java.nio.file.Files.walk(root.resolve("wms-" + module + "/src/main/java"))) {
                 for (var file : files.filter(path -> path.toString().endsWith("Controller.java")).toList()) {
                     String source = java.nio.file.Files.readString(file);

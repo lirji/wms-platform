@@ -31,6 +31,7 @@ class SourceOutboxIT {
             Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
             var config = new Configuration(new Environment("source", new JdbcTransactionFactory(), source));
             config.addMapper(SourceMapper.class); config.addMapper(InboundReceiptMapper.class);
+            config.addMapper(MessageRecoveryMapper.class);
             config.addMapper(SourceContextMapper.class); config.addMapper(SourceOutboxMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(config);
             Instant original = Instant.parse("2026-09-12T01:00:00Z");
@@ -81,6 +82,21 @@ class SourceOutboxIT {
             assertEquals("ISOLATED", jdbc.queryForObject("SELECT status FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class));
             assertEquals("LEGACY_COMMAND_CONTEXT_MISSING", jdbc.queryForObject("SELECT error_code FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class));
             assertEquals("PUBLISHED", jdbc.queryForObject("SELECT status FROM source_outbox WHERE command_id='CMD-VALID'", String.class));
+            var recovery = new MessageRecoveryService(sessions, MessageQueueMetrics.Queue.SOURCE_OUTBOX,
+                    new RuntimeInbox(sessions, Map.of(), clock), clock);
+            String legacyId = jdbc.queryForObject("SELECT event_id FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class);
+            assertEquals("MESSAGE_NOT_REPLAYABLE", assertThrows(MessageRecoveryException.class,
+                    () -> recovery.retry("ENT", "WH", "OUTBOX", legacyId, "RETRY-LEGACY", 1, "不能猜历史上下文", "OPS")).code());
+            String validId = jdbc.queryForObject("SELECT event_id FROM source_outbox WHERE command_id='CMD-VALID'", String.class);
+            jdbc.update("UPDATE source_outbox SET status='ISOLATED',claim_epoch=17,error_code='RETRY_EXHAUSTED' WHERE event_id=?", validId);
+            recovery.retry("ENT", "WH", "OUTBOX", validId, "RETRY-VALID", 17, "已核对原始上下文与broker恢复", "OPS");
+            try (var sender = new KafkaMessagePublisher(settings, "source-recovery-test")) {
+                assertEquals(1, new SourceOutboxPublisher(sessions, sender, "wms-inbound", "wms.it", clock).publishDue());
+            }
+            assertEquals(18L, jdbc.queryForObject("SELECT claim_epoch FROM source_outbox WHERE event_id=?", Long.class, validId));
+            assertEquals(17L, jdbc.queryForObject("SELECT retry_base_epoch FROM source_outbox WHERE event_id=?", Long.class, validId));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM message_recovery_audit", Integer.class));
+
         }
     }
 }

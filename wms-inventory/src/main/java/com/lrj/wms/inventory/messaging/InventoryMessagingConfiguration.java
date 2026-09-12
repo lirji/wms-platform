@@ -30,6 +30,12 @@ public class InventoryMessagingConfiguration {
     MessageWorker inventoryQueueMetricsWorker(MessageQueueMetrics metrics) {
         return new MessageWorker("inventory-queue-metrics", metrics::sampleDue);
     }
+    /** 恢复仅访问本服务本库，可信Inbox规则沿用实际消费者配置。 */
+    @Bean
+    @ConditionalOnProperty(name = "wms.messaging.recovery-enabled", havingValue = "true")
+    MessageRecoveryService inventoryMessageRecovery(SqlSessionFactory sessions, RuntimeInbox inbox) {
+        return new MessageRecoveryService(sessions, MessageQueueMetrics.Queue.INVENTORY_OUTBOX, inbox, Clock.systemUTC());
+    }
     @Bean(destroyMethod = "close")
     KafkaMessagePublisher inventoryKafkaPublisher(KafkaSettings settings) {
         return new KafkaMessagePublisher(settings, "wms-inventory-outbox");

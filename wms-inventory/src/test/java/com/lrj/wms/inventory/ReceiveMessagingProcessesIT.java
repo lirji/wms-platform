@@ -112,6 +112,30 @@ class ReceiveMessagingProcessesIT {
                     20, "重复回执未消费", in, stock);
             assertEquals(0, inDb.queryForObject("SELECT received_posted_qty FROM inbound_line WHERE id='LINE'", BigDecimal.class).compareTo(new BigDecimal("3")));
             assertEquals(1, inDb.queryForObject("SELECT COUNT(*) FROM source_execution", Integer.class));
+            // 模拟依赖故障耗尽后的真实有效回执；用HTTP恢复，不能改写原始载荷或重复累计。
+            var retryMessage = new RuntimeMessage(1, "RECOVERY-RESULT", "wms-inventory", "ENT", "WH",
+                    "InventoryCommandResult", "RECEIVE-CMD", 1, Instant.now().toString(), "recovery-probe", result);
+            inDb.update("INSERT INTO runtime_message_inbox(id,event_key,enterprise_id,warehouse_id,source_service,topic_name,partition_no,offset_no,payload_hash,payload,status,error_code,claim_epoch,next_attempt_at,created_at,updated_at) VALUES ('RECOVERY-INBOX',?,'ENT','WH','wms-inventory','wms.process.inbound.results',99,0,?,?,'ISOLATED','PROCESSING_FAILED',12,?,?,?)",
+                    retryMessage.identity(), RuntimeMessage.contentHash(retryMessage.encode()), retryMessage.encode(),
+                    java.sql.Timestamp.from(Instant.now()), java.sql.Timestamp.from(Instant.now()), java.sql.Timestamp.from(Instant.now()));
+            String retryPath = base + "/message-queues/INBOX/messages/RECOVERY-INBOX/retries";
+            String retryBody = "{\"expectedEpoch\":12,\"reason\":\"依赖已恢复并核对原事实\"}";
+            assertEquals(403, post(retryPath, token, "RECOVERY-CMD", retryBody).statusCode());
+            String adminToken = token(issuer, rsa, List.of("messaging.read", "messaging.recover"));
+            assertEquals(403, post(retryPath.replace("warehouses/WH", "warehouses/OTHER"), adminToken, "RECOVERY-CMD", retryBody).statusCode());
+            var recovered = post(retryPath, adminToken, "RECOVERY-CMD", retryBody);
+            assertEquals(202, recovered.statusCode(), recovered.body());
+            await(() -> "DONE".equals(inDb.queryForObject("SELECT status FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'", String.class)),
+                    20, "HTTP恢复后未处理原回执", in, stock);
+            var repeatedRecovery = post(retryPath, adminToken, "RECOVERY-CMD", retryBody);
+            assertEquals(202, repeatedRecovery.statusCode(), repeatedRecovery.body());
+            assertTrue(RuntimeMessage.JSON.readTree(repeatedRecovery.body()).path("replayed").asBoolean());
+            assertEquals(1, inDb.queryForObject("SELECT COUNT(*) FROM message_recovery_audit", Integer.class));
+            assertEquals("operator-process", inDb.queryForObject("SELECT actor_id FROM message_recovery_audit", String.class));
+            assertEquals(13L, inDb.queryForObject("SELECT claim_epoch FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'", Long.class));
+            assertEquals(retryMessage.encode(), inDb.queryForObject("SELECT payload FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'", String.class));
+            assertEquals(0, inDb.queryForObject("SELECT received_posted_qty FROM inbound_line WHERE id='LINE'", BigDecimal.class).compareTo(new BigDecimal("3")));
+            assertEquals(1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;
@@ -130,6 +154,7 @@ class ReceiveMessagingProcessesIT {
         env.put("WMS_" + service.toUpperCase(Locale.ROOT) + "_DB_USER", db.getUsername());
         env.put("WMS_" + service.toUpperCase(Locale.ROOT) + "_DB_PASSWORD", db.getPassword());
         env.put("WMS_OIDC_ISSUER", issuer); env.put("WMS_OIDC_JWK_SET_URI", issuer + "/jwks"); env.put("WMS_OIDC_CLIENT_ID", "wms-platform");
+        env.put("WMS_MESSAGING_RECOVERYENABLED", "true");
         env.put("WMS_MESSAGING_ENABLED", "true"); env.put("WMS_MESSAGING_BOOTSTRAPSERVERS", kafka.getBootstrapServers());
         env.put("WMS_MESSAGING_TOPICPREFIX", "wms.process");
         return builder.redirectErrorStream(true).redirectOutput(logs.resolve(service + ".log").toFile()).start();
@@ -158,9 +183,12 @@ class ReceiveMessagingProcessesIT {
         if (process == null) return; process.destroy(); if (!process.waitFor(15, TimeUnit.SECONDS)) { process.destroyForcibly(); process.waitFor(5, TimeUnit.SECONDS); }
     }
     private static String token(String issuer, RSAKey rsa) throws Exception {
+        return token(issuer, rsa, List.of("inbound.create", "inbound.read", "inbound.receive"));
+    }
+    private static String token(String issuer, RSAKey rsa, List<String> scopes) throws Exception {
         var claims = new JWTClaimsSet.Builder().issuer(issuer).audience("wms-platform").subject("operator-process")
                 .expirationTime(Date.from(Instant.now().plusSeconds(600))).claim("enterprise_id", "ENT").claim("warehouses", List.of("WH"))
-                .claim("scope", List.of("inbound.create", "inbound.read", "inbound.receive")).build();
+                .claim("scope", scopes).build();
         var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("it").build(), claims); jwt.sign(new RSASSASigner(rsa)); return jwt.serialize();
     }
 }

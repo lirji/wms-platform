@@ -29,6 +29,13 @@ import org.springframework.security.web.SecurityFilterChain;
 @AutoConfiguration
 @EnableConfigurationProperties(WmsOidcProperties.class)
 public class WmsSecurityAutoConfiguration {
+    /** 仅真正配置本库恢复服务时公开入口，不能靠通用HTTP入口跨库恢复消息。 */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(com.lrj.wms.runtime.messaging.MessageRecoveryService.class)
+    MessageRecoveryController messageRecoveryController(com.lrj.wms.runtime.messaging.MessageRecoveryService service) {
+        return new MessageRecoveryController(service);
+    }
+
     /** 无 issuer 时只放行健康检查。 */
     @Bean
     @Conditional(OnWmsOidcDisabled.class)

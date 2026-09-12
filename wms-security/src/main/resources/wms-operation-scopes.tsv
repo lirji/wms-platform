@@ -28,6 +28,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/locations/{locationId}	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/locations/{locationId}/gate	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/lots	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/lots/{lotId}	masterdata.read
+GET	/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages	messaging.read
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases	recon.read
@@ -63,6 +64,7 @@ POST	/api/wms/v1/warehouses/{warehouseId}/inbound-orders	inbound.create
 POST	/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts	inbound.receive
 POST	/api/wms/v1/warehouses/{warehouseId}/locations	masterdata.write
 POST	/api/wms/v1/warehouses/{warehouseId}/lots	masterdata.write
+POST	/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages/{messageId}/retries	messaging.recover
 POST	/api/wms/v1/warehouses/{warehouseId}/moves	stock.move
 POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders	fulfillment.execute
 POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/cancellations	outbound.pick

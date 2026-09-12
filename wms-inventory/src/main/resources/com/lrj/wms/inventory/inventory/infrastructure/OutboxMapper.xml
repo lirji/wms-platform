@@ -19,7 +19,7 @@
 
     <!-- lockDue：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockDue" resultType="map">
-        SELECT event_id, enterprise_id, warehouse_id, aggregate_type, aggregate_id, aggregate_version, event_type, operation_id, CAST(payload AS CHAR) AS payload, status, claim_epoch, version, created_at
+        SELECT event_id, enterprise_id, warehouse_id, aggregate_type, aggregate_id, aggregate_version, event_type, operation_id, CAST(payload AS CHAR) AS payload, status, claim_epoch, retry_base_epoch, version, created_at
         FROM outbox_event
         WHERE (status='PENDING'
         AND next_attempt_at&lt;=#{now}) OR (status='CLAIMED'

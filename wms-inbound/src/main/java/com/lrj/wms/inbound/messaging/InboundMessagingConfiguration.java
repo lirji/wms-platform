@@ -27,6 +27,12 @@ public class InboundMessagingConfiguration {
     MessageWorker inboundQueueMetricsWorker(MessageQueueMetrics metrics) {
         return new MessageWorker("inbound-queue-metrics", metrics::sampleDue);
     }
+    /** 恢复仅访问本服务本库，可信Inbox规则沿用实际消费者配置。 */
+    @Bean
+    @ConditionalOnProperty(name = "wms.messaging.recovery-enabled", havingValue = "true")
+    MessageRecoveryService inboundMessageRecovery(SqlSessionFactory sessions, RuntimeInbox inbox) {
+        return new MessageRecoveryService(sessions, MessageQueueMetrics.Queue.SOURCE_OUTBOX, inbox, Clock.systemUTC());
+    }
     @Bean(destroyMethod = "close")
     KafkaMessagePublisher inboundKafkaPublisher(KafkaSettings settings) {
         return new KafkaMessagePublisher(settings, "wms-inbound-outbox");

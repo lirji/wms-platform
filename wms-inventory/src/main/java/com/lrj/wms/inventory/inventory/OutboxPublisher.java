@@ -43,7 +43,7 @@ public final class OutboxPublisher {
         int published = 0;
         for (Claimed item : claimed) {
             if (Thread.currentThread().isInterrupted()) break;
-            if (item.claimEpoch() >= budget.maxClaims()) {
+            if (item.attempt() >= budget.maxClaims()) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
                 continue;
             }
@@ -53,7 +53,7 @@ public final class OutboxPublisher {
             } catch (OutboxIsolateException isolated) {
                 finish(item, InventoryCodes.OUTBOX_ISOLATED, null);
             } catch (RuntimeException retryable) {
-                finish(item, InventoryCodes.OUTBOX_PENDING, budget.retryDelay(item.claimEpoch()));
+                finish(item, InventoryCodes.OUTBOX_PENDING, budget.retryDelay(item.attempt()));
             }
         }
         return published;
@@ -70,7 +70,7 @@ public final class OutboxPublisher {
                 if (mapper.claim(String.valueOf(row.get("event_id")), epoch, leaseUntil, now) != 1) {
                     continue;
                 }
-                claimed.add(new Claimed(toRecord(row), epoch + 1));
+                claimed.add(new Claimed(toRecord(row), epoch + 1, epoch + 1 - ((Number) row.get("retry_base_epoch")).longValue()));
             }
             session.commit();
         }
@@ -107,6 +107,6 @@ public final class OutboxPublisher {
                 String.valueOf(row.get("payload")), com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(row.get("created_at")));
     }
 
-    private record Claimed(OutboxRecord record, long claimEpoch) {
+    private record Claimed(OutboxRecord record, long claimEpoch, long attempt) {
     }
 }

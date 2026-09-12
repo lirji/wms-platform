@@ -26,7 +26,7 @@
           AND (status='PENDING' OR (status='CLAIMED' AND lease_until &lt; #{now}))
     </update>
     <select id="lockClaim" resultType="map">
-        SELECT id, payload, claim_epoch FROM runtime_message_inbox
+        SELECT id, payload, claim_epoch, retry_base_epoch, topic_name, event_key, payload_hash FROM runtime_message_inbox
         WHERE id=#{id} AND claim_epoch=#{epoch} AND status='CLAIMED' FOR UPDATE
     </select>
     <update id="finish">

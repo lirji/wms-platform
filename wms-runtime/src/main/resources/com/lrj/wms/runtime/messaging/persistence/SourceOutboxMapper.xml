@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper">
     <select id="lockNext" resultType="map">
-        SELECT event_id, enterprise_id, warehouse_id, command_id, event_type, payload, created_at, claim_epoch
+        SELECT event_id, enterprise_id, warehouse_id, command_id, event_type, payload, created_at, claim_epoch, retry_base_epoch
         FROM source_outbox
         WHERE (status='PENDING' AND next_attempt_at &lt;= #{now}) OR (status='CLAIMED' AND lease_until &lt; #{now})
         ORDER BY next_attempt_at, event_id LIMIT 1 FOR UPDATE SKIP LOCKED

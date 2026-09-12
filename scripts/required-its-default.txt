@@ -77,3 +77,5 @@ com.lrj.wms.inventory.count.CountIT#recoveryIsBoundedFencedAndContinuesAfterRese
 com.lrj.wms.inventory.count.CountIT#actualRecoveryHandlerCommitsAdjustmentAndOutboxAfterRollback
 
 com.lrj.wms.runtime.messaging.MessageQueueMetricsIT#boundedBacklogAndOldestAgeRemainVisibleWhenSamplingFails
+
+com.lrj.wms.runtime.messaging.MessageRecoveryIT#auditedRetryPreservesIdentityAndFencingAndRejectsUntrustedMessages

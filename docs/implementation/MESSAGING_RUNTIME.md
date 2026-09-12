@@ -18,7 +18,7 @@ Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGIN
 
 1. readiness DOWN 时检查本实例数据库、OIDC 配置、broker 可达性和消费者组状态；liveness UP 不能当作可接业务流量。
 2. broker 短暂中断后自动恢复，核对 Outbox 的 PUBLISHED、Inbox 的 DONE 和投影版本。不要删除 Outbox、改消息正文或重置消费者位点来消除积压。
-3. ISOLATED 保存事件与脱敏失败类别；人工受审计重放入口及积压告警尚待完成，当前不要直接改库冒充正常恢复。历史数据保留策略未批准，不自动删除 Outbox/Inbox。
+3. ISOLATED 保存事件与脱敏失败类别；受审计重试入口与积压检查见后文，重试默认关闭且不得直接改库冒充恢复。历史数据保留策略未批准，不自动删除 Outbox/Inbox。
 
 ## 已有证据
 
@@ -52,3 +52,14 @@ Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGIN
 - `SAMPLE_STALE` / `SAMPLE_UNAVAILABLE` / `METRICS_UNAVAILABLE`：先恢复采样、鉴权或连接；保持未知状态，不能宣称业务正常。
 
 Python HTTP夹具2项已通过，覆盖健康/隔离/超龄/旧快照/鉴权失败。真实MySQL有界计数与失败恢复、两个业务进程装配回归已通过，见整改证据。
+
+
+## 隔离消息人工重试
+
+`WMS_MESSAGING_RECOVERYENABLED` 默认false；全部worker升级后由运行方设true，公开入口才注册。运行入口按服务本库部署：`GET /api/wms/v1/warehouses/{warehouseId}/message-queues/{INBOX|OUTBOX}/messages` 需要 `messaging.read`，只返回有界元数据页；`POST .../messages/{messageId}/retries` 需要 `messaging.recover` 和同仓授权。正文包含 `expectedEpoch` 与核对原因 `reason`，请求头 `Idempotency-Key` 必填，202只表示重试受理。
+
+只能对仍处于ISOLATED且代际相同的消息重试。JWT操作者、原因、原消息摘要、原代际和请求摘要写入本库审计，与预算恢复同事务。原payload/eventId/claim_epoch不变，以retry_base_epoch恢复新一轮有界自动处理；同一请求键重放只返回原审计。错误scope/仓/企业、同键异内容、过期代际和正在处理/已完成状态不能创建新的重试。
+
+Inbox在每次处理和人工重试时重新验证受信Topic、source、原事件身份与内容摘要；畸形、来源不可信或内容篡改的隔离记录拒绝恢复。来源Outbox缺少原始上下文、上下文不一致或尝试已安全关闭时不能用人工重试绕过核对。恢复接口不提供改写消息正文或回退业务状态的能力；重试后的业务效果仍由原业务幂等与权威数据库决定。
+
+滚动升级需先扩展数据库、部署所有理解retry_base_epoch的新worker，最后才启用人工恢复入口；旧worker忽略新预算基线会重新隔离，不能宣称新旧混跑支持人工恢复。当前尚无历史消息归档删除策略，审计及原事件均保留。运行时关闭恢复开关需重启，是明确的环境配置，不支持含糊的动态来源。该开关是滚动升级兼容措施，所有运行实例长期升级并完成兼容验证后再评估移除，不能提前删旧路径。

@@ -44,15 +44,16 @@ public final class SourceOutboxPublisher {
                 epoch++;
                 session.commit();
             }
+            long attempt = epoch - ((Number) event.get("retry_base_epoch")).longValue();
             try {
-                if (epoch > 8) throw new MessageRejectedException("RETRY_EXHAUSTED");
+                if (attempt > 8) throw new MessageRejectedException("RETRY_EXHAUSTED");
                 RuntimeMessage message = message(event);
                 publisher.publish(topic, RuntimeMessage.hash(message.enterpriseId() + "/" + message.warehouseId() + "/" + message.aggregateId()), message.encode());
                 if (finish(event, epoch, "PUBLISHED", null, clock.instant())) published++;
             } catch (MessageRejectedException invalid) {
                 finish(event, epoch, "ISOLATED", invalid.code(), clock.instant());
             } catch (RuntimeException unavailable) {
-                long delay = Math.min(60, 1L << Math.min(6, epoch));
+                long delay = Math.min(60, 1L << Math.min(6, attempt));
                 finish(event, epoch, "PENDING", "PUBLISH_UNCONFIRMED",
                         clock.instant().plusMillis(delay * 1000 + ThreadLocalRandom.current().nextInt(1000)));
             }

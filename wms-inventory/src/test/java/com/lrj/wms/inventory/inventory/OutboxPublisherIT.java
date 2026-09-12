@@ -11,6 +11,7 @@ import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,6 +59,7 @@ class OutboxPublisherIT {
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
         config.addMapper(CommandDedupMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         try (SqlSession session = sessions.openSession(false)) {
@@ -124,6 +126,25 @@ class OutboxPublisherIT {
         assertEquals(1, reclaimed.size());
         assertEquals(InventoryCodes.OUTBOX_PUBLISHED,
                 jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-LEASE'", String.class));
+        // 人工重试恢复预算基线，原claim_epoch和事件身份都保留，旧发布器不能误标完成。
+        jdbc.update("UPDATE outbox_event SET claim_epoch=12 WHERE operation_id='OP-ISO'");
+        String eventId = jdbc.queryForObject("SELECT event_id FROM outbox_event WHERE operation_id='OP-ISO'", String.class);
+        var recoveryClock = Clock.fixed(NOW, ZoneOffset.UTC);
+        var recovery = new com.lrj.wms.runtime.messaging.MessageRecoveryService(sessions,
+                com.lrj.wms.runtime.messaging.MessageQueueMetrics.Queue.INVENTORY_OUTBOX,
+                new com.lrj.wms.runtime.messaging.RuntimeInbox(sessions, java.util.Map.of(), recoveryClock), recoveryClock);
+        recovery.retry("ENT-1", "WH-A", "OUTBOX", eventId, "RETRY-ISO", 12, "已核对投递适配修复", "OPS");
+        try (var session = sessions.openSession(false)) {
+            assertEquals(0, session.getMapper(OutboxMapper.class).markPublished(eventId, 12, Timestamp.from(NOW)));
+            session.commit();
+        }
+        assertEquals(1, publisher.publishDue());
+        assertEquals(eventId, sent.getLast().eventId());
+        assertEquals(13L, jdbc.queryForObject("SELECT claim_epoch FROM outbox_event WHERE event_id=?", Long.class, eventId));
+        assertEquals(12L, jdbc.queryForObject("SELECT retry_base_epoch FROM outbox_event WHERE event_id=?", Long.class, eventId));
+        assertEquals(true, recovery.retry("ENT-1", "WH-A", "OUTBOX", eventId, "RETRY-ISO", 12, "已核对投递适配修复", "OPS").get("replayed"));
+        assertEquals(0, publisher.publishDue());
+
     }
 
     private void receive(String operationId, String skuId) {

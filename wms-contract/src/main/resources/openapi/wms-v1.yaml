@@ -3021,6 +3021,81 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages:
+    get:
+      operationId: listOperationalMessages
+      tags: [common]
+      summary: 本服务本库消息元数据列表，不返回消息正文
+      security:
+        - oidc: [messaging.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/MessageQueue'
+        - $ref: '#/components/parameters/MessageState'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages/{messageId}/retries:
+    post:
+      operationId: retryIsolatedMessage
+      tags: [common]
+      summary: 原消息受审计重新排队，保持身份且不重置领取代际
+      security:
+        - oidc: [messaging.recover]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/MessageQueue'
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRetryRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageRecoveryAccepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     oidc:
@@ -3028,6 +3103,20 @@ components:
       description: issuer 与 client 由 WMS_OIDC_ISSUER / WMS_OIDC_CLIENT_ID 指向已有提供方，仓库不写死密钥
       openIdConnectUrl: https://issuer.example.invalid/.well-known/openid-configuration
   parameters:
+    MessageQueue:
+      name: queue
+      in: path
+      required: true
+      schema: { type: string, enum: [INBOX, OUTBOX] }
+    MessageId:
+      name: messageId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    MessageState:
+      name: status
+      in: query
+      schema: { type: string, enum: [PENDING, CLAIMED, ISOLATED], default: ISOLATED }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -3231,6 +3320,14 @@ components:
         code:
           type: string
           enum:
+            - INVALID_MESSAGE_QUEUE
+            - INVALID_MESSAGE_STATE
+            - INVALID_RECOVERY_REQUEST
+            - MESSAGE_NOT_FOUND
+            - MESSAGE_STATE_CONFLICT
+            - MESSAGE_NOT_REPLAYABLE
+            - RECOVERY_KEY_CONFLICT
+            - MESSAGE_RECOVERY_FORBIDDEN
             - INVALID_QUANTITY
             - INVALID_UNIT
             - REQUIRED_LOT
@@ -4318,6 +4415,22 @@ components:
         executionAttemptId: { $ref: '#/components/schemas/Id' }
         attemptNo: { type: integer, minimum: 1 }
         previousCommandId: { $ref: '#/components/schemas/Id' }
+    MessageRecoveryAccepted:
+      type: object
+      additionalProperties: false
+      required: [recoveryId, messageId, state, replayed]
+      properties:
+        recoveryId: { $ref: '#/components/schemas/Id' }
+        messageId: { $ref: '#/components/schemas/Id' }
+        state: { type: string, enum: [RETRY_ACCEPTED] }
+        replayed: { type: boolean }
+    MessageRetryRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedEpoch, reason]
+      properties:
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
     ExecutionPermitStartRequest:
       type: object
       additionalProperties: false

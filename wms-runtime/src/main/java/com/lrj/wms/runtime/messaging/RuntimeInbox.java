@@ -89,12 +89,15 @@ public final class RuntimeInbox implements KafkaInboxConsumer.DurableReceiver {
             }
             session.commit();
         }
+        long attempt = epoch;
         String previous = MDC.get("requestId");
         try (SqlSession session = sessions.openSession(false)) {
             var mapper = session.getMapper(RuntimeInboxMapper.class);
             var claimed = mapper.lockClaim(id, epoch);
             if (claimed == null) { session.rollback(); return true; }
-            var message = RuntimeMessage.parse(String.valueOf(claimed.get("payload")));
+            attempt = epoch - ((Number) claimed.get("retry_base_epoch")).longValue();
+            if (attempt > 8) throw new MessageRejectedException("RETRY_EXHAUSTED");
+            var message = validateTrusted(claimed);
             MDC.put("requestId", message.requestId() == null ? UUID.randomUUID().toString() : message.requestId());
             try {
                 handler.apply(session, message);
@@ -107,9 +110,9 @@ public final class RuntimeInbox implements KafkaInboxConsumer.DurableReceiver {
             }
         } catch (RuntimeException failure) {
             // 上一个try-with-resources先回滚所有业务写，再以相同领取代际记录重试/隔离。
-            boolean isolate = failure instanceof MessageRejectedException || epoch >= 8;
+            boolean isolate = failure instanceof MessageRejectedException || attempt >= 8;
             String code = failure instanceof MessageRejectedException rejected ? rejected.code() : "PROCESSING_FAILED";
-            long delay = Math.min(60, 1L << Math.min(epoch, 6));
+            long delay = Math.min(60, 1L << Math.min(attempt, 6));
             try (SqlSession session = sessions.openSession(false)) {
                 session.getMapper(RuntimeInboxMapper.class).finish(id, epoch, isolate ? "ISOLATED" : "PENDING", code,
                         Timestamp.from(clock.instant().plusMillis(delay * 1000 + ThreadLocalRandom.current().nextInt(1000))), now());
@@ -119,6 +122,19 @@ public final class RuntimeInbox implements KafkaInboxConsumer.DurableReceiver {
             if (previous == null) MDC.remove("requestId"); else MDC.put("requestId", previous);
         }
         return true;
+    }
+
+    /** 人工重试和自动处理共用校验，无法证明受信来源的隔离记录不能重新投递。 */
+    public RuntimeMessage validateTrusted(Map<String, Object> row) {
+        var message = RuntimeMessage.parse(String.valueOf(row.get("payload")));
+        if (!message.sourceService().equals(sourceByTopic.get(String.valueOf(row.get("topic_name"))))
+                || !message.identity().equals(row.get("event_key"))) {
+            throw new MessageRejectedException("UNTRUSTED_MESSAGE_SOURCE");
+        }
+        if (!RuntimeMessage.contentHash(String.valueOf(row.get("payload"))).equals(row.get("payload_hash"))) {
+            throw new MessageRejectedException("EVENT_PAYLOAD_MISMATCH");
+        }
+        return message;
     }
 
     private Timestamp now() { return Timestamp.from(clock.instant()); }

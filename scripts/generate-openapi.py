@@ -17,7 +17,7 @@ def responses(*codes, success_schema="ResourceEnvelope"):
             "202": "已持久化受理，不是业务终态成功",
         }.get(code, "错误")
         if code in ("200", "201", "202"):
-            schema = "AcceptedOperation" if code == "202" else success_schema
+            schema = "AcceptedOperation" if code == "202" and success_schema == "ResourceEnvelope" else success_schema
             lines.append(f"        '{code}':")
             lines.append(f"          description: {desc}")
             lines.append("          content:")
@@ -69,8 +69,8 @@ def write_op(method, path, op, tag, scope, body, success, extra_params=None, des
 
 ops = []
 
-def post(path, op, tag, scope, body, success, description, extra=None):
-    ops.append(write_op("post", path, op, tag, scope, body, success, extra, description))
+def post(path, op, tag, scope, body, success, description, extra=None, success_schema="ResourceEnvelope"):
+    ops.append(write_op("post", path, op, tag, scope, body, success, extra, description, success_schema))
 
 
 def get(path, op, tag, scope, success, description, extra=None):
@@ -287,6 +287,13 @@ post("/api/wms/v1/reconciliation-cases/{id}/remediations", "remediateReconciliat
 for suffix, op, scope in [("issues", "issueTransfer", "transfer.create"), ("losses", "confirmTransferLoss", "stock.move")]:
     post("/api/wms/v1/transfers/{transferId}/" + suffix, op, "transfer", scope, "TransferPartRequest", ("202",), "调拨数量作业", ["- $ref: '#/components/parameters/TransferId'"])
 
+get("/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages", "listOperationalMessages", "common",
+    "messaging.read", ("200",), "本服务本库消息元数据列表，不返回消息正文",
+    wh + ["- $ref: '#/components/parameters/MessageQueue'", "- $ref: '#/components/parameters/MessageState'"] + cursor)
+post("/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages/{messageId}/retries", "retryIsolatedMessage", "common",
+     "messaging.recover", "MessageRetryRequest", ("202",), "原消息受审计重新排队，保持身份且不重置领取代际",
+     wh + ["- $ref: '#/components/parameters/MessageQueue'", "- $ref: '#/components/parameters/MessageId'"], success_schema="MessageRecoveryAccepted")
+
 header = """openapi: 3.1.0
 info:
   title: WMS v1 HTTP contract
@@ -326,6 +333,20 @@ components:
       description: issuer 与 client 由 WMS_OIDC_ISSUER / WMS_OIDC_CLIENT_ID 指向已有提供方，仓库不写死密钥
       openIdConnectUrl: https://issuer.example.invalid/.well-known/openid-configuration
   parameters:
+    MessageQueue:
+      name: queue
+      in: path
+      required: true
+      schema: { type: string, enum: [INBOX, OUTBOX] }
+    MessageId:
+      name: messageId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Id' }
+    MessageState:
+      name: status
+      in: query
+      schema: { type: string, enum: [PENDING, CLAIMED, ISOLATED], default: ISOLATED }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -529,6 +550,14 @@ components:
         code:
           type: string
           enum:
+            - INVALID_MESSAGE_QUEUE
+            - INVALID_MESSAGE_STATE
+            - INVALID_RECOVERY_REQUEST
+            - MESSAGE_NOT_FOUND
+            - MESSAGE_STATE_CONFLICT
+            - MESSAGE_NOT_REPLAYABLE
+            - RECOVERY_KEY_CONFLICT
+            - MESSAGE_RECOVERY_FORBIDDEN
             - INVALID_QUANTITY
             - INVALID_UNIT
             - REQUIRED_LOT
@@ -1616,6 +1645,22 @@ components:
         executionAttemptId: { $ref: '#/components/schemas/Id' }
         attemptNo: { type: integer, minimum: 1 }
         previousCommandId: { $ref: '#/components/schemas/Id' }
+    MessageRecoveryAccepted:
+      type: object
+      additionalProperties: false
+      required: [recoveryId, messageId, state, replayed]
+      properties:
+        recoveryId: { $ref: '#/components/schemas/Id' }
+        messageId: { $ref: '#/components/schemas/Id' }
+        state: { type: string, enum: [RETRY_ACCEPTED] }
+        replayed: { type: boolean }
+    MessageRetryRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedEpoch, reason]
+      properties:
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
     ExecutionPermitStartRequest:
       type: object
       additionalProperties: false

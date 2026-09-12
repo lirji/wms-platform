@@ -22,6 +22,7 @@ class RuntimeInboxIT {
             source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             try (var connection = source.getConnection(); var sql = connection.createStatement()) {
                 sql.execute(java.nio.file.Files.readString(java.nio.file.Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", "V024__runtime_message_inbox.sql")));
+                sql.execute(java.nio.file.Files.readString(java.nio.file.Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", "V028__message_recovery.sql")).split(";")[0]);
                 sql.execute("CREATE TABLE test_effect(id VARCHAR(64) PRIMARY KEY COMMENT '原始业务事件') COMMENT='仅本测试的业务效果'");
             }
             var configuration = new Configuration(new Environment("runtime-inbox", new JdbcTransactionFactory(), source));

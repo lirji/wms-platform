@@ -217,3 +217,17 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 附带R21真实缺口：OperationScopeFilter 403正文原另造UUID，已改复用HTTP requestId；新增嵌套真实filter单测，`/tmp/wms-scope-correlation-test.log`相关模块全部单测通过。
 - 下一步R13人工受审计重放：必须按ent/wh/queue/id校验，禁止改payload，原事件身份保留；新增retry_base_epoch或独立预算，绝不重置claim_epoch。RuntimeInbox原processNext仅persist验证trusted来源，重放时还应复验topic→source/eventkey/hash；event_key空的畸形/不可信隔离绝不盲重放。来源旧minimal缺postingContext不可凭当前请求猜填。库存Outbox需用epoch-base做retry预算，保持旧workerfence。
 - pending质检粒度必要业务问题仍无答；继续独立事项。R14真实TM/TC/serial，R15serial/reconcile/archive，R22固定时区旧库兼容仍未实施；R13质量/PUTAWAY/PICK/SHIP/CANCEL未闭环。最终全profiles/CI/普通merge/pushmain尚未做，无生产部署。OQ03/真实WCS/签署容量与50AC保持未验收。
+
+
+## 最新检查点 2026-09-12 23:24
+
+- R21消息指标已提交 **f719343**，目前12个本地任务提交未push；本批R13人工审计重试准备提交。当前无运行Maven。
+- runtime新增MessageRecoveryService/Exception/Mapper XML：本库INBOX/OUTBOX映射固定表，企业/仓SQL过滤，元数据页1–200不公开payload；仅ISOLATED+expectedEpoch，审计和重新排队同TX。审计唯一ent/wh/commandId，含JWTactor/reason/原消息与请求hash/原epoch；同键重放不再次恢复预算，异内容409。
+- 追加inboundV011/inventoryV028/outboundV013/fulfillmentV011：Inbox和存在的Outbox加retry_base_epoch，message_recovery_audit有全部中文注释，Outbox加scope/status/id分页索引。runtimeInbox/来源Publisher/库存Publisher用epoch-base计算预算，**claim_epoch从不回退**；Inbox每次处理/人工恢复复验topic-source/eventidentity/hash。不可信或篡改、来源旧minimal/错上下文/旧attempt拒绝恢复。
+- wms-security新增共享MessageRecoveryController，AutoConfiguration仅发现实际MessageRecoveryService才注册。两已接线服务MessageRecoveryService需 `wms.messaging.recovery-enabled=true`，环境WMS_MESSAGING_RECOVERYENABLED默认false（Compose/.env已写）。必须先所有worker升级再启用；旧worker不理解retrybase不能混跑恢复。权限messaging.read/recover+JWT仓；HTTP202仅RETRY_ACCEPTED，有独立MessageRecoveryAccepted schema。
+- OpenAPI生成器新增74路径+2scope，新schema/错误码、公开Controller扫描扩展到wms-security。生成产物未暂存前verify-contracts会因预期diff失败；提交前暂存再复现。
+- `/tmp/wms-message-recovery-it.log` **BUILD SUCCESS**：MessageRecoveryIT1、RuntimeInboxIT1、OutboxPublisherIT1、OutboxCrashRecoveryIT1、SourceOutboxIT1、ReceiveMessagingProcessesIT1+全部单元。真DB八次失败后恢复/8→9/旧fence拒/审计失败回滚/跨仓和poison拒；库存Outbox12→13；两个实际Jar经JWTHTTP缺权错仓403、恢复202、重放原payload/posted/ledger不重复。初次testtrigger无SUPER，改本测试CHECK约束故障注入后过，未提升权限。
+- `/tmp/wms-source-recovery-final-it.log` **BUILD SUCCESS**：额外来源Outbox17→18真实Kafka重新发布、legacy拒绝；所有单元与新schema生成通过。required53项结构门禁，Composeconfig与docs结构通过，非最终全组合/生产发布。
+- 独立只读发现：WarehouseMigrationStore.COPY_TABLES仍未覆盖新runtime_message_inbox/message_recovery_audit，也遗漏既有count_plan/count_scope/count_line/count_observation等（当前只24表）。最终迁移回归前需按完整仓权威数据核对允许列表，不能留下消息/盘点恢复状态在旧库。未修，不默认为迁移通过。
+- 下一步R14真实serial-registry进程/库/鉴权接口和库存适配；现模块已有SerialRegistryService/Mapper但无DataSource/controller，应用application.yml只health。claim只比operationId不比ownerWH，activate ACTIVE分支未比原operation，暴露HTTP前需修。不把直接实例测试当实际服务闭环。TM/TC终态仍未接。
+- 用户质检粒度必要问题仍待答，R13质量/PUTAWAY/PICK/SHIP/CANCEL未完成。R15serial/reconcile/archive、R22固定时区兼容待；OQ03/真实WCS/签署容量/50AC仍未验收。最终全profiles/CI/正常merge pushmain，无生产部署。
