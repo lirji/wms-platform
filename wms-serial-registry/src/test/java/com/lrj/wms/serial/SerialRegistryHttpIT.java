@@ -85,8 +85,8 @@ class SerialRegistryHttpIT {
         assertEquals(200, post("activations", token, "ACTIVATE-CMD", body).statusCode());
         assertEquals(409, post("activations", token, "WRONG-OP", body.replace("RECEIPT-OP", "WRONG-OP")).statusCode());
         var jdbc = new JdbcTemplate(source);
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM serial_registry", Integer.class));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM serial_http_command", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM serial_registry WHERE normalized_serial='SN-HTTP'", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM serial_http_command WHERE command_id IN ('CLAIM-CMD','ACTIVATE-CMD')", Integer.class));
         assertEquals("inventory-worker", jdbc.queryForObject("SELECT actor_id FROM serial_http_command WHERE command_id='CLAIM-CMD'", String.class));
         assertEquals(200, get(token).statusCode());
         assertEquals(403, get(token("inventory-worker", "ENT", List.of("WH-B"), List.of("serial.registry.read"))).statusCode());
@@ -101,7 +101,60 @@ class SerialRegistryHttpIT {
         assertEquals(409, oldActivation.statusCode(), oldActivation.body());
         assertEquals("SERIAL_MISSING", RuntimeMessage.JSON.readTree(oldActivation.body()).path("code").asString());
         assertEquals("MISSING", jdbc.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='SN-HTTP'", String.class));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM serial_http_command", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM serial_http_command WHERE command_id IN ('CLAIM-CMD','ACTIVATE-CMD')", Integer.class));
+    }
+
+    @Test void transferAndFoundRecoveryPreserveWarehouseEpochAndOriginalFacts() throws Exception {
+        String both = token("inventory-worker", "ENT", List.of("WH-A", "WH-B"), List.of("serial.registry.write", "serial.registry.read"));
+        String sourceOnly = token("inventory-worker", "ENT", List.of("WH-A"), List.of("serial.registry.write"));
+        String destinationOnly = token("inventory-worker", "ENT", List.of("WH-B"), List.of("serial.registry.write", "serial.registry.read"));
+        var identity = new LinkedHashMap<String,Object>(Map.of("warehouseId","WH-A","skuId","SKU","serial","sn-transfer-http","operationId","TRANSFER-RECEIPT"));
+        ok("claims",both,"TX-CLAIM",identity,"CLAIMED");
+        long epoch = ok("activations",both,"TX-ACTIVATE",identity,"ACTIVE").path("ownerEpoch").asLong();
+        var prepare = new LinkedHashMap<String,Object>(identity);
+        prepare.put("targetWarehouseId","WH-B"); prepare.put("transferId","TX-HTTP"); prepare.put("expectedEpoch",epoch);
+        prepare.put("operationId","PREPARE-HTTP");
+        assertEquals(403,post("transfer-preparations",sourceOnly,"TX-NO-TARGET",RuntimeMessage.JSON.writeValueAsString(prepare)).statusCode());
+        ok("transfer-preparations",both,"TX-PREPARE",prepare,"TRANSFER_PREPARED");
+        prepare.put("expectedEpoch",epoch+1);
+        assertEquals(409,post("transfer-preparations",both,"TX-OLD-PREPARE",RuntimeMessage.JSON.writeValueAsString(prepare)).statusCode());
+        var receive = new LinkedHashMap<String,Object>(Map.of("warehouseId","WH-B","skuId","SKU","serial","SN-TRANSFER-HTTP",
+                "transferId","TX-HTTP","factRef","DEST-RECEIPT","expectedEpoch",epoch));
+        assertEquals(409,post("destination-receivings",destinationOnly,"TX-EARLY",RuntimeMessage.JSON.writeValueAsString(receive)).statusCode());
+        var release = new LinkedHashMap<String,Object>(receive); release.put("factRef","SOURCE-RELEASE");
+        assertEquals(403,post("source-releases",destinationOnly,"TX-FORGED-SOURCE",RuntimeMessage.JSON.writeValueAsString(release)).statusCode());
+        release.put("warehouseId","WH-A");
+        ok("source-releases",sourceOnly,"TX-RELEASE",release,"IN_TRANSIT");
+        ok("destination-receivings",destinationOnly,"TX-RECEIVE",receive,"RECEIVING");
+        var confirmation = new LinkedHashMap<String,Object>(receive); confirmation.remove("expectedEpoch");
+        var active=ok("destination-confirmations",destinationOnly,"TX-CONFIRM",confirmation,"ACTIVE");
+        assertEquals("WH-B",active.path("ownerWarehouseId").asString()); assertEquals(epoch+1,active.path("ownerEpoch").asLong());
+        ok("destination-receivings",destinationOnly,"TX-RECEIVE",receive,"ACTIVE");
+        ok("destination-confirmations",destinationOnly,"TX-CONFIRM",confirmation,"ACTIVE");
+        receive.put("expectedEpoch",epoch+3);
+        assertEquals(409,post("destination-receivings",destinationOnly,"TX-STALE-RECEIVE",RuntimeMessage.JSON.writeValueAsString(receive)).statusCode());
+        var transfer=http.send(HttpRequest.newBuilder(URI.create(base()+"/internal/wms/v1/serial-identities/transfers/TX-HTTP?warehouseId=WH-B&skuId=SKU&serial=SN-TRANSFER-HTTP"))
+                .header("Authorization","Bearer "+destinationOnly).header("X-Wms-Enterprise-Id","ENT").GET().build(),HttpResponse.BodyHandlers.ofString());
+        assertEquals(200,transfer.statusCode(),transfer.body());
+        var missing=Map.<String,Object>of("warehouseId","WH-B","skuId","SKU","serial","SN-TRANSFER-HTTP","factRef","MISSING-FACT","expectedEpoch",epoch+1);
+        ok("missing",destinationOnly,"TX-MISSING",missing,"MISSING");
+        var found=Map.<String,Object>of("warehouseId","WH-B","skuId","SKU","serial","SN-TRANSFER-HTTP","operationId","FOUND-FACT");
+        ok("found-claims",destinationOnly,"TX-FOUND-CLAIM",found,"FOUND_CLAIMED");
+        ok("found-activations",destinationOnly,"TX-FOUND-ACTIVATE",found,"ACTIVE");
+        // 模拟调用方丢失激活回执：从同一认领动作重试，不得制造新epoch或误认其他操作。
+        ok("found-claims",destinationOnly,"TX-FOUND-CLAIM",found,"ACTIVE");
+        ok("found-activations",destinationOnly,"TX-FOUND-ACTIVATE",found,"ACTIVE");
+        assertEquals(409,post("found-activations",destinationOnly,"TX-OTHER-FOUND",RuntimeMessage.JSON.writeValueAsString(found).replace("FOUND-FACT","OTHER-FACT")).statusCode());
+        var fresh=Map.<String,Object>of("warehouseId","WH-B","skuId","SKU","serial","SN-FRESH-FOUND","operationId","FRESH-FACT");
+        ok("found-claims",destinationOnly,"FRESH-CLAIM",fresh,"CLAIMED");
+        ok("found-claims",destinationOnly,"FRESH-CLAIM",fresh,"CLAIMED");
+        ok("found-activations",destinationOnly,"FRESH-ACTIVATE",fresh,"ACTIVE");
+    }
+
+    private tools.jackson.databind.JsonNode ok(String action,String token,String key,Map<String,Object> body,String state) throws Exception {
+        var response=post(action,token,key,RuntimeMessage.JSON.writeValueAsString(body));
+        assertEquals(200,response.statusCode(),response.body());
+        var result=RuntimeMessage.JSON.readTree(response.body()); assertEquals(state,result.path("state").asString()); return result;
     }
 
     private HttpResponse<String> post(String action, String token, String key, String body) throws Exception {

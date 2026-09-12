@@ -303,6 +303,23 @@ for suffix, operation in [("claims", "claimSerialIdentity"), ("activations", "ac
 get("/internal/wms/v1/serial-identities", "getSerialIdentity", "internal-registry", "serial.registry.read", ("200",),
     "查询实时全局登记，检查当前归属仓权限", ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/SerialSkuQuery'", "- $ref: '#/components/parameters/SerialQuery'"], success_schema="SerialIdentity")
 
+for suffix, operation, schema in [
+    ("missing", "markSerialMissing", "SerialMissingCommand"),
+    ("found-claims", "claimFoundSerial", "SerialIdentityCommand"),
+    ("found-activations", "activateFoundSerial", "SerialIdentityCommand"),
+    ("transfer-preparations", "prepareSerialTransfer", "SerialTransferPrepareCommand"),
+    ("source-releases", "releaseSerialSource", "SerialTransferFactCommand"),
+    ("destination-receivings", "receiveSerialDestination", "SerialTransferFactCommand"),
+    ("destination-confirmations", "confirmSerialDestination", "SerialTransferConfirmCommand")]:
+    post("/internal/wms/v1/serial-identities/"+suffix, operation, "internal-registry", "serial.registry.write",
+         schema, ("200",), "受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓",
+         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"], success_schema="SerialIdentity")
+get("/internal/wms/v1/serial-identities/transfers/{transferId}", "getSerialTransfer", "internal-registry", "serial.registry.read", ("200",),
+    "检查转移源或目的仓范围并查询原始释放/接收引用",
+    ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/TransferId'",
+     "- $ref: '#/components/parameters/SerialSkuQuery'", "- $ref: '#/components/parameters/SerialQuery'",
+     "- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string, minLength: 1, maxLength: 64 }"], success_schema="SerialTransfer")
+
 header = """openapi: 3.1.0
 info:
   title: WMS v1 HTTP contract
@@ -1714,6 +1731,63 @@ components:
         skuId: { $ref: '#/components/schemas/Id' }
         serial: { type: string, minLength: 1, maxLength: 128 }
         operationId: { $ref: '#/components/schemas/Id' }
+    SerialMissingCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, factRef, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        factRef: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferPrepareCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, targetWarehouseId, transferId, operationId, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        targetWarehouseId: { $ref: '#/components/schemas/Id' }
+        transferId: { $ref: '#/components/schemas/Id' }
+        operationId: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferFactCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, transferId, factRef, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        transferId: { $ref: '#/components/schemas/Id' }
+        factRef: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferConfirmCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, transferId, factRef]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        transferId: { $ref: '#/components/schemas/Id' }
+        factRef: { $ref: '#/components/schemas/Id' }
+    SerialTransfer:
+      type: object
+      additionalProperties: false
+      required: [id, transferId, state, sourceWarehouseId, targetWarehouseId, fromEpoch, toEpoch, sourceReleaseRef, targetReceiptRef]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        transferId: { $ref: '#/components/schemas/Id' }
+        state: { type: string }
+        sourceWarehouseId: { $ref: '#/components/schemas/Id' }
+        targetWarehouseId: { $ref: '#/components/schemas/Id' }
+        fromEpoch: { type: integer, format: int64 }
+        toEpoch: { type: [integer, 'null'], format: int64 }
+        sourceReleaseRef: { type: [string, 'null'] }
+        targetReceiptRef: { type: [string, 'null'] }
     SerialIdentity:
       type: object
       additionalProperties: false

@@ -3245,6 +3245,310 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/missing:
+    post:
+      operationId: markSerialMissing
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialMissingCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/found-claims:
+    post:
+      operationId: claimFoundSerial
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialIdentityCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/found-activations:
+    post:
+      operationId: activateFoundSerial
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialIdentityCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/transfer-preparations:
+    post:
+      operationId: prepareSerialTransfer
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferPrepareCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/source-releases:
+    post:
+      operationId: releaseSerialSource
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferFactCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/destination-receivings:
+    post:
+      operationId: receiveSerialDestination
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferFactCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/destination-confirmations:
+    post:
+      operationId: confirmSerialDestination
+      tags: [internal-registry]
+      summary: 受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferConfirmCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialIdentity'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/transfers/{transferId}:
+    get:
+      operationId: getSerialTransfer
+      tags: [internal-registry]
+      summary: 检查转移源或目的仓范围并查询原始释放/接收引用
+      security:
+        - oidc: [serial.registry.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+        - $ref: '#/components/parameters/TransferId'
+        - $ref: '#/components/parameters/SerialSkuQuery'
+        - $ref: '#/components/parameters/SerialQuery'
+        - in: query
+          name: warehouseId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransfer'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
     oidc:
@@ -4623,6 +4927,63 @@ components:
         skuId: { $ref: '#/components/schemas/Id' }
         serial: { type: string, minLength: 1, maxLength: 128 }
         operationId: { $ref: '#/components/schemas/Id' }
+    SerialMissingCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, factRef, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        factRef: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferPrepareCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, targetWarehouseId, transferId, operationId, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        targetWarehouseId: { $ref: '#/components/schemas/Id' }
+        transferId: { $ref: '#/components/schemas/Id' }
+        operationId: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferFactCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, transferId, factRef, expectedEpoch]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        transferId: { $ref: '#/components/schemas/Id' }
+        factRef: { $ref: '#/components/schemas/Id' }
+        expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialTransferConfirmCommand:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, skuId, serial, transferId, factRef]
+      properties:
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        skuId: { $ref: '#/components/schemas/Id' }
+        serial: { type: string, minLength: 1, maxLength: 128 }
+        transferId: { $ref: '#/components/schemas/Id' }
+        factRef: { $ref: '#/components/schemas/Id' }
+    SerialTransfer:
+      type: object
+      additionalProperties: false
+      required: [id, transferId, state, sourceWarehouseId, targetWarehouseId, fromEpoch, toEpoch, sourceReleaseRef, targetReceiptRef]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        transferId: { $ref: '#/components/schemas/Id' }
+        state: { type: string }
+        sourceWarehouseId: { $ref: '#/components/schemas/Id' }
+        targetWarehouseId: { $ref: '#/components/schemas/Id' }
+        fromEpoch: { type: integer, format: int64 }
+        toEpoch: { type: [integer, 'null'], format: int64 }
+        sourceReleaseRef: { type: [string, 'null'] }
+        targetReceiptRef: { type: [string, 'null'] }
     SerialIdentity:
       type: object
       additionalProperties: false

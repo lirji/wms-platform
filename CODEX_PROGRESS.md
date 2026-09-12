@@ -11,6 +11,8 @@
 - R14 登记服务已接独立数据库、认领/激活/查询 HTTP、服务主体/scope/企业/仓权限、幂等审计及当前状态重查。SerialRegistryHttpIT、SerialRegistryActivateIT 最新定向回归于 2026-09-12 23:35 BUILD SUCCESS（/tmp/wms-registry-authority-retry-it.log）。
 - 任务分支 fix/backend-review-remediation，基线 origin/main db02821；14 个任务提交 ee255e0 至 7e258d0 已推送 origin/fix/backend-review-remediation。独立集成工作树 .local/backend-remediation-integrate 已从 db02821 快进到 7e258d0，无冲突。
 
+- R14 登记转移/盘点 HTTP入口与原始epoch/事实重放校验已通过真实MySQL/HTTP定向验证（01:17:14）；库存侧HTTP适配及恢复继续实施。
+
 ## 已修改文件
 
 - 当前未提交 R22：wms-runtime db 时间策略/Mapper/映射与游标，各服务 Persistence/HTTP 时间边界、新时间规则迁移；隔离 JDBC 夹具改为显式 UTC。R15 已提交 8019a45，R22 已提交 1247334。当前健康/CI 切片修改 MessageWorker、InventoryMessagingIT、MessageWorkerTest、verify.yml。

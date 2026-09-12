@@ -120,7 +120,7 @@ public final class SerialRegistryService {
         }
         if (sameTransfer(row, transferId) && inFlight(String.valueOf(row.get("state")))) {
             return replayPrepared(row, lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId),
-                    operationId, sourceWarehouseId, targetWarehouseId);
+                    operationId, sourceWarehouseId, targetWarehouseId, expectedEpoch);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch"))) {
             throw staleEpoch(row, expectedEpoch);
@@ -166,7 +166,8 @@ public final class SerialRegistryService {
         SerialTransferMapper transfers = session.getMapper(SerialTransferMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         Map<String, Object> transfer = lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
-        if (sameRef(transfer.get("source_release_ref"), sourceReleaseRef) && sameTransfer(row, transferId)) {
+        if (sameRef(transfer.get("source_release_ref"), sourceReleaseRef) && sameTransfer(row, transferId)
+                && expectedEpoch == asLong(transfer.get("from_epoch"))) {
             return view(row);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch")) || expectedEpoch != asLong(transfer.get("from_epoch"))) {
@@ -206,6 +207,7 @@ public final class SerialRegistryService {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "接收仓与转移目的仓不一致");
         }
         if (sameRef(transfer.get("target_receipt_ref"), targetReceiptRef) && sameTransfer(row, transferId)
+                && expectedFromEpoch == asLong(transfer.get("from_epoch"))
                 && (STATE_RECEIVING.equals(String.valueOf(row.get("state")))
                         || STATE_ACTIVE.equals(String.valueOf(row.get("state"))))) {
             return view(row);
@@ -280,7 +282,8 @@ public final class SerialRegistryService {
         SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))
-                && sameRef(row.get("receipt_operation_id"), factRef)) {
+                && sameRef(row.get("receipt_operation_id"), factRef)
+                && warehouseId.equals(row.get("owner_warehouse_id")) && expectedEpoch == asLong(row.get("owner_epoch"))) {
             return view(row);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch"))) {
@@ -310,9 +313,15 @@ public final class SerialRegistryService {
         }
         Map<String, Object> row = identities.lockIdentity(enterpriseId, skuId, normalized);
         if (STATE_FOUND_CLAIMED.equals(String.valueOf(row.get("state")))
-                && operationId.equals(String.valueOf(row.get("claim_operation_id")))) {
+                && operationId.equals(String.valueOf(row.get("claim_operation_id")))
+                && warehouseId.equals(row.get("owner_warehouse_id"))) {
             return view(row);
         }
+        if (STATE_ACTIVE.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
+                && operationId.equals(row.get("receipt_operation_id")) && operationId.equals(row.get("claim_operation_id"))) return view(row);
+        // 全新盘盈认领的回执丢失后仍停在CLAIMED，按原操作继续激活。
+        if (STATE_CLAIMED.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
+                && operationId.equals(row.get("claim_operation_id"))) return view(row);
         if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_ALREADY_CLAIMED", "序列号仍是有效授权，不能盘盈认领");
         }
@@ -333,7 +342,8 @@ public final class SerialRegistryService {
         SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))
-                && warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
+                && warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))
+                && operationId.equals(row.get("receipt_operation_id")) && operationId.equals(row.get("claim_operation_id"))) {
             return view(row);
         }
         if (!STATE_FOUND_CLAIMED.equals(String.valueOf(row.get("state")))) {
@@ -365,7 +375,7 @@ public final class SerialRegistryService {
         if (serial == null || serial.isBlank()) {
             throw new SerialRegistryException("INVALID_SERIAL", "序列号不能为空");
         }
-        return serial.trim().toUpperCase();
+        return serial.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     public static int routeBucket(String enterpriseId, String skuId, String normalized) {
@@ -403,7 +413,7 @@ public final class SerialRegistryService {
     }
 
     private Map<String, Object> replayPrepared(Map<String, Object> row, Map<String, Object> transfer, String operationId,
-            String sourceWarehouseId, String targetWarehouseId) {
+            String sourceWarehouseId, String targetWarehouseId, long expectedEpoch) {
         if (!operationId.equals(String.valueOf(transfer.get("prepare_operation_id")))) {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "准备操作与已记录不一致");
         }
@@ -411,6 +421,7 @@ public final class SerialRegistryService {
                 || !targetWarehouseId.equals(String.valueOf(transfer.get("target_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "转移仓与已记录不一致");
         }
+        if (expectedEpoch != asLong(transfer.get("from_epoch"))) throw staleEpoch(row, expectedEpoch);
         return view(row);
     }
 

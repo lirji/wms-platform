@@ -63,6 +63,89 @@ public final class SerialRegistryController {
         }
     }
 
+    /** 失踪与盘盈是有原事实引用的登记动作，复用本地幂等审计事务。 */
+    @PostMapping("/missing")
+    public Map<String,Object> missing(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody MissingCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"MISSING",body,
+                service -> service.markMissing(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.factRef(),body.expectedEpoch()));
+    }
+    @PostMapping("/found-claims")
+    public Map<String,Object> claimFound(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody IdentityCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"FOUND_CLAIM",body,
+                service -> service.claimFound(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.operationId()));
+    }
+    @PostMapping("/found-activations")
+    public Map<String,Object> activateFound(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody IdentityCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"FOUND_ACTIVATE",body,
+                service -> service.activateFound(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.operationId()));
+    }
+    /** 准备转移需要源目的两仓权限；实际释放仍只能由源仓主体确认。 */
+    @PostMapping("/transfer-preparations")
+    public Map<String,Object> prepareTransfer(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody PrepareTransferCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        WmsJwtAuthorities.requireWarehouse(jwt,body.targetWarehouseId());
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"TRANSFER_PREPARE",body,
+                service -> service.prepareTransfer(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.targetWarehouseId(),
+                        body.transferId(),body.expectedEpoch(),body.operationId()));
+    }
+    @PostMapping("/source-releases")
+    public Map<String,Object> sourceRelease(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody TransferFactCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"SOURCE_RELEASE",body,service -> {
+            var transfer=service.getTransfer(enterprise,body.skuId(),body.serial(),body.transferId());
+            if(!body.warehouseId().equals(transfer.get("sourceWarehouseId"))) throw new ScopeForbiddenException("serial.registry.write");
+            return service.observeSourceRelease(enterprise,body.skuId(),body.serial(),body.transferId(),body.factRef(),body.expectedEpoch());
+        });
+    }
+    @PostMapping("/destination-receivings")
+    public Map<String,Object> startReceiving(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody TransferFactCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"DESTINATION_RECEIVING",body,
+                service -> service.startReceiving(enterprise,body.skuId(),body.serial(),body.transferId(),body.warehouseId(),body.factRef(),body.expectedEpoch()));
+    }
+    @PostMapping("/destination-confirmations")
+    public Map<String,Object> confirmDestination(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody ConfirmTransferCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"DESTINATION_CONFIRM",body,
+                service -> service.confirmDestination(enterprise,body.skuId(),body.serial(),body.transferId(),body.warehouseId(),body.factRef()));
+    }
+    /** 仅源或目的仓可读指定转移，不依据当前owner仓拒绝合法目的恢复查询。 */
+    @GetMapping("/transfers/{transferId}")
+    public Map<String,Object> getTransfer(@AuthenticationPrincipal Jwt jwt,@RequestHeader("X-Wms-Enterprise-Id") String enterprise,
+            @PathVariable String transferId,@RequestParam String warehouseId,@RequestParam String skuId,@RequestParam String serial) {
+        require(jwt,"serial.registry.read",warehouseId,enterprise);
+        if(transferId.isBlank() || transferId.length()>64 || skuId.isBlank() || skuId.length()>64 || serial.isBlank() || serial.length()>128)
+            throw new SerialRegistryException("INVALID_ARGUMENT","转移查询参数不合法");
+        try(var session=sessions.openSession()) {
+            var result=new SerialRegistryService(session,Clock.systemUTC()).getTransfer(enterprise,skuId,serial,transferId);
+            if(!warehouseId.equals(result.get("sourceWarehouseId")) && !warehouseId.equals(result.get("targetWarehouseId")))
+                throw new ScopeForbiddenException("serial.registry.read");
+            return result;
+        }
+    }
+    /** factRef是已发生的库存事实，epoch防止旧归属事件覆盖现授权。 */
+    public record MissingCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String skuId,
+            @NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String factRef,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Long expectedEpoch) { }
+    public record PrepareTransferCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String targetWarehouseId,
+            @NotBlank @Size(max=64) String skuId,@NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String transferId,
+            @NotBlank @Size(max=64) String operationId,@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Long expectedEpoch) { }
+    public record TransferFactCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String skuId,
+            @NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String transferId,@NotBlank @Size(max=64) String factRef,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Long expectedEpoch) { }
+    public record ConfirmTransferCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String skuId,
+            @NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String transferId,@NotBlank @Size(max=64) String factRef) { }
+
     private void require(Jwt jwt, String scope, String warehouse, String expectedEnterprise) {
         // 防止多租户调用方误用另一企业的服务令牌，在产生登记写入之前拒绝范围不一致。
         if (!expectedEnterprise.equals(WmsJwtAuthorities.enterpriseId(jwt))) throw new ScopeForbiddenException(scope);

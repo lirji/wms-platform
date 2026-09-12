@@ -112,7 +112,7 @@ public final class SerialReceiptService {
         if (serial == null || serial.isBlank()) {
             throw new InventoryException("INVALID_SERIAL", "序列号不能为空");
         }
-        return serial.trim().toUpperCase();
+        return serial.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     private Map<String, Object> syncRegistry(String enterpriseId, String warehouseId, String operationId, String serial,

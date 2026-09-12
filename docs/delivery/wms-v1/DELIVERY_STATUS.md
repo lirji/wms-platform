@@ -61,3 +61,9 @@
 - Git：fix/backend-review-remediation 基于 db02821，14 个任务提交至 7e258d0 已推送任务分支；独立 worktree 快进集成无冲突。默认完整回归 99 类/200 用例及 55 必需门禁、四进程 smoke 全部通过。分支 CI 34703330446 的并发测试假设错误已修正并定向通过；本次阶段发布包含该补充修正，目标 origin/main，新提交远程 CI/组合 profiles 待核验。
 
 证据见 [BACKEND_REMEDIATION.md](BACKEND_REMEDIATION.md)。S8-05、S9-01、OQ-03、真实 TC、50 AC 保持未验收；没有生产部署。
+
+## R14 登记转移与盘点恢复入口
+
+新增 MISSING、FOUND 认领/激活、转移准备、源仓释放、目的接收/确认及转移查询 HTTP；统一服务主体、企业、仓范围、scope、幂等审计。准备校验两仓，释放核对真实源仓，查询仅源或目的仓。重放继续核验原始 fromEpoch 和事实引用；补全 FOUND 的 CLAIMED/ACTIVE 丢回执恢复，错误操作不得借 ACTIVE 获得成功。规范化固定 Locale.ROOT。
+
+2026-09-13 01:17:14 定向 registry verify BUILD SUCCESS（SerialRegistryHttpIT 2 用例、SerialRegistryIT、SerialRegistryActivateIT及依赖单元；日志 /tmp/wms-registry-transfer-http-it.log）。真实隔离 MySQL、RSA验签HTTP覆盖早到接收、伪造源仓、epoch不符、转移完成及FOUND重放。OpenAPI更新为85路径；verify-contracts需在产物提交后核验其无diff规则。库存有界HTTP适配、恢复和TM/TC仍未完成。
