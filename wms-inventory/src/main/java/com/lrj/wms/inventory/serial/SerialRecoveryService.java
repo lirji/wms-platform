@@ -109,7 +109,7 @@ public final class SerialRecoveryService {
         }
     }
     /** 所有恢复写入与仓切流使用同一短事务路由锁；停写期间不领取、不补授权、不人工重排。 */
-    static void requireWritable(SqlSession session,String e,String w) {
+    public static void requireWritable(SqlSession session,String e,String w) {
         String state=session.getMapper(SerialRecoveryMapper.class).routeState(e,w);
         if(state!=null && !"ACTIVE".equals(state)) throw new InventoryException("STALE_ROUTE","仓迁移停写或已切走，恢复执行器停止写入");
     }

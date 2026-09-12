@@ -30,10 +30,13 @@ public final class SerialRecoveryOperations {
         if(!id.equals(stored.get("id"))) return Map.of("recoveryId",stored.get("id"),"intentId",intent,"status","RETRY_ACCEPTED","replayed",true);
         var row=mapper.lock(e,w,intent);
         var releases=session.getMapper(SerialReleaseMapper.class);
-        boolean release=row==null;
-        if(release) row=releases.lock(e,w,intent);
+        int kind=row==null?1:0;
+        if(kind==1) row=releases.lock(e,w,intent);
+        com.lrj.wms.inventory.count.CountSerialMapper counts=null;
+        if(row==null) {kind=2;counts=session.getMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);row=counts.lock(e,w,intent);}
         if(row==null) throw new InventoryException("RESOURCE_NOT_FOUND","恢复意图不存在");
-        if((release?releases.requeue(e,w,intent,epoch,now):mapper.requeue(e,w,intent,epoch,now))!=1) throw new InventoryException("VERSION_CONFLICT","仅可重新排队当前代际的隔离意图");
+        int changed=kind==0?mapper.requeue(e,w,intent,epoch,now):kind==1?releases.requeue(e,w,intent,epoch,now):counts.requeue(e,w,intent,epoch,now);
+        if(changed!=1) throw new InventoryException("VERSION_CONFLICT","仅可重新排队当前代际的隔离意图");
         return Map.of("recoveryId",id,"intentId",intent,"status","RETRY_ACCEPTED","replayed",false);
     }
     private SerialRecoveryOperations() { }

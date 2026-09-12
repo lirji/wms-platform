@@ -71,6 +71,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialReleaseMapper.class);
         config.addMapper(com.lrj.wms.inventory.count.CountMapper.class);
+        config.addMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.FefoCandidateMapper.class);
         config.addMapper(com.lrj.wms.inventory.jobs.JobRunMapper.class);
         config.addMapper(com.lrj.wms.inventory.jobs.ExpiryEligibilityMapper.class);

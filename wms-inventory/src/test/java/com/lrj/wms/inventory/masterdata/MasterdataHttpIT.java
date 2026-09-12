@@ -321,6 +321,23 @@ class MasterdataHttpIT {
             assertEquals(0,session.getMapper(com.lrj.wms.inventory.serial.SerialReleaseMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-RELEASE",9,"DONE",null,now,now));session.commit();
         }
     }
+    @Test void countIdentityRecoveryHasAtomicAuditedRetryAndScope() throws Exception {
+        var jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.update("INSERT INTO count_adjustment_intent(id,enterprise_id,warehouse_id,plan_id,line_id,observation_id,operation_id,actor_id,context_json,context_hash,state,created_at,updated_at) VALUES('HTTP-COUNT-P',?,'WH-A','PLAN','LINE','OBS','OP','actor',JSON_OBJECT(),?,'PENDING',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",SeedCatalog.ENTERPRISE,"c".repeat(64));
+        jdbc.update("INSERT INTO count_serial_intent(id,enterprise_id,warehouse_id,adjustment_id,plan_id,serial_id,sku_id,operation_id,kind,from_epoch,state,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES('HTTP-COUNT-S',?,'WH-A','HTTP-COUNT-P','PLAN','SN','SKU','OP','MISSING',1,'ISOLATED',9,12,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",SeedCatalog.ENTERPRISE);
+        String path="/api/wms/v1/warehouses/WH-A/serial-recoveries",retry=path+"/HTTP-COUNT-S/retries";
+        String authorized=token("wms-ops",List.of("WH-A"),List.of("messaging.read","messaging.recover"));
+        var result=get(path+"?state=ISOLATED",authorized);assertEquals(200,result.statusCode(),result.body());assertTrue(result.body().contains("COUNT_MISSING"));
+        String body="{\"expectedEpoch\":9,\"reason\":\"核实原审批盘亏\"}";
+        assertEquals(403,postRecovery(retry,token("wms-ops",List.of("WH-B"),List.of("messaging.recover")),"COUNT-DENIED",body).statusCode());
+        jdbc.execute("ALTER TABLE count_serial_intent ADD CONSTRAINT count_requeue_failure CHECK(id<>'HTTP-COUNT-S' OR state='ISOLATED')");
+        try {assertEquals(503,postRecovery(retry,authorized,"COUNT-RETRY",body).statusCode());assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE intent_id='HTTP-COUNT-S'",Integer.class));}
+        finally {jdbc.execute("ALTER TABLE count_serial_intent DROP CHECK count_requeue_failure");}
+        assertEquals(202,postRecovery(retry,authorized,"COUNT-RETRY",body).statusCode());assertEquals(202,postRecovery(retry,authorized,"COUNT-RETRY",body).statusCode());
+        assertEquals(10L,jdbc.queryForObject("SELECT claim_epoch FROM count_serial_intent WHERE id='HTTP-COUNT-S'",Long.class));
+        assertEquals(0,jdbc.queryForObject("SELECT attempts FROM count_serial_intent WHERE id='HTTP-COUNT-S'",Integer.class));
+        try(var session=sessions.openSession(false)) {var now=java.sql.Timestamp.from(Instant.now());assertEquals(0,session.getMapper(com.lrj.wms.inventory.count.CountSerialMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-COUNT-S",9,"DONE","{}",null,now,now));session.commit();}
+    }
     @Test void countHttpPreservesCompleteSerialInputIncludingEmptySet() throws Exception {
         String e=SeedCatalog.ENTERPRISE,w="WH-COUNT-INPUT",location="LOC-COUNT-INPUT",plan="COUNT-INPUT";String line;
         try(var session=sessions.openSession(false)) {
@@ -352,6 +369,19 @@ class MasterdataHttpIT {
         var jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
         assertEquals(0,jdbc.queryForObject("SELECT counted_qty FROM count_line WHERE id=?",java.math.BigDecimal.class,line).signum());
         assertEquals("wms-ops",jdbc.queryForObject("SELECT actor_id FROM count_observation WHERE warehouse_id=? AND observation_id='COUNT-EMPTY'",String.class,w));
+        try(var session=sessions.openSession(false)) {var counts=new com.lrj.wms.inventory.count.CountService(session,java.time.Clock.systemUTC());counts.submitReview(e,w,plan);counts.approve(e,w,plan,"COUNT-HTTP-APPROVAL","approver");session.commit();}
+        String apply=path.replace("/observations","/applications"),request=json.writeValueAsString(java.util.Map.of("lineId",line));
+        String operator=token("wms-ops",List.of(w),List.of("adjustment.apply"));
+        var waiting=postRecovery(apply,operator,"COUNT-HTTP-APPLY",request);assertEquals(400,waiting.statusCode(),waiting.body());assertTrue(waiting.body().contains("COUNT_REGISTRY_PENDING"));
+        // 仅协议夹具：真实登记与丢回执由SerialRegistryProcessesIT单独验证。
+        jdbc.update("UPDATE local_serial SET state='AUTHORIZED',registry_state='ACTIVE',owner_epoch=1 WHERE warehouse_id=?",w);
+        var staged=postRecovery(apply,operator,"COUNT-HTTP-APPLY",request);assertEquals(202,staged.statusCode(),staged.body());assertTrue(staged.body().contains("REGISTRY_PENDING"));
+        assertEquals(202,postRecovery(apply,operator,"COUNT-HTTP-ANOTHER",request).statusCode());
+        assertEquals("COUNT-HTTP-APPLY",jdbc.queryForObject("SELECT operation_id FROM count_adjustment_intent WHERE warehouse_id=?",String.class,w));
+        assertEquals("wms-ops",jdbc.queryForObject("SELECT actor_id FROM count_adjustment_intent WHERE warehouse_id=?",String.class,w));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM count_serial_intent WHERE warehouse_id=? AND state='PENDING'",Integer.class,w));
+        assertEquals(0,jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE warehouse_id=?",java.math.BigDecimal.class,w).compareTo(new java.math.BigDecimal("2")));
+
     }
     private HttpResponse<String> postRecovery(String path,String bearer,String command,String body) throws Exception {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path))

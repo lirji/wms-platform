@@ -77,4 +77,11 @@
         AND l.count_plan_id=#{planId}
         AND s.state='MISSING_PENDING'
     </select>
+    <update id="adoptFound">
+        UPDATE local_serial SET balance_id=#{balance},sku_id=#{sku},lot_id=#{lot},state='AUTHORIZED',registry_state='ACTIVE',
+          receipt_operation_id=#{operation},owner_epoch=#{epoch},registry_error=NULL,transfer_id=NULL,source_release_ref=NULL,
+          version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND serial_id=#{serial} AND version=#{version}
+          AND state IN ('INTENDED','MISSING')
+    </update>
 </mapper>

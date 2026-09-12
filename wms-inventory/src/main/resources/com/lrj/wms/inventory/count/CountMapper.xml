@@ -4,12 +4,14 @@
 
     <!-- 调度方已经锁定审批计划；只扫描该计划可恢复的已观察行。 -->
     <select id="nextRecovery" resultType="map">
-        SELECT id, recovery_epoch, recovery_attempts FROM count_line
+        SELECT l.id, l.recovery_epoch, l.recovery_attempts FROM count_line l
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND count_plan_id=#{planId}
           AND status IN ('OBSERVED','RESERVATION_CONFLICT') AND counted_qty IS NOT NULL
           AND recovery_attempts &lt; 8
           AND (recovery_lease_until IS NULL OR recovery_lease_until &lt;= #{now})
           AND (recovery_next_at IS NULL OR recovery_next_at &lt;= #{now})
+          AND (NOT EXISTS(SELECT 1 FROM count_observation o WHERE o.enterprise_id=l.enterprise_id AND o.warehouse_id=l.warehouse_id AND o.count_line_id=l.id AND o.observation_kind='SERIAL')
+               OR EXISTS(SELECT 1 FROM count_adjustment_intent a WHERE a.enterprise_id=l.enterprise_id AND a.warehouse_id=l.warehouse_id AND a.line_id=l.id AND a.state='READY'))
         ORDER BY recovery_attempts, id LIMIT 1 FOR UPDATE SKIP LOCKED
     </select>
 

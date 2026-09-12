@@ -39,6 +39,11 @@
     FROM serial_release_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w}
     <if test="state != null">AND state=#{state}</if>
     <if test="page.id != null">AND (created_at &lt; #{page.time} OR (created_at=#{page.time} AND id &lt; #{page.id}))</if>
+    ORDER BY created_at DESC,id DESC LIMIT #{page.fetchLimit}) UNION ALL (SELECT id,serial_id AS serialId,sku_id AS skuId,operation_id AS operationId,CONCAT('COUNT_',kind) AS kind,NULL AS transferId,
+      from_epoch AS fromEpoch,state,claim_epoch AS claimEpoch,attempts,last_error AS lastError,created_at
+    FROM count_serial_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w}
+    <if test="state != null">AND state=#{state}</if>
+    <if test="page.id != null">AND (created_at &lt; #{page.time} OR (created_at=#{page.time} AND id &lt; #{page.id}))</if>
     ORDER BY created_at DESC,id DESC LIMIT #{page.fetchLimit})) intents
     ORDER BY created_at DESC,id DESC LIMIT #{page.fetchLimit}
   </select>

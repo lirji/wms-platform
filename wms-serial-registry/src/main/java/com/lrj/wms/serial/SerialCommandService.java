@@ -29,6 +29,13 @@ public final class SerialCommandService {
                 throw new SerialRegistryException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同命令键的动作或参数不同");
             }
             if (stored.get("result") != null) {
+                // MISSING返回的是原盘亏事实确认，不授予持有权；后续盘盈不能使已提交盘亏失去恢复凭证。
+                // CLAIM/ACTIVATE等授权动作仍执行下方实时状态校验，不能复用旧ACTIVE授权。
+                if("MISSING".equals(action)) {
+                    @SuppressWarnings("unchecked") var original=(Map<String,Object>)RuntimeMessage.JSON.readValue(stored.get("result").toString(),Map.class);
+                    if(!"MISSING".equals(original.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","原盘亏审计缺少准确终态");
+                    session.commit();return original;
+                }
                 // 登记响应涉及授权，旧ACTIVE审计不能覆盖后续MISSING或转移；领域动作本身必须可幂等重放。
                 var current = operation.apply(new SerialRegistryService(session, clock));
                 session.commit();

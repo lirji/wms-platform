@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.count.CountSerialMapper">
+  <insert id="insertAdjustment">
+    INSERT INTO count_adjustment_intent(id,enterprise_id,warehouse_id,plan_id,line_id,observation_id,operation_id,actor_id,context_json,context_hash,state,created_at,updated_at)
+    VALUES(#{row.id},#{row.e},#{row.w},#{row.plan},#{row.line},#{row.observation},#{row.operation},#{row.actor},CAST(#{row.context} AS JSON),#{row.hash},'PENDING',#{row.now},#{row.now})
+    ON DUPLICATE KEY UPDATE id=id
+  </insert>
+  <select id="lockAdjustment" resultType="map">
+    SELECT id,plan_id,line_id,observation_id,operation_id,actor_id,context_json,context_hash,state
+    FROM count_adjustment_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND line_id=#{line} FOR UPDATE
+  </select>
+  <select id="unstagedLines" resultType="string" timeout="3">
+    SELECT l.id FROM count_line l WHERE l.enterprise_id=#{e} AND l.warehouse_id=#{w} AND l.count_plan_id=#{plan}
+      AND l.status IN ('OBSERVED','RESERVATION_CONFLICT') AND l.counted_qty IS NOT NULL AND l.recovery_attempts&lt;8
+      AND (l.recovery_next_at IS NULL OR l.recovery_next_at&lt;=#{now})
+      AND EXISTS(SELECT 1 FROM count_observation o WHERE o.enterprise_id=l.enterprise_id AND o.warehouse_id=l.warehouse_id AND o.count_line_id=l.id AND o.observation_kind='SERIAL')
+      AND NOT EXISTS(SELECT 1 FROM count_adjustment_intent a WHERE a.enterprise_id=l.enterprise_id AND a.warehouse_id=l.warehouse_id AND a.line_id=l.id)
+    ORDER BY l.recovery_next_at,l.id LIMIT 20
+  </select>
+  <insert id="insertSerial">
+    INSERT INTO count_serial_intent(id,enterprise_id,warehouse_id,adjustment_id,plan_id,serial_id,sku_id,operation_id,kind,from_epoch,next_attempt_at,created_at,updated_at)
+    VALUES(#{row.id},#{row.e},#{row.w},#{row.adjustment},#{row.plan},#{row.serial},#{row.sku},#{row.operation},#{row.kind},#{row.epoch,jdbcType=BIGINT},#{row.now},#{row.now},#{row.now})
+  </insert>
+  <select id="serials" resultType="map">
+    SELECT id,serial_id,sku_id,operation_id,kind,from_epoch,state,result_json FROM count_serial_intent
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND adjustment_id=#{adjustment} ORDER BY serial_id LIMIT 401
+  </select>
+  <!-- 调用方已锁定原计划；只有全部身份凭证DONE才可提交本地整行。 -->
+  <update id="ready">
+    UPDATE count_adjustment_intent a SET state='READY',version=version+1,updated_at=#{now}
+    WHERE a.enterprise_id=#{e} AND a.warehouse_id=#{w} AND a.plan_id=#{plan} AND a.state='PENDING'
+      AND NOT EXISTS(SELECT 1 FROM count_serial_intent s WHERE s.enterprise_id=a.enterprise_id AND s.warehouse_id=a.warehouse_id AND s.adjustment_id=a.id AND s.state&lt;&gt;'DONE')
+    ORDER BY a.id LIMIT 20
+  </update>
+  <update id="applied">
+    UPDATE count_adjustment_intent SET state='APPLIED',version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND line_id=#{line} AND state='READY'
+  </update>
+  <select id="next" resultType="map" timeout="3">
+    SELECT id,adjustment_id,plan_id,serial_id,sku_id,operation_id,kind,from_epoch,state,claim_epoch,attempts FROM count_serial_intent
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND plan_id=#{plan} AND state IN ('PENDING','RUNNING') AND next_attempt_at&lt;=#{now}
+    ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+  </select>
+  <update id="claim">
+    UPDATE count_serial_intent SET state='RUNNING',claim_epoch=claim_epoch+1,attempts=attempts+1,next_attempt_at=#{until},version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND claim_epoch=#{epoch} AND attempts&lt;12
+  </update>
+  <update id="finish">
+    UPDATE count_serial_intent SET state=#{state},result_json=CAST(#{result,jdbcType=VARCHAR} AS JSON),last_error=#{error},next_attempt_at=#{next},version=version+1,updated_at=#{now}
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND claim_epoch=#{epoch} AND state IN ('PENDING','RUNNING')
+  </update>
+  <select id="lock" resultType="map">
+    SELECT id,plan_id,adjustment_id,serial_id,sku_id,operation_id,kind,from_epoch,state,claim_epoch,attempts FROM count_serial_intent
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} FOR UPDATE
+  </select>
+  <update id="requeue">
+    UPDATE count_serial_intent s SET state='PENDING',attempts=0,claim_epoch=claim_epoch+1,next_attempt_at=#{now},last_error=NULL,version=version+1,updated_at=#{now}
+    WHERE s.enterprise_id=#{e} AND s.warehouse_id=#{w} AND s.id=#{id} AND s.claim_epoch=#{epoch} AND s.state='ISOLATED'
+      AND EXISTS(SELECT 1 FROM count_adjustment_intent a WHERE a.enterprise_id=s.enterprise_id AND a.warehouse_id=s.warehouse_id AND a.id=s.adjustment_id AND a.state='PENDING')
+  </update>
+  <update id="deferStage">
+    UPDATE count_line SET recovery_next_at=#{next},recovery_error_code=#{error},
+      recovery_attempts=CASE WHEN #{waiting} THEN recovery_attempts ELSE LEAST(recovery_attempts+1,8) END
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{line} AND status IN ('OBSERVED','RESERVATION_CONFLICT')
+  </update>
+</mapper>

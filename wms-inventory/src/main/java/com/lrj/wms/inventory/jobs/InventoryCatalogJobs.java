@@ -93,7 +93,7 @@ public class InventoryCatalogJobs {
     public void countApplyRecovery() {
         clearSchedulerContext();
         String[] scope = requireScope(3);
-        var report = new com.lrj.wms.inventory.count.CountApplyRecovery(requireSessions(), java.time.Clock.systemUTC())
+        var report = new com.lrj.wms.inventory.count.CountApplyRecovery(requireSessions(), java.time.Clock.systemUTC(),registry)
                 .execute(scope[0], scope[1], scope[2]);
         XxlJobHelper.log("count applied={}, failed={}", report.applied(), report.failed());
         if (report.failed() > 0) throw new IllegalStateException("盘点存在失败行，已记录退避与错误码，计划保持冻结");

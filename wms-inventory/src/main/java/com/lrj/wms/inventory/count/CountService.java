@@ -396,7 +396,7 @@ public final class CountService {
         return body;
     }
 
-    private static Map<String, Object> lineView(Map<String, Object> line) {
+    static Map<String, Object> lineView(Map<String, Object> line) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("id", line.get("id"));
         body.put("balanceId", line.get("balance_id"));
@@ -530,24 +530,22 @@ public final class CountService {
                 convergeMissing(enterpriseId, warehouseId, skuId, serial, operationId, asLong(local.get("owner_epoch")),
                         now, locals);
             } else if (FOUND.equals(presence)) {
-                Map<String, Object> local = locals.lock(enterpriseId, warehouseId, serial);
-                if (local != null && SerialReceiptService.STATE_AUTHORIZED.equals(String.valueOf(local.get("state")))) {
-                    continue;
-                }
+                Map<String,Object> local=locals.lock(enterpriseId,warehouseId,serial);
+                if(local!=null && (!MISSING.equals(local.get("state")) || !skuId.equals(local.get("sku_id"))))
+                    throw new InventoryException("COUNT_SERIAL_CONTEXT_CONFLICT","盘盈身份已经被其他桶、SKU或生命周期占用");
                 try {
-                    Map<String, Object> claimed = registry.claimFound(enterpriseId, skuId, serial, warehouseId,
-                            operationId);
-                    Map<String, Object> active = registry.activateFound(enterpriseId, skuId, serial, warehouseId,
-                            operationId);
-                    if (local == null) {
-                        locals.insertIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, serial, skuId, lotId,
-                                balanceId, SerialReceiptService.STATE_AUTHORIZED, operationId,
-                                String.valueOf(active.get("state")), null, now);
-                    } else {
-                        locals.updateState(enterpriseId, warehouseId, serial, balanceId,
-                                SerialReceiptService.STATE_AUTHORIZED, String.valueOf(active.get("state")), null,
-                                asLong(active.get("ownerEpoch"), claimed.get("ownerEpoch")), now);
+                    registry.claimFound(enterpriseId,skuId,serial,warehouseId,operationId);
+                    Map<String,Object> active=registry.activateFound(enterpriseId,skuId,serial,warehouseId,operationId);
+                    if(!"ACTIVE".equals(active.get("state")) || !warehouseId.equals(active.get("ownerWarehouseId"))
+                            || !operationId.equals(active.get("claimOperationId")) || !(active.get("ownerEpoch") instanceof Number epoch) || epoch.longValue()<0)
+                        throw new InventoryException("COUNT_REGISTRY_PENDING","盘盈登记凭证与原操作不匹配");
+                    if(local==null) {
+                        locals.insertIgnore(UUID.randomUUID().toString(),enterpriseId,warehouseId,serial,skuId,lotId,balanceId,
+                                "INTENDED",operationId,"NONE",null,now);
+                        local=locals.lock(enterpriseId,warehouseId,serial);
                     }
+                    if(locals.adoptFound(enterpriseId,warehouseId,serial,balanceId,skuId,lotId,operationId,epoch.longValue(),asLong(local.get("version")),now)!=1)
+                        throw new InventoryException("VERSION_CONFLICT","盘盈身份和实际归属代际必须同数量一起提交");
                 } catch (SerialRegistryUnavailableException error) {
                     throw new InventoryException("REGISTRY_UNAVAILABLE", "盘盈登记不可用，保持冻结");
                 } catch (SerialRegistryConflictException error) {
@@ -572,7 +570,7 @@ public final class CountService {
         }
     }
 
-    private static void requireCountGate(InventoryMapper inventory, CountMapper counts, String enterpriseId,
+    static void requireCountGate(InventoryMapper inventory, CountMapper counts, String enterpriseId,
             String warehouseId, String planId, String locationId, String command) {
         Map<String, Object> gate = inventory.lockGate(enterpriseId, warehouseId, locationId);
         if (gate == null) {

@@ -151,6 +151,11 @@ class SerialRegistryHttpIT {
         var found=Map.<String,Object>of("warehouseId","WH-B","skuId","SKU","serial","SN-TRANSFER-HTTP","operationId","FOUND-FACT");
         ok("found-claims",destinationOnly,"TX-FOUND-CLAIM",found,"FOUND_CLAIMED");
         ok("found-activations",destinationOnly,"TX-FOUND-ACTIVATE",found,"ACTIVE");
+        var originalMissing=ok("missing",destinationOnly,"TX-MISSING",missing,"MISSING");
+        assertEquals(epoch+1,originalMissing.path("ownerEpoch").asLong());
+        var current=new JdbcTemplate(source).queryForMap("SELECT state,owner_epoch,receipt_operation_id FROM serial_registry WHERE normalized_serial='SN-TRANSFER-HTTP'");
+        assertEquals("ACTIVE",current.get("state"));assertEquals(epoch+2,((Number)current.get("owner_epoch")).longValue());assertEquals("FOUND-FACT",current.get("receipt_operation_id"));
+        assertEquals(409,post("missing",destinationOnly,"TX-MISSING",RuntimeMessage.JSON.writeValueAsString(missing).replace("MISSING-FACT","OTHER-MISSING")).statusCode());
         // 模拟调用方丢失激活回执：从同一认领动作重试，不得制造新epoch或误认其他操作。
         ok("found-claims",destinationOnly,"TX-FOUND-CLAIM",found,"ACTIVE");
         ok("found-activations",destinationOnly,"TX-FOUND-ACTIVATE",found,"ACTIVE");

@@ -63,7 +63,7 @@ class CountFreezeRaceIT {
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
-        config.addMapper(CountMapper.class);
+        config.addMapper(CountMapper.class); config.addMapper(CountSerialMapper.class);
         config.addMapper(LocalSerialMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);

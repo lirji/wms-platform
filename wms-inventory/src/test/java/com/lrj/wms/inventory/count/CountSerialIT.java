@@ -65,7 +65,7 @@ class CountSerialIT {
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
-        config.addMapper(CountMapper.class);
+        config.addMapper(CountMapper.class); config.addMapper(CountSerialMapper.class);
         config.addMapper(LocalSerialMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
@@ -227,6 +227,58 @@ class CountSerialIT {
         try(var session=sessions.openSession(false)) {
             assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> new CountService(session,clock,registry).observeIdentities("INPUT-ROLLBACK","WH-INPUT-ROLLBACK","CP-INPUT-ROLLBACK",line,"OBS-ROLLBACK","0","ACTOR",1,List.of())).code());session.rollback();
         }
+    }
+    @Test void presentReceiptMustAuthorizeBeforeAdjustmentSnapshotWithoutBurningRowBudget() {
+        var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String e="PRESENT",w="WH-PRESENT",plan="CP-PRESENT",line=serialCountFixture(e,registry,clock);
+        jdbc.update("UPDATE local_serial SET state='HOLD_RECEIVED',registry_state='NONE',owner_epoch=0 WHERE enterprise_id=? AND serial_id='PRESENT-A'",e);
+        try(var session=sessions.openSession(false)) {
+            var counts=new CountService(session,clock);counts.observeIdentities(e,w,plan,line,"OBS-PRESENT","1","counter",1,List.of("PRESENT-A"));
+            counts.submitReview(e,w,plan);counts.approve(e,w,plan,"APPROVAL-PRESENT","approver");session.commit();
+        }
+        var waiting=new CountApplyRecovery(sessions,clock).execute(e,w,plan);assertEquals(0,waiting.applied());assertEquals(0,waiting.failed());
+        assertEquals(0,jdbc.queryForObject("SELECT recovery_attempts FROM count_line WHERE id=?",Integer.class,line));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM count_adjustment_intent WHERE enterprise_id=?",Integer.class,e));
+        // 协议夹具模拟原收货恢复完成；真实登记由ProcessesIT覆盖。
+        jdbc.update("UPDATE local_serial SET state='AUTHORIZED',registry_state='ACTIVE',owner_epoch=1 WHERE enterprise_id=? AND serial_id='PRESENT-A'",e);
+        try(var session=sessions.openSession(false)) {
+            var staged=new CountSerialAdjustmentService(session,Clock.fixed(NOW.plusSeconds(40),ZoneOffset.UTC)).stage(e,w,plan,line,"PRESENT-OP","operator");
+            assertEquals("PENDING",staged.get("state"));session.commit();
+        }
+    }
+    @Test void lateIdentityReplyCannotReapplyAfterLeaseTakeoverAndUnfreeze() throws Exception {
+        var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String e="LEASE",w="WH-LEASE",plan="CP-LEASE",line=serialCountFixture(e,registry,clock);
+        try(var session=sessions.openSession(false)) {
+            var counts=new CountService(session,clock);counts.observeIdentities(e,w,plan,line,"OBS-LEASE","1","counter",1,List.of("LEASE-A"));
+            counts.submitReview(e,w,plan);counts.approve(e,w,plan,"APPROVAL-LEASE","approver");
+            new CountSerialAdjustmentService(session,clock).stage(e,w,plan,line,"ORIGINAL-LEASE","operator");session.commit();
+        }
+        var entered=new java.util.concurrent.CountDownLatch(1);var release=new java.util.concurrent.CountDownLatch(1);
+        var calls=new java.util.concurrent.atomic.AtomicInteger();
+        SerialCountRegistryPort port=new SerialCountRegistryPort() {
+            public Map<String,Object> markMissing(String enterprise,String sku,String sn,String warehouse,String ref,long epoch) {
+                if(calls.incrementAndGet()==1) {entered.countDown();try {if(!release.await(15,java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("接管未完成");} catch(InterruptedException ex) {Thread.currentThread().interrupt();throw new IllegalStateException(ex);}}
+                return Map.of("normalizedSerial",sn,"ownerWarehouseId",warehouse,"receiptOperationId",ref,"ownerEpoch",epoch,"state","MISSING");
+            }
+            public Map<String,Object> claimFound(String e,String sku,String sn,String w,String op) {throw new AssertionError("不应盘盈");}
+            public Map<String,Object> activateFound(String e,String sku,String sn,String w,String op) {throw new AssertionError("不应盘盈");}
+            public Map<String,Object> get(String e,String sku,String sn) {throw new AssertionError("不能用当前查询代替原动作凭证");}
+        };
+        try(var executor=java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var old=executor.submit(() -> new CountApplyRecovery(sessions,clock,port).execute(e,w,plan));
+            try {
+                assertTrue(entered.await(5,java.util.concurrent.TimeUnit.SECONDS));
+                var later=Clock.fixed(NOW.plusSeconds(20),ZoneOffset.UTC);
+                var takeover=new CountApplyRecovery(sessions,later,port).execute(e,w,plan);
+                assertEquals(1,takeover.applied());assertEquals(0,takeover.failed());
+                try(var session=sessions.openSession(false)) {new CountService(session,later).unfreeze(e,w,plan);session.commit();}
+            } finally {release.countDown();}
+            var stale=old.get(5,java.util.concurrent.TimeUnit.SECONDS);assertEquals(0,stale.applied());assertEquals(0,stale.failed());
+        }
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE enterprise_id='LEASE' AND operation_id='ORIGINAL-LEASE'",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE enterprise_id='LEASE'",BigDecimal.class).compareTo(BigDecimal.ONE));
+        assertEquals(2L,jdbc.queryForObject("SELECT claim_epoch FROM count_serial_intent WHERE enterprise_id='LEASE'",Long.class));
     }
     @SuppressWarnings("unchecked")
     private String serialCountFixture(String e,MemoryCountRegistry registry,Clock clock) {

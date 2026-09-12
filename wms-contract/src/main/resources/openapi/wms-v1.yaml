@@ -2878,7 +2878,7 @@ paths:
     post:
       operationId: applyCount
       tags: [count]
-      summary: 盘点作业
+      summary: 盘点调整：序列登记未齐返回REGISTRY_PENDING，原操作固定，数量尚未调整
       security:
         - oidc: [adjustment.apply]
       parameters:

@@ -121,7 +121,7 @@ public class CountCommandController {
             @jakarta.validation.Valid @RequestBody CountCommandRequests.ApplyRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
-            Map<String, Object> result = new CountService(session, Clock.systemUTC()).applyLine(
+            Map<String, Object> result = new CountSerialAdjustmentService(session, Clock.systemUTC()).apply(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, body.lineId(),
                     com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
             session.commit();

@@ -2,54 +2,51 @@
 
 ## 任务目标
 
-连续完成后端评审剩余R13/R14/R15/R22。用户确认按收货分批并继续剩余四项，持续授权逻辑提交、验证后正常推送分支并合入远程main。不等待“继续”，不强推，不部署生产，不操作共享数据或其他工作树。没有授权子Agent。
+按用户确认的收货分批，连续完成R13/R14/R15/R22。已持续授权逻辑提交、验证后正常推送任务分支并合入远程main；不等待“继续”，不强推、不部署生产、不操作共享数据或其他工作树。没有子Agent授权。
 
 ## 已完成
 
-- 普通RECEIVE、原收货批次QUALITY/PUTAWAY及PICK/SHIP/CANCEL实际来源/库存Jar、Kafka及独立库；原订单行和桶额度约束。TC原生RM/实际TM、原XID/branch重启恢复、可信审计/仓确认/出库授权与多cell路由已经发布。
-- 2818ddf序列收货批次、4c41c60身份质检、32d9393分次上架、545ae48源释放恢复均已发布远程main。HEAD和新分支fix/backend-serial-remediation均545ae489d607baa1b5ff787ea5f1e25b803d1beb，refs已核验。旧任务分支远程34cc417不动，保留其CI。
-- 34cc417 main CI34718036171完整成功；旧分支CI34718029842仍需跟踪。545ae48 main CI34719965152与新分支CI34719958715运行中；不要在这两路verify结束前推相同ref。
-- 源释放最终20222于05:24:43 SUCCESS（6IT+4单元）；首轮26IT+4单元通过；smoke19978四Jar成功，必需102/API88/docs48。所有源释放Maven/smoke/Git进程已退出。
+- 远程main与任务分支fix/backend-serial-remediation已发布至545ae48：普通消息闭环/按收货分批质量上架、实际TM/TC/原生RM及履约执行恢复、多cell消息路由、序列收货批次/身份质检/分次上架/源释放可靠恢复。
+- 34cc417原分支和main CI均完整成功。545ae48新任务分支CI34719958715已成功；main CI34719965152仍运行，结束前不能推main取消它。
+- HEAD f30eb4a盘点完整身份输入已提交未推，空集合、原轮次/原身份重放、整数版本和实际HTTP已验证，最终24IT/四Jar smoke通过。
+- 当前WIP逐身份盘点：V040两表及52表迁移；不可变行原操作/主体/观察/身份快照；逐SN事务外登记、持久DONE凭证，齐备READY后原行数量/身份/流水/APPLIED同事务。原生FOUND写实际epoch与receipt操作，保存原历史。
+- 第二轮63452于05:53:16结束：31IT中30通过；实际登记Jar丢激活回执和最后本地写失败后恢复通过，租约接管解冻后旧回执无更新通过，迁移新表完整数据通过。唯一失败为HTTP测试使用不存在count.apply权限，被正确403拒绝；已按原契约修正adjustment.apply，未放宽服务权限。
 
 ## 已修改文件
 
-当前未提交盘点观察切片：
-- 新SerialCountObservation；CountCommandRequests/Controller公开可选serialObservation，明确0至200个完整实见身份，HTTP沿用实际200。
-- 库存V039追加observation_kind/serial_input_json；CountMapper绑定原输入、查询轮次和有界原身份，INSERT替代吞错误的IGNORE；CountService完整输入比较、空集合、跨审批后原结果重放、轮次递增、主数据策略和影响行数校验。
-- CountSerialIT新增2项（总4），MasterdataHttpIT新增真实观察HTTP；scripts/generate-openapi.py/required-its-default（新增3至105，OpenAPI已生成）。
-- docs/implementation/COUNT_SERIAL_OBSERVATION.md及本文件，其他交付记录待结果后更新。
+- wms-inventory的CountSerialAdjustmentService/CountSerialRecovery/CountSerialMapper及XML、V040、CountApplyRecovery、CountService、Controller、LocalSerialMapper、catalog接线、迁移清单、serial-recoveries列表/审计重排。
+- CountSerialIT、CountIT、CountFreezeRaceIT、MasterdataHttpIT、WarehouseMigrationIT、SerialRegistryProcessesIT。
+- 登记SerialCommandService对原MISSING返回同事务历史盘亏确认；不重写当前归属，CLAIM/ACTIVATE仍实时验证。SerialRegistryHttpIT覆盖后续FOUND后原MISSING重放。
+- scripts/generate-openapi.py、required-its-default.txt新增3项到108；OpenAPI已生成并验证；docs/implementation/COUNT_SERIAL_RECOVERY.md。交付三文档待最终结果同步。
 
 ## 未完成
 
-- 首轮47350已05:31:37 SUCCESS（28IT）；最终95698已05:33:53 SUCCESS（24IT）。当前无Maven。smoke65601已成功退出，四Jar通过；/tmp/wms-count-observation-smoke.log；必需105/API88/docs49/115链接通过，OpenAPI已生成并暂存。
+- 81502已05:56:11 SUCCESS（34IT）；60291已05:57:19 SUCCESS，/tmp/wms-count-route-final-it.log，最后CountApplyRecovery领取/应用/失败事务route→plan guard回归10IT通过。当前无Maven。smoke69567四个实际Jar已全部通过；契约88、必需108、文档50/118链接及diff检查通过。
+- 最终验证后更新契约、smoke、108门禁/文档、审查提交本切片；main当前CI完成后发布f30及新提交。
 - R13：序列PICK/SHIP、可信来源水位。
-- R14：源释放已发布；盘点逐身份远程结果持久恢复，TC终态通知/原资源与Fence迁移，已全局提交后的业务取消补偿。原生RM仓仍拒绝迁移，不能用本地CONFIRMED假装TC已收妥。
-- R15七类catalog handler已有执行器，完整serial/count来源恢复依赖以上。归档仅候选计划，没有擅自删除/导出或编造保留期限。
-- R22代码/UTC测试和已发布阶段CI通过；未核实或转换共享/生产历史时间。最后全部源码组合verify及最新CI仍待。
-- OQ03真实WCS/签署容量、RTO/RPO和50AC外部验收不能伪造。
+- R14：公开序列调拨接入（sealSource/stageDestination目前仍只有测试调用）、TC终态通知/原资源与Fence迁移、全局提交后取消的业务补偿。
+- R15：以上来源恢复接线；归档仅候选计划，不虚构保留期限或执行删除/导出。
+- R22：代码与阶段CI通过，最后全源码组合verify及最新远程CI待；未检查/转换共享生产历史时间。
+- 单桶完整SN观察最多200；更大桶分段观察协议未实现，不能拆成多个独立完整集合伪造通过。OQ03真实WCS/容量/RTO/RPO/50AC外部签署不伪造。
 
 ## 当前问题
 
-- 唯一工作目录/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/backend-serial-remediation。所有exec显式workdir。根用户工作树main f9710ef保持不动。
-- 禁止并发Maven或构建中改源码。文档、Git只读可独立进行。不要输出进程完整参数/环境，避免泄露Cursor凭据。
-- 来源释放新意图独立于收货恢复表，防旧worker把SEALED判SUPERSEDED。原释放历史恢复不检查当前local_serial状态，否则下一轮转移将误丢已提交事实。
-- 测试仅隔离Testcontainers；serial真实进程测试库存由测试JVM调用，不称整个调度全链。新增源释放成本有界，但10+10秒是领取预算，不含最后HTTP/数据库等待硬保证。
-- 无新依赖；沿用0a1 SBOM173组件/163purl及2个既有OSV命中（Tomcat11.0.24、fastjson1.2.83），不称零漏洞。
+- 唯一工作树/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，所有exec显式workdir；分支fix/backend-serial-remediation，HEAD f30eb4a，remote545ae48。根用户工作树main f9710ef保持不动。
+- 所有集成测试仅隔离Testcontainers；真实登记进程测试的库存侧由测试JVM调用，不称公开全链。没有其他Maven、smoke或Git会话。
+- 真实登记首次epoch=1（0仍是合法协议值），历史MISSING后FOUND为2；已修复新夹具原来误用0，没改服务规则。C3本地MISSING夹具epoch1。
+- PRESENT也先等待原收货/转移授权，再固定快照；不能先固化HOLD的0然后授权1导致永久冲突。等待不耗行预算；包括旧执行器在计划COMPLETED后回执，已无更新退出。
+- CountApplyRecovery已补claim/应用/失败进度事务route→plan guard，60291的10IT已通过；之后仅修正一行缩进，无语义改变。
+- 日志不要输出进程完整参数或环境，可能含Cursor凭据。无新依赖，既有SBOM两个OSV命中不称零漏洞。
 
 ## 下一步建议
 
-1. 盘点观察定向与smoke已通过，提交当前切片；545ae48两路CI结束后发布，不能取消旧验证。
-2. 序列PICK/SHIP：复用SerialStockSelection，但实际库存runtime路径是StockCommandService.applyOutbound；来源类在wms-outbound/.../order。需要逐SN原allocation/attempt/orderline的持久领取/发运事实，身份和数量同事务。普通SHIP不得冒用MISSING，需要全局SHIPPED及原epoch的可靠发运恢复；初始epoch0合法。维持旧普通契约。
-3. 继续Count逐身份持久恢复。当前观察修复已在测，最多200单桶身份，较大桶多段观察协议未实现（不能伪拆成多个完整观察）。CountApplyRecovery现只在整行事务调用new CountService(...).applyLine，没有registry；不要直接注入HTTP。需逐SN持久原输入/epoch/receipt/结果，事务外markMissing或claimFound/activateFound，结果齐备后原子修改身份和数量。FOUND必须修复实际ownerEpoch和receipt_operation_id，保持历史转移事实；普通发运不能用MISSING。
-4. 继续可信来源水位、TC原资源/Fence迁移与晚取消补偿，全仓最终验证及远程CI。不因完成一个切片暂停。
+1. Maven已全部通过，验证与smoke已通过，正在提交盘点恢复切片。
+2. 完成当前计数切片契约/文档/门禁/smoke及逻辑提交、main CI结束后正常发布。
+3. 序列PICK实际路径StockCommandService.applyOutbound→InventoryApplicationService.postOutboundReservation；来源OutboundPostingService在wms-outbound/order，来源T1上下文SourceCommandContextStore。需要明确SN+ownerEpoch、原allocation/attempt/orderLine占用，T2数量和身份原子移动，来源T3保存每SN可发运证明。
+4. SHIP需要独立SHIPPED事实/全局终态及可靠原epoch恢复，不得冒用MISSING。当前SerialStockSelection仅SN，没有epoch，可新增有版本的执行选择契约保持旧普通消息摘要不变。来源V017、库存V041可用。
+5. 可信水位当前SnapshotExportService.export和StockInternalReconcile.closeWindow仍只把调用者非空三字符串当完整；须真正来源关闭/库存过账/回执证明，不能换个标志冒充完成。
+6. 继续TC资源迁移与晚取消补偿、公开序列调拨、最后组合verify及CI，不因单切片通过而停。
 
 ## 恢复 Prompt
 
-请读取本文件，在唯一工作树fix/backend-serial-remediation连续完成剩余四项。先核对smoke65601；无活跃Maven。盘点观察待检查后收尾，继续盘点逐身份事务外恢复、序列出库、公开序列调拨、水位及TC迁移/晚取消补偿。不等“继续”，不重复已发布工作，无证据不标全部完成。
-
-## 盘点恢复下一切片设计草稿（尚未实施）
-
-- 当前CountApplyRecovery先claim行租约30秒/预算8，再整行事务调用CountService.applyLine；不能将逐SN HTTP塞进该租约/事务。CountService旧带SerialCountRegistryPort构造主要为内存测试使用，正式Controller/作业都无registry。
-- 建议count_adjustment_intent按原计划行持久固定首个调整operation/actor/observation/输入摘要，后台必须复用先前HTTP原命令；逐SN子意图保存原receipt/epoch/SKU/lot/balance及MISSING或FOUND动作、网络结果、claimEpoch/lease/次数。网络每次只处理有界子集，齐备才允许当前行数量及身份同事务落地。PRESENT不需要远程动作，但最终核对原桶及身份；未登记HOLD的MISSING先等待原receipt恢复，不伪造epoch或markMissing未认领身份。
-- FOUND结果必须保存并写真实ownerEpoch和新receipt_operation_id；已有AUTHORIZED但不同SKU/桶不能直接continue。重复/乱序依靠原输入和全局操作，不能删除旧转移/释放历史；当前指针更新与不可变历史分开。
-- 行级nextRecovery不应在正常逐SN推进时消耗8次业务失败预算；只选择原序列调整证据READY的行，普通数量行保持现流程。Controller applications可先本地stage并202待登记，不在请求事务调用网络。新增配置/表后需要实际Registry Jar+两库和本地最终写失败/丢HTTP回执/接管测试。
+请读取本文件，在唯一工作树fix/backend-serial-remediation继续。先确认唯一Maven60291和/tmp/wms-count-route-final-it.log；禁止构建中编辑源码。完成盘点逐身份切片，继续R13/R14/R15/R22剩余，不重复已发布工作，不等我“继续”。

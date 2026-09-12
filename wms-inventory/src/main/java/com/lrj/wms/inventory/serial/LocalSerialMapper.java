@@ -45,4 +45,9 @@ public interface LocalSerialMapper {
     /** countMissingPending：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countMissingPending(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("planId") String planId);
+    /** 盘盈进入新归属周期时同时保存实际epoch和原调整引用，旧转移指针留在调整上下文审计。 */
+    int adoptFound(@Param("e") String e,@Param("w") String w,@Param("serial") String serial,@Param("balance") String balance,
+            @Param("sku") String sku,@Param("lot") String lot,@Param("operation") String operation,@Param("epoch") long epoch,
+            @Param("version") long version,@Param("now") java.sql.Timestamp now);
+
 }

@@ -68,6 +68,7 @@ class SerialRegistryProcessesIT {
             com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class); config.addMapper(MasterdataMapper.class); config.addMapper(InventoryMapper.class); config.addMapper(OutboxMapper.class);
             config.addMapper(CommandDedupMapper.class); config.addMapper(LocalSerialMapper.class); config.addMapper(SerialReleaseMapper.class); config.addMapper(SerialRecoveryMapper.class);
+            config.addMapper(com.lrj.wms.inventory.count.CountMapper.class); config.addMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);
             config.addMapper(SerialReceiptBatchMapper.class); config.addMapper(StockCommandMapper.class);
             config.addMapper(com.lrj.wms.inventory.quality.ReceiptQualityStockMapper.class);
             config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
@@ -76,7 +77,7 @@ class SerialRegistryProcessesIT {
             try(var session=sessions.openSession(false)) {
                 var master=new MasterdataService(session,clock);
                 master.createSku(com.lrj.wms.inventory.masterdata.domain.SkuPolicy.create("SKU","ENT","SKU","序列号商品","EA",0,false,true,false,1,"ACTIVE"),"SKU-UNIT");
-                for(String warehouse:List.of("A","B")) {
+                for(String warehouse:List.of("A","B","C")) {
                     master.createWarehouse(warehouse,"ENT",warehouse,warehouse,"UTC");
                     master.createLocation("LOC-"+warehouse,"GATE-"+warehouse,"ENT",warehouse,warehouse,"A","STORAGE",new BigDecimal("100"),"EA");
                 } session.commit();
@@ -207,6 +208,7 @@ class SerialRegistryProcessesIT {
                             new com.lrj.wms.contract.messaging.SerialStockSelection(1,List.of("BATCH-1")));session.commit();
                 }
                 assertEquals("PUT-STORAGE",jdbc.queryForObject("SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.warehouse_id='A' AND s.serial_id='BATCH-1'",String.class));
+                countRecoveryScenario(sessions,jdbc,registrySql,actual,now);
                 // 迁移停写后的旧进程不能领取或更新恢复状态，远端也不再被调用。
                 jdbc.update("INSERT INTO warehouse_route(id,enterprise_id,warehouse_id,cell_id,target_cell_id,route_epoch,state,version,created_at,updated_at) VALUES('ROUTE-A','ENT','A','CELL-A','CELL-B',1,'QUIESCING',0,?,?)",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
                 var stopped=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialRecoveryService(sessions,at(now,420),actual,actual).execute("ENT","A"));
@@ -214,6 +216,67 @@ class SerialRegistryProcessesIT {
             }
             process.destroy(); assertTrue(process.waitFor(15,TimeUnit.SECONDS)); process=null;
         } finally { if(process!=null) { process.destroy(); if(!process.waitFor(10,TimeUnit.SECONDS)) { process.destroyForcibly(); process.waitFor(5,TimeUnit.SECONDS); } } jwks.stop(0); }
+    }
+    @SuppressWarnings("unchecked")
+    private static void countRecoveryScenario(SqlSessionFactory sessions,JdbcTemplate jdbc,JdbcTemplate registrySql,SerialRegistryHttpClient actual,Instant now) throws Exception {
+        Thread.sleep(1100);
+        // 明确的历史MISSING登记夹具：C3曾有本地缺失记录，C4没有本地记录，两个盘盈都必须写真实新epoch=2。
+        for(String serial:List.of("COUNT-C3","COUNT-C4")) {
+            actual.claim("ENT","SKU",serial,"C","OLD-"+serial);
+            var activated=actual.activate("ENT","SKU",serial,"C","OLD-"+serial);
+            actual.markMissing("ENT","SKU",serial,"C","OLD-MISSING-"+serial,((Number)activated.get("ownerEpoch")).longValue());
+        }
+        Thread.sleep(1100);
+        var clock=at(now,500);
+        try(var session=sessions.openSession(false)) {
+            var context=new com.lrj.wms.contract.messaging.StockPostingContext("COUNT-RECEIPT-DOC","OWNER","SKU","EA","LOC-C",null,"NO_LOT","HOLD",null,null);
+            new SerialReceiptBatchService(session,clock).receive("ENT","C","COUNT-RECEIPT","COUNT-RECEIPT-DOC","PART","LINE","actor","COUNT-EXEC",context,Quantity.parse("2",0),null,
+                    new com.lrj.wms.contract.messaging.SerialReceiptObservation(1,List.of("COUNT-C1","COUNT-C2")));session.commit();
+        }
+        assertEquals(2,new SerialRecoveryService(sessions,clock,actual,actual).execute("ENT","C").completed());
+        String line;
+        try(var session=sessions.openSession(false)) {
+            var balance=session.getMapper(InventoryMapper.class).lockBalanceByDimension("ENT","C","OWNER","LOC-C","SKU","NO_LOT","HOLD");
+            session.getMapper(LocalSerialMapper.class).insertIgnore(UUID.randomUUID().toString(),"ENT","C","COUNT-C3","SKU","NO_LOT",balance.get("id").toString(),"MISSING","OLD-COUNT-C3","MISSING",null,java.sql.Timestamp.from(clock.instant()));
+            session.getConnection().prepareStatement("UPDATE local_serial SET owner_epoch=1 WHERE warehouse_id='C' AND serial_id='COUNT-C3'").executeUpdate();
+            var counts=new com.lrj.wms.inventory.count.CountService(session,clock);counts.create("ENT","C","COUNT-C","CYCLE",List.of("LOC-C"));counts.startQuiescing("ENT","C","COUNT-C");
+            line=((List<Map<String,Object>>)counts.freeze("ENT","C","COUNT-C").get("lines")).getFirst().get("id").toString();
+            counts.observeIdentities("ENT","C","COUNT-C",line,"COUNT-OBS-C","3","counter",1,List.of("COUNT-C1","COUNT-C3","COUNT-C4"));
+            counts.submitReview("ENT","C","COUNT-C");counts.approve("ENT","C","COUNT-C","COUNT-APPROVAL-C","approver");
+            assertEquals("REGISTRY_PENDING",new com.lrj.wms.inventory.count.CountSerialAdjustmentService(session,clock).apply("ENT","C","COUNT-C",line,"COUNT-APPLY-C","count-operator").get("status"));session.commit();
+        }
+        Thread.sleep(1100);
+        var missingCalls=new java.util.concurrent.atomic.AtomicInteger();var foundCalls=new java.util.concurrent.atomic.AtomicInteger();var drop=new AtomicBoolean(true);
+        SerialCountRegistryPort lossy=new SerialCountRegistryPort() {
+            public Map<String,Object> markMissing(String e,String sku,String sn,String wh,String ref,long epoch) {missingCalls.incrementAndGet();return actual.markMissing(e,sku,sn,wh,ref,epoch);}
+            public Map<String,Object> claimFound(String e,String sku,String sn,String wh,String op) {foundCalls.incrementAndGet();return actual.claimFound(e,sku,sn,wh,op);}
+            public Map<String,Object> activateFound(String e,String sku,String sn,String wh,String op) {var result=actual.activateFound(e,sku,sn,wh,op);if(sn.equals("COUNT-C3") && drop.getAndSet(false)) throw new SerialRegistryUnavailableException("注入盘盈激活回执丢失");return result;}
+            public Map<String,Object> get(String e,String sku,String sn) {return actual.get(e,sku,sn);}
+        };
+        var first=new com.lrj.wms.inventory.count.CountApplyRecovery(sessions,clock,lossy).execute("ENT","C","COUNT-C");
+        assertEquals(0,first.applied());assertEquals(1,first.failed());assertQuantity(jdbc,"C",2);
+        assertEquals(0,jdbc.queryForObject("SELECT recovery_attempts FROM count_line WHERE id=?",Integer.class,line));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM count_serial_intent WHERE warehouse_id='C' AND state='DONE'",Integer.class));
+        jdbc.execute("ALTER TABLE count_line ADD CONSTRAINT fail_count_final CHECK(count_plan_id<>'COUNT-C' OR status<>'APPLIED')");
+        Thread.sleep(1100);
+        try {
+            var failed=new com.lrj.wms.inventory.count.CountApplyRecovery(sessions,at(now,600),lossy).execute("ENT","C","COUNT-C");
+            assertEquals(0,failed.applied());assertEquals(1,failed.failed());assertQuantity(jdbc,"C",2);
+            assertEquals("MISSING",jdbc.queryForObject("SELECT state FROM local_serial WHERE warehouse_id='C' AND serial_id='COUNT-C3'",String.class));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE warehouse_id='C' AND serial_id='COUNT-C4'",Integer.class));
+            assertEquals("READY",jdbc.queryForObject("SELECT state FROM count_adjustment_intent WHERE warehouse_id='C'",String.class));
+        } finally {jdbc.execute("ALTER TABLE count_line DROP CHECK fail_count_final");}
+        int priorCalls=foundCalls.get()+missingCalls.get();
+        var recovered=new com.lrj.wms.inventory.count.CountApplyRecovery(sessions,at(now,700),lossy).execute("ENT","C","COUNT-C");
+        assertEquals(1,recovered.applied());assertEquals(0,recovered.failed());assertEquals(priorCalls,foundCalls.get()+missingCalls.get());assertEquals(1,missingCalls.get());
+        assertQuantity(jdbc,"C",3);
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE warehouse_id='C' AND serial_id IN ('COUNT-C3','COUNT-C4') AND owner_epoch=2 AND receipt_operation_id='COUNT-APPLY-C' AND state='AUTHORIZED'",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE warehouse_id='C' AND operation_id='COUNT-APPLY-C' AND actor_id='count-operator'",Integer.class));
+        assertEquals(5,registrySql.queryForObject("SELECT COUNT(*) FROM serial_http_command WHERE warehouse_id='C' AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.receiptOperationId'))='COUNT-APPLY-C'",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            assertEquals("COMPLETED",new com.lrj.wms.inventory.count.CountService(session,at(now,700)).unfreeze("ENT","C","COUNT-C").get("status"));
+            assertEquals("APPLIED",new com.lrj.wms.inventory.count.CountSerialAdjustmentService(session,at(now,700)).apply("ENT","C","COUNT-C",line,"ANOTHER-KEY","another-actor").get("status"));session.commit();
+        }
     }
     private void post(String base,String token,String action,Map<String,Object> body) throws Exception {
         var response=http.send(HttpRequest.newBuilder(URI.create(base+"/internal/wms/v1/serial-identities/"+action)).timeout(Duration.ofSeconds(3))
@@ -223,7 +286,7 @@ class SerialRegistryProcessesIT {
     }
     private static String token(String issuer,RSAKey rsa) throws Exception {
         var claims=new JWTClaimsSet.Builder().issuer(issuer).audience("wms-platform").subject("inventory-worker").expirationTime(Date.from(Instant.now().plusSeconds(300)))
-                .claim("enterprise_id","ENT").claim("warehouses",List.of("A","B")).claim("scope",List.of("serial.registry.read","serial.registry.write")).build();
+                .claim("enterprise_id","ENT").claim("warehouses",List.of("A","B","C")).claim("scope",List.of("serial.registry.read","serial.registry.write")).build();
         var jwt=new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("it").build(),claims); jwt.sign(new RSASSASigner(rsa)); return jwt.serialize();
     }
     private static com.mysql.cj.jdbc.MysqlDataSource source(MySQLContainer db) {
