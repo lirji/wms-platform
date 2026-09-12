@@ -111,7 +111,7 @@ class DomainHttpIT {
     @Test
     void moveHoldAndAdjustmentUseRealStock() throws Exception {
         seedOnHand("10");
-        String balanceId = balanceId("WH-A-STO");
+        String balanceId = balanceId("WH-A-RCV");
         String writer = token(List.of("stock.move", "stock.hold", "stock.releaseHold", "adjustment.create",
                 "adjustment.read", "adjustment.approve", "adjustment.apply"));
         String reader = token(List.of("stock.read"));
@@ -169,7 +169,7 @@ class DomainHttpIT {
         try (SqlSession session = sessions.openSession(false)) {
             new InventoryApplicationService(session, Clock.systemUTC()).receive(SeedCatalog.ENTERPRISE,
                     SeedCatalog.WAREHOUSE_A, "OP-SEED-DOMAIN", "DOC-SEED-DOMAIN", "tester",
-                    StockBucketKey.of(SeedCatalog.ENTERPRISE, SeedCatalog.WAREHOUSE_A, SeedCatalog.OWNER, "WH-A-STO",
+                    StockBucketKey.of(SeedCatalog.ENTERPRISE, SeedCatalog.WAREHOUSE_A, SeedCatalog.OWNER, "WH-A-RCV",
                             "SKU-STD", MasterdataCodes.NO_LOT, InventoryCodes.QUALITY_GOOD),
                     Quantity.of(new java.math.BigDecimal(qty), 0));
             session.commit();
