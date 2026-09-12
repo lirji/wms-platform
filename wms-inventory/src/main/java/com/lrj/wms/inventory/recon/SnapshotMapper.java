@@ -45,4 +45,6 @@ public interface SnapshotMapper {
             @Param("id") String id, @Param("afterId") String afterId, @Param("parts") int parts,
             @Param("rows") long rows, @Param("units") String units, @Param("version") long version,
             @Param("now") Timestamp now);
+    /** 按仓领取一个未完成快照，旧更新时间优先防止持续新任务饿死旧任务。 */
+    Map<String, Object> nextExporting(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId);
 }

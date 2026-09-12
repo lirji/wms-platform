@@ -55,3 +55,6 @@ com.lrj.wms.inventory.compat.CompatibilityGateTest#malformedAndSpacedUnknownVers
 com.lrj.wms.inventory.OidcDisabledWebIT#healthIsUpAndBusinessIsDenied
 com.lrj.wms.inventory.masterdata.MasterdataHttpIT#readinessAndMetricsRequireRealConfigurationAndOperatorScope
 com.lrj.wms.runtime.observability.RequestCorrelationTest#bindsAndRestoresContextEvenWhenRequestFails
+
+# R15：实际调度入口必须处理后续分页，不能只打印日志。
+com.lrj.wms.inventory.jobs.ExpiryEligibilityIT#actualHandlerCommitsBoundedPagesAndDoesNotStarveLaterLots

@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Param;
 public interface ExpiryEligibilityMapper {
     /** listExpiredLots：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listExpiredLots(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("now") Timestamp now, @Param("limit") int limit);
+            @Param("warehouseId") String warehouseId, @Param("now") Timestamp now, @Param("windowId") String windowId, @Param("limit") int limit);
 
     /** countOpenReservations：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countOpenReservations(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,

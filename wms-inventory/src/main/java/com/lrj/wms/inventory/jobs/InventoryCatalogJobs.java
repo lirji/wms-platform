@@ -9,23 +9,25 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
- * 库存侧目录任务。只巡检/规划，禁止 Confirm/Cancel 或按 TTL 释放。
- * 分片领取与检查点留给 S7-02。
+ * 库存侧目录任务按企业/仓执行有界批次，提交后下次触发续跑。
+ * 禁止 Confirm/Cancel 或按 TTL 释放；缺执行器不得向调度器报告成功。
  */
 @Component
 public class InventoryCatalogJobs {
     private final TccReservationWatch watch;
+    private final org.apache.ibatis.session.SqlSessionFactory sessions;
 
-    public InventoryCatalogJobs(ObjectProvider<TccReservationWatch> watches) {
+    public InventoryCatalogJobs(ObjectProvider<TccReservationWatch> watches,
+            ObjectProvider<org.apache.ibatis.session.SqlSessionFactory> sessions) {
         this.watch = watches == null ? null : watches.getIfAvailable();
+        this.sessions = sessions.getIfAvailable();
     }
 
     @XxlJob(WmsJobCatalog.TCC_RESERVATION_WATCH)
     public void tccReservationWatch() {
         clearSchedulerContext();
         if (watch == null) {
-            XxlJobHelper.log("tccReservationWatch skipped: no JDBC");
-            return;
+            throw new IllegalStateException("TCC巡检未配置业务数据库");
         }
         String[] scope = requireScope(2);
         watch.inspect(scope[0], scope[1]);
@@ -33,37 +35,62 @@ public class InventoryCatalogJobs {
 
     @XxlJob(WmsJobCatalog.EXPIRY_ELIGIBILITY_SWEEP)
     public void expiryEligibilitySweep() {
-        inspectOnly(WmsJobCatalog.EXPIRY_ELIGIBILITY_SWEEP);
+        clearSchedulerContext();
+        String[] scope = requireScope(3);
+        try (var session = requireSessions().openSession(false)) {
+            var result = new ExpiryEligibilitySweep(session, java.time.Clock.systemUTC()).execute(scope[0], scope[1], scope[2]);
+            session.commit();
+            XxlJobHelper.log("expiry notices={}, hasMore={}", result.notices(), result.hasMore());
+        }
     }
 
     @XxlJob(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY)
     public void serialTransferRecovery() {
-        inspectOnly(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY);
+        unavailableHandler(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY);
     }
 
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
     public void stockInternalReconcile() {
-        inspectOnly(WmsJobCatalog.STOCK_INTERNAL_RECONCILE);
+        unavailableHandler(WmsJobCatalog.STOCK_INTERNAL_RECONCILE);
     }
 
     @XxlJob(WmsJobCatalog.EXTERNAL_RECONCILE_EXPORT)
     public void externalReconcileExport() {
-        inspectOnly(WmsJobCatalog.EXTERNAL_RECONCILE_EXPORT);
+        clearSchedulerContext();
+        String[] scope = requireScope(2);
+        try (var session = requireSessions().openSession(false)) {
+            var snapshot = session.getMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class).nextExporting(scope[0], scope[1]);
+            if (snapshot == null) { session.commit(); return; }
+            var watermarks = tools.jackson.databind.json.JsonMapper.builder().build()
+                    .readTree(String.valueOf(snapshot.get("source_watermarks")));
+            var result = new com.lrj.wms.inventory.recon.SnapshotExportService(session, java.time.Clock.systemUTC())
+                    .export(scope[0], scope[1], String.valueOf(snapshot.get("cutoff_id")),
+                            java.sql.Timestamp.from(com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(snapshot.get("closed_at"))),
+                            watermarks.path("source").asString(), watermarks.path("posting").asString(), watermarks.path("receipt").asString());
+            session.commit();
+            XxlJobHelper.log("snapshot={}, state={}", result.get("snapshotId"), result.get("state"));
+        }
     }
 
     @XxlJob(WmsJobCatalog.COUNT_APPLY_RECOVERY)
     public void countApplyRecovery() {
-        inspectOnly(WmsJobCatalog.COUNT_APPLY_RECOVERY);
+        unavailableHandler(WmsJobCatalog.COUNT_APPLY_RECOVERY);
     }
 
     @XxlJob(WmsJobCatalog.ARCHIVE_PLANNER)
     public void archivePlanner() {
-        inspectOnly(WmsJobCatalog.ARCHIVE_PLANNER);
+        unavailableHandler(WmsJobCatalog.ARCHIVE_PLANNER);
     }
 
     @XxlJob(WmsJobCatalog.JOB_LEASE_RECOVERY)
     public void jobLeaseRecovery() {
-        inspectOnly(WmsJobCatalog.JOB_LEASE_RECOVERY);
+        clearSchedulerContext();
+        String[] scope = requireScope(2);
+        try (var session = requireSessions().openSession(false)) {
+            int reclaimed = new JobRunService(session, java.time.Clock.systemUTC()).reclaimExpired(scope[0], scope[1]);
+            session.commit();
+            XxlJobHelper.log("reclaimed={}", reclaimed);
+        }
     }
 
     static void clearSchedulerContext() {
@@ -73,9 +100,14 @@ public class InventoryCatalogJobs {
         }
     }
 
-    private static void inspectOnly(String handler) {
+    private org.apache.ibatis.session.SqlSessionFactory requireSessions() {
+        if (sessions == null) throw new IllegalStateException("后台任务未配置业务数据库");
+        return sessions;
+    }
+
+    private static void unavailableHandler(String handler) {
         clearSchedulerContext();
-        XxlJobHelper.log(handler + " inspect-only; shards in S7-02");
+        throw new IllegalStateException(handler + " 尚未配置实际执行器，拒绝报告成功");
     }
 
     private static String[] requireScope(int parts) {
@@ -84,7 +116,7 @@ public class InventoryCatalogJobs {
             throw new IllegalArgumentException("任务参数必须带企业/范围");
         }
         String[] split = param.split(",");
-        if (split.length < parts) {
+        if (split.length != parts || java.util.Arrays.stream(split).anyMatch(String::isBlank)) {
             throw new IllegalArgumentException("任务参数不足");
         }
         return split;

@@ -70,3 +70,11 @@ R01 生产装配回滚测试已通过，R02/R03 操作 scope 与调拨仓范围�
 请求头仅接受64字符内的安全关联ID，否则生成新ID；响应头、错误正文及日志MDC共用该ID，正常/异常结束恢复线程原上下文。未将租户/业务ID作为指标标签，不记录正文和令牌。异步业务与消息传播及业务积压告警继续随R13/R15补齐，此记录不代表完整链路追踪已经完成。
 
 `/tmp/wms-readiness-it.log` BUILD SUCCESS：DatabaseBudgetIT（真实池耗尽DOWN、释放后UP）、OidcDisabledWebIT（无配置存活UP但就绪503）、MasterdataHttpIT11项（正常就绪/指标权限/请求响应关联）及全部单元测试。四独立进程smoke全部通过，日志 `/tmp/wms-readiness-smoke.log`。最后补齐领域错误/限流响应的同ID后，`/tmp/wms-correlation-it.log` BUILD SUCCESS：MasterdataHttpIT11项（含404正文与响应头一致）及全模块单元测试。
+
+## R15 已接通任务（分阶段）
+
+已接通 `expiryEligibilitySweep`（参数`企业,仓,窗口`）、`jobLeaseRecovery`（`企业,仓`）、`externalReconcileExport`（`企业,仓`）。每次处理有界批次并提交：过期巡检按同窗口已提交通知排除已扫描批次；快照按最久未更新的 EXPORTING 任务续写下一段；租约回收沿用 epoch/fence 保护。缺数据源直接失败，不向调度器伪报成功。
+
+`ExpiryEligibilityIT.actualHandlerCommitsBoundedPagesAndDoesNotStarveLaterLots` 通过真实handler连续处理201个批次（100/100/1），第四次不增加通知；既有试图过期后预占仍被拒绝，巡检不释放TCC预占。`/tmp/wms-job-wiring-it.log` 的Expiry/JobLease/Snapshot定向通过，新增handler测试在 `/tmp/wms-messaging-base-it.log` BUILD SUCCESS（ExpiryEligibilityIT2项）。此处不是官方XXL admin集群验收。
+
+`serialTransferRecovery`、`stockInternalReconcile`、`countApplyRecovery`、`archivePlanner` 尚待接入完整执行器，已由空日志成功改为明确失败；R15整体仍未完成。归档/删除不编造保留期限。消息基础真实Kafka/MySQL测试已经通过，但业务适配尚未接线，R13不能据此标完成。

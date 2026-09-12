@@ -113,3 +113,13 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - R15 InventoryCatalogJobs除TccWatch外都是inspectOnly。已有可复用ExpiryEligibilitySweep、JobRunService.reclaimExpired、SnapshotExportService分段、StockInternalReconcile、CountService.applyLine、SerialTransferLocalService；但Expiry/listReconcile仍固定首100，不能机械接线宣称全量恢复。档案清理需真实保留策略，不编造期限。
 - 后面 R22 UTC仍须考虑既有DATETIME按JVM墙钟写入（旧review明确记录，不能盲改读取把旧数据偏移）；R23putaway仍SYSTEM且先物理量后协议，需一起修复重放。
 - 完成剩余后全default/warehouse-it/tc-it/failure-it及CI、普通合并pushmain，禁止把局部测试当50AC或实测容量达标。下一步先等session70926，再继续R13/R14/R15。
+
+## 最新检查点 2026-09-12 22:08
+
+- R21核心已提交 `ca36322`，最后correlation回归BUILD SUCCESS，必需门禁40项通过。现有5个任务提交仍未push。
+- **R15部分已实现，正在独立提交**：InventoryCatalogJobs实际调用ExpiryEligibilitySweep（ent,wh,window）、JobRunService.reclaimExpired（ent,wh）、SnapshotExportService继续最旧EXPORTING一段（ent,wh）。Expiry查询NOT EXISTS同窗口notice，101取100，Report加hasMore；notice作为事务进度不再永远首100。其余4个handler（serial/reconcile/count/archive）现在明确失败，仍待真正实现，不能当R15整体完成。
+- `/tmp/wms-job-wiring-it.log` BUILD SUCCESS（原Expiry1、JobLeasePreempt、Snapshot2）；新增**实际handler201批次100/100/1**在 `/tmp/wms-messaging-base-it.log` BUILD SUCCESS，ExpiryEligibilityIT2。当次也执行所有模块单元测试。当前无运行中的Maven。
+- **同时工作树有R13未接线的消息基础**：wms-runtime/pom.xml新增根BOM已有kafka-clients3.8.0及testcontainers-kafka test；新增messaging/KafkaSettings、KafkaMessagePublisher、KafkaInboxConsumer、KafkaMessagingIT。publisher acks=all+幂等、5sdelivery/3srequest/1smetadata、256KiB消息、4MiB缓冲；消费者autoCommit=false/read_committed/maxPoll32、先提交DurableReceiver再单分区提交位点；失败seek原位点、跳过本批同分区后续消息、恢复重连；业务重试应在持久化Inbox执行，不在Kafka位点处阻塞依赖事件。关闭有界、配置toString隐藏JAAS。**尚无SpringBean业务接线、真实Inbox Mapper或Outbox适配，不能当R13完成。**
+- `KafkaMessagingIT`真实专属apache/kafka:3.8.0+mysql:8.4.11通过：第一次接收模拟提交前断连，重投后写库，重复消息唯一行，停止consumer。完整日志 `/tmp/wms-messaging-base-it.log` BUILD SUCCESS。查过Kafka3.8官方producer_config/consumer_config（https://kafka.apache.org/38/generated/producer_config.html 和 consumer_config.html），后续文档引用这些配置依据。
+- 下一步R13必须先补版本化业务上下文并接线：建议共享纯基础设施Inbox Mapper/worker（每服务本库，先durable入箱再ack，后台重试/隔离），service-specific应用适配；源码现有来源payload只有qty/key不能直接过账。入库RECEIVE按设计02-domain第4节必须先HOLD；质检移HOLD→GOOD并成对流水，不能给缺批次/库位的旧命令猜GOOD/DEFAULT桶。QualityQualificationService目前只记录资格，不实际搬质量桶，需一起补；StockCommandService只有Receive/Pick/Ship，Putaway须接move+posting同事务。库存原OutboxRecord缺事件时刻/桶身份，要从已提交outbox created_at与不可变余额维度补，不能以发送时刻伪造asOf。
+- R14真实TM/TC/serial服务、R15余下任务、R22旧数据UTC兼容、R23putawayactor与重放仍待。任务全部完成后再全profile/CI及普通合并pushmain。保持OQ03/真实设备/签署容量边界。

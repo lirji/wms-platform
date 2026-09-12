@@ -79,4 +79,9 @@
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}
           AND state='EXPORTING' AND version=#{version}
     </update>
+    <select id="nextExporting" resultType="map">
+        SELECT cutoff_id, closed_at, source_watermarks FROM reconciliation_snapshot
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND state='EXPORTING'
+        ORDER BY updated_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+    </select>
 </mapper>

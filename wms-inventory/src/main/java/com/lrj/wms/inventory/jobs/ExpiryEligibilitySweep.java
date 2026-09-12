@@ -31,10 +31,10 @@ public final class ExpiryEligibilitySweep {
         }
         ExpiryEligibilityMapper mapper = session.getMapper(ExpiryEligibilityMapper.class);
         Timestamp now = Timestamp.from(clock.instant());
-        List<Map<String, Object>> lots = mapper.listExpiredLots(enterpriseId, warehouseId, now, PAGE_LIMIT);
+        List<Map<String, Object>> lots = mapper.listExpiredLots(enterpriseId, warehouseId, now, windowId, PAGE_LIMIT + 1);
         int noticed = 0;
         int openReservations = 0;
-        for (Map<String, Object> lot : lots) {
+        for (Map<String, Object> lot : lots.stream().limit(PAGE_LIMIT).toList()) {
             if (ExpiryPolicy.satisfied(ExpiryPolicy.instantOf(lot.get("expires_at")), clock.instant())) {
                 continue;
             }
@@ -45,9 +45,9 @@ public final class ExpiryEligibilitySweep {
             noticed++;
             openReservations += open;
         }
-        return new Report(lots.size(), noticed, openReservations);
+        return new Report(Math.min(lots.size(), PAGE_LIMIT), noticed, openReservations, lots.size() > PAGE_LIMIT);
     }
 
-    public record Report(int expiredLots, int notices, int openReservations) {
+    public record Report(int expiredLots, int notices, int openReservations, boolean hasMore) {
     }
 }

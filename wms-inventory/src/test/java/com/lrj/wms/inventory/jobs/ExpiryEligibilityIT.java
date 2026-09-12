@@ -90,6 +90,38 @@ class ExpiryEligibilityIT {
     }
 
     @Test
+    void actualHandlerCommitsBoundedPagesAndDoesNotStarveLaterLots() {
+        var clock = Clock.systemUTC();
+        try (SqlSession session = sessions.openSession(false)) {
+            var masterdata = new MasterdataService(session, clock);
+            masterdata.createWarehouse("WH-BATCH", "ENT-1", "BATCH", "巡检批量仓", "UTC");
+            var sku = SkuPolicy.create("SKU-EXP", "ENT-1", "SKU-EXP", "效期商品", "EA", 0, true, false, true, 1,
+                    MasterdataCodes.STATE_ACTIVE);
+            for (int i = 0; i < 201; i++) {
+                masterdata.createLot(sku, "BATCH-" + i, "WH-BATCH", "OWNER-1", "BATCH-" + i,
+                        "ENT-1/OWNER-1/SKU-EXP/BATCH-" + i, clock.instant().minusSeconds(259200),
+                        clock.instant().minusSeconds(172800), "explicit-utc", 1);
+            }
+            session.commit();
+        }
+        var beans = new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+        beans.registerSingleton("sqlSessionFactory", sessions);
+        var handler = new InventoryCatalogJobs(beans.getBeanProvider(com.lrj.wms.inventory.tcc.TccReservationWatch.class),
+                beans.getBeanProvider(SqlSessionFactory.class));
+        com.xxl.job.core.context.XxlJobContext.setXxlJobContext(new com.xxl.job.core.context.XxlJobContext(
+                1, "ENT-1,WH-BATCH,W-BATCH", 1, System.currentTimeMillis(), "", 0, 1));
+        try {
+            for (int pass = 1; pass <= 3; pass++) {
+                handler.expiryEligibilitySweep();
+                assertEquals(Math.min(pass * 100, 201), jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM expiry_notice WHERE warehouse_id='WH-BATCH'", Integer.class));
+            }
+            handler.expiryEligibilitySweep();
+            assertEquals(201, jdbc.queryForObject("SELECT COUNT(*) FROM expiry_notice WHERE warehouse_id='WH-BATCH'", Integer.class));
+        } finally { com.xxl.job.core.context.XxlJobContext.setXxlJobContext(null); }
+    }
+
+    @Test
     void sweepNoticesExpiredLotWithoutReleasingOrInventingExpiry() {
         Clock sweepClock = Clock.fixed(SWEEP_AT, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
@@ -100,7 +132,7 @@ class ExpiryEligibilityIT {
             assertEquals(1, first.expiredLots());
             assertEquals(1, first.notices());
             assertEquals(1, first.openReservations());
-            assertEquals(first.notices(), replay.notices());
+            assertEquals(0, replay.notices());
             InventoryException expired = assertThrows(InventoryException.class,
                     () -> new InventoryApplicationService(session, sweepClock).reserve("ENT-1", "WH-A", "OP-RSV-LATE",
                             "DOC", "ACTOR", "ALLOC-2", "ATT-2", "xid-2", 1L, "ReservationTccAction", 1L, DIGEST,
