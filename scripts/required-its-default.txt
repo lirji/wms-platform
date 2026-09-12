@@ -157,3 +157,8 @@ com.lrj.wms.inventory.SerialReceiptBatchIT#finalPutawayIdentityWriteFailureRolls
 # 源释放有界恢复、隔离重排及迟到执行器
 com.lrj.wms.inventory.serial.SerialTransferRecoveryIT#sourceReleaseRetryBudgetIsolationAndLeaseRejectLateWorker
 com.lrj.wms.inventory.masterdata.MasterdataHttpIT#sourceReleaseUsesSameScopedRecoveryListAndAuditedRetry
+
+# 完整盘点身份、空集合、重放与最终观察写失败
+com.lrj.wms.inventory.count.CountSerialIT#emptySeenSetMeansAllMissingAndOldRoundCannotReplaceLatestObservation
+com.lrj.wms.inventory.count.CountSerialIT#finalObservationChildFailureRollsBackFullInputAndCurrentCount
+com.lrj.wms.inventory.masterdata.MasterdataHttpIT#countHttpPreservesCompleteSerialInputIncludingEmptySet

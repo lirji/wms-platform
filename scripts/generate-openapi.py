@@ -168,7 +168,7 @@ post("/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/freeze-requ
      "requestCountFreeze", "inventory", "count.freeze", "VersionedReasonRequest", ("202",),
      "进入QUIESCING", wh + ["- $ref: '#/components/parameters/CountPlanId'"])
 post("/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/observations",
-     "recordCountObservation", "inventory", "count.record", "CountObservationRequest", ("201",),
+     "recordCountObservation", "inventory", "count.record", "CountObservationRequest", ("200",),
      "盘点观察，不覆盖历史轮次", wh + ["- $ref: '#/components/parameters/CountPlanId'"])
 post("/api/wms/v1/warehouses/{warehouseId}/adjustments", "createAdjustment", "inventory",
      "adjustment.create", "AdjustmentCreateRequest", ("201",), "创建调整", wh)
@@ -1190,11 +1190,24 @@ components:
             maxLength: 64
           minItems: 1
           maxItems: 200
+    SerialCountObservation:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, serialIds]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        serialIds:
+          type: array
+          minItems: 0
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
     CountObservationRequest:
       type: "object"
       additionalProperties: false
       required: ["lineId","qty"]
       properties:
+        serialObservation: { $ref: '#/components/schemas/SerialCountObservation' }
         lineId:
           type: "string"
           maxLength: 64

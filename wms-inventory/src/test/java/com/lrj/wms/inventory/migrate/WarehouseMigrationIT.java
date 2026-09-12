@@ -101,6 +101,7 @@ class WarehouseMigrationIT {
         String observation="{\"schemaVersion\":1,\"serialIds\":[\"SN-A\",\"SN-B\"]}";
         sourceJdbc.update("INSERT INTO serial_receipt_batch(id,enterprise_id,warehouse_id,receipt_command_id,context_hash,observation_json,identity_count,state,created_at,updated_at) VALUES('BATCH-MIGRATION','ENT-1','WH-A','RECEIPT-SERIAL',?,CAST(? AS JSON),2,'APPLIED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
                 "a".repeat(64),observation);
+        sourceJdbc.update("INSERT INTO count_observation(id,enterprise_id,warehouse_id,count_plan_id,count_line_id,observation_id,qty,actor_id,round_no,created_at,updated_at,observation_kind,serial_input_json) VALUES('COUNT-INPUT-M','ENT-1','WH-A','PLAN-M','LINE-M','OBS-M',0,'COUNTER',1,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'SERIAL',CAST(? AS JSON))","{\"schemaVersion\":1,\"serialIds\":[]}");
         sourceJdbc.update("INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,state,attempts,claim_epoch,next_attempt_at,created_at,updated_at) VALUES('RELEASE-MIGRATION','ENT-1','WH-A','SN-A','SKU','TRANSFER-M','RELEASE-M',3,?,'ISOLATED',12,15,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","b".repeat(64));
         try (SqlSession session = sourceSessions.openSession(false)) {
             WarehouseMigrationService migrate = new WarehouseMigrationService(session, sourceJdbc, targetJdbc, clock);
@@ -113,6 +114,8 @@ class WarehouseMigrationIT {
                 targetJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"));
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"));
+        assertEquals(sourceJdbc.queryForMap("SELECT * FROM count_observation WHERE id='COUNT-INPUT-M'"),
+                targetJdbc.queryForMap("SELECT * FROM count_observation WHERE id='COUNT-INPUT-M'"));
         try (SqlSession session = sourceSessions.openSession(false)) {
             new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "OP-INCR", "DOC", "ACTOR",
                     bucket(), Quantity.parse("2", 0));

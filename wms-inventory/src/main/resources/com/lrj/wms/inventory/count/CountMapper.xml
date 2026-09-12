@@ -208,13 +208,14 @@
 
     <!-- insertObservationIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertObservationIgnore">
-        INSERT IGNORE INTO count_observation (id, enterprise_id, warehouse_id, count_plan_id, count_line_id, observation_id, qty, actor_id, round_no, version, created_at, updated_at)
+        INSERT INTO count_observation (id, enterprise_id, warehouse_id, count_plan_id, count_line_id, observation_id, qty, actor_id, round_no, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{planId}, #{lineId}, #{observationId}, #{qty}, #{actorId}, #{roundNo}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- lockObservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockObservation" resultType="map">
-        SELECT observation_id, count_line_id, qty, actor_id, round_no
+        SELECT observation_id, count_plan_id, count_line_id, qty, actor_id, round_no, observation_kind, serial_input_json
         FROM count_observation
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -252,8 +253,9 @@
 
     <!-- insertObservationSerialIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertObservationSerialIgnore">
-        INSERT IGNORE INTO count_observation_serial (id, enterprise_id, warehouse_id, observation_id, normalized_serial, serial_id, presence_code, version, created_at, updated_at)
+        INSERT INTO count_observation_serial (id, enterprise_id, warehouse_id, observation_id, normalized_serial, serial_id, presence_code, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{observationId}, #{serial}, #{serialId}, #{presence}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- listObservationSerials：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
@@ -284,7 +286,24 @@
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND count_line_id=#{lineId}
-        ORDER BY round_no DESC, created_at DESC
+        ORDER BY round_no DESC, created_at DESC, id DESC
         LIMIT 1
+    </select>
+    <update id="bindObservationInput">
+        UPDATE count_observation SET observation_kind=#{kind},serial_input_json=CAST(#{input,jdbcType=VARCHAR} AS JSON)
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND observation_id=#{observation} AND observation_kind IS NULL
+    </update>
+    <select id="latestRound" resultType="int">
+        SELECT COALESCE(MAX(round_no),0) FROM count_observation WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND count_line_id=#{line}
+    </select>
+    <select id="serialPolicy" resultType="int">
+        SELECT s.serial_enabled FROM stock_balance b JOIN sku s ON s.enterprise_id=b.enterprise_id AND s.id=b.sku_id
+        WHERE b.enterprise_id=#{e} AND b.warehouse_id=#{w} AND b.id=#{balance}
+    </select>
+    <select id="observationLocals" resultType="map" timeout="3">
+        SELECT serial_id,state,owner_epoch,sku_id,lot_id FROM local_serial
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND balance_id=#{balance}
+          AND state IN ('AUTHORIZED','HOLD_RECEIVED','EXCEPTION','RECEIVING')
+        ORDER BY serial_id LIMIT 201 FOR UPDATE
     </select>
 </mapper>

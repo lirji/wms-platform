@@ -121,6 +121,10 @@ class CountSerialIT {
             assertEquals(CountService.LINE_ZERO,
                     counts.applyLine("ENT-1", "WH-A", "CP-SN", lineId, "OP-CS-ADJ", "ACTOR").get("status"));
             assertEquals(CountService.COMPLETED, counts.unfreeze("ENT-1", "WH-A", "CP-SN").get("status"));
+            var replay=counts.observeIdentities("ENT-1","WH-A","CP-SN",lineId,"OBS-1","2","ACTOR",1,List.of(" SN-C ","sn-a"));
+            assertEquals(1,replay.get("found"));assertEquals(1,replay.get("missing"));
+            assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> counts.observeIdentities("ENT-1","WH-A","CP-SN",lineId,"OBS-1","2","ACTOR",1,List.of("SN-A","SN-D"))).code());
+            assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> counts.observe("ENT-1","WH-A","CP-SN",lineId,"OBS-1","2","ACTOR",1)).code());
             InventoryException missingRecover = assertThrows(InventoryException.class,
                     () -> receipts.recover("ENT-1", "WH-A", "sn-b"));
             assertEquals("SERIAL_MISSING", missingRecover.code());
@@ -180,6 +184,62 @@ class CountSerialIT {
                 String.class));
         assertNotEquals("APPLIED", jdbc.queryForObject(
                 "SELECT status FROM count_line WHERE count_plan_id='CP-DN'", String.class));
+    }
+
+    @Test void emptySeenSetMeansAllMissingAndOldRoundCannotReplaceLatestObservation() {
+        var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String line=serialCountFixture("EMPTY",registry,clock);
+        try(var session=sessions.openSession(false)) {
+            var counts=new CountService(session,clock,registry);
+            counts.observeIdentities("EMPTY","WH-EMPTY","CP-EMPTY",line,"OBS-EMPTY-1","1","ACTOR",1,List.of("EMPTY-A"));
+            var result=counts.observeIdentities("EMPTY","WH-EMPTY","CP-EMPTY",line,"OBS-EMPTY-2","0","ACTOR",2,List.of());
+            assertEquals(2,result.get("missing"));assertEquals(0,result.get("found"));
+            counts.observeIdentities("EMPTY","WH-EMPTY","CP-EMPTY",line,"OBS-EMPTY-1","1","ACTOR",1,List.of("empty-a"));
+            assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> counts.observeIdentities("EMPTY","WH-EMPTY","CP-EMPTY",line,"OBS-OTHER","1","ACTOR",2,List.of("EMPTY-A"))).code());
+            counts.submitReview("EMPTY","WH-EMPTY","CP-EMPTY");counts.approve("EMPTY","WH-EMPTY","CP-EMPTY","AP-EMPTY","APPROVER");
+            assertEquals(CountService.LINE_APPLIED,counts.applyLine("EMPTY","WH-EMPTY","CP-EMPTY",line,"APPLY-EMPTY","ACTOR").get("status"));
+            counts.unfreeze("EMPTY","WH-EMPTY","CP-EMPTY");
+            assertEquals(2,counts.observeIdentities("EMPTY","WH-EMPTY","CP-EMPTY",line,"OBS-EMPTY-2","0","ACTOR",2,List.of()).get("missing"));session.commit();
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE enterprise_id='EMPTY'",BigDecimal.class).signum());
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE enterprise_id='EMPTY' AND state='MISSING'",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM count_observation WHERE enterprise_id='EMPTY'",Integer.class));
+    }
+    @Test void finalObservationChildFailureRollsBackFullInputAndCurrentCount() {
+        var registry=new MemoryCountRegistry();var clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String line=serialCountFixture("INPUT-ROLLBACK",registry,clock);
+        jdbc.execute("ALTER TABLE count_observation_serial ADD CONSTRAINT reject_final_sight CHECK(enterprise_id<>'INPUT-ROLLBACK' OR normalized_serial<>'INPUT-ROLLBACK-B')");
+        try {
+            try(var session=sessions.openSession(false)) {
+                assertThrows(RuntimeException.class,() -> new CountService(session,clock,registry).observeIdentities("INPUT-ROLLBACK","WH-INPUT-ROLLBACK","CP-INPUT-ROLLBACK",line,"OBS-ROLLBACK","0","ACTOR",1,List.of()));session.rollback();
+            }
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM count_observation WHERE enterprise_id='INPUT-ROLLBACK'",Integer.class));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM count_observation_serial WHERE enterprise_id='INPUT-ROLLBACK'",Integer.class));
+            assertNull(jdbc.queryForObject("SELECT counted_qty FROM count_line WHERE id=?",BigDecimal.class,line));
+            assertEquals("FROZEN",jdbc.queryForObject("SELECT status FROM count_plan WHERE enterprise_id='INPUT-ROLLBACK'",String.class));
+        } finally {jdbc.execute("ALTER TABLE count_observation_serial DROP CHECK reject_final_sight");}
+        try(var session=sessions.openSession(false)) {
+            new CountService(session,clock,registry).observeIdentities("INPUT-ROLLBACK","WH-INPUT-ROLLBACK","CP-INPUT-ROLLBACK",line,"OBS-ROLLBACK","0","ACTOR",1,List.of());session.commit();
+        }
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM count_observation_serial WHERE enterprise_id='INPUT-ROLLBACK'",Integer.class));
+        // 旧行不具备完整输入证明，不能通过一次重放给既有子行补上新解释。
+        jdbc.update("UPDATE count_observation SET observation_kind=NULL,serial_input_json=NULL WHERE enterprise_id='INPUT-ROLLBACK'");
+        try(var session=sessions.openSession(false)) {
+            assertEquals("OBSERVATION_CONFLICT",assertThrows(InventoryException.class,() -> new CountService(session,clock,registry).observeIdentities("INPUT-ROLLBACK","WH-INPUT-ROLLBACK","CP-INPUT-ROLLBACK",line,"OBS-ROLLBACK","0","ACTOR",1,List.of())).code());session.rollback();
+        }
+    }
+    @SuppressWarnings("unchecked")
+    private String serialCountFixture(String e,MemoryCountRegistry registry,Clock clock) {
+        try(var session=sessions.openSession(false)) {
+            String w="WH-"+e,location="LOC-"+e;
+            var master=new MasterdataService(session,clock);master.createWarehouse(w,e,e,e,"UTC");
+            master.createLocation(location,"GATE-"+e,e,w,e,"A","STORAGE",new BigDecimal("100"),"EA");
+            var bucket=StockBucketKey.of(e,w,"OWNER",location,"SKU-"+e,"NO_LOT","HOLD");
+            var receipts=new SerialReceiptService(session,clock,registry);
+            receipts.receiveHold(e,w,"RECEIPT-A","DOC","ACTOR",e+"-A",bucket);receipts.receiveHold(e,w,"RECEIPT-B","DOC","ACTOR",e+"-B",bucket);
+            var counts=new CountService(session,clock,registry);counts.create(e,w,"CP-"+e,"CYCLE",List.of(location));counts.startQuiescing(e,w,"CP-"+e);
+            var result=counts.freeze(e,w,"CP-"+e);session.commit();return ((List<Map<String,Object>>)result.get("lines")).getFirst().get("id").toString();
+        }
     }
 
     static final class MemoryCountRegistry implements SerialRegistryPort, SerialCountRegistryPort {

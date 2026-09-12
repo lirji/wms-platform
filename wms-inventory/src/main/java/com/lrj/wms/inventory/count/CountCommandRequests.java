@@ -22,7 +22,10 @@ public final class CountCommandRequests {
             @NotBlank @Size(max = 64) String lineId,
             @Size(max = 64) String observationId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true) BigDecimal qty,
-            @Min(1) Integer roundNo) { }
+            @Min(1) Integer roundNo,
+            @Valid com.lrj.wms.contract.messaging.SerialCountObservation serialObservation) {
+        public ObserveRequest(String lineId,String observationId,BigDecimal qty,Integer roundNo) {this(lineId,observationId,qty,roundNo,null);}
+    }
     /** ApproveRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record ApproveRequest(
             @Size(max = 64) String approvalId) { }

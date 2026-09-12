@@ -321,6 +321,38 @@ class MasterdataHttpIT {
             assertEquals(0,session.getMapper(com.lrj.wms.inventory.serial.SerialReleaseMapper.class).finish(SeedCatalog.ENTERPRISE,"WH-A","HTTP-RELEASE",9,"DONE",null,now,now));session.commit();
         }
     }
+    @Test void countHttpPreservesCompleteSerialInputIncludingEmptySet() throws Exception {
+        String e=SeedCatalog.ENTERPRISE,w="WH-COUNT-INPUT",location="LOC-COUNT-INPUT",plan="COUNT-INPUT";String line;
+        try(var session=sessions.openSession(false)) {
+            var clock=java.time.Clock.systemUTC();var master=new com.lrj.wms.inventory.masterdata.MasterdataService(session,clock);
+            master.createWarehouse(w,e,w,"观察测试仓","UTC");master.createLocation(location,"GATE-COUNT-INPUT",e,w,location,"A","STORAGE",new java.math.BigDecimal("100"),"EA");
+            master.createSku(com.lrj.wms.inventory.masterdata.domain.SkuPolicy.create("COUNT-SKU",e,"COUNT-SKU","观察商品","EA",0,false,true,false,1,"ACTIVE"),"COUNT-UNIT");
+            var bucket=com.lrj.wms.inventory.inventory.domain.StockBucketKey.of(e,w,"OWNER",location,"COUNT-SKU","NO_LOT","HOLD");
+            var receipts=new com.lrj.wms.inventory.serial.SerialReceiptService(session,clock,null);
+            receipts.stageHold(e,w,"COUNT-RECEIVE-A","DOC","actor","COUNT-A",bucket);receipts.stageHold(e,w,"COUNT-RECEIVE-B","DOC","actor","COUNT-B",bucket);
+            var counts=new com.lrj.wms.inventory.count.CountService(session,clock);counts.create(e,w,plan,"CYCLE",List.of(location));counts.startQuiescing(e,w,plan);
+            var frozen=counts.freeze(e,w,plan);
+            line=String.valueOf(((java.util.List<java.util.Map<String,Object>>)frozen.get("lines")).getFirst().get("id"));session.commit();
+        }
+        String path="/api/wms/v1/warehouses/"+w+"/count-plans/"+plan+"/observations";
+        String authorized=token("wms-ops",List.of(w),List.of("count.record"));
+        var json=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        String body=json.writeValueAsString(java.util.Map.of("lineId",line,"qty","1","roundNo",1,"serialObservation",java.util.Map.of("schemaVersion",1,"serialIds",List.of("count-a"))));
+        assertEquals(403,postRecovery(path,token("wms-ops",List.of("WH-B"),List.of("count.record")),"COUNT-OBS",body).statusCode());
+        var accepted=postRecovery(path,authorized,"COUNT-OBS",body);assertEquals(200,accepted.statusCode(),accepted.body());
+        assertEquals(409,postRecovery(path,authorized,"COUNT-OBS",body.replace("count-a","count-b")).statusCode());
+        assertEquals(400,postRecovery(path,authorized,"COUNT-BAD-QTY",body.replace("\"1\"","\"2\"")).statusCode());
+        String empty=json.writeValueAsString(java.util.Map.of("lineId",line,"qty","0","roundNo",2,"serialObservation",java.util.Map.of("schemaVersion",1,"serialIds",List.of())));
+        assertEquals(200,postRecovery(path,authorized,"COUNT-EMPTY",empty).statusCode());
+        String noIdentities=json.writeValueAsString(java.util.Map.of("lineId",line,"qty","0","roundNo",2));
+        assertEquals(409,postRecovery(path,authorized,"COUNT-EMPTY",noIdentities).statusCode());
+        assertEquals(200,postRecovery(path,authorized,"COUNT-OBS",body).statusCode());
+        assertEquals(400,postRecovery(path,authorized,"COUNT-NO-IDENTITIES",noIdentities.replace(":2",":3")).statusCode());
+        assertEquals(400,postRecovery(path,authorized,"COUNT-BAD-VERSION",body.replace("\"schemaVersion\":1","\"schemaVersion\":1.5")).statusCode());
+        var jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        assertEquals(0,jdbc.queryForObject("SELECT counted_qty FROM count_line WHERE id=?",java.math.BigDecimal.class,line).signum());
+        assertEquals("wms-ops",jdbc.queryForObject("SELECT actor_id FROM count_observation WHERE warehouse_id=? AND observation_id='COUNT-EMPTY'",String.class,w));
+    }
     private HttpResponse<String> postRecovery(String path,String bearer,String command,String body) throws Exception {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path))
                 .header("Authorization","Bearer "+bearer).header("Idempotency-Key",command).header("Content-Type","application/json")

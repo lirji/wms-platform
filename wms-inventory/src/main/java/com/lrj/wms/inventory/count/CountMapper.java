@@ -150,4 +150,13 @@ public interface CountMapper {
     /** latestObservationId：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     String latestObservationId(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId);
+    /** 原完整输入只绑定一次，与观察子行和当前点数同事务。 */
+    int bindObservationInput(@Param("e") String e,@Param("w") String w,@Param("observation") String observation,@Param("kind") String kind,@Param("input") String input);
+    /** 锁定计划后检查轮次，旧观察重放不能改写较新点数。 */
+    int latestRound(@Param("e") String e,@Param("w") String w,@Param("line") String line);
+    /** 已有主数据决定观察策略；旧无主数据夹具仍须由本地身份拒绝数量观察。 */
+    Integer serialPolicy(@Param("e") String e,@Param("w") String w,@Param("balance") String balance);
+    /** 一行最多200个本地身份，多取一条用于明确拒绝超预算而非静默漏盘。 */
+    List<Map<String,Object>> observationLocals(@Param("e") String e,@Param("w") String w,@Param("balance") String balance);
+
 }

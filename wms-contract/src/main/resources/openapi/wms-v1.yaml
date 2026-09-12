@@ -1270,8 +1270,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CountObservationRequest'
       responses:
-        '201':
-          description: 已创建资源
+        '200':
+          description: 成功
           content:
             application/json:
               schema:
@@ -4504,11 +4504,24 @@ components:
             maxLength: 64
           minItems: 1
           maxItems: 200
+    SerialCountObservation:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, serialIds]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        serialIds:
+          type: array
+          minItems: 0
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
     CountObservationRequest:
       type: "object"
       additionalProperties: false
       required: ["lineId","qty"]
       properties:
+        serialObservation: { $ref: '#/components/schemas/SerialCountObservation' }
         lineId:
           type: "string"
           maxLength: 64

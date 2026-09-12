@@ -152,7 +152,7 @@ public final class CountService {
     /** 点数或复盘。同 observation 重放；新观察不覆盖旧扫描行。序列号行必须走 observeIdentities。 */
     public Map<String, Object> observe(String enterpriseId, String warehouseId, String planId, String lineId,
             String observationId, String qty, String actorId, int roundNo) {
-        return persistObservation(enterpriseId, warehouseId, planId, lineId, observationId, qty, actorId, roundNo, true);
+        return persistObservation(enterpriseId, warehouseId, planId, lineId, observationId, qty, actorId, roundNo, true, null);
     }
 
     public Map<String, Object> submitReview(String enterpriseId, String warehouseId, String planId) {
@@ -325,26 +325,32 @@ public final class CountService {
      */
     public Map<String, Object> observeIdentities(String enterpriseId, String warehouseId, String planId, String lineId,
             String observationId, String qty, String actorId, int roundNo, List<String> seenSerials) {
-        if (seenSerials == null || seenSerials.isEmpty()) {
-            throw new InventoryException("SERIAL_SET_REQUIRED", "序列号盘点必须提交观察身份集合");
+        com.lrj.wms.contract.messaging.SerialCountObservation input;
+        try {input=new com.lrj.wms.contract.messaging.SerialCountObservation(1,seenSerials);}
+        catch(IllegalArgumentException error) {throw new InventoryException("SERIAL_SET_REQUIRED",error.getMessage());}
+        BigDecimal counted=parseQty(qty);
+        if(counted.compareTo(BigDecimal.valueOf(input.serialIds().size()))!=0)
+            throw new InventoryException("SERIAL_QTY_MISMATCH","点数必须等于完整实见身份数");
+        String inputJson=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(input);
+        Map<String,Object> observation=persistObservation(enterpriseId,warehouseId,planId,lineId,observationId,qty,actorId,roundNo,false,inputJson);
+        CountMapper counts=session.getMapper(CountMapper.class);
+        if(Boolean.TRUE.equals(observation.remove("replayed"))) {
+            // 重放只读取原观察子行；审批或调整后当前local_serial已变化，绝不能重新推导FOUND/MISSING。
+            var original=counts.listObservationSerials(enterpriseId,warehouseId,observationId);
+            observation.put("found",(int)original.stream().filter(row->FOUND.equals(row.get("presence_code"))).count());
+            observation.put("missing",(int)original.stream().filter(row->MISSING.equals(row.get("presence_code"))).count());
+            return observation;
         }
-        BigDecimal counted = parseQty(qty);
-        if (counted.compareTo(BigDecimal.valueOf(seenSerials.size())) != 0) {
-            throw new InventoryException("SERIAL_QTY_MISMATCH", "点数必须等于观察身份数");
-        }
-        Map<String, Object> observation = persistObservation(enterpriseId, warehouseId, planId, lineId, observationId,
-                qty, actorId, roundNo, false);
-        CountMapper counts = session.getMapper(CountMapper.class);
-        Map<String, Object> line = counts.lockLine(enterpriseId, warehouseId, planId, lineId);
-        List<Map<String, Object>> locals = session.getMapper(LocalSerialMapper.class).lockActiveByBalance(enterpriseId,
-                warehouseId, String.valueOf(line.get("balance_id")));
+        Map<String,Object> line=counts.lockLine(enterpriseId,warehouseId,planId,lineId);
+        List<Map<String,Object>> locals=counts.observationLocals(enterpriseId,warehouseId,String.valueOf(line.get("balance_id")));
+        if(locals.size()>200) throw new InventoryException("COUNT_SERIAL_BATCH_LIMIT","当前单桶完整观察最多200个身份，超限不能截断后提交");
         java.util.Set<String> localIds = new java.util.LinkedHashSet<>();
         for (Map<String, Object> local : locals) {
             localIds.add(String.valueOf(local.get("serial_id")));
         }
         java.util.Set<String> seen = new java.util.LinkedHashSet<>();
         Timestamp now = Timestamp.from(clock.instant());
-        for (String raw : seenSerials) {
+        for (String raw : input.serialIds()) {
             String serial = SerialReceiptService.normalize(raw);
             if (!seen.add(serial)) {
                 throw new InventoryException("DUPLICATE_SERIAL", "同一观察不能重复同一序列号");
@@ -407,7 +413,7 @@ public final class CountService {
     }
 
     private Map<String, Object> persistObservation(String enterpriseId, String warehouseId, String planId, String lineId,
-            String observationId, String qty, String actorId, int roundNo, boolean rejectLocalSerials) {
+            String observationId, String qty, String actorId, int roundNo, boolean rejectLocalSerials, String serialInput) {
         requireId(observationId, "INVALID_OBSERVATION", "观察标识不能为空");
         requireId(actorId, "INVALID_ACTOR", "点数人不能为空");
         if (roundNo < 1) {
@@ -419,23 +425,36 @@ public final class CountService {
         InventoryMapper inventory = session.getMapper(InventoryMapper.class);
         Map<String, Object> plan = requirePlan(counts, enterpriseId, warehouseId, planId);
         String planStatus = String.valueOf(plan.get("status"));
-        if (!FROZEN.equals(planStatus) && !COUNTING.equals(planStatus)) {
-            throw new InventoryException("COUNT_STATE_CONFLICT", "当前盘点状态不能点数");
-        }
         Map<String, Object> existing = counts.lockObservation(enterpriseId, warehouseId, observationId);
         if (existing != null) {
-            if (!lineId.equals(String.valueOf(existing.get("count_line_id")))
-                    || counted.compareTo(decimal(existing.get("qty"))) != 0) {
+            if (!planId.equals(existing.get("count_plan_id")) || !lineId.equals(existing.get("count_line_id"))
+                    || counted.compareTo(decimal(existing.get("qty"))) != 0 || roundNo!=asLong(existing.get("round_no"))
+                    || !actorId.equals(existing.get("actor_id"))) {
                 throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
             }
-            return observationView(existing);
+            Object stored=existing.get("serial_input_json");
+            if(serialInput!=null && (!"SERIAL".equals(existing.get("observation_kind")) || stored==null
+                    || !com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(serialInput).equals(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(stored.toString())))
+                    || serialInput==null && ("SERIAL".equals(existing.get("observation_kind"))
+                        || !counts.listObservationSerials(enterpriseId,warehouseId,observationId).isEmpty()))
+                throw new InventoryException("OBSERVATION_CONFLICT","同观察必须保留原完整身份集合与观察类型，旧输入不猜测回填");
+            var result=observationView(existing);if(serialInput!=null) result.put("replayed",true);return result;
         }
+        if (!FROZEN.equals(planStatus) && !COUNTING.equals(planStatus))
+            throw new InventoryException("COUNT_STATE_CONFLICT", "当前盘点状态不能新增点数");
+        if(roundNo<=counts.latestRound(enterpriseId,warehouseId,lineId))
+            throw new InventoryException("OBSERVATION_CONFLICT","新观察轮次必须递增，旧观察请使用原编号重放");
         Map<String, Object> line = counts.lockLine(enterpriseId, warehouseId, planId, lineId);
         if (line == null) {
             throw new InventoryException("COUNT_LINE_NOT_FOUND", "没有该盘点快照行");
         }
         requireCountGate(inventory, counts, enterpriseId, warehouseId, planId, String.valueOf(line.get("location_id")),
                 InventoryCodes.CMD_COUNT_OBSERVE);
+        Integer serialPolicy=counts.serialPolicy(enterpriseId,warehouseId,String.valueOf(line.get("balance_id")));
+        if(rejectLocalSerials && Integer.valueOf(1).equals(serialPolicy))
+            throw new InventoryException("SERIAL_SET_REQUIRED","序列号SKU即使没有本地身份也必须明确提交实见集合");
+        if(serialInput!=null && Integer.valueOf(0).equals(serialPolicy))
+            throw new InventoryException("SERIAL_POLICY_MISMATCH","非序列号SKU不能提交序列身份观察");
         if (rejectLocalSerials && !session.getMapper(LocalSerialMapper.class)
                 .lockActiveByBalance(enterpriseId, warehouseId, String.valueOf(line.get("balance_id"))).isEmpty()) {
             throw new InventoryException("SERIAL_SET_REQUIRED", "序列号盘点不能只录数量");
@@ -446,9 +465,13 @@ public final class CountService {
         if (!lineId.equals(String.valueOf(stored.get("count_line_id")))) {
             throw new InventoryException("OBSERVATION_CONFLICT", "观察身份已绑定其他点数");
         }
-        counts.updateCounted(enterpriseId, warehouseId, lineId, counted, LINE_OBSERVED, now);
+        if(counts.bindObservationInput(enterpriseId,warehouseId,observationId,serialInput==null?"QUANTITY":"SERIAL",serialInput)!=1)
+            throw new InventoryException("OBSERVATION_CONFLICT","观察完整输入必须唯一绑定");
+        if(counts.updateCounted(enterpriseId, warehouseId, lineId, counted, LINE_OBSERVED, now)!=1)
+            throw new InventoryException("VERSION_CONFLICT","当前点数与完整观察必须同事务更新");
         if (FROZEN.equals(planStatus)) {
-            counts.casPlanStatus(enterpriseId, warehouseId, planId, FROZEN, COUNTING, now);
+            if(counts.casPlanStatus(enterpriseId, warehouseId, planId, FROZEN, COUNTING, now)!=1)
+                throw new InventoryException("VERSION_CONFLICT","观察与计划状态必须一起提交");
         }
         return observationView(stored);
     }

@@ -77,10 +77,13 @@ public class CountCommandController {
             @jakarta.validation.Valid @RequestBody CountCommandRequests.ObserveRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
-            Map<String, Object> result = new CountService(session, Clock.systemUTC()).observe(
-                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId, body.lineId(),
-                    firstNonBlank(body.observationId(), idempotencyKey), String.valueOf(body.qty()),
-                    jwt.getSubject(), intValue(body.roundNo(), 1));
+            var service=new CountService(session,Clock.systemUTC());
+            String observation=com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey,body.observationId());
+            Map<String,Object> result=body.serialObservation()==null
+                    ? service.observe(WmsJwtAuthorities.enterpriseId(jwt),warehouseId,countPlanId,body.lineId(),observation,
+                        String.valueOf(body.qty()),jwt.getSubject(),intValue(body.roundNo(),1))
+                    : service.observeIdentities(WmsJwtAuthorities.enterpriseId(jwt),warehouseId,countPlanId,body.lineId(),observation,
+                        String.valueOf(body.qty()),jwt.getSubject(),intValue(body.roundNo(),1),body.serialObservation().serialIds());
             session.commit();
             return result;
         }
