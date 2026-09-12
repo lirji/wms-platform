@@ -125,4 +125,45 @@ class OutboundPickIT {
                 Integer.class));
         System.out.println("S5_OUTBOUND: partial pick+posted replay; pack; cancel unpicked; no inventory tables");
     }
+
+    @Test
+    void shipPartialRejectsOverShipAndReplaysPosted() {
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        String orderId;
+        String lineId;
+        try (SqlSession session = sessions.openSession(false)) {
+            OutboundOrderService service = new OutboundOrderService(session, clock);
+            Map<String, Object> created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-SHIP", "ATT-SHIP",
+                    "OWNER-1", "AUTH-2", List.of(Map.of("orderLineId", "L2", "skuId", "SKU-1", "qty",
+                            new BigDecimal("5"), "baseUnit", "EA")));
+            orderId = String.valueOf(created.get("id"));
+            Map<String, Object> planned = service.planPickTask("ENT-1", "WH-A", orderId, "L2", "LOC-1", "STG-1",
+                    new BigDecimal("5"));
+            Map<String, Object> pick = service.pickPartial("ENT-1", "WH-A", String.valueOf(planned.get("taskId")),
+                    "CMD-SHIP-PICK", "ACTOR", new BigDecimal("3"));
+            lineId = String.valueOf(pick.get("lineId"));
+            service.consumePick("ENT-1", "WH-A", lineId, "EVT-SHIP-PICK", String.valueOf(pick.get("commandId")),
+                    "APPLIED", "POST-SHIP-P", new BigDecimal("3"));
+            service.pack("ENT-1", "WH-A", orderId, "L2", "PKG-SHIP", new BigDecimal("3"));
+            OutboundException over = assertThrows(OutboundException.class,
+                    () -> service.shipPartial("ENT-1", "WH-A", orderId, "L2", "CMD-OVER-SHIP", "ACTOR",
+                            new BigDecimal("4")));
+            assertEquals("OVER_SHIP", over.code());
+            Map<String, Object> ship = service.shipPartial("ENT-1", "WH-A", orderId, "L2", "CMD-SHIP", "ACTOR",
+                    new BigDecimal("3"));
+            Map<String, Object> applied = service.consumeShip("ENT-1", "WH-A", lineId, "EVT-SHIP",
+                    String.valueOf(ship.get("commandId")), "APPLIED", "POST-SHIP", new BigDecimal("3"));
+            assertEquals(Boolean.TRUE, applied.get("consumed"));
+            Map<String, Object> replayed = service.consumeShip("ENT-1", "WH-A", lineId, "EVT-SHIP",
+                    String.valueOf(ship.get("commandId")), "APPLIED", "POST-SHIP", new BigDecimal("3"));
+            assertEquals(Boolean.FALSE, replayed.get("consumed"));
+            service.cancelUnpicked("ENT-1", "WH-A", orderId, "L2", "CMD-SHIP-CXL", "ACTOR");
+            session.commit();
+        }
+        assertEquals("SHIPPED", jdbc.queryForObject("SELECT status FROM outbound_order WHERE id=?", String.class,
+                orderId));
+        assertEquals(0, jdbc.queryForObject("SELECT shipped_posted_qty FROM outbound_line WHERE id=?", BigDecimal.class,
+                lineId).compareTo(new BigDecimal("3.000000")));
+        System.out.println("S5_OUTBOUND: ship bound by packed; posted replay; cancel settles SHIPPED");
+    }
 }

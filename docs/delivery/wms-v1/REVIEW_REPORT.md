@@ -378,3 +378,14 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 出库 `action_id`/`device_command_id` 只生成一次。旧 `claim_epoch` 不能派发。UNKNOWN 回执后拒新派工。
 - outbound 不写库存表；IT 用 `ExecutionAuthorizationPort` 内存桩。真实跨库 STARTED 留给后续切片。
 - 确认：无 critical/high；AC-13/25 仍 planned；未到 S8 不创建 `wms-console/`。
+
+## S5-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 短拣只减源行本次 q 并插入目标行 `requested=remaining=picked=q`，不调用 `rebindRemainingLines`。全量 `move(..., true)` 仍给 `InventoryApplicationIT`。
+- 取消未拣走 `releaseUnpicked`，不 `cancelTried` 整单，避免把已拣 staging 行一起释放。
+- `applyPick`/`applyShip` 先锁 effect；同 command 重放不二次移动/扣减。`startShipPermit` 与 `applyShip` 使用不同 fact part，避免 STARTED 效果挡住过账。
+- 发运 STARTED 调 `requireLiveLot`；`NO_LOT` 跳过。IT 使用显式 `expires_at`，未发明 OQ-03。
+- outbound `shipPartial` CAS `shipped+qty<=packed`；`consumeShip` 仅新 inbox 加 posted。未把 outbound jar 放进 inventory 测试类路径（Flyway `db/migration` 版本冲突）；黑盒只编译 outbound 源码并用 filesystem 迁移。
+- 确认：无 critical/high；AC-13/14/15 仍 planned；未到 S8 不创建 `wms-console/`。

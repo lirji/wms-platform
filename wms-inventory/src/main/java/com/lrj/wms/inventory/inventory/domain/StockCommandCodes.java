@@ -17,6 +17,7 @@ public final class StockCommandCodes {
     public static final String PERMIT_CANCELLED = "CANCELLED";
 
     public static final String POSTING_RECEIPT = "RECEIPT";
+    public static final String POSTING_PICK = "PICK";
     public static final String POSTING_SHIPMENT = "SHIPMENT";
     public static final String POSTING_COMPENSATION = "COMPENSATION";
 

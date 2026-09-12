@@ -346,6 +346,130 @@ public final class InventoryApplicationService {
                 reservedDelta, documentId, actorId, now);
     }
 
+    /**
+     * 短拣：只转本次 q 的实物与预占，源行留下剩余。全量拣货仍可用 move(..., true)。
+     */
+    public void pickReserved(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey source, StockBucketKey target, Quantity qty) {
+        requireSameScope(enterpriseId, warehouseId, source);
+        requireSameScope(enterpriseId, warehouseId, target);
+        requirePositive(qty);
+        if (source.equals(target)) {
+            throw new InventoryException("INVALID_QUANTITY", "拣货源与目标不能相同");
+        }
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_MOVE_OUT, operationId,
+                CommandDigest.v1(InventoryCodes.REASON_MOVE_OUT, documentId, source, qty.toPlainString(),
+                        target.locationId(), allocationId, attemptId))) {
+            return;
+        }
+        InventoryMapper mapper = mapper();
+        if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
+            return;
+        }
+        Timestamp now = now();
+        for (String locationId : List.of(source.locationId(), target.locationId()).stream().distinct().sorted().toList()) {
+            requireGate(mapper, enterpriseId, warehouseId, locationId, InventoryCodes.CMD_NORMAL_MUTATION);
+        }
+        Map<String, Object> head = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
+        if (head == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "预占不存在");
+        }
+        Map<String, Object> sourceRow = null;
+        Map<String, Object> targetRow = null;
+        for (StockBucketKey key : StockBucketKey.lockOrder(List.of(source, target))) {
+            Map<String, Object> locked = ensureBalance(mapper, key, now);
+            if (key.equals(source)) {
+                sourceRow = locked;
+            } else {
+                targetRow = locked;
+            }
+        }
+        Map<String, Object> line = mapper.lockOpenLine(enterpriseId, warehouseId, String.valueOf(head.get("id")),
+                String.valueOf(sourceRow.get("id")));
+        if (line == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "没有可拣的预占明细");
+        }
+        BigDecimal delta = qty.toBigDecimal();
+        if (decimal(line, "remaining_qty").compareTo(delta) < 0) {
+            throw new InventoryException("STOCK_INSUFFICIENT", "拣货超过预占剩余");
+        }
+        apply(mapper, enterpriseId, warehouseId, String.valueOf(sourceRow.get("id")), delta.negate(), delta.negate(),
+                longValue(sourceRow.get("version")), now, "STOCK_INSUFFICIENT", "拣出数量不足或占用冲突");
+        apply(mapper, enterpriseId, warehouseId, String.valueOf(targetRow.get("id")), delta, delta,
+                longValue(targetRow.get("version")), now, "VERSION_CONFLICT", "拣入版本冲突");
+        if (mapper.casSplitPick(enterpriseId, warehouseId, String.valueOf(line.get("id")), delta, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "预占短拣拆行冲突");
+        }
+        mapper.insertReservationLine(UUID.randomUUID().toString(), enterpriseId, warehouseId, String.valueOf(head.get("id")),
+                String.valueOf(line.get("id")), String.valueOf(line.get("order_line_id")), String.valueOf(targetRow.get("id")),
+                delta, delta, delta, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, now);
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, source, InventoryCodes.REASON_MOVE_OUT, delta.negate(),
+                delta.negate(), documentId, actorId, now);
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 2, target, InventoryCodes.REASON_MOVE_IN, delta, delta,
+                documentId, actorId, now);
+    }
+
+    /** 发运前取消未拣剩余：只释放源桶剩余预占，不回滚已拣。 */
+    public void releaseUnpicked(String enterpriseId, String warehouseId, String operationId, String documentId,
+            String actorId, String allocationId, String attemptId, StockBucketKey source, Quantity qty) {
+        requireSameScope(enterpriseId, warehouseId, source);
+        requirePositive(qty);
+        if (replayCommand(enterpriseId, warehouseId, InventoryCodes.REASON_RELEASE, operationId,
+                CommandDigest.v1Parts(InventoryCodes.REASON_RELEASE, documentId, allocationId, attemptId,
+                        source.locationId(), qty.toPlainString()))) {
+            return;
+        }
+        InventoryMapper mapper = mapper();
+        if (mapper.countLedger(enterpriseId, warehouseId, operationId) > 0) {
+            return;
+        }
+        Timestamp now = now();
+        requireGate(mapper, enterpriseId, warehouseId, source.locationId(), InventoryCodes.CMD_NORMAL_MUTATION);
+        Map<String, Object> head = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
+        if (head == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "预占不存在");
+        }
+        Map<String, Object> balance = ensureBalance(mapper, source, now);
+        Map<String, Object> line = mapper.lockOpenLine(enterpriseId, warehouseId, String.valueOf(head.get("id")),
+                String.valueOf(balance.get("id")));
+        if (line == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "没有可取消的未拣预占");
+        }
+        BigDecimal remaining = decimal(line, "remaining_qty");
+        if (remaining.compareTo(qty.toBigDecimal()) != 0) {
+            throw new InventoryException("INVALID_QUANTITY", "取消未拣必须等于当前剩余");
+        }
+        if (mapper.casReleaseRemaining(enterpriseId, warehouseId, String.valueOf(line.get("id")), remaining, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "释放未拣冲突");
+        }
+        apply(mapper, enterpriseId, warehouseId, String.valueOf(balance.get("id")), BigDecimal.ZERO, remaining.negate(),
+                longValue(balance.get("version")), now, "VERSION_CONFLICT", "释放未拣预占冲突");
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, source, InventoryCodes.REASON_RELEASE, BigDecimal.ZERO,
+                remaining.negate(), documentId, actorId, now);
+    }
+
+    /** 发运已拣：扣 staging 实物/预占并消费预占行。 */
+    public void shipPicked(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey stage, Quantity qty) {
+        if (mapper().countLedger(enterpriseId, warehouseId, operationId) > 0) {
+            return;
+        }
+        ship(enterpriseId, warehouseId, operationId, documentId, actorId, stage, qty);
+        InventoryMapper mapper = mapper();
+        Map<String, Object> head = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
+        if (head == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "预占不存在");
+        }
+        Map<String, Object> balance = mapper.lockBalanceByDimension(enterpriseId, warehouseId, stage.ownerId(),
+                stage.locationId(), stage.skuId(), stage.lotId(), stage.qualityCode());
+        Map<String, Object> line = mapper.lockOpenLine(enterpriseId, warehouseId, String.valueOf(head.get("id")),
+                String.valueOf(balance.get("id")));
+        if (line == null || mapper.casConsumePicked(enterpriseId, warehouseId, String.valueOf(line.get("id")),
+                qty.toBigDecimal(), now()) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "发运消费预占行冲突");
+        }
+    }
+
     /** 发运：实物与预占同量减少。permit/claim 在 S2-04a。 */
     public void ship(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             StockBucketKey bucket, Quantity qty) {
@@ -437,6 +561,11 @@ public final class InventoryApplicationService {
             throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
         }
         return locked;
+    }
+
+    /** 发运 STARTED 与新预占共用实时效期；已拣过账不在这里抹掉。 */
+    public void requireLiveLotForStart(String enterpriseId, String warehouseId, StockBucketKey bucket) {
+        requireLiveLot(enterpriseId, warehouseId, bucket);
     }
 
     private void requireLiveLot(String enterpriseId, String warehouseId, StockBucketKey bucket) {

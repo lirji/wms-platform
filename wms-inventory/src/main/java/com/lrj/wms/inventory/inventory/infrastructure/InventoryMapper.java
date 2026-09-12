@@ -181,4 +181,34 @@ public interface InventoryMapper {
     int rebindRemainingLines(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("sourceBalanceId") String sourceBalanceId, @Param("targetBalanceId") String targetBalanceId,
             @Param("now") Timestamp now);
+
+    /** 按预占与源桶锁一条仍有剩余的明细。 */
+    @Select("SELECT id, reservation_id, parent_line_id, order_line_id, balance_id, requested_qty, remaining_qty, "
+            + "picked_qty, consumed_qty, released_qty, version FROM reservation_line "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND reservation_id=#{reservationId} "
+            + "AND balance_id=#{balanceId} AND remaining_qty>0 ORDER BY id LIMIT 1 FOR UPDATE")
+    Map<String, Object> lockOpenLine(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("reservationId") String reservationId, @Param("balanceId") String balanceId);
+
+    /** 短拣：源行只转走本次 q。 */
+    @Update("UPDATE reservation_line SET requested_qty=requested_qty-#{qty}, remaining_qty=remaining_qty-#{qty}, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{lineId} AND remaining_qty>=#{qty} AND remaining_qty=requested_qty-consumed_qty-released_qty")
+    int casSplitPick(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    /** 发运消费已拣剩余。 */
+    @Update("UPDATE reservation_line SET remaining_qty=remaining_qty-#{qty}, consumed_qty=consumed_qty+#{qty}, "
+            + "picked_qty=picked_qty-#{qty}, version=version+1, updated_at=#{now} "
+            + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId} "
+            + "AND remaining_qty>=#{qty} AND picked_qty>=#{qty}")
+    int casConsumePicked(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    /** 取消未拣：释放当前剩余，不碰已消费。 */
+    @Update("UPDATE reservation_line SET released_qty=released_qty+remaining_qty, remaining_qty=0, picked_qty=0, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{lineId} AND remaining_qty>0 AND remaining_qty=#{expected}")
+    int casReleaseRemaining(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("expected") BigDecimal expected, @Param("now") Timestamp now);
 }

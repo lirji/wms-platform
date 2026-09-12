@@ -17,6 +17,7 @@ public final class OutboundOrderService {
     public static final String STATUS_ALLOCATED = "ALLOCATED";
     public static final String STATUS_PICKING = "PICKING";
     public static final String STATUS_PACKING = "PACKING";
+    public static final String STATUS_SHIPPED = "SHIPPED";
     public static final String STATUS_CANCELLED = "CANCELLED";
     public static final String TASK_PICK = "PICK";
     public static final String TASK_RESTOCK = "RESTOCK";
@@ -155,6 +156,46 @@ public final class OutboundOrderService {
         return body;
     }
 
+    /** 发运已包装未发量。超过包装未发拒绝。不写库存余额。 */
+    public Map<String, Object> shipPartial(String enterpriseId, String warehouseId, String orderId, String orderLineId,
+            String commandId, String actorId, BigDecimal qty) {
+        Timestamp now = now();
+        OutboundOrderMapper mapper = mapper();
+        Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
+        requireAuthorization(order);
+        Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
+        if (qty == null || qty.signum() <= 0) {
+            throw new OutboundException("INVALID_QTY", "发运数量必须为正");
+        }
+        BigDecimal unshipped = decimal(line.get("packed_physical_qty")).subtract(decimal(line.get("shipped_physical_qty")));
+        if (qty.compareTo(unshipped) > 0) {
+            throw new OutboundException("OVER_SHIP", "发运超过已包装未发量");
+        }
+        if (mapper.addShippedPhysical(enterpriseId, warehouseId, String.valueOf(line.get("id")), qty, now) != 1) {
+            throw new OutboundException("OVER_SHIP", "发运超过已包装未发量");
+        }
+        Map<String, Object> command = new SourceProtocolService(session, clock).submitShip(enterpriseId, warehouseId,
+                commandId, orderId, String.valueOf(line.get("id")), String.valueOf(line.get("id")), actorId, qty);
+        command.put("lineId", line.get("id"));
+        command.put("shippedQty", qty);
+        settleOrder(mapper, enterpriseId, warehouseId, orderId, String.valueOf(line.get("id")), now);
+        return command;
+    }
+
+    /** T3：仅新 inbox 增加 shipped_posted。 */
+    public Map<String, Object> consumeShip(String enterpriseId, String warehouseId, String lineId, String eventId,
+            String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        Map<String, Object> result = new SourceProtocolService(session, clock).consumeResult(enterpriseId, warehouseId,
+                eventId, commandId, resultState, postingId, postedQty);
+        if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)) {
+            if (mapper().addShippedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED", now()) != 1) {
+                throw new OutboundException("OVER_SHIP", "过账发运超过实物发运");
+            }
+        }
+        result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
+        return result;
+    }
+
     /** 发运前取消未拣剩余量，写回库任务与来源取消命令。已拣未发不直接回滚库存。 */
     public Map<String, Object> cancelUnpicked(String enterpriseId, String warehouseId, String orderId, String orderLineId,
             String commandId, String actorId) {
@@ -173,6 +214,8 @@ public final class OutboundOrderService {
                 null, null, remain, TASK_PLANNED, now);
         if (decimal(line.get("picked_physical_qty")).signum() == 0) {
             mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_CANCELLED, now);
+        } else {
+            settleOrder(mapper, enterpriseId, warehouseId, orderId, String.valueOf(line.get("id")), now);
         }
         Map<String, Object> command = new SourceProtocolService(session, clock).submitCancel(enterpriseId, warehouseId,
                 commandId, orderId, taskId, String.valueOf(line.get("id")), actorId, remain);
@@ -213,6 +256,16 @@ public final class OutboundOrderService {
         Object auth = order.get("execution_authorization_id");
         if (auth == null || String.valueOf(auth).isBlank()) {
             throw new OutboundException("AUTH_REQUIRED", "进入PICKING前必须有执行授权");
+        }
+    }
+
+    private void settleOrder(OutboundOrderMapper mapper, String enterpriseId, String warehouseId, String orderId,
+            String lineId, Timestamp now) {
+        Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, lineId);
+        BigDecimal settled = decimal(line.get("shipped_physical_qty")).add(decimal(line.get("cancelled_qty")));
+        if (settled.compareTo(decimal(line.get("allocated_qty"))) == 0
+                && decimal(line.get("shipped_physical_qty")).signum() > 0) {
+            mapper.updateOrderStatus(enterpriseId, warehouseId, orderId, STATUS_SHIPPED, now);
         }
     }
 

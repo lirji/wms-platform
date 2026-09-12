@@ -240,6 +240,134 @@ public final class StockCommandService {
                 commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
     }
 
+    /** 发运 STARTED。效期在此时重校验；已拣事实不在这里抹掉。 */
+    public Map<String, Object> startShipPermit(String enterpriseId, String warehouseId, String sourceService,
+            String commandId, String taskId, long taskEpoch, String parentId, String partId, String lineId,
+            BigDecimal qty, StockBucketKey bucket) {
+        EffectCodes.requireAction(EffectCodes.ACTION_SHIP);
+        new InventoryApplicationService(session, clock).requireLiveLotForStart(enterpriseId, warehouseId, bucket);
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1Parts(EffectCodes.ACTION_SHIP, taskId, String.valueOf(taskEpoch),
+                qty.toPlainString(), commandId);
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, EffectCodes.ACTION_SHIP,
+                EffectCodes.FACT_SHIPMENT_PART, parentId, partId, lineId, now);
+        Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_SHIP, effectId, effect, null, digest);
+        if (reused != null) {
+            return startView(reused, commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService,
+                    String.valueOf(reused.get("command_id"))));
+        }
+        long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_SHIP, effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
+            return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId),
+                    commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
+        }
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_STARTED,
+                now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "发运STARTED绑定冲突");
+        }
+        String attemptId = UUID.randomUUID().toString();
+        commands.insertPermit(UUID.randomUUID().toString(), enterpriseId, warehouseId, sourceService, commandId, effectId,
+                attemptId, attemptNo, taskId, taskEpoch, EffectCodes.ACTION_SHIP, digest, qty, BigDecimal.ZERO, qty,
+                StockCommandCodes.PERMIT_STARTED, now, null, now);
+        return startView(commands.lockByCommand(enterpriseId, warehouseId, sourceService, commandId),
+                commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
+    }
+
+    /** 拣货过账：短拣转桶。同命令重放不二次移动。 */
+    public Map<String, Object> applyPick(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String factParentId, String factPartId, String factLineId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey source, StockBucketKey target, Quantity qty) {
+        EffectCodes.requireAction(EffectCodes.ACTION_PICK);
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1(EffectCodes.ACTION_PICK, documentId, source, qty.toPlainString(), commandId,
+                target.locationId());
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, EffectCodes.ACTION_PICK,
+                EffectCodes.FACT_SUB_ACTION, factParentId, factPartId, factLineId, now);
+        Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_PICK, effectId, effect, null, digest);
+        if (reused != null) {
+            return view(reused);
+        }
+        long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_PICK, effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
+            return get(enterpriseId, warehouseId, sourceService, commandId);
+        }
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_OPEN,
+                now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "拣货效果冲突");
+        }
+        String execAttempt = UUID.randomUUID().toString();
+        new InventoryApplicationService(session, clock).pickReserved(enterpriseId, warehouseId, commandId, documentId,
+                actorId, allocationId, attemptId, source, target, qty);
+        String postingId = UUID.randomUUID().toString();
+        commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId,
+                EffectCodes.ACTION_PICK, execAttempt, StockCommandCodes.POSTING_PICK, qty.toBigDecimal(),
+                StockCommandCodes.NO_SOURCE_EXECUTION, documentId, "{\"operationId\":\"" + commandId + "\"}", now);
+        commands.insertPermit(UUID.randomUUID().toString(), enterpriseId, warehouseId, sourceService, commandId, effectId,
+                execAttempt, attemptNo, factPartId, 1L, EffectCodes.ACTION_PICK, digest, qty.toBigDecimal(),
+                qty.toBigDecimal(), BigDecimal.ZERO, StockCommandCodes.PERMIT_POSTED, now, now, now);
+        if (effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "拣货过账冲突");
+        }
+        if (commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                StockCommandCodes.CMD_APPLIED, "{\"postingId\":\"" + postingId + "\"}", now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "拣货命令冲突");
+        }
+        return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
+    }
+
+    /** 发运过账。同命令重放不二次扣减。 */
+    public Map<String, Object> applyShip(String enterpriseId, String warehouseId, String sourceService, String commandId,
+            String factParentId, String factPartId, String factLineId, String documentId, String actorId,
+            String allocationId, String attemptId, StockBucketKey stage, Quantity qty) {
+        EffectCodes.requireAction(EffectCodes.ACTION_SHIP);
+        Timestamp now = Timestamp.from(clock.instant());
+        EffectMapper effects = session.getMapper(EffectMapper.class);
+        StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1(EffectCodes.ACTION_SHIP, documentId, stage, qty.toPlainString(), commandId);
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, EffectCodes.ACTION_SHIP,
+                EffectCodes.FACT_SHIPMENT_PART, factParentId, factPartId, factLineId, now);
+        Map<String, Object> effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        Map<String, Object> reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_SHIP, effectId, effect, null, digest);
+        if (reused != null) {
+            return view(reused);
+        }
+        long attemptNo = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId,
+                EffectCodes.ACTION_SHIP, effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null) {
+            return get(enterpriseId, warehouseId, sourceService, commandId);
+        }
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attemptNo, EffectCodes.STATE_OPEN,
+                now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "发运效果冲突");
+        }
+        String execAttempt = UUID.randomUUID().toString();
+        new InventoryApplicationService(session, clock).shipPicked(enterpriseId, warehouseId, commandId, documentId,
+                actorId, allocationId, attemptId, stage, qty);
+        String postingId = UUID.randomUUID().toString();
+        commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId,
+                EffectCodes.ACTION_SHIP, execAttempt, StockCommandCodes.POSTING_SHIPMENT, qty.toBigDecimal(),
+                StockCommandCodes.NO_SOURCE_EXECUTION, documentId, "{\"operationId\":\"" + commandId + "\"}", now);
+        if (effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "发运过账冲突");
+        }
+        if (commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                StockCommandCodes.CMD_APPLIED, "{\"postingId\":\"" + postingId + "\"}", now) != 1) {
+            throw new InventoryException("VERSION_CONFLICT", "发运命令冲突");
+        }
+        return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
+    }
+
     /** 设备未知：permit/效果进入 UNKNOWN，不释放占用，不能普通取消。 */
     public Map<String, Object> markUnknown(String enterpriseId, String warehouseId, String sourceService, String commandId) {
         Timestamp now = Timestamp.from(clock.instant());
@@ -385,6 +513,13 @@ public final class StockCommandService {
             body.put("taskId", permit.get("source_task_id"));
             body.put("taskEpoch", permit.get("source_task_epoch"));
         }
+        return body;
+    }
+
+    private Map<String, Object> appliedView(String enterpriseId, String warehouseId, String sourceService,
+            String commandId, String postingId) {
+        Map<String, Object> body = get(enterpriseId, warehouseId, sourceService, commandId);
+        body.put("postingId", postingId);
         return body;
     }
 

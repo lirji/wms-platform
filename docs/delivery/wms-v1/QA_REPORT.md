@@ -504,3 +504,18 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | inventory 2 项、outbound 3 项，0 失败 | 定向 |
 
 结论：S5-03 本地身份/占用/逆向 pass。AC-13/25 黑盒与真实设备仍 planned。不要把内存授权桩当跨服务 STARTED。
+
+## S5-04 短拣/发运/取消回库与拣后效期
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作共享 dev-infra。未发明 OQ-03。未到 S8，未创建 `wms-console/`。同 JVM 双库，不是 HTTP/履约/WCS/设备。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `OutboundExecutionBlackBoxIT` 短拣发运 | 收 5→预占确认→拣 3/5→pack/ship 3；重复 `applyShip` 仍 1 条 SHIPMENT；storage on_hand=2 reserved=0；staging=0；cancel 2 后 outbound SHIPPED | 同 JVM 双库 |
+| `OutboundExecutionBlackBoxIT` 效期 | 显式 `expires_at=12:00Z`；08:00 已拣 3；12:00 `startShipPermit`→`LOT_EXPIRED`；PICK posting 与 staging 3 保留 | 不是 OQ-03 默认日界 |
+| `OutboundPickIT` 发运 | `OVER_SHIP`；posted 重放不加量；cancel 后 SHIPPED；无库存表 | outbound 本库 |
+| `ExecutionPermitIT` / `EffectCommandUniquenessIT` / `InventoryApplicationIT` | 回归 0 失败 | 全量 move 与既有过账未破坏 |
+| `python3 scripts/check-docs.py` | PASS documents=21 | 结构 |
+| 定向 Maven | inventory 7 项、outbound 4 项，0 失败 | 定向 |
+
+结论：S5-04 本地黑盒 pass。不能当作 AC-13/14/15 生产链路通过。S5-05 安全关闭/重授权仍 planned。

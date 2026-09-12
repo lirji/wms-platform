@@ -16,7 +16,9 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     try:
         for service in ("inbound", "outbound", "inventory", "fulfillment"):
-            jar = ROOT / f"wms-{service}/target/wms-{service}-0.1.0-SNAPSHOT.jar"
+            jar = ROOT / f"wms-{service}/target/wms-{service}-0.1.0-SNAPSHOT-exec.jar"
+            if not jar.is_file():
+                jar = ROOT / f"wms-{service}/target/wms-{service}-0.1.0-SNAPSHOT.jar"
             if not jar.is_file():
                 raise RuntimeError(f"先执行构建，缺少 {jar.name}")
             log_path = output / f"{service}.log"

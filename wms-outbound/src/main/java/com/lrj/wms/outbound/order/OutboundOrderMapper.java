@@ -80,6 +80,19 @@ public interface OutboundOrderMapper {
     int addPackedPhysical(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 
+    @Update("UPDATE outbound_line SET shipped_physical_qty=shipped_physical_qty+#{qty}, stock_sync_status='PENDING', "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{lineId} AND shipped_physical_qty+#{qty}<=packed_physical_qty")
+    int addShippedPhysical(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+
+    @Update("UPDATE outbound_line SET shipped_posted_qty=shipped_posted_qty+#{qty}, stock_sync_status=#{syncStatus}, "
+            + "version=version+1, updated_at=#{now} WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND id=#{lineId} AND shipped_posted_qty+#{qty}<=shipped_physical_qty")
+    int addShippedPosted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("syncStatus") String syncStatus,
+            @Param("now") Timestamp now);
+
     @Update("UPDATE outbound_line SET cancelled_qty=cancelled_qty+#{qty}, version=version+1, updated_at=#{now} "
             + "WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}")
     int addCancelled(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
