@@ -25,13 +25,17 @@ public class AllocationRecoveryJob {
     @XxlJob(AllocationRecoverySweep.HANDLER)
     public AllocationRecoverySweep.Report execute() {
         if (sweep == null) {
-            XxlJobHelper.log("allocationRecoverySweep skipped: no JDBC");
-            return new AllocationRecoverySweep.Report(0, 0, 0);
+            XxlJobHelper.handleFail("ALLOCATION_RECOVERY_UNAVAILABLE");
+            throw new IllegalStateException("缺少真实数据库或TC只读审计，分配恢复不能报告成功");
         }
         String scope = enterpriseId;
         if (scope == null || scope.isBlank()) {
             scope = XxlJobHelper.getJobParam();
         }
-        return sweep.execute(scope);
+        try { return sweep.execute(scope); }
+        catch (RuntimeException error) {
+            XxlJobHelper.handleFail(error instanceof FulfillmentException failure ? failure.code() : "ALLOCATION_RECOVERY_FAILED");
+            throw error;
+        }
     }
 }

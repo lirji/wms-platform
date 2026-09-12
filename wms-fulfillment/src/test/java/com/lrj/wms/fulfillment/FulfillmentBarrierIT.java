@@ -120,6 +120,7 @@ class FulfillmentBarrierIT {
         service.observeTc("ENT-BAR", attemptId, FulfillmentService.TC_COMMITTED,
                 "{\"xid\":\"" + xid + "\",\"status\":9}");
         service.observeParticipant("ENT-BAR", attemptId, "WH-A", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
+        service.bindParticipant("ENT-BAR", attemptId, "WH-B", xid, 12L, "ReservationTccAction", "res-B", 1, "TRIED");
         service.observeParticipant("ENT-BAR", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
         return attemptId;
     }

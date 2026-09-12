@@ -139,7 +139,9 @@
         AND warehouse_id=#{warehouseId}
         AND (xid IS NULL OR (xid=#{xid}
         AND branch_id=#{branchId}
-        AND action_name=#{actionName}))
+        AND action_name=#{actionName}
+        AND reservation_id=#{reservationId}
+        AND route_epoch=#{routeEpoch}))
     </update>
 
     <!-- insertParticipantLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
@@ -257,15 +259,27 @@
         AND tc_observed_status='Committed'
         AND tc_terminal_evidence IS NOT NULL
         AND tc_terminal_evidence&lt;&gt;''
-        AND state IN ('TCC_TRYING','TCC_COMPLETING','ALLOCATED')
-        ORDER BY id FOR UPDATE
+        AND (state IN ('TCC_TRYING','TCC_COMPLETING')
+          OR (state='ALLOCATED' AND (SELECT COUNT(*) FROM fulfillment_outbox o
+             WHERE o.enterprise_id=allocation_attempt.enterprise_id AND o.attempt_id=allocation_attempt.id)
+             &lt; 1+2*(SELECT COUNT(*) FROM allocation_participant p
+             WHERE p.enterprise_id=allocation_attempt.enterprise_id AND p.attempt_id=allocation_attempt.id)))
+        ORDER BY id LIMIT 100 FOR UPDATE
     </select>
 
     <!-- insertOutboxIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertOutboxIgnore">
-        INSERT IGNORE INTO fulfillment_outbox (event_id, enterprise_id, attempt_id, warehouse_id, event_type, operation_id, payload, status, version, created_at, updated_at)
+        INSERT INTO fulfillment_outbox (event_id, enterprise_id, attempt_id, warehouse_id, event_type, operation_id, payload, status, version, created_at, updated_at)
         VALUES (#{eventId}, #{enterpriseId}, #{attemptId}, #{warehouseId}, #{eventType}, #{operationId}, CAST(#{payload} AS JSON), 'PENDING', 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE event_id=event_id
     </insert>
+
+    <!-- 幂等冲突只允许正文完全相同，不得静默忽略约束失败或覆盖原事件。 -->
+    <select id="getBarrierOutbox" resultType="map">
+        SELECT operation_id,payload FROM fulfillment_outbox
+        WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId}
+        AND warehouse_id=#{warehouseId} AND event_type=#{eventType} FOR UPDATE
+    </select>
 
     <!-- countOutbox：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="countOutbox" resultType="int">

@@ -120,6 +120,7 @@ class FulfillmentMappingIT {
                     () -> service.markAllocated("ENT-XID", attemptId));
             assertEquals("PARTICIPANTS_NOT_CONFIRMED", unconfirmed.code());
             service.observeParticipant("ENT-XID", attemptId, "WH-A", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
+            service.bindParticipant("ENT-XID", attemptId, "WH-B", "xid-so2", 12L, "ReservationTccAction", "res-B", 1, "TRIED");
             service.observeParticipant("ENT-XID", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
             Map<String, Object> allocated = service.markAllocated("ENT-XID", attemptId);
             assertEquals(FulfillmentService.ATTEMPT_ALLOCATED, allocated.get("state"));
@@ -135,7 +136,7 @@ class FulfillmentMappingIT {
         assertEquals("xid-so2", jdbc.queryForObject(
                 "SELECT xid FROM allocation_participant WHERE attempt_id=? AND warehouse_id='WH-A'",
                 String.class, attemptId));
-        assertNull(jdbc.queryForObject(
+        assertEquals("xid-so2", jdbc.queryForObject(
                 "SELECT xid FROM allocation_participant WHERE attempt_id=? AND warehouse_id='WH-B'",
                 String.class, attemptId));
         assertEquals(5, jdbc.queryForObject(

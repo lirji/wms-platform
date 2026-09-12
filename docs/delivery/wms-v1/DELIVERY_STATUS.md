@@ -89,3 +89,13 @@ R13消息侧序列号观察/质量/移位与转移源释放传播尚未接通；
 真实两库证据：/tmp/wms-migration-expanded-it.log 01:39:39通过基础回归；/tmp/wms-migration-gates-final-it.log 01:43:54通过迁移4用例及IsolatedRestoreIT；/tmp/wms-migration-validation-final-it.log最终WarehouseMigrationIT5用例及单元BUILD SUCCESS，覆盖完整仓表目录、恢复代际/正文/微秒值、同批回滚、跨仓目标保护、时间来源冲突、冻结拒绝、目标提交/源失败重放和未复制拒绝。默认required门禁64项。隔离恢复实测仅属于该夹具，不能代替生产RTO/RPO。
 
 整体运行边界仍见 [WAREHOUSE_MIGRATION_LIMITS.md](../../implementation/WAREHOUSE_MIGRATION_LIMITS.md)：共享目录准备、真实TM/RM/Fence回调迁移及所有后台写入排空尚待R13/R14整体验证，未执行生产或共享仓迁移。
+
+## R14 TC只读审计与分配恢复屏障
+
+已实现 [FULFILLMENT_TC_RECOVERY.md](../../implementation/FULFILLMENT_TC_RECOVERY.md)：显式集群/TM/事务组绑定与XID同事务、审计SELECT专用池、真实TC终态读取和受限就绪探针。XXL恢复缺实现不再零项成功；每轮20项/20秒，逐项短事务和跨进程企业游标，TC网络调用不持业务锁，回写复核原XID/启动代际/参与者摘要。
+
+修复分配可仅凭CONFIRMED文本而缺分支身份放行、改绑预占/路由代际、终态证据回退、非当前attempt放行，以及INSERT IGNORE吞掉Outbox约束失败。ALLOCATED和完整屏障Outbox同事务，重复事件核对原操作键和正文；合法字符串的控制字符由JSON库转义。25项跨页续跑、坏历史来源不饿死后续、最后Outbox写失败全回滚、旧代际返回与同集群跨企业XID冲突均进入真实数据库验证。
+
+本切片仍不等于完整R14：正式TM发起/库存RM服务调用、仓确认消息、出库授权传播及序列号剩余运行路径继续实施。没有部署TC触发器到生产或共享库，也未迁移历史未知来源的attempt。真实TC测试的仓级确认来自明确夹具，不把它称作真实库存RM业务验收。
+
+验证：2026-09-13 02:05:32 `/tmp/wms-tc-fulfillment-final-it.log` BUILD SUCCESS，TcAuditRecoveryIT 4、FulfillmentMappingIT 3、FulfillmentBarrierIT 1、AllocationRecoverySweepIT 1、FulfillmentHttpIT 2，及依赖单元全部通过。02:04:03 `/tmp/wms-tc-barrier-combined-it.log` BUILD SUCCESS，库存侧重新编译当前履约源码的 ClosedLoopBlackBoxIT 1 通过。默认必需用例清单68项，尚待最终全量组合。先前测试暴露的INSERT IGNORE吞CHECK问题已修复；端口竞争及测试TC清理延迟已通过隔离夹具修正，未改变生产TC行为。

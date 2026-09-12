@@ -167,6 +167,10 @@ public interface FulfillmentMapper {
             @Param("eventType") String eventType, @Param("operationId") String operationId,
             @Param("payload") String payload, @Param("now") Timestamp now);
 
+    /** 重复屏障事件读取原正文，避免同身份不同内容被静默吞掉。 */
+    Map<String,Object> getBarrierOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId,
+            @Param("warehouseId") String warehouseId, @Param("eventType") String eventType);
+
     /** 核对本 attempt 已写的屏障事件数。 */
     /** countOutbox：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int countOutbox(@Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId);

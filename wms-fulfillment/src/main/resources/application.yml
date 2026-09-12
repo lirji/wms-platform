@@ -31,6 +31,14 @@ wms:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
     client-id: ${WMS_OIDC_CLIENT_ID:}
+  tc:
+    audit:
+      enabled: ${WMS_TC_AUDIT_ENABLED:false}
+      cluster-id: ${WMS_TC_CLUSTER_ID:}
+      transaction-group: ${WMS_TC_TRANSACTION_GROUP:}
+      jdbc-url: ${WMS_TC_AUDIT_JDBC_URL:}
+      username: ${WMS_TC_AUDIT_USER:}
+      password: ${WMS_TC_AUDIT_PASSWORD:}
   fulfillment:
     datasource:
       url: ${WMS_FULFILLMENT_JDBC_URL:}

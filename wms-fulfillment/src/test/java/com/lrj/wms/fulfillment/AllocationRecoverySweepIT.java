@@ -83,7 +83,7 @@ class AllocationRecoverySweepIT {
             AllocationRecoverySweep.Report report = new AllocationRecoveryJob(
                     new AllocationRecoverySweep(service, port), "ENT-SW").execute();
             assertTrue(report.newlyObserved() >= 1);
-            assertTrue(report.recovered() >= 2);
+            assertEquals(1, report.recovered());
             assertThrows(IllegalStateException.class, AllocationRecoverySweep::refusePhaseTwo);
             session.commit();
         }
@@ -116,6 +116,7 @@ class AllocationRecoverySweepIT {
         service.bindXid("ENT-SW", attemptId, "exec-1", xid);
         service.bindParticipant("ENT-SW", attemptId, "WH-A", xid, 11L, "ReservationTccAction", "res-A", 1, "TRIED");
         service.observeParticipant("ENT-SW", attemptId, "WH-A", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
+        service.bindParticipant("ENT-SW", attemptId, "WH-B", xid, 12L, "ReservationTccAction", "res-B", 1, "TRIED");
         service.observeParticipant("ENT-SW", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
         if (observeCommitted) {
             service.observeTc("ENT-SW", attemptId, FulfillmentService.TC_COMMITTED,

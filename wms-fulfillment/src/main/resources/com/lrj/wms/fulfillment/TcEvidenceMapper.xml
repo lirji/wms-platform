@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.TcEvidenceMapper">
+    <!-- 仅连接专属TC审计数据源，账号由数据库授予terminal_evidence的SELECT权限。 -->
+    <select id="find" resultType="map" timeout="1">
+        SELECT xid, application_id, transaction_service_group, terminal_status
+        FROM terminal_evidence WHERE xid=#{xid}
+    </select>
+    <select id="available" resultType="int" timeout="1">
+        SELECT COUNT(*) FROM terminal_evidence WHERE xid='__wms_tc_health__'
+    </select>
+</mapper>

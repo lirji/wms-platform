@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.AllocationRecoveryMapper">
+    <!-- 身份只插入一次，重复操作必须由业务层比对所有原始字段。 -->
+    <insert id="bind">
+        INSERT INTO allocation_tc_binding(enterprise_id,attempt_id,xid,launch_epoch,cluster_id,application_id,transaction_group,created_at)
+        VALUES(#{enterpriseId},#{attemptId},#{xid},#{epoch},#{scope.clusterId},#{scope.applicationId},#{scope.transactionGroup},#{now})
+        ON DUPLICATE KEY UPDATE attempt_id=attempt_id
+    </insert>
+    <select id="binding" resultType="map">
+        SELECT enterprise_id,attempt_id,xid,launch_epoch,cluster_id,application_id,transaction_group
+        FROM allocation_tc_binding WHERE enterprise_id=#{enterpriseId} AND attempt_id=#{attemptId}
+    </select>
+    <insert id="ensureCursor">
+        INSERT INTO allocation_recovery_cursor(enterprise_id,last_attempt_id,version,updated_at)
+        VALUES(#{enterpriseId},NULL,0,#{now}) ON DUPLICATE KEY UPDATE enterprise_id=enterprise_id
+    </insert>
+    <select id="cursor" resultType="map">
+        SELECT last_attempt_id,version FROM allocation_recovery_cursor WHERE enterprise_id=#{enterpriseId}
+    </select>
+    <select id="page" resultType="map">
+        SELECT a.id,a.xid,a.launch_epoch,a.participant_set_hash,a.state
+        FROM allocation_attempt a
+        WHERE a.enterprise_id=#{enterpriseId} AND a.xid IS NOT NULL
+        <if test="afterId != null">AND a.id &gt; #{afterId}</if>
+        AND (a.state IN ('TCC_TRYING','TCC_COMPLETING')
+          OR (a.state='ALLOCATED' AND (SELECT COUNT(*) FROM fulfillment_outbox o
+              WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id)
+              &lt; 1+2*(SELECT COUNT(*) FROM allocation_participant p
+              WHERE p.enterprise_id=a.enterprise_id AND p.attempt_id=a.id)))
+        ORDER BY a.id LIMIT 20
+    </select>
+    <update id="advance">
+        UPDATE allocation_recovery_cursor SET last_attempt_id=#{afterId},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND version=#{version}
+    </update>
+</mapper>
