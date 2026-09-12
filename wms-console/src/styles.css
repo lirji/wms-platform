@@ -1,3 +1,5 @@
+@import "./design/tokens.css";
+
 :root {
   --ink: #102027;
   --teal: #173f4a;
@@ -186,6 +188,7 @@ label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .tone { font-weight: 700; }
 .tone-ok { color: var(--ok); }
 .tone-err { color: var(--err); }
+.pda-shell .topbar { grid-template-columns: 1fr auto; }
 .pda { max-width: 460px; }
 .pda-card {
   padding: 20px;

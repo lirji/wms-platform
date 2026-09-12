@@ -1,0 +1,23 @@
+:root {
+  --ink: #102027;
+  --slate: #173f4a;
+  --teal: #173f4a;
+  --paper: #f4f1ea;
+  --card: #fffdf8;
+  --line: #d5cfc3;
+  --accent: #c4a35a;
+  --gold: #c4a35a;
+  --muted: #5c6a6e;
+  --ok: #1b5e20;
+  --warn: #8a5a12;
+  --err: #8b1e1e;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --radius: 8px;
+  --radius-card: 14px;
+  --type-12: 12px;
+  --type-14: 14px;
+  --type-18: 18px;
+  --type-28: 28px;
+}

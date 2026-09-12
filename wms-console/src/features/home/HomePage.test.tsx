@@ -1,13 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { HomePage } from "./Pages";
+import { WorkspaceProvider } from "../../shell/WorkspaceContext";
+import { HomePage } from "./HomePage";
 
 describe("HomePage", () => {
   it("shows workbench modules without inventing warehouses", () => {
     render(
       <MemoryRouter>
-        <HomePage token={undefined} warehouseId="" setWarehouseId={() => undefined} />
+        <WorkspaceProvider value={{ token: undefined, warehouseId: "" }}>
+          <HomePage />
+        </WorkspaceProvider>
       </MemoryRouter>
     );
     expect(screen.getByRole("heading", { name: "仓库工作台" })).toBeTruthy();

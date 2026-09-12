@@ -20,6 +20,9 @@
 | [Seata TCC事务设计](docs/design/09-seata-tcc.md) | 跨仓Try/Confirm/Cancel、TC权威、Fence与分片、恢复门禁 |
 | [幂等协议与故障验收](docs/design/10-idempotency-protocols.md) | TCC分支归属、XID原子绑定、业务身份、安全重授权与故障断言 |
 | [边缘网关与弹性演进](docs/design/11-edge-resilience.md) | 后续南北向入口/超时重试熔断如何叠在既有协议上；本轮未批准实施 |
+| [控制台前端框定](docs/design/console-frontend/BRIEF.md) | 作业角色、非目标与视口假设 |
+| [控制台前端架构](docs/design/console-frontend/FRONTEND_ARCHITECTURE.md) | 路由树、单应用、栈约束、状态矩阵 |
+| [控制台前端切片](docs/design/console-frontend/IMPLEMENTATION_SLICES.md) | F0–F4 落地顺序 |
 | [具体实施计划](docs/delivery/wms-v1/DELIVERY_PLAN.md) | 唯一实施计划，阶段、任务、文件、依赖和 AC 验收矩阵 |
 | [Cursor 交接](docs/delivery/wms-v1/CURSOR_HANDOFF.md) | 页面、交互、接口、数据准备与前端验收 |
 | [设计评审](docs/delivery/wms-v1/REVIEW_REPORT.md) | 对关键竞态的评审及修正 |

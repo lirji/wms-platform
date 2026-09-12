@@ -3,7 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/console-login-oidc`（基于远程 main `87a233b`）。原工作区 `feat/wms-cursor-workflow-overlay` 仍有同内容脏文件，未切换该目录。
+- 任务分支：`feat/console-frontend-ia`（基于远程 main `1ca61a8`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -28,7 +28,8 @@
 - AC-24 HTTP：ISO cutoff、测试 JWT POST/GET、跨仓 403、数量非金额。
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。
 - 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console，已在远程 main `87a233b`。
-- 2026-09-12：控制台登录/`returnTo`/OIDC 与 `11-edge-resilience.md` 迁到 `feat/console-login-oidc`。不是 UI accepted。
+- 2026-09-12：控制台登录/`returnTo`/OIDC 已在远程 main。
+- 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。不是 UI accepted。
 
 ## 未完成
 

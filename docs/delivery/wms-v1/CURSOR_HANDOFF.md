@@ -1,6 +1,6 @@
 # Cursor 前端实施交接
 
-状态：ready-for-verification。`wms-console/` 已实现管理端与 PDA 页，数据只走后端 API；未配置 OIDC 时停在登录/配置态，不写死仓库或库存。入/出/履约工作台 HTTP 已补齐。真实 Casdoor + 四服务联调与交互验收后才能 accepted。禁止页面写死业务 Mock。
+状态：ready-for-verification。`wms-console/` 按 [控制台前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md) 分作业模块；仓在 URL `/w/:warehouseId`，PDA 在 `/pda/:warehouseId/receive`。数据只走后端 API；未配置 OIDC 时停在登录/配置态，不写死仓库或库存。真实 Casdoor + 四服务联调与交互验收后才能 accepted。禁止页面写死业务 Mock。
 
 ## 1. 页面与用户路径
 
