@@ -2,9 +2,9 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。当前已发布代码基线为 `main c5c96e3`，含控制台切片 `b6f44ac`；最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 运行中。后端代码与依赖相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
+更新时间：2026-09-13。当前已发布代码基线为 `main c5c96e3`，含控制台切片 `b6f44ac`；最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 的 console 已成功、java 运行中。后端代码与依赖相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
 
-用户当前优先要求完善项目文档。文档按该已发布代码核对，未启动环境、修改业务源码或升级依赖。持续授权正常提交并合入远程 main；不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
+用户当前优先要求完善项目文档；17份文档整理已由 c32cb54 / f0b2c81 发布远程 main。文档按上述业务源码基线核对，未启动环境、修改业务源码或升级依赖。持续授权正常提交并合入远程 main；不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 
 ## 已发布能力
 
@@ -34,7 +34,7 @@
 ## 未发布开发与门禁
 
 - 序列号 PICK 有本地提交 `dd22cd0`，位于 `fix/serial-outbound-execution`；后续 SHIP 工作区改动尚未验证。两者不属于上述 main 基线，具体恢复入口见根进度文件。
-- 工程验证：后端基线 `3e2c720` CI **pass**；控制台切片记录本地 21 文件/41 用例、typecheck/build 通过，最新 main CI **运行中**，AC-26 现场黑盒仍 open。本轮文档结构/链接、契约88路径/生成物一致、Compose模板静态解析及 diff 检查通过；没有重跑业务测试或启动环境。纯文档使用既有 `[skip ci]` 规则，不取消正在运行的工作流。
+- 工程验证：后端基线 `3e2c720` CI **pass**；控制台切片记录本地 21 文件/41 用例、typecheck/build 通过，最新 main CI **console 成功、java 运行中**，AC-26 现场黑盒仍 open。本轮文档结构/链接、契约88路径/生成物一致、Compose模板静态解析及 diff 检查通过；没有重跑业务测试或启动环境。纯文档使用既有 `[skip ci]` 规则，不取消正在运行的工作流。
 - 完整功能/非功能验收：**未完成**。历史 [AC_EVIDENCE](AC_EVIDENCE.md) 和 [DELIVERY_REPORT](DELIVERY_REPORT.md) 保留当时的证据缺口；其中“真实 TM/RM 未实现”等早期结论已由后续专题证据更新，但没有因此自动关闭全部 AC。
 - 生产安全与环境：版本锁、漏洞例外、生产凭据/ACL、容量和恢复目标未签署。[既有 OSV 快照](../../implementation/sbom/osv-findings.md)仍记录两个组件命中，本次未重新扫描。
 
