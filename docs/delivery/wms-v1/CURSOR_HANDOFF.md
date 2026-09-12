@@ -1,6 +1,6 @@
 # Cursor 前端实施交接
 
-状态：ready-for-verification。`wms-console/` 按 [控制台前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md) 分作业模块；仓在 URL `/w/:warehouseId`，PDA 在 `/pda/:warehouseId/receive`。数据只走后端 API；未配置 OIDC 时停在登录/配置态，不写死仓库或库存。2026-09-12 已完成 Casdoor 登录与四服务只读联调、新路由浏览器走查，以及 Docker 控制台镜像重建。AC-26 收货到发运写作业链未做，不能写成 accepted。禁止页面写死业务 Mock。
+状态：ready-for-verification。`wms-console/` 按 [控制台前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md) 分作业模块；仓在 URL `/w/:warehouseId`，PDA 在 `/pda/:warehouseId/receive`。数据只走后端 API；未配置 OIDC 时停在登录/配置态，不写死仓库或库存。2026-09-12 已完成 Casdoor 登录、四服务只读联调，以及作业命令接到已落地 HTTP（入库收货/质检/上架，出库拣包发/取消回库，调拨发出接收，盘点冻结点数审批，任务回收领取，对账审批）。跨仓 ALLOCATED 仍要真实 TC 证据，页面不伪造。AC-26 全链路现场走查未做，不能写成 accepted。禁止页面写死业务 Mock。
 
 ## 1. 页面与用户路径
 

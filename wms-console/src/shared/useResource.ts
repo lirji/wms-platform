@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { pageItems, type ItemRecord } from "../api/envelope";
 
-export function useResource(token: string | undefined, paths: string[]) {
+export function useResource(token: string | undefined, paths: string[], tick = 0) {
   const [rows, setRows] = useState<ItemRecord[]>([]);
   const [payloads, setPayloads] = useState<unknown[]>([]);
   const [error, setError] = useState<unknown>();
@@ -41,7 +41,7 @@ export function useResource(token: string | undefined, paths: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [token, joined]);
+  }, [token, joined, tick]);
 
   return { rows, payloads, error, loading };
 }

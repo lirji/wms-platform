@@ -120,7 +120,7 @@ public class InboundWorkbenchController {
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new InboundReceiptService(session, Clock.systemUTC()).putaway(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, text(body, "inboundOrderId"), text(body, "lineId"),
-                    taskId, text(body, "locationId"),
+                    taskId, firstNonBlank(text(body, "locationId"), text(body, "targetLocationId")),
                     firstNonBlank(text(body, "locationType"), InboundReceiptService.LOCATION_STORAGE),
                     qty(body.get("qty")));
             result.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));

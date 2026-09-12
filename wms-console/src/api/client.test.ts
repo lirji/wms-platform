@@ -11,5 +11,19 @@ describe("API routing", () => {
     expect(serviceFor("/api/wms/v1/inventory")).toBe("inventory");
     expect(serviceFor("/api/wms/v1/skus")).toBe("inventory");
     expect(serviceFor("/api/wms/v1/jobs?warehouseId=WH-A")).toBe("inventory");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/count-plans/P1/freeze-requests")).toBe("inventory");
+  });
+
+  it("sends outbound picks and cancellations to outbound", () => {
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks/T1/picks")).toBe("outbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/cancellations")).toBe("outbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/pick-tasks")).toBe("outbound");
+  });
+
+  it("sends transfer receipts to fulfillment", () => {
+    expect(serviceFor("/api/wms/v1/warehouses/WH-B/transfer-receipts")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/transfers/TR-1/receipt-authorizations")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/transfers/TR-1/issues")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/fulfillments/F1/attempts")).toBe("fulfillment");
   });
 });

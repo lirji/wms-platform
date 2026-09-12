@@ -27,6 +27,9 @@ export function routeFor(path: string): string {
   if (path.includes("/outbound-orders") || path.includes("/picks") || path.includes("/packings") || path.includes("/shipments")) {
     return PREFIX.outbound + path;
   }
+  if (path.includes("/transfer-receipts") || path.includes("/receipt-authorizations")) {
+    return PREFIX.fulfillment + path;
+  }
   if (path.startsWith("/api/wms/v1/fulfillments") || path.startsWith("/api/wms/v1/transfers")) {
     return PREFIX.fulfillment + path;
   }

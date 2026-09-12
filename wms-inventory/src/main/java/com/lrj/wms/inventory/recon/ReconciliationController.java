@@ -43,7 +43,42 @@ public class ReconciliationController {
         if (warehouseIds == null || warehouseIds.isEmpty()) {
             throw new IllegalArgumentException("查询必须带仓库");
         }
-        String warehouseId = warehouseIds.getFirst();
+        return listCases(jwt, warehouseIds.getFirst(), cutoffId);
+    }
+
+    @GetMapping("/warehouses/{warehouseId}/reconciliation-cases")
+    public Map<String, Object> casesByWarehouse(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @RequestParam(name = "cutoffId") String cutoffId) {
+        return listCases(jwt, warehouseId, cutoffId);
+    }
+
+    @GetMapping("/warehouses/{warehouseId}/reconciliation-cases/{id}")
+    public Map<String, Object> caseByWarehouse(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String id) {
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession()) {
+            Map<String, Object> row = session.getMapper(ReconciliationMapper.class)
+                    .lockCase(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, id);
+            if (row == null) {
+                throw new IllegalArgumentException("差异单不存在");
+            }
+            return InventoryHttpJson.body(row);
+        }
+    }
+
+    @PostMapping("/reconciliation-cases/{id}/remediations")
+    public ResponseEntity<Map<String, Object>> remediate(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
+            @RequestParam(name = "warehouseId") String warehouseId, @RequestBody Map<String, Object> body) {
+        return remediateCase(jwt, warehouseId, id, body);
+    }
+
+    @PostMapping("/warehouses/{warehouseId}/reconciliation-cases/{id}/remediations")
+    public ResponseEntity<Map<String, Object>> remediateByWarehouse(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String warehouseId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        return remediateCase(jwt, warehouseId, id, body);
+    }
+
+    private Map<String, Object> listCases(Jwt jwt, String warehouseId, String cutoffId) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             List<Map<String, Object>> items = new StockInternalReconcile(session, Clock.systemUTC())
@@ -52,9 +87,8 @@ public class ReconciliationController {
         }
     }
 
-    @PostMapping("/reconciliation-cases/{id}/remediations")
-    public ResponseEntity<Map<String, Object>> remediate(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
-            @RequestParam(name = "warehouseId") String warehouseId, @RequestBody Map<String, Object> body) {
+    private ResponseEntity<Map<String, Object>> remediateCase(Jwt jwt, String warehouseId, String id,
+            Map<String, Object> body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             Map<String, Object> result = new StockInternalReconcile(session, Clock.systemUTC()).remediate(

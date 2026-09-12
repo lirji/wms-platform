@@ -2,10 +2,12 @@ package com.lrj.wms.fulfillment;
 
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -69,6 +71,21 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    @PostMapping("/fulfillments/{fulfillmentId}/attempts")
+    public ResponseEntity<Map<String, Object>> prepareAttempt(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String fulfillmentId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        try (SqlSession session = sessions.openSession(false)) {
+            List<Map<String, Object>> participants = participantLines(body);
+            Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createAttempt(
+                    WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.get("deadline")),
+                    warehousesOf(body, participants), participants);
+            created.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+            session.commit();
+            return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(created));
+        }
+    }
+
     @GetMapping("/transfers")
     public Map<String, Object> listTransfers(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(name = "limit", required = false) Integer limit) {
@@ -92,6 +109,75 @@ public class FulfillmentWorkbenchController {
                 throw new WarehouseForbiddenException(warehouseId);
             }
             return HttpJson.row(transfer);
+        }
+    }
+
+    @PostMapping("/transfers/{transferId}/issues")
+    public ResponseEntity<Map<String, Object>> issueTransfer(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        try (SqlSession session = sessions.openSession(false)) {
+            TransferService service = new TransferService(session, Clock.systemUTC());
+            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
+            WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
+            Map<String, Object> result = service.issue(WmsJwtAuthorities.enterpriseId(jwt), transferId,
+                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
+                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), qty(body.get("qty")));
+            session.commit();
+            return ResponseEntity.accepted().body(accepted(result, "ISSUED"));
+        }
+    }
+
+    @PostMapping("/transfers/{transferId}/receipt-authorizations")
+    public ResponseEntity<Map<String, Object>> authorizeTransferReceipt(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        try (SqlSession session = sessions.openSession(false)) {
+            TransferService service = new TransferService(session, Clock.systemUTC());
+            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
+            WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("targetWarehouseId")));
+            Map<String, Object> result = service.authorizeReceipt(WmsJwtAuthorities.enterpriseId(jwt), transferId,
+                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
+                    firstNonBlank(text(body, "targetClientOperationId"), text(body, "clientOperationId"), idempotencyKey),
+                    qty(firstNonNull(body.get("quantity"), body.get("qty"))));
+            session.commit();
+            return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
+        }
+    }
+
+    @PostMapping("/warehouses/{warehouseId}/transfer-receipts")
+    public ResponseEntity<Map<String, Object>> receiveTransfer(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession(false)) {
+            TransferService service = new TransferService(session, Clock.systemUTC());
+            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), text(body, "transferId"));
+            if (!warehouseId.equals(String.valueOf(transfer.get("targetWarehouseId")))) {
+                throw new WarehouseForbiddenException(warehouseId);
+            }
+            Map<String, Object> result = service.receive(WmsJwtAuthorities.enterpriseId(jwt), text(body, "transferId"),
+                    firstNonBlank(text(body, "lineId"), text(body, "sourceLineRef")),
+                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), text(body, "authorizationId"),
+                    longValue(body.get("tokenVersion"), 0), qty(body.get("qty")), text(body, "targetLotId"));
+            session.commit();
+            return ResponseEntity.accepted().body(accepted(result, "RECEIVED"));
+        }
+    }
+
+    @PostMapping("/transfers/{transferId}/losses")
+    public ResponseEntity<Map<String, Object>> confirmTransferLoss(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String transferId, @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        try (SqlSession session = sessions.openSession(false)) {
+            TransferService service = new TransferService(session, Clock.systemUTC());
+            Map<String, Object> transfer = service.get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
+            WmsJwtAuthorities.requireWarehouse(jwt, String.valueOf(transfer.get("sourceWarehouseId")));
+            Map<String, Object> result = service.confirmLoss(WmsJwtAuthorities.enterpriseId(jwt), transferId,
+                    firstNonBlank(text(body, "lineId"), text(body, "transferLineId")),
+                    firstNonBlank(text(body, "clientOperationId"), idempotencyKey), qty(body.get("qty")));
+            session.commit();
+            return ResponseEntity.accepted().body(accepted(result, "LOSS_CONFIRMED"));
         }
     }
 
@@ -178,6 +264,72 @@ public class FulfillmentWorkbenchController {
     }
 
     private static long longValue(Object value, long fallback) {
-        return value instanceof Number number ? number.longValue() : fallback;
+        return value instanceof Number number ? number.longValue() : Long.parseLong(String.valueOf(value == null ? fallback : value));
+    }
+
+    private static Instant deadline(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return Instant.now().plusSeconds(3600);
+        }
+        return Instant.parse(String.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> stringList(Object raw) {
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return List.of();
+        }
+        List<String> values = new ArrayList<>();
+        for (Object item : list) {
+            if (item != null && !String.valueOf(item).isBlank()) {
+                values.add(String.valueOf(item));
+            }
+        }
+        return values;
+    }
+
+    private static List<Map<String, Object>> participantLines(Map<String, Object> body) {
+        List<Map<String, Object>> lines = lines(body, "qty", "baseUnit");
+        for (Map<String, Object> line : lines) {
+            if (line.get("orderLineId") == null && line.get("sourceLineId") != null) {
+                line.put("orderLineId", line.get("sourceLineId"));
+            }
+        }
+        return lines;
+    }
+
+    private static List<String> warehousesOf(Map<String, Object> body, List<Map<String, Object>> lines) {
+        List<String> warehouses = new ArrayList<>(stringList(body.get("warehouses")));
+        for (Map<String, Object> line : lines) {
+            Object warehouseId = line.get("warehouseId");
+            if (warehouseId != null && !warehouses.contains(String.valueOf(warehouseId))) {
+                warehouses.add(String.valueOf(warehouseId));
+            }
+        }
+        return warehouses;
+    }
+
+    private static Map<String, Object> accepted(Map<String, Object> result, String physical) {
+        Map<String, Object> body = new LinkedHashMap<>(HttpJson.row(result));
+        body.put("physicalStatus", physical);
+        body.put("stockSyncStatus", "PENDING");
+        body.put("operationId", result.getOrDefault("operationId", result.get("authorizationId")));
+        return body;
+    }
+
+    private static BigDecimal qty(Object value) {
+        if (value == null) {
+            throw new TransferException("INVALID_QTY", "数量不能为空");
+        }
+        return new BigDecimal(String.valueOf(value));
+    }
+
+    private static Object firstNonNull(Object... values) {
+        for (Object value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 }

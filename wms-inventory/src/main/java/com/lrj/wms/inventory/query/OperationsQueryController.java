@@ -1,11 +1,14 @@
 package com.lrj.wms.inventory.query;
 
 import com.lrj.wms.inventory.count.CountMapper;
+import com.lrj.wms.inventory.count.CountService;
+import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.jobs.JobRunMapper;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -80,12 +83,8 @@ public class OperationsQueryController {
             @PathVariable String countPlanId) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
-            Map<String, Object> plan = session.getMapper(CountMapper.class)
-                    .getPlan(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId);
-            if (plan == null) {
-                throw new IllegalArgumentException("盘点计划不存在");
-            }
-            return row(plan);
+            return row(new CountService(session, Clock.systemUTC())
+                    .get(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId));
         }
     }
 
@@ -97,6 +96,12 @@ public class OperationsQueryController {
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Map<String, Object>> missing(IllegalArgumentException error) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("RESOURCE_NOT_FOUND", error.getMessage()));
+    }
+
+    @ExceptionHandler(InventoryException.class)
+    ResponseEntity<Map<String, Object>> inventory(InventoryException error) {
+        return ResponseEntity.status(error.code().contains("NOT_FOUND") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST)
+                .body(errorBody(error.code(), error.getMessage()));
     }
 
     private static Map<String, Object> page(List<Map<String, Object>> items) {

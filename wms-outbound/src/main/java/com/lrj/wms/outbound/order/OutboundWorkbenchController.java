@@ -72,6 +72,21 @@ public class OutboundWorkbenchController {
         }
     }
 
+    @PostMapping("/outbound-orders/{outboundOrderId}/pick-tasks")
+    public ResponseEntity<Map<String, Object>> planPick(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable String warehouseId, @PathVariable String outboundOrderId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey, @RequestBody Map<String, Object> body) {
+        WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (SqlSession session = sessions.openSession(false)) {
+            Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).planPickTask(
+                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, text(body, "orderLineId"),
+                    text(body, "sourceLocationId"), text(body, "stagingLocationId"), qty(body.get("qty")));
+            result.put("clientOperationId", firstNonBlank(text(body, "clientOperationId"), idempotencyKey));
+            session.commit();
+            return ResponseEntity.status(HttpStatus.CREATED).body(HttpJson.row(result));
+        }
+    }
+
     @PostMapping("/tasks/{taskId}/picks")
     public ResponseEntity<Map<String, Object>> pick(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
             @PathVariable String taskId, @RequestHeader("Idempotency-Key") String idempotencyKey,

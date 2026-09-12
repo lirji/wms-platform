@@ -94,6 +94,14 @@ class InboundHttpIT {
         assertEquals(202, receipt.statusCode());
         assertTrue(receipt.body().contains("\"physicalStatus\":\"RECEIVED\""));
         assertTrue(receipt.body().contains("\"stockSyncStatus\":\"PENDING\""));
+        HttpResponse<String> quality = post("/api/wms/v1/warehouses/WH-A/quality-inspections/INSP-HTTP-1/results", token,
+                "CMD-Q1", "{\"lineId\":\"LINE-1\",\"acceptedQty\":\"4\",\"rejectedQty\":\"0\"}");
+        assertEquals(200, quality.statusCode());
+        HttpResponse<String> putaway = post("/api/wms/v1/warehouses/WH-A/tasks/TASK-HTTP-1/putaways", token, "CMD-P1",
+                "{\"inboundOrderId\":\"KEY-ASN-1\",\"lineId\":\"LINE-1\",\"targetLocationId\":\"LOC-1\","
+                        + "\"locationType\":\"STORAGE\",\"qty\":\"4\"}");
+        assertEquals(202, putaway.statusCode());
+        assertTrue(putaway.body().contains("\"physicalStatus\":\"PUTAWAY\""));
         HttpResponse<String> forbidden = get("/api/wms/v1/warehouses/WH-B/inbound-orders", token);
         assertEquals(403, forbidden.statusCode());
     }

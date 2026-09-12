@@ -4,14 +4,20 @@ import { User } from "oidc-client-ts";
 import { createUserManager, issuerConfigured } from "../auth/oidc";
 import { sanitizeReturnTo } from "../auth/returnTo";
 import { CatalogPage } from "../features/catalog/CatalogPage";
+import { CountDetailPage } from "../features/count/CountDetailPage";
 import { CountPage } from "../features/count/CountPage";
+import { FulfillmentDetailPage } from "../features/fulfillment/FulfillmentDetailPage";
 import { FulfillmentPage } from "../features/fulfillment/FulfillmentPage";
+import { OutboundDetailPage } from "../features/fulfillment/OutboundDetailPage";
 import { HomePage } from "../features/home/HomePage";
+import { InboundDetailPage } from "../features/inbound/InboundDetailPage";
 import { InboundPage } from "../features/inbound/InboundPage";
+import { JobDetailPage } from "../features/jobs/JobDetailPage";
 import { JobsPage } from "../features/jobs/JobsPage";
 import { ReceivePage } from "../features/pda/ReceivePage";
 import { ReconPage } from "../features/recon/ReconPage";
 import { StockPage } from "../features/stock/StockPage";
+import { TransferDetailPage } from "../features/transfer/TransferDetailPage";
 import { TransferPage } from "../features/transfer/TransferPage";
 import { LoginCallbackPage, LoginPage, LoginSetupPage } from "../pages/LoginPage";
 import { LegacyRedirect, PdaLegacyRedirect, RootRedirect } from "../shell/LegacyRedirect";
@@ -58,11 +64,17 @@ export function App() {
               <Route index element={<HomePage />} />
               <Route path="catalog" element={<CatalogPage />} />
               <Route path="inbound" element={<InboundPage />} />
+              <Route path="inbound/:inboundOrderId" element={<InboundDetailPage />} />
               <Route path="stock" element={<StockPage />} />
               <Route path="fulfillment" element={<FulfillmentPage />} />
+              <Route path="fulfillment/:fulfillmentId" element={<FulfillmentDetailPage />} />
+              <Route path="outbound/:outboundOrderId" element={<OutboundDetailPage />} />
               <Route path="transfers" element={<TransferPage />} />
+              <Route path="transfers/:transferId" element={<TransferDetailPage />} />
               <Route path="counts" element={<CountPage />} />
+              <Route path="counts/:countPlanId" element={<CountDetailPage />} />
               <Route path="jobs" element={<JobsPage />} />
+              <Route path="jobs/:jobId" element={<JobDetailPage />} />
               <Route path="recon" element={<ReconPage />} />
             </Route>
             <Route path="/pda/:warehouseId/receive" element={<PdaShell user={user} token={token} />}>

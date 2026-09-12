@@ -87,9 +87,27 @@ class OutboundHttpIT {
                         + "\"authorizationId\":\"AUTH-1\",\"lines\":[{\"orderLineId\":\"OL-1\",\"skuId\":\"SKU-STD\","
                         + "\"qty\":\"6\",\"baseUnit\":\"EA\"}]}");
         assertEquals(201, created.statusCode());
+        String orderId = textBetween(created.body(), "\"id\":\"", "\"");
         HttpResponse<String> list = get("/api/wms/v1/warehouses/WH-A/outbound-orders", token);
         assertEquals(200, list.statusCode());
         assertTrue(list.body().contains("ALLOC-1"));
+        HttpResponse<String> planned = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/pick-tasks",
+                token, "CMD-PLAN-1", "{\"orderLineId\":\"OL-1\",\"sourceLocationId\":\"LOC-P\","
+                        + "\"stagingLocationId\":\"LOC-S\",\"qty\":\"3\"}");
+        assertEquals(201, planned.statusCode());
+        String taskId = textBetween(planned.body(), "\"taskId\":\"", "\"");
+        HttpResponse<String> picked = post("/api/wms/v1/warehouses/WH-A/tasks/" + taskId + "/picks", token, "CMD-PICK-1",
+                "{\"qty\":\"2\"}");
+        assertEquals(202, picked.statusCode());
+        HttpResponse<String> packed = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/packings", token,
+                "CMD-PACK-1", "{\"orderLineId\":\"OL-1\",\"qty\":\"2\"}");
+        assertEquals(201, packed.statusCode());
+        HttpResponse<String> shipped = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/shipments",
+                token, "CMD-SHIP-1", "{\"orderLineId\":\"OL-1\",\"qty\":\"1\"}");
+        assertEquals(202, shipped.statusCode());
+        HttpResponse<String> cancelled = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/cancellations",
+                token, "CMD-CXL-1", "{\"orderLineId\":\"OL-1\"}");
+        assertEquals(202, cancelled.statusCode());
         HttpResponse<String> forbidden = get("/api/wms/v1/warehouses/WH-B/outbound-orders", token);
         assertEquals(403, forbidden.statusCode());
     }
@@ -104,6 +122,16 @@ class OutboundHttpIT {
                 .header("Authorization", "Bearer " + bearer).header("Idempotency-Key", key)
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .POST(HttpRequest.BodyPublishers.ofString(json)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static String textBetween(String body, String start, String end) {
+        int from = body.indexOf(start);
+        if (from < 0) {
+            throw new AssertionError("缺少字段: " + start + " in " + body);
+        }
+        int begin = from + start.length();
+        int to = body.indexOf(end, begin);
+        return body.substring(begin, to);
     }
 
     private static String token(List<String> warehouses) throws Exception {

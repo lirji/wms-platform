@@ -97,6 +97,33 @@ class FulfillmentHttpIT {
         HttpResponse<String> got = get("/api/wms/v1/transfers/TR-HTTP-1?warehouseId=WH-A", token);
         assertEquals(200, got.statusCode());
         assertTrue(got.body().contains("WH-B"));
+        String fulfillmentId = textBetween(fulfillment.body(), "\"id\":\"", "\"");
+        HttpResponse<String> attempt = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/attempts", token, "KEY-ATT-1",
+                "{\"warehouses\":[\"WH-A\"],\"lines\":[{\"warehouseId\":\"WH-A\",\"orderLineId\":\"SL-1\","
+                        + "\"skuId\":\"SKU-STD\",\"qty\":\"3\",\"baseUnit\":\"EA\"}]}");
+        assertEquals(201, attempt.statusCode());
+        HttpResponse<String> issued = post("/api/wms/v1/transfers/TR-HTTP-1/issues", token, "CMD-ISSUE-1",
+                "{\"lineId\":\"TL-1\",\"qty\":\"2\"}");
+        assertEquals(202, issued.statusCode());
+        HttpResponse<String> authorized = post("/api/wms/v1/transfers/TR-HTTP-1/receipt-authorizations", token,
+                "CMD-AUTH-1", "{\"lineId\":\"TL-1\",\"quantity\":\"2\"}");
+        assertEquals(201, authorized.statusCode());
+        String authorizationId = textBetween(authorized.body(), "\"authorizationId\":\"", "\"");
+        String tokenVersion = textBetween(authorized.body(), "\"tokenVersion\":", ",");
+        HttpResponse<String> received = post("/api/wms/v1/warehouses/WH-B/transfer-receipts", token, "CMD-RCV-1",
+                "{\"transferId\":\"TR-HTTP-1\",\"lineId\":\"TL-1\",\"authorizationId\":\"" + authorizationId
+                        + "\",\"tokenVersion\":" + tokenVersion + ",\"qty\":\"2\"}");
+        assertEquals(202, received.statusCode());
+    }
+
+    private static String textBetween(String body, String start, String end) {
+        int from = body.indexOf(start);
+        if (from < 0) {
+            throw new AssertionError("缺少字段: " + start + " in " + body);
+        }
+        int begin = from + start.length();
+        int to = body.indexOf(end, begin);
+        return body.substring(begin, to);
     }
 
     private HttpResponse<String> get(String path, String bearer) throws Exception {

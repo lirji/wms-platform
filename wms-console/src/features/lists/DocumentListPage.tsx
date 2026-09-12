@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Card, Input, Space } from "antd";
 import { asOfMeta } from "../../api/envelope";
 import { DataTable, type Column } from "../../shared/ui/DataTable";
@@ -24,7 +24,9 @@ export function DocumentListPage({
   extra,
   paths,
   columns = DEFAULT_COLUMNS,
-  empty
+  empty,
+  hrefFor,
+  actions
 }: {
   title: string;
   sub: string;
@@ -32,9 +34,12 @@ export function DocumentListPage({
   paths: string[];
   columns?: Column[];
   empty: string;
+  hrefFor?: (row: import("../../api/envelope").ItemRecord) => string | undefined;
+  actions?: ReactNode;
 }) {
   const { token, warehouseId, warehouseName } = useWorkspace();
-  const { rows, payloads, error, loading } = useResource(token, warehouseId ? paths : []);
+  const [tick, setTick] = useState(0);
+  const { rows, payloads, error, loading } = useResource(token, warehouseId ? paths : [], tick);
   const [query, setQuery] = useState("");
   const meta = payloads[0] ? asOfMeta(payloads[0]) : null;
   const visible = useMemo(() => {
@@ -66,6 +71,9 @@ export function DocumentListPage({
         <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
       ) : null}
       {error ? errorBanner(error) : null}
+      <div onSubmitCapture={() => setTick((current) => current + 1)}>
+        {actions}
+      </div>
       <Card
         title="业务列表"
         extra={(
@@ -78,7 +86,7 @@ export function DocumentListPage({
           />
         )}
       >
-        <DataTable rows={visible} columns={columns} loading={loading} emptyText={empty} />
+        <DataTable rows={visible} columns={columns} loading={loading} emptyText={empty} hrefFor={hrefFor} />
       </Card>
     </Space>
   );

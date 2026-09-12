@@ -1,5 +1,6 @@
+import { Link } from "react-router-dom";
 import { Table, Tag } from "antd";
-import { field, qtyField, type ItemRecord } from "../../api/envelope";
+import { field, qtyField, recordId, type ItemRecord } from "../../api/envelope";
 
 export type Column = {
   key: string;
@@ -22,13 +23,25 @@ function chipColor(value: string): string {
   return "processing";
 }
 
-export function DataTable({ rows, columns, loading, emptyText }: { rows: ItemRecord[]; columns: Column[]; loading?: boolean; emptyText?: string }) {
+export function DataTable({
+  rows,
+  columns,
+  loading,
+  emptyText,
+  hrefFor
+}: {
+  rows: ItemRecord[];
+  columns: Column[];
+  loading?: boolean;
+  emptyText?: string;
+  hrefFor?: (row: ItemRecord) => string | undefined;
+}) {
   return (
     <Table
       size="middle"
       loading={loading}
       pagination={rows.length > 12 ? { pageSize: 12, showSizeChanger: false } : false}
-      rowKey={(row, index) => field(row, "id", "skuId") || String(index)}
+      rowKey={(row) => recordId(row) || field(row, "skuId", "lineId") || JSON.stringify(row)}
       dataSource={rows}
       locale={{ emptyText: emptyText || "当前筛选没有行" }}
       columns={columns.map((column) => ({
@@ -37,7 +50,11 @@ export function DataTable({ rows, columns, loading, emptyText }: { rows: ItemRec
         render: (_: unknown, row: ItemRecord) => {
           const keys = column.keys ?? [column.key];
           const value = column.qty ? qtyField(row, ...keys) : field(row, ...keys);
+          const href = column.key === "id" && hrefFor ? hrefFor(row) : undefined;
           const chip = column.key === "status" || column.key === "physicalStatus" || column.key === "stockSyncStatus";
+          if (href) {
+            return <Link to={href}>{value || "打开单据"}</Link>;
+          }
           if (chip && value) {
             return <Tag color={chipColor(value)}>{value}</Tag>;
           }

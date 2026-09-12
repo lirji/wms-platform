@@ -9,5 +9,6 @@
 | F2 | 工作台 / 资料 / 库存绑活 API | F1 | no | `src/features/home|catalog|stock` | 空仓空态；数量字符串列 | done 2026-09-12 | live API |
 | F3 | 入库履约调拨盘点任务对账列表 | F1 | no | `src/features/inbound|fulfillment|transfer|count|jobs|recon` | 列表来自契约路径，无 Mock 表 | done 2026-09-12 | live API |
 | F4 | PDA 收货独立壳 | F1 | no | `src/features/pda` | 回车提交；202 文案非成功 | done 2026-09-12 | live API |
+| F5 | 作业命令接到已落地 HTTP | F3/F4 | no | `src/features/*` 详情页 + inbound/outbound/fulfillment/inventory 写接口 | 详情可提交收货/质检/上架/拣包发/取消/调拨/盘点/任务/对账；202 非成功 | done 2026-09-12 | live API；TCC ALLOCATED 仍需真实 TC |
 
-2026-09-12 视觉升级为企业侧栏作业台后，下一步仍是 AC-26 写作业链（收货→上架→跨仓→拣发）。S8-05 / S9-01 保持 blocked。
+2026-09-12 F5 已把交接要求的写命令接到工作台。下一步是 AC-26 用活数据走完整链，且不能伪造 TC 确认。S8-05 / S9-01 保持 blocked。

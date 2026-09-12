@@ -3,7 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/console-enterprise-ui`（基于远程 main `06d3d81`）。
+- 任务分支：`feat/console-command-wiring`（基于 `feat/console-enterprise-ui` / `7db96c9`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -31,10 +31,11 @@
 - 2026-09-12：控制台登录/`returnTo`/OIDC 已在远程 main。
 - 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。
 - 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。
-- 2026-09-12：控制台改为 Ant Design 作业台（侧栏、KPI、密表）。AC-26 写作业链未做，不是 50 AC accepted。
+- 2026-09-12：控制台改为 Ant Design 作业台（侧栏、KPI、密表）。
+- 2026-09-12 F5：作业详情接到已落地写命令；跨仓 ALLOCATED 仍要真实 TC。不是 50 AC / AC-26 accepted。
 
 ## 未完成
 
-- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 写作业。AC-42。
+- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 现场走查。AC-42。
 
 无生产部署。

@@ -35,7 +35,7 @@
 | AC-23 | local-pass | `StockInternalReconcileIT` | 工作台审批现场 |
 | AC-24 | local-pass | WMS `SnapshotExportIT`/`SnapshotHttpIT`；recon `WmsExportContractTest` 消费 WMS JSONL | 仍缺跨仓库进程联调与金额回归现场 |
 | AC-25 | blocked | 出库 simulator / UNKNOWN sweep（仅模拟，单独列） | 无授权真实设备/协议环境（S8-05） |
-| AC-26 | open | console 状态条单测 + 构建 | 未做 Cursor UI 黑盒/OIDC 联调 |
+| AC-26 | open | 作业详情已接收入库/出库/调拨/盘点/任务/对账命令；console 单测 | 未做 Casdoor 全链路现场走查；跨仓 ALLOCATED 需真实 TC |
 | AC-27 | blocked | `run-capacity.sh --scenario agreed-peak` 无签署输入则退出 2 | 缺 OQ-05 签署峰值；correctness 只对应既有并发 IT |
 | AC-28 | local-pass | `WarehouseMigrationIT` 两 MySQL 全量/增量/切 epoch/旧写拒绝 | 无生产停写窗口（OQ-06） |
 | AC-29 | local-pass | `CompatibilityMatrixIT`/`CompatibilityGateTest`/`verify-contracts.sh` | 无生产滚动升级/开关演练现场 |

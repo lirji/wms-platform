@@ -16,14 +16,20 @@
 /                              已登录 → 跳到 /w/:warehouseId
 /w/:warehouseId                工作台首页（待办入口，无写死数字）
 /w/:warehouseId/catalog        商品 / 库位（只读）
-/w/:warehouseId/inbound        入库工作台
-/w/:warehouseId/stock          库存台账
-/w/:warehouseId/fulfillment    履约与出库
-/w/:warehouseId/transfers      调拨
-/w/:warehouseId/counts         盘点
-/w/:warehouseId/jobs           任务与设备
-/w/:warehouseId/recon          对账差异
-/pda/:warehouseId/receive      PDA 收货（独立壳）
+/w/:warehouseId/inbound                      入库列表 + 建单
+/w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架
+/w/:warehouseId/stock                        库存台账
+/w/:warehouseId/fulfillment                  履约列表 + 本仓出库列表
+/w/:warehouseId/fulfillment/:fulfillmentId   准备分配 / 生成本仓出库单
+/w/:warehouseId/outbound/:outboundOrderId    规划拣货 / 拣 / 包 / 部分发 / 取消回库
+/w/:warehouseId/transfers                    调拨列表 + 建单
+/w/:warehouseId/transfers/:transferId        发出 / 接收授权 / 接收 / 损耗
+/w/:warehouseId/counts                       盘点列表 + 建计划
+/w/:warehouseId/counts/:countPlanId          排空冻结 / 点数 / 复盘 / 审批 / 调整
+/w/:warehouseId/jobs                         任务列表
+/w/:warehouseId/jobs/:jobId                  回收租约 / 领取分片
+/w/:warehouseId/recon                        对账查询 + 审批修复
+/pda/:warehouseId/receive                    PDA 收货（独立壳）
 ```
 
 范围外：OMS/ERP 门户、设备固件 UI、对账导出桌面工具。
@@ -132,12 +138,13 @@ wms-console/src/
 - 错误体：`code` / `message` / `retryable`
 - 写操作：`Idempotency-Key`；扫描 `scanSequence` 由后续切片接契约
 - 时区：展示可按仓，请求 UTC
-- TP99：本切片不新增后端接口；已有读接口预算仍以服务端文档为准，前端不宣称达标
+- TP99：本切片新增的写接口预算 unverified；前端不宣称达标
 
-任务页绑定已落地的 `GET /api/wms/v1/jobs?warehouseId=`（inventory）。OpenAPI `GET /warehouses/{id}/tasks` 尚未实现，页面不伪造任务表。
+作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，对账 APPROVE/REJECT。跨仓 ALLOCATED 仍要求 TC Committed 证据，页面不伪造确认。OpenAPI `GET /warehouses/{id}/tasks` 仍未实现，出库任务挂在出库单详情。
 
 ## 11. 未决
 
 - 设备 UNKNOWN 与真实硬件仍 blocked（S8-05）
 - 主数据写 API 未实现，catalog 保持只读
-- AC-26 全链路写作业（收货→上架→跨仓→拣发）仍未做，不是 50 AC accepted
+- 履约整单确认依赖真实 TC，控制台不能写成 ALLOCATED
+- AC-26 全链路现场走查（收货→上架→跨仓→拣→部分发→剩余取消）尚未用活数据验收，不是 50 AC accepted
