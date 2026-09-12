@@ -68,6 +68,8 @@ class SerialRegistryProcessesIT {
             com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class); config.addMapper(MasterdataMapper.class); config.addMapper(InventoryMapper.class); config.addMapper(OutboxMapper.class);
             config.addMapper(CommandDedupMapper.class); config.addMapper(LocalSerialMapper.class); config.addMapper(SerialRecoveryMapper.class);
+            config.addMapper(SerialReceiptBatchMapper.class); config.addMapper(StockCommandMapper.class);
+            config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
             var sessions=new SqlSessionFactoryBuilder().build(config); var jdbc=new JdbcTemplate(source); var registrySql=new JdbcTemplate(source(registryDb));
             Instant now=Instant.now(); Clock clock=Clock.fixed(now,ZoneOffset.UTC);
             try(var session=sessions.openSession(false)) {
@@ -138,6 +140,24 @@ class SerialRegistryProcessesIT {
                     session.rollback();
                 }
                 assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_intent WHERE state='DONE'",Integer.class));
+                // 多个身份共享原收货命令，逐身份真实HTTP登记不能因操作ID相同而互相覆盖或再次加量。
+                var observation=new com.lrj.wms.contract.messaging.SerialReceiptObservation(1,List.of("BATCH-1","BATCH-2"));
+                var context=new com.lrj.wms.contract.messaging.StockPostingContext("BATCH-DOC","OWNER","SKU","EA","LOC-A",null,"NO_LOT","HOLD",null,null);
+                try(var session=sessions.openSession(false)) {
+                    new SerialReceiptBatchService(session,clock).receive("ENT","A","BATCH-RECEIPT","BATCH-DOC","PART","LINE","actor","EXEC",
+                            context,Quantity.parse("2",0),null,observation);session.commit();
+                }
+                Thread.sleep(1100);
+                assertEquals(2,new SerialRecoveryService(sessions,at(now,400),actual,actual).execute("ENT","A").completed());
+                assertEquals(2,registrySql.queryForObject("SELECT COUNT(*) FROM serial_registry WHERE normalized_serial IN ('BATCH-1','BATCH-2') AND state='ACTIVE' AND owner_warehouse_id='A'",Integer.class));
+                assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE receipt_operation_id='BATCH-RECEIPT' AND state='AUTHORIZED' AND registry_state='ACTIVE'",Integer.class));
+                assertEquals(0,new SerialRecoveryService(sessions,at(now,410),actual,actual).execute("ENT","A").completed());
+                try(var session=sessions.openSession(false)) {
+                    new SerialReceiptBatchService(session,clock).receive("ENT","A","BATCH-RECEIPT","BATCH-DOC","PART","LINE","actor","EXEC",
+                            context,Quantity.parse("2",0),null,observation);session.commit();
+                }
+                assertQuantity(jdbc,"A",2);
+                assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='BATCH-RECEIPT'",Integer.class));
                 // 迁移停写后的旧进程不能领取或更新恢复状态，远端也不再被调用。
                 jdbc.update("INSERT INTO warehouse_route(id,enterprise_id,warehouse_id,cell_id,target_cell_id,route_epoch,state,version,created_at,updated_at) VALUES('ROUTE-A','ENT','A','CELL-A','CELL-B',1,'QUIESCING',0,?,?)",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
                 var stopped=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialRecoveryService(sessions,at(now,420),actual,actual).execute("ENT","A"));

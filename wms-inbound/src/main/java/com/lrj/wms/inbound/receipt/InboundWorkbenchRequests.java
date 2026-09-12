@@ -26,7 +26,14 @@ public final class InboundWorkbenchRequests {
             @Size(max = 64) String deviceId,
             @Size(max = 64) String deviceSessionId,
             @Min(0) Long scanSequence,
-            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) {
+            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty,
+            @Valid com.lrj.wms.contract.messaging.SerialReceiptObservation serialObservation) {
+        /** 身份观察必须和本次收货数量、库存维度一起固定，不能仅保存数量后再补名单。 */
+        @AssertTrue(message = "序列号数量或库存维度不完整")
+        public boolean isSerialObservationComplete() {
+            return serialObservation == null || locationId != null && lotId != null && qty != null
+                    && qty.compareTo(BigDecimal.valueOf(serialObservation.serialIds().size())) == 0;
+        }
         /** 滚动兼容允许旧客户端同时省略；提供维度时必须完整，消息启用后由入口强制要求。 */
         @AssertTrue(message = "收货库位和批次必须成组提供")
         public boolean isPostingContextComplete() {

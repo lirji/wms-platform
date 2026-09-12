@@ -75,6 +75,7 @@ class ReceiveMessagingProcessesIT {
                 masterdata.createLocation("LOC-B", "GATE-B", "ENT", "WH", "LOC-B", "A", "RECEIVING", new BigDecimal("100"), "EA");
                 masterdata.createLocation("STORAGE", "GATE-STORAGE", "ENT", "WH", "STORAGE", "A", "STORAGE", new BigDecimal("100"), "EA");
                 masterdata.createSku(SkuPolicy.create("SKU", "ENT", "SKU", "测试商品", "EA", 0, false, false, false, 1, "ACTIVE"), "UNIT");
+                masterdata.createSku(SkuPolicy.create("SKU-SERIAL", "ENT", "SKU-SERIAL", "序列商品", "EA", 0, false, true, false, 1, "ACTIVE"), "UNIT-SERIAL");
                 session.commit();
             }
             String token = token(issuer, rsa);
@@ -227,6 +228,33 @@ class ReceiveMessagingProcessesIT {
             assertEquals(1, secondBatch.path("items").size());
             assertNotEquals(firstBatch.path("items").get(0).path("id").asString(), secondBatch.path("items").get(0).path("id").asString());
             assertFalse(secondBatch.has("nextCursor"));
+            // 同一真实来源服务新增序列收货批次：身份和数量一起入账，登记关闭时保持HOLD及持久恢复意图。
+            var serialOrder = post(base + "/inbound-orders", token, "ORDER-SERIAL", """
+                    {"sourceSystem":"ERP","externalNo":"EXT-SERIAL","ownerId":"OWNER","lines":[
+                    {"lineId":"LINE-SERIAL","externalLineId":"EXT-SERIAL-LINE","skuId":"SKU-SERIAL","expectedQty":"2","unit":"EA"}]}
+                    """);
+            assertEquals(201, serialOrder.statusCode(), serialOrder.body());
+            String serialPath = base + "/inbound-orders/ORDER-SERIAL/receipts";
+            String serialReceipt = """
+                    {"lineId":"LINE-SERIAL","qty":"2","receiptPartId":"SERIAL-PART","locationId":"LOC","lotId":"NO_LOT",
+                     "serialObservation":{"schemaVersion":1,"serialIds":[" sn-b ","SN-A"]}}
+                    """;
+            assertEquals(400, post(serialPath, token, "SERIAL-BAD-QTY", serialReceipt.replace("\"qty\":\"2\"", "\"qty\":\"1\"")).statusCode());
+            assertEquals(400, post(serialPath, token, "SERIAL-DUP", serialReceipt.replace("SN-A", "SN-B")).statusCode());
+            var serialAccepted = post(serialPath, token, "RECEIVE-SERIAL", serialReceipt);
+            assertEquals(202, serialAccepted.statusCode(), serialAccepted.body());
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='RECEIVE-SERIAL'", String.class)),
+                    30, "序列号收货未闭环", in, stock);
+            assertEquals(202, post(serialPath, token, "RECEIVE-SERIAL-REPLAY", serialReceipt.replace(" sn-b ", "SN-B")).statusCode());
+            assertEquals(409, post(serialPath, token, "RECEIVE-SERIAL-CHANGED", serialReceipt.replace("SN-A", "SN-C")).statusCode());
+            String omittedObservation = "{\"lineId\":\"LINE-SERIAL\",\"qty\":\"2\",\"receiptPartId\":\"SERIAL-PART\",\"locationId\":\"LOC\",\"lotId\":\"NO_LOT\"}";
+            assertEquals(409, post(serialPath, token, "RECEIVE-SERIAL-OMITTED", omittedObservation).statusCode());
+            assertEquals(1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='RECEIVE-SERIAL'", Integer.class));
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-SERIAL' AND quality_code='HOLD'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            assertEquals(List.of("SN-A", "SN-B"), stockDb.queryForList("SELECT serial_id FROM local_serial WHERE receipt_operation_id='RECEIVE-SERIAL' ORDER BY serial_id", String.class));
+            assertEquals(2, stockDb.queryForObject("SELECT COUNT(*) FROM local_serial WHERE state='HOLD_RECEIVED' AND receipt_operation_id='RECEIVE-SERIAL'", Integer.class));
+            assertEquals(2, stockDb.queryForObject("SELECT COUNT(*) FROM serial_recovery_intent WHERE operation_id='RECEIVE-SERIAL' AND state='PENDING'", Integer.class));
+            assertEquals(0, inDb.queryForObject("SELECT received_posted_qty FROM inbound_line WHERE id='LINE-SERIAL'", BigDecimal.class).compareTo(new BigDecimal("2")));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;

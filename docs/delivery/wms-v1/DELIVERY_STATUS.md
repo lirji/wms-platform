@@ -152,3 +152,7 @@ V017及持久化回执完成，原请求重试保持原attempt及截止时间；
 ## R13 多cell普通库存消息路由
 
 [路由与恢复规则](../../implementation/INVENTORY_CELL_MESSAGING.md)已实现每cell消费组、完整清单筛选和同事务数据库代际校验；未知仓与陈旧路由隔离。04:42:04真实进程2IT及路由/信封单元通过，四Jar smoke、必需91、契约88、文档及Compose静态检查通过。RM重启readiness修复独立提交7ec2fbc。序列号来源身份、逐身份盘点与可信水位等仍继续。
+
+## R13 按收货批次的序列号观察
+
+[收货身份规则与证据](../../implementation/SERIAL_RECEIPT_BATCH.md)已接通公开可选观察、来源T1固定清单、库存V037与stage-only身份绑定、持久登记恢复意图；每批最多200，数量只入账一次。04:54:18真实MySQL及进程组合13IT通过，04:55:17追加同原命令两身份的真实登记HTTP恢复通过；迁移清单49表含稳定id及完整JSON复制验证。必需95、API88。QUALITY/PUTAWAY/PICK/SHIP序列号仍保持拒绝，继续补明确身份规则，不能把这一切片当作R13/R14/R15全部完成。

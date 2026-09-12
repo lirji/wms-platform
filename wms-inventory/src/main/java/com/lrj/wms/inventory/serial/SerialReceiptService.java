@@ -39,15 +39,21 @@ public final class SerialReceiptService {
     /** HOLD 收货并协调登记。同操作重放不二次加量；登记失败保留本地记录。 */
     public Map<String, Object> receiveHold(String enterpriseId, String warehouseId, String operationId, String documentId,
             String actorId, String serial, StockBucketKey bucket) {
-        return receive(enterpriseId,warehouseId,operationId,documentId,actorId,serial,bucket,true);
+        return receive(enterpriseId,warehouseId,operationId,documentId,actorId,serial,bucket,true,true);
     }
 
     /** 运行链路先提交HOLD和原始意图，由serialTransferRecovery在事务外协调登记。 */
     public Map<String,Object> stageHold(String e,String w,String op,String document,String actor,String serial,StockBucketKey bucket) {
-        return receive(e,w,op,document,actor,serial,bucket,false);
+        return receive(e,w,op,document,actor,serial,bucket,false,true);
+    }
+    /** 仅供完整批次在聚合过账的同一事务内绑定身份，不能再次增加数量或同步调用登记服务。 */
+    Map<String,Object> stagePostedIdentity(String e,String w,String command,String serial,StockBucketKey bucket) {
+        if(session.getMapper(LocalSerialMapper.class).lock(e,w,normalize(serial))!=null)
+            throw new InventoryException("SERIAL_ALREADY_RECEIVED","首次绑定批次不能接管既有身份，包括其他入口的同名操作");
+        return receive(e,w,command,null,null,serial,bucket,false,false);
     }
     private Map<String,Object> receive(String enterpriseId,String warehouseId,String operationId,String documentId,
-            String actorId,String serial,StockBucketKey bucket,boolean synchronize) {
+            String actorId,String serial,StockBucketKey bucket,boolean synchronize,boolean addQuantity) {
         SerialRecoveryService.requireWritable(session,enterpriseId,warehouseId);
         String normalized = normalize(serial);
         if (!InventoryCodes.QUALITY_HOLD.equals(bucket.qualityCode())) {
@@ -77,7 +83,7 @@ public final class SerialReceiptService {
             return view(row);
         }
         if (STATE_INTENDED.equals(String.valueOf(row.get("state")))) {
-            new InventoryApplicationService(session, clock).receive(enterpriseId, warehouseId, operationId, documentId,
+            if(addQuantity) new InventoryApplicationService(session, clock).receive(enterpriseId, warehouseId, operationId, documentId,
                     actorId, bucket, Quantity.parse("1", 0));
             Map<String, Object> balance = session.getMapper(InventoryMapper.class).lockBalanceByDimension(enterpriseId,
                     warehouseId, bucket.ownerId(), bucket.locationId(), bucket.skuId(), bucket.lotId(),
@@ -85,8 +91,9 @@ public final class SerialReceiptService {
             if (balance == null) {
                 throw new InventoryException("VERSION_CONFLICT", "HOLD 收货后找不到余额");
             }
-            locals.updateState(enterpriseId, warehouseId, normalized, String.valueOf(balance.get("id")),
-                    STATE_HOLD_RECEIVED, REGISTRY_NONE, null, 0L, now);
+            if(locals.updateState(enterpriseId, warehouseId, normalized, String.valueOf(balance.get("id")),
+                    STATE_HOLD_RECEIVED, REGISTRY_NONE, null, 0L, now)!=1)
+                throw new InventoryException("VERSION_CONFLICT","身份与已入账余额绑定失败");
             row = locals.lock(enterpriseId, warehouseId, normalized);
         }
         SerialRecoveryService.stage(session, clock, enterpriseId, warehouseId, row, null, null);

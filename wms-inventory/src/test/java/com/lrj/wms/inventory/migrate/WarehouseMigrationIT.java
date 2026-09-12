@@ -97,6 +97,10 @@ class WarehouseMigrationIT {
     @Test
     void twoPhysicalDatabasesSwitchEpochAndRejectOldWrites() {
         Clock clock = Clock.systemUTC();
+        // 明确的迁移夹具：原批次JSON与稳定主键必须复制，不能因新增表没有id游标而漏数。
+        String observation="{\"schemaVersion\":1,\"serialIds\":[\"SN-A\",\"SN-B\"]}";
+        sourceJdbc.update("INSERT INTO serial_receipt_batch(id,enterprise_id,warehouse_id,receipt_command_id,context_hash,observation_json,identity_count,state,created_at,updated_at) VALUES('BATCH-MIGRATION','ENT-1','WH-A','RECEIPT-SERIAL',?,CAST(? AS JSON),2,'APPLIED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
+                "a".repeat(64),observation);
         try (SqlSession session = sourceSessions.openSession(false)) {
             WarehouseMigrationService migrate = new WarehouseMigrationService(session, sourceJdbc, targetJdbc, clock);
             assertEquals(ACTIVE_COPY, migrate.prepare("ENT-1", "WH-A", "CELL-A", "CELL-B").get("state"));
@@ -104,6 +108,8 @@ class WarehouseMigrationIT {
             assertTrue(((Number) full.get("copiedRows")).intValue() >= 3);
             session.commit();
         }
+        assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"),
+                targetJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"));
         try (SqlSession session = sourceSessions.openSession(false)) {
             new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "OP-INCR", "DOC", "ACTOR",
                     bucket(), Quantity.parse("2", 0));

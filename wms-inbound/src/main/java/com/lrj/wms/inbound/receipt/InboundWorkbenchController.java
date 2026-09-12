@@ -117,7 +117,7 @@ public class InboundWorkbenchController {
                         qty(body.qty()));
             }
             if (body.locationId() != null) service.bindReceiveContext(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    inboundOrderId, body.lineId(), result, body.locationId(), body.lotId());
+                    inboundOrderId, body.lineId(), result, body.locationId(), body.lotId(), body.serialObservation());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, inboundOrderId, result, "RECEIVED"));
         }

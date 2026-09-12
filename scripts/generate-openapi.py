@@ -822,6 +822,7 @@ components:
       additionalProperties: false
       required: ["lineId","qty"]
       properties:
+        serialObservation: { $ref: '#/components/schemas/SerialReceiptObservation' }
         lineId:
           type: "string"
           maxLength: 64
@@ -856,6 +857,19 @@ components:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
           description: "精确十进制；必须大于0"
+    SerialReceiptObservation:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, serialIds]
+      description: 本次收货的完整身份清单，规范化后去重校验，数量须等于清单长度；同批重放不得增删或替换
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        serialIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }
     QualityResultEnvelope:
       type: object
       description: 分批质检受理结果；state=APPLIED才代表库存生效，202不代表已完成

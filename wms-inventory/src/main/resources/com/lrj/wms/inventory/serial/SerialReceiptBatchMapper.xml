@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.serial.SerialReceiptBatchMapper">
+    <insert id="insert">
+        INSERT IGNORE INTO serial_receipt_batch(id,enterprise_id,warehouse_id,receipt_command_id,context_hash,observation_json,identity_count,state,created_at,updated_at)
+        VALUES(#{id},#{e},#{w},#{command},#{hash},CAST(#{observation} AS JSON),#{count},'PENDING',#{now},#{now})
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT context_hash,observation_json,identity_count,state FROM serial_receipt_batch
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND receipt_command_id=#{command} FOR UPDATE
+    </select>
+    <update id="finish">
+        UPDATE serial_receipt_batch SET state=#{state},updated_at=#{now}
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND receipt_command_id=#{command} AND state='PENDING'
+    </update>
+</mapper>

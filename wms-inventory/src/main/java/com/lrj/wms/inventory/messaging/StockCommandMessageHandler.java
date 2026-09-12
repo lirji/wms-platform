@@ -46,7 +46,21 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         var location = masterdata.getLocation(enterprise, warehouse, context.sourceLocationId());
         if (!active(sku) || !active(wh) || !active(location)) throw new MessageRejectedException("MASTERDATA_NOT_ACTIVE");
         if (!context.baseUnit().equals(sku.get("base_unit"))) throw new MessageRejectedException("BASE_UNIT_MISMATCH");
-        if (flag(sku.get("serial_enabled")) && !"CANCEL".equals(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        boolean serialEnabled = flag(sku.get("serial_enabled"));
+        com.lrj.wms.contract.messaging.SerialReceiptObservation serialObservation = null;
+        if (serialEnabled && "RECEIVE".equals(action)) {
+            try {
+                var observation = payload.path("serialObservation");
+                if (!observation.isObject() || observation.properties().stream().anyMatch(p -> !Set.of("schemaVersion", "serialIds").contains(p.getKey()))
+                        || !observation.path("schemaVersion").isIntegralNumber() || !observation.path("schemaVersion").canConvertToInt()
+                        || observation.path("schemaVersion").intValue() != 1 || !observation.path("serialIds").isArray()
+                        || observation.path("serialIds").size() > 200) throw new IllegalArgumentException();
+                for (var serial : observation.path("serialIds")) if (!serial.isString()) throw new IllegalArgumentException();
+                serialObservation = RuntimeMessage.JSON.treeToValue(observation, com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
+                serialObservation.requireQuantity(rawQty);
+            } catch (RuntimeException invalid) { throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED"); }
+        } else if (serialEnabled && !"CANCEL".equals(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        else if (payload.hasNonNull("serialObservation")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         boolean hasLot = !"NO_LOT".equals(context.lotId());
         if (flag(sku.get("lot_enabled")) != hasLot) throw new MessageRejectedException("LOT_POLICY_MISMATCH");
         if (hasLot) {
@@ -92,6 +106,11 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             command = new StockCommandService(session, clock).applyPutaway(enterprise, warehouse, commandId,
                     required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
                     context.documentId(), required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "receiptCommandId"), bucket, target, qty);
+        } else if (serialEnabled) {
+            command = new com.lrj.wms.inventory.serial.SerialReceiptBatchService(session, clock).receive(enterprise, warehouse, commandId,
+                    required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
+                    required(payload, "actorId"), required(payload, "sourceExecutionId"), context, qty,
+                    payload.hasNonNull("previousCommandId") ? required(payload, "previousCommandId") : null, serialObservation);
         } else {
             command = new StockCommandService(session, clock).applyReceive(enterprise, warehouse, message.sourceService(), commandId,
                 required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
