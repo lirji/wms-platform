@@ -41,13 +41,22 @@ public final class OutboundPostingService {
     /** 发运只使用本桶已回执拣货减已受理发运的余额，避免异步乱序令实物先发而预占尚未转入。 */
     public Map<String, Object> ship(String enterprise, String warehouse, String orderId, String orderLineId,
             String commandId, String actor, BigDecimal qty, String partId, String locationId, String lotId) {
+        return ship(enterprise,warehouse,orderId,orderLineId,commandId,actor,qty,partId,locationId,lotId,null);
+    }
+    /** 分次发运只消费原已拣子集，来源身份与实物数量一起固定。 */
+    public Map<String,Object> ship(String enterprise,String warehouse,String orderId,String orderLineId,String commandId,String actor,
+            BigDecimal qty,String partId,String locationId,String lotId,com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        if(selection!=null) selection.requireQuantity(qty);
         var mapper = session.getMapper(OutboundOrderMapper.class);
         var order = require(mapper.lockOrder(enterprise, warehouse, orderId), "UNKNOWN_ORDER");
         var line = require(mapper.lockLineByOrderLine(enterprise, warehouse, orderId, orderLineId), "UNKNOWN_LINE");
         var context = context(order, line, locationId, null, lotId); context.requireForAction("SHIP");
+        if(selection==null && session.getMapper(OutboundSerialMapper.class).serialLine(enterprise,warehouse,text(line,"id"))>0)
+            throw new OutboundException("SERIAL_SHIP_CONFLICT","序列订单发运必须指定原已拣身份及代际");
         var result = new OutboundOrderService(session, clock).shipPartial(enterprise, warehouse, orderId, orderLineId,
                 commandId, actor, qty, partId);
-        bind(enterprise, warehouse, result, line, context);
+        bind(enterprise,warehouse,result,line,context,selection);
+        if(selection!=null) new OutboundSerialService(session,clock).claimShipment(enterprise,warehouse,text(result,"commandId"),text(line,"id"),context,selection,Boolean.TRUE.equals(result.get("replayed")));
         if (!Boolean.TRUE.equals(result.get("replayed")) && mapper.claimBucketShipment(enterprise, warehouse, text(line, "id"),
                 locationId, lotId, qty, java.sql.Timestamp.from(clock.instant())) != 1)
             throw new OutboundException("PICK_POSTING_PENDING", "本暂存桶的已过账拣货量不足，请先完成库存同步");
@@ -81,6 +90,18 @@ public final class OutboundPostingService {
         if(body.hasNonNull("serialExecution")) {
             var selection=RuntimeMessage.JSON.treeToValue(body.path("serialExecution"),com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
             selection.requireQuantity(qty);new OutboundSerialService(session,clock).posted(enterprise,warehouse,commandId,selection);
+        }
+    }
+
+    /** 原SHIP成功回执标记每个身份的本地过账完成，全球登记进度由库存独立恢复。 */
+    public void recordShipResult(String e,String w,String command,BigDecimal qty) {
+        var original=session.getMapper(com.lrj.wms.outbound.protocol.SourceMapper.class).getCommand(e,w,command);
+        var body=RuntimeMessage.JSON.readTree(text(original,"payload_json"));
+        if(body.hasNonNull("serialExecution")) {
+            if(!body.path("outboundSchemaVersion").isIntegralNumber() || body.path("outboundSchemaVersion").asInt()!=2)
+                throw new com.lrj.wms.runtime.messaging.MessageRejectedException("UNSUPPORTED_OUTBOUND_SCHEMA");
+            var selection=RuntimeMessage.JSON.treeToValue(body.path("serialExecution"),com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
+            selection.requireQuantity(qty);new OutboundSerialService(session,clock).shipmentPosted(e,w,command,selection);
         }
     }
 

@@ -13,4 +13,29 @@
   UPDATE outbound_serial_pick SET state='PICKED',version=version+1,updated_at=#{now}
   WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND state='CLAIMED' AND version=#{version}
  </update>
+ <select id="serialLine" resultType="int">
+  SELECT EXISTS(SELECT 1 FROM outbound_serial_pick WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_line_id=#{line})
+ </select>
+ <select id="lockForShipment" resultType="map">
+  SELECT id,state,shipment_command_id,allocation_id,attempt_id,target_location_id,lot_id,version FROM outbound_serial_pick
+  WHERE enterprise_id=#{row.e} AND warehouse_id=#{row.w} AND document_line_id=#{row.line}
+  AND sku_id=#{row.sku} AND serial_id=#{row.serial} AND owner_epoch=#{row.epoch} AND state&lt;&gt;'RELEASED' FOR UPDATE
+ </select>
+ <update id="claimShipment">
+  UPDATE outbound_serial_pick SET shipment_command_id=#{row.command},version=version+1,updated_at=#{row.now}
+  WHERE enterprise_id=#{row.e} AND warehouse_id=#{row.w} AND id=#{row.id} AND version=#{row.version}
+  AND state='PICKED' AND shipment_command_id IS NULL
+ </update>
+ <update id="shipmentPosted">
+  UPDATE outbound_serial_pick SET shipment_posted_at=#{now},version=version+1,updated_at=#{now}
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND shipment_command_id=#{command} AND serial_id=#{serial}
+  AND owner_epoch=#{epoch} AND shipment_posted_at IS NULL AND state='PICKED'
+ </update>
+ <select id="shippable" resultType="map" timeout="3">
+  SELECT serial_id AS id,serial_id AS serialId,owner_epoch AS ownerEpoch,sku_id AS skuId,lot_id AS lotId,target_location_id AS locationId
+  FROM outbound_serial_pick WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND order_id=#{order} AND order_line_id=#{line}
+  AND target_location_id=#{location} AND lot_id=#{lot} AND state='PICKED' AND shipment_command_id IS NULL
+  <if test="page.id != null">AND serial_id&gt;#{page.id}</if>
+  ORDER BY serial_id LIMIT #{page.fetchLimit}
+ </select>
 </mapper>

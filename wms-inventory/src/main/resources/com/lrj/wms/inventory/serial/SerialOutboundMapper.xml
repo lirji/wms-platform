@@ -16,4 +16,8 @@
     <if test="page.id != null">AND s.serial_id&gt;#{page.id}</if>
   ORDER BY s.serial_id LIMIT #{page.fetchLimit}
  </select>
+ <select id="lockPicked" resultType="map">
+  SELECT id,allocation_id,attempt_id,order_line_id,target_balance_id,state FROM serial_pick_fact
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND sku_id=#{sku} AND active_serial=#{serial} AND owner_epoch=#{epoch} FOR UPDATE
+ </select>
 </mapper>

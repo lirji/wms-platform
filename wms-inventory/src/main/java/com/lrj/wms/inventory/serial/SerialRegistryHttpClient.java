@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /** 登记调用只传受控服务令牌，超时结果未知时交给持久化任务以同一动作身份恢复。 */
-public final class SerialRegistryHttpClient implements SerialRegistryPort, SerialCountRegistryPort, SerialTransferRegistryPort, SerialReleaseRegistryPort, AutoCloseable {
+public final class SerialRegistryHttpClient implements SerialRegistryPort, SerialCountRegistryPort, SerialTransferRegistryPort, SerialReleaseRegistryPort, SerialShipmentRegistryPort, AutoCloseable {
     private static final int MAX_BODY = 65536;
     private final URI base;
     private final Function<String,String> tokens;
@@ -60,9 +60,14 @@ public final class SerialRegistryHttpClient implements SerialRegistryPort, Seria
         if (((Number)result.get("ownerEpoch")).longValue()!=epoch) throw unavailable();
         return result;
     }
+    /** 同一原发运事实在断连或令牌轮换后仍使用稳定命令键。 */
+    @Override public Map<String,Object> ship(String e,String sku,String serial,String wh,String ref,long epoch) {
+        var result=send("shipments",e,Map.of("warehouseId",wh,"skuId",sku,"serial",normalize(serial),"factRef",ref,"expectedEpoch",epoch));
+        SerialShipmentRecoveryService.requireProof(result,e,wh,sku,normalize(serial),ref,epoch);return result;
+    }
     @Override public Map<String,Object> get(String e,String sku,String serial) {
         var result=request(e,URI.create(base+"?skuId="+encode(sku)+"&serial="+encode(normalize(serial))),null,null);
-        validate(result,serial,Set.of("CLAIMED","ACTIVE","MISSING","FOUND_CLAIMED","TRANSFER_PREPARED","IN_TRANSIT","RECEIVING"));
+        validate(result,serial,Set.of("CLAIMED","ACTIVE","MISSING","FOUND_CLAIMED","TRANSFER_PREPARED","IN_TRANSIT","RECEIVING","SHIPPED"));
         return result;
     }
     /** 源仓事实以稳定命令键重放，核对历史凭证而非当前授权状态。 */

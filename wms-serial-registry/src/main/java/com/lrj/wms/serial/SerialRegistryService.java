@@ -43,6 +43,7 @@ public final class SerialRegistryService {
         if (row == null) {
             throw new SerialRegistryException("VERSION_CONFLICT", "登记认领竞争");
         }
+        if ("SHIPPED".equals(row.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","已发运身份不能按原收货重新认领或激活");
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按首次认领占用");
         }
@@ -66,6 +67,7 @@ public final class SerialRegistryService {
         if (row == null) {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未认领");
         }
+        if ("SHIPPED".equals(row.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","已发运身份不能按原收货重新认领或激活");
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按原认领激活");
         }
@@ -94,6 +96,29 @@ public final class SerialRegistryService {
         if(row.get("receipt_operation_id")==null && row.get("transfer_id")==null
                 && mapper.repairActiveReceipt(e,sku,serial,wh,op,now)==1) return view(mapper.lockIdentity(e,sku,serial));
         throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","有效授权不属于本次收货操作");
+    }
+
+    /** 发运是独立终态；原事实可重放，但不能授予可用身份或伪装成盘亏。 */
+    public Map<String,Object> ship(String e,String sku,String serial,String warehouse,String fact,long epoch) {
+        requireId(fact,"INVALID_SHIPMENT","发运事实不能为空");
+        String normalized=normalize(serial);var mapper=session.getMapper(SerialRegistryMapper.class);
+        var identity=requireIdentity(mapper,e,sku,normalized);
+        var original=mapper.lockShipment(e,sku,normalized,fact);
+        if(original==null) {
+            if(epoch!=asLong(identity.get("owner_epoch"))) throw staleEpoch(identity,epoch);
+            if(!warehouse.equals(identity.get("owner_warehouse_id")) || !STATE_ACTIVE.equals(identity.get("state")))
+                throw new SerialRegistryException("SERIAL_STATE_CONFLICT","发运只可消费原仓原代际的有效身份");
+            var now=Timestamp.from(clock.instant());
+            String id=com.lrj.wms.runtime.messaging.RuntimeMessage.hash(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(java.util.List.of(e,sku,normalized,fact)));
+            if(mapper.insertShipment(Map.of("id",id,"e",e,"sku",sku,"serial",normalized,"w",warehouse,"epoch",epoch,"ref",fact,"now",now))!=1
+                    || mapper.casShipped(e,sku,normalized,warehouse,epoch,asLong(identity.get("version")),now)!=1)
+                throw new SerialRegistryException("VERSION_CONFLICT","原发运证明与身份终态必须同时提交");
+            original=mapper.lockShipment(e,sku,normalized,fact);
+        }
+        if(!warehouse.equals(original.get("warehouse_id")) || epoch!=asLong(original.get("owner_epoch")))
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","原发运不能更换仓或代际");
+        return Map.of("shipment",Map.of("schemaVersion",1,"enterpriseId",e,"warehouseId",warehouse,"skuId",sku,"normalizedSerial",normalized,
+                "ownerEpoch",epoch,"shipmentRef",fact));
     }
 
     /** 恢复查询，不加锁。不存在则业务码拒绝。 */

@@ -32,6 +32,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/lots/{lotId}	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages	messaging.read
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}	outbound.read
+GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shippable-serials	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries	messaging.read

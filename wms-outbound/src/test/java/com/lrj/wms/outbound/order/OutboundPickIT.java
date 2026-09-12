@@ -285,6 +285,57 @@ class OutboundPickIT {
         return new com.lrj.wms.contract.messaging.SerialExecutionSelection(1,java.util.Arrays.stream(serials).map(sn -> new com.lrj.wms.contract.messaging.SerialExecutionSelection.Identity(sn,1L)).toList());
     }
 
+    @Test void partialSerialShipmentConsumesOnlyPostedOriginalIdentitiesAndReceiptIsAtomic() {
+        Clock clock=Clock.fixed(NOW,ZoneOffset.UTC);String order,line;
+        try(var session=sessions.openSession(false)) {
+            var service=new OutboundOrderService(session,clock);
+            order=service.createFromAllocation("ENT-1","WH-A","ALLOC-IDENTITY-SHIP","ATT-IDENTITY-SHIP","OWNER",null,
+                    List.of(Map.of("orderLineId","SHIP-LINE","skuId","SERIAL-SKU","qty",new BigDecimal("3"),"baseUnit","EA"))).get("id").toString();
+            authorizeForTest(session,"ENT-1","WH-A",order,"ATT-IDENTITY-SHIP","AUTH-IDENTITY-SHIP");
+            String task=service.planPickTask("ENT-1","WH-A",order,"SHIP-LINE","LOC","STAGE",new BigDecimal("3"),"IDENTITY-SHIP-TASK").get("taskId").toString();
+            var picked=new OutboundPostingService(session,clock).pick("ENT-1","WH-A",task,"IDENTITY-SHIP-PICK","actor",new BigDecimal("3"),"IDENTITY-SHIP-PART","NO_LOT",selection("SHIP-SN1","SHIP-SN2","SHIP-SN3"));
+            line=picked.get("lineId").toString();service.pack("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-PACK",new BigDecimal("3"));session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertEquals("SERIAL_SHIP_CONFLICT",assertThrows(OutboundException.class,() -> new OutboundPostingService(session,clock).ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-EARLY","actor",BigDecimal.ONE,"EARLY","STAGE","NO_LOT",selection("SHIP-SN1"))).code());session.rollback();
+        }
+        try(var session=sessions.openSession(false)) {
+            new OutboundOrderService(session,clock).consumePick("ENT-1","WH-A",line,"IDENTITY-PICK-EVENT","IDENTITY-SHIP-PICK","APPLIED","PICK-POSTING",new BigDecimal("3"));session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertEquals("SERIAL_SHIP_CONFLICT",assertThrows(OutboundException.class,() -> new OutboundPostingService(session,clock).ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-NO-SN","actor",BigDecimal.ONE,"NO-SN","STAGE","NO_LOT")).code());session.rollback();
+        }
+        jdbc.execute("ALTER TABLE outbound_serial_pick ADD CONSTRAINT fail_ship_claim CHECK(serial_id<>'SHIP-SN2' OR shipment_command_id IS NULL)");
+        try {try(var session=sessions.openSession(false)) {
+            assertThrows(RuntimeException.class,() -> new OutboundPostingService(session,clock).ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-SHIP","actor",new BigDecimal("2"),"IDENTITY-SHIP-PARTIAL","STAGE","NO_LOT",selection("SHIP-SN1","SHIP-SN2")));session.rollback();
+        }} finally {jdbc.execute("ALTER TABLE outbound_serial_pick DROP CHECK fail_ship_claim");}
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id='IDENTITY-SHIP'",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE shipment_command_id='IDENTITY-SHIP'",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            var posting=new OutboundPostingService(session,clock);
+            posting.ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-SHIP","actor",new BigDecimal("2"),"IDENTITY-SHIP-PARTIAL","STAGE","NO_LOT",selection("SHIP-SN1","SHIP-SN2"));
+            assertEquals("IDENTITY-SHIP",posting.ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-SHIP-REPLAY","actor",new BigDecimal("2"),"IDENTITY-SHIP-PARTIAL","STAGE","NO_LOT",selection("ship-sn2","ship-sn1")).get("commandId"));
+            var available=session.getMapper(OutboundSerialMapper.class).shippable("ENT-1","WH-A",order,"SHIP-LINE","STAGE","NO_LOT",com.lrj.wms.runtime.web.CursorPage.parse(10,null,"test"));
+            assertEquals(1,available.size());assertEquals("SHIP-SN3",available.getFirst().get("serialId"));session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            assertEquals("SERIAL_SHIP_CONFLICT",assertThrows(OutboundException.class,() -> new OutboundPostingService(session,clock).ship("ENT-1","WH-A",order,"SHIP-LINE","IDENTITY-DOUBLE","actor",BigDecimal.ONE,"DOUBLE","STAGE","NO_LOT",selection("SHIP-SN1"))).code());session.rollback();
+        }
+        jdbc.execute("ALTER TABLE outbound_serial_pick ADD CONSTRAINT fail_ship_receipt CHECK(serial_id<>'SHIP-SN2' OR shipment_posted_at IS NULL)");
+        try {try(var session=sessions.openSession(false)) {
+            assertThrows(RuntimeException.class,() -> new OutboundOrderService(session,clock).consumeShip("ENT-1","WH-A",line,"IDENTITY-SHIP-EVENT","IDENTITY-SHIP","APPLIED","SHIP-POSTING",new BigDecimal("2")));session.rollback();
+        }} finally {jdbc.execute("ALTER TABLE outbound_serial_pick DROP CHECK fail_ship_receipt");}
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE shipment_command_id='IDENTITY-SHIP' AND shipment_posted_at IS NOT NULL",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            var service=new OutboundOrderService(session,clock);
+            assertEquals(true,service.consumeShip("ENT-1","WH-A",line,"IDENTITY-SHIP-EVENT","IDENTITY-SHIP","APPLIED","SHIP-POSTING",new BigDecimal("2")).get("consumed"));
+            assertEquals(false,service.consumeShip("ENT-1","WH-A",line,"IDENTITY-SHIP-EVENT","IDENTITY-SHIP","APPLIED","SHIP-POSTING",new BigDecimal("2")).get("consumed"));session.commit();
+        }
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM outbound_serial_pick WHERE shipment_command_id='IDENTITY-SHIP' AND shipment_posted_at IS NOT NULL",Integer.class));
+        assertEquals(0,new BigDecimal("2").compareTo(jdbc.queryForObject("SELECT shipped_physical_qty FROM outbound_line WHERE id=?",BigDecimal.class,line)));
+        assertEquals(0,new BigDecimal("2").compareTo(jdbc.queryForObject("SELECT shipped_posted_qty FROM outbound_line WHERE id=?",BigDecimal.class,line)));
+    }
+
     private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
             String orderId, String attempt, String authorization) {
         if (!session.getConfiguration().hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {

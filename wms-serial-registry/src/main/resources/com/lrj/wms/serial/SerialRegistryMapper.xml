@@ -97,4 +97,17 @@
           AND owner_warehouse_id=#{warehouseId} AND claim_operation_id=#{operationId}
           AND state='ACTIVE' AND receipt_operation_id IS NULL AND transfer_id IS NULL
     </update>
+    <insert id="insertShipment">
+      INSERT INTO serial_shipment(id,enterprise_id,sku_id,normalized_serial,warehouse_id,owner_epoch,shipment_ref,created_at)
+      VALUES(#{row.id},#{row.e},#{row.sku},#{row.serial},#{row.w},#{row.epoch},#{row.ref},#{row.now})
+    </insert>
+    <select id="lockShipment" resultType="map">
+      SELECT warehouse_id,owner_epoch,shipment_ref FROM serial_shipment
+      WHERE enterprise_id=#{e} AND sku_id=#{sku} AND normalized_serial=#{serial} AND shipment_ref=#{ref} FOR UPDATE
+    </select>
+    <update id="casShipped">
+      UPDATE serial_registry SET state='SHIPPED',version=version+1,updated_at=#{now}
+      WHERE enterprise_id=#{e} AND sku_id=#{sku} AND normalized_serial=#{serial} AND owner_warehouse_id=#{w}
+      AND owner_epoch=#{epoch} AND version=#{version} AND state='ACTIVE'
+    </update>
 </mapper>

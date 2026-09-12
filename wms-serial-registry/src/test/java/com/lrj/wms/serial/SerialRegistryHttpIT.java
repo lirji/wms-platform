@@ -65,6 +65,43 @@ class SerialRegistryHttpIT {
 
     @AfterAll void cleanup() { JWKS.stop(0); MYSQL.stop(); }
 
+    @Test void shipmentHasImmutableProofAndNeverReactivatesByOldReceipt() throws Exception {
+        var jdbc=new JdbcTemplate(source);
+        String token=token("inventory-worker","ENT",List.of("WH-A"),List.of("serial.registry.write","serial.registry.read"));
+        String receipt="{\"warehouseId\":\"WH-A\",\"skuId\":\"SKU\",\"serial\":\"SN-SHIP\",\"operationId\":\"SHIP-RECEIPT\"}";
+        assertEquals(200,post("claims",token,"SHIP-CLAIM",receipt).statusCode());
+        var active=post("activations",token,"SHIP-ACTIVATE",receipt);assertEquals(200,active.statusCode(),active.body());
+        long epoch=RuntimeMessage.JSON.readTree(active.body()).path("ownerEpoch").asLong();
+        String shipment=RuntimeMessage.JSON.writeValueAsString(Map.of("warehouseId","WH-A","skuId","SKU","serial","SN-SHIP","factRef","SHIP-FACT","expectedEpoch",epoch));
+        assertEquals(403,post("shipments",token("ordinary-user","ENT",List.of("WH-A"),List.of("serial.registry.write")),"SHIP-UNTRUSTED",shipment).statusCode());
+        assertEquals(403,post("shipments",token,"SHIP-WRONG-WAREHOUSE",shipment.replace("WH-A","WH-B")).statusCode());
+        assertEquals(409,post("shipments",token,"SHIP-OLD-EPOCH",shipment.replace("\"expectedEpoch\":"+epoch,"\"expectedEpoch\":0")).statusCode());
+        assertEquals(400,post("shipments",token,"SHIP-FRACTIONAL-EPOCH",shipment.replace("\"expectedEpoch\":"+epoch,"\"expectedEpoch\":1.5")).statusCode());
+        // 最后的审计写入失败必须连同SHIPPED和历史证明一起回滚。
+        jdbc.execute("ALTER TABLE serial_http_command ADD CONSTRAINT reject_shipment_result CHECK(command_id<>'SHIP-HTTP' OR result IS NULL)");
+        try {
+            assertEquals(503,post("shipments",token,"SHIP-HTTP",shipment).statusCode());
+            assertEquals("ACTIVE",jdbc.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='SN-SHIP'",String.class));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_shipment WHERE normalized_serial='SN-SHIP'",Integer.class));
+        } finally {jdbc.execute("ALTER TABLE serial_http_command DROP CHECK reject_shipment_result");}
+        var shipped=post("shipments",token,"SHIP-HTTP",shipment);assertEquals(200,shipped.statusCode(),shipped.body());
+        var proof=RuntimeMessage.JSON.readTree(shipped.body()).path("shipment");
+        assertEquals(1,proof.path("schemaVersion").asInt());assertEquals("SHIP-FACT",proof.path("shipmentRef").asString());
+        assertEquals(epoch,proof.path("ownerEpoch").asLong());
+        assertEquals(200,post("shipments",token,"SHIP-HTTP",shipment).statusCode());
+        assertEquals(200,post("shipments",token,"SHIP-HTTP-NEW-KEY",shipment).statusCode());
+        assertEquals(409,post("shipments",token,"SHIP-DIFFERENT",shipment.replace("SHIP-FACT","OTHER-FACT")).statusCode());
+        assertEquals(409,post("activations",token,"SHIP-ACTIVATE",receipt).statusCode());
+        assertEquals(409,post("claims",token,"SHIP-CLAIM",receipt).statusCode());
+        assertEquals("SHIPPED",jdbc.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='SN-SHIP'",String.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM serial_shipment WHERE normalized_serial='SN-SHIP'",Integer.class));
+        // 后续生命周期尚未开放，此处明确用夹具验证原证明不会被新归属覆盖或反向激活。
+        jdbc.update("UPDATE serial_registry SET state='ACTIVE',owner_warehouse_id='WH-B',owner_epoch=owner_epoch+1,version=version+1 WHERE normalized_serial='SN-SHIP'");
+        var replay=post("shipments",token,"SHIP-HTTP",shipment);assertEquals(200,replay.statusCode(),replay.body());
+        assertEquals(proof,RuntimeMessage.JSON.readTree(replay.body()).path("shipment"));
+        assertEquals("WH-B",jdbc.queryForObject("SELECT owner_warehouse_id FROM serial_registry WHERE normalized_serial='SN-SHIP'",String.class));
+    }
+
     @Test void serviceIdentityScopeWarehouseIdempotencyAndAuditAreEnforcedOverHttp() throws Exception {
         String body = "{\"warehouseId\":\"WH-A\",\"skuId\":\"SKU\",\"serial\":\"SN-HTTP\",\"operationId\":\"RECEIPT-OP\"}";
         String token = token("inventory-worker", "ENT", List.of("WH-A"), List.of("serial.registry.write", "serial.registry.read"));

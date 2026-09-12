@@ -1,6 +1,6 @@
-# 序列出库实施设计与当前PICK切片
+# 序列拣货与分次发运
 
-本切片继续R13/R14，当前发布版本PICK/SHIP对序列SKU仍拒绝。工作树已实现PICK来源和库存，来源/库存/非空新表迁移及公开查询/实际Kafka进程重启恢复已验证；SHIP未实现，以下设计不能代替未完成链路的证据。普通出库沿用已有原allocation/attempt/orderLine、桶额度和消息T1/T2/T3。不能因增加身份字段改变旧普通消息摘要。
+本切片继续R13/R14，已实现序列PICK及按原SN子集分次SHIP，并验证来源/库存/登记接口、非空迁移及实际Kafka进程重启恢复。普通出库沿用已有原allocation/attempt/orderLine、桶额度和消息T1/T2/T3；普通消息摘要保持原格式。已拣补偿、公开序列调拨、TC迁移仍有独立未完成项，不能将本切片视为整体整改完成。
 
 ## 身份与持久事实
 
@@ -18,7 +18,9 @@ local_serial可保留AUTHORIZED表示全球仓归属，已拣归属由独立原�
 
 ## 发运与补偿
 
-SHIP不能调用MISSING。需要独立全球SHIPPED终态与原仓/SKU/SN/epoch/发运事实的可靠意图：本地物理出库与意图原子保存，网络事务外完成，历史发运回执重放不能回退当前归属。原PICK/SHIP身份归属和每SN源T3额度都必须核对，部分发运可选择已拣子集。不能把Kafka发送成功、库存回执或全球确认混为同一完成含义。
+SHIP使用独立全球SHIPPED终态。来源V018保存原shipment_command_id与逐SN过账时间；库存V042的serial_shipment_intent与物理扣量、local_serial离库同事务提交；登记V005保存原仓/SKU/SN/epoch/发运引用的不可变证明。来源按原PICK、订单行、暂存桶和epoch检查已过账未发身份，部分发运只消费所选子集。公开shippable-serials查询需outbound.read、企业/仓范围及原订单行/库位/批次，稳定有界分页；查询本身不占用身份。
+
+恢复器在网络事务外调用登记shipments接口；每轮20项/10秒、单次HTTP1500ms、15秒领取租约和最多12次自动尝试。原证明必须完整匹配，历史成功重放不回退当前归属；失去领取代际的执行器不能写回。失败保留意图并退避或隔离，人工重排与审计同事务。serial-recoveries中的SHIPMENT反映全球确认；来源库存POSTED仅证明本地过账，不能代替全球完成。详见[登记运行配置](SERIAL_REGISTRY_RUNTIME.md)。
 
 取消未拣保持既有释放路径。已拣未发取消需要明确退拣实物事实及同SN回库/释放原占用的补偿，已发后取消需要退货/恢复事实，不能只取消TC或回滚镜像。后续TC迁移/全局提交后补偿另循既有授权任务，不以本设计宣称已完成。
 
@@ -27,6 +29,10 @@ SHIP不能调用MISSING。需要独立全球SHIPPED终态与原仓/SKU/SN/epoch/
 真实MySQL：重复/换SN/换epoch/跨任务/跨订单行拒绝、最后本地身份写失败全回滚、迟到原PICK不回拉、净数量不变身份替换不能绕过占用。实际来源与库存Jar/Kafka/独立库：原选择随T1→T2→T3传播、按SN发运额度、丢回复重启恢复。登记SHIP需实际登记Jar测试并核对原epoch和终态证明；新表必须加入仓迁移并复制实际非空数据。所有测试只用隔离组件，TP99与生产验收不虚构。
 
 ## 当前验证
+
+2026-09-13 SHIP验证：`.local/serial-shipment-second-it.log`来源7、库存4、登记HTTP3全部通过；端口故障夹具验证最终写回滚、错误证明、审计与旧代际隔离。随后严格整数epoch、最小历史证明及进程测试补充后，`.local/serial-shipment-process-it.log`于07:21:44 BUILD SUCCESS（6分40秒）：来源HTTP2、登记HTTP3、非空双库迁移6、实际进程1。实际outbound/inventory/registry JAR、MySQL 8.4.11、Kafka 3.8.0和XXL执行器验证分批扣账失败重启、全球登记已提交但网关回执丢失、再次重启恢复，最终数量/身份/原证明均只记一次。XXL admin回调、原收货和TCC授权是明确测试夹具；不冒充生产或完整TC验收。
+
+OpenAPI新增到91路径；生成器多行参数缩进缺陷已修复，OpenApiContractTest 5项通过。上线应先登记服务，再库存消费者及调用凭据/XXL配置，最后来源生产者。尚未确认全球回执时保留SHIPMENT恢复意图；应用回退不能撤销已发实物或忽略V2身份消息。生产部署未执行。
 
 `/tmp/wms-serial-pick-first-it.log`：来源6IT、库存4IT、迁移6IT，全部通过；覆盖原选择、跨任务/订单行、错epoch、原重放、最终身份写失败回滚。`/tmp/wms-serial-pick-process-it.log`已通过18IT，验证公开查询和实际outbound/inventory Jar、Kafka、独立数据库的序列PICK及重启恢复。全球身份授权和TC终态明确来自夹具，不称这一测试验证真实登记服务或TM/RM全链。
 

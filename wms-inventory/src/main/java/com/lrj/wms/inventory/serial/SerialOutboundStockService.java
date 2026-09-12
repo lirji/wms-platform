@@ -43,4 +43,28 @@ public final class SerialOutboundStockService {
                 throw new InventoryException("VERSION_CONFLICT","身份移位和预占数量必须同时提交");
         }
     }
+    /** 本地离库与已发生发运事实同事务保存；全球登记故障不能再次扣减库存。 */
+    public void ship(String e,String w,String command,String operation,String orderLine,StockPostingContext context,
+            StockBucketKey source,SerialExecutionSelection selection) {
+        var balance=session.getMapper(InventoryMapper.class).lockBalanceByDimension(e,w,source.ownerId(),source.locationId(),source.skuId(),source.lotId(),source.qualityCode());
+        if(balance==null || new BigDecimal(balance.get("free_execution_claim_qty").toString()).signum()>0)
+            throw new InventoryException("SERIAL_SHIP_CONFLICT","原暂存桶缺失或存在未区分SN的设备领取");
+        var locals=session.getMapper(LocalSerialMapper.class);var picks=session.getMapper(SerialOutboundMapper.class);var shipments=session.getMapper(SerialShipmentMapper.class);
+        for(var identity:selection.identities()) {
+            var local=locals.lock(e,w,identity.serialId());
+            if(local==null || !balance.get("id").equals(local.get("balance_id")) || !source.skuId().equals(local.get("sku_id"))
+                    || !source.lotId().equals(local.get("lot_id")) || !"AUTHORIZED".equals(local.get("state")) || !"ACTIVE".equals(local.get("registry_state"))
+                    || identity.ownerEpoch().longValue()!=((Number)local.get("owner_epoch")).longValue())
+                throw new InventoryException("SERIAL_SHIP_CONFLICT","所选SN不是原暂存桶的当前有效身份");
+            var pick=picks.lockPicked(e,w,source.skuId(),identity.serialId(),identity.ownerEpoch().longValue());
+            if(pick==null || !"PICKED".equals(pick.get("state")) || !balance.get("id").equals(pick.get("target_balance_id"))
+                    || !context.allocationId().equals(pick.get("allocation_id")) || !context.allocationAttemptId().equals(pick.get("attempt_id"))
+                    || !orderLine.equals(pick.get("order_line_id")))
+                throw new InventoryException("SERIAL_SHIP_CONFLICT","不能发运另一预占订单行的具体身份");
+            var row=new HashMap<String,Object>(Map.of("id",RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(List.of("SHIP",e,w,command,identity.serialId()))),
+                    "e",e,"w",w,"command",command,"sku",source.skuId(),"serial",identity.serialId(),"epoch",identity.ownerEpoch(),"balance",balance.get("id"),"pick",pick.get("id")));
+            row.put("ref",operation);row.put("now",Timestamp.from(clock.instant()));
+            if(shipments.insert(row)!=1 || shipments.depart(row)!=1) throw new InventoryException("SERIAL_SHIP_CONFLICT","离库身份、数量与原发运意图必须一起提交");
+        }
+    }
 }

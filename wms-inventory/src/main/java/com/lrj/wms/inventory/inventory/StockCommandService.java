@@ -540,7 +540,7 @@ public final class StockCommandService {
             String factParentId,String factPartId,String factLineId,String actorId,String sourceExecutionId,String reservationOrderLineId,
             com.lrj.wms.contract.messaging.StockPostingContext context,Quantity qty,String previousCommandId,
             com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
-        if(selection!=null) {if(!"PICK".equals(action)) throw new InventoryException("SERIAL_PICK_CONTEXT_REQUIRED","当前身份选择只可用于已接通的拣货动作");selection.requireQuantity(qty.toBigDecimal());}
+        if(selection!=null) {if(!java.util.Set.of("PICK","SHIP").contains(action)) throw new InventoryException("SERIAL_PICK_CONTEXT_REQUIRED","身份选择只可用于拣货或发运");selection.requireQuantity(qty.toBigDecimal());}
         if (!java.util.Set.of("PICK", "SHIP", "CANCEL").contains(action))
             throw new InventoryException("INVALID_RESERVATION_CONTEXT", "未知出库动作");
         context.requireForAction(action);
@@ -579,8 +579,11 @@ public final class StockCommandService {
         new InventoryApplicationService(session, clock).postOutboundReservation(enterpriseId, warehouseId, operation,
                 context.documentId(), actorId, action, context.allocationId(), context.allocationAttemptId(),
                 reservationOrderLineId, source, target, qty);
-        if(selection!=null) new com.lrj.wms.inventory.serial.SerialOutboundStockService(session,clock).pick(enterpriseId,warehouseId,commandId,operation,
-                reservationOrderLineId,context,source,target,selection);
+        if(selection!=null) {
+            var serial=new com.lrj.wms.inventory.serial.SerialOutboundStockService(session,clock);
+            if("PICK".equals(action)) serial.pick(enterpriseId,warehouseId,commandId,operation,reservationOrderLineId,context,source,target,selection);
+            else serial.ship(enterpriseId,warehouseId,commandId,operation,reservationOrderLineId,context,source,selection);
+        }
         String postingId = UUID.randomUUID().toString();
         String postingType = "SHIP".equals(action) ? StockCommandCodes.POSTING_SHIPMENT : "CANCEL".equals(action) ? "RELEASE" : StockCommandCodes.POSTING_PICK;
         var manifestBody=new java.util.LinkedHashMap<String,Object>(Map.of("operationId",operation,"reservationOrderLineId",reservationOrderLineId,

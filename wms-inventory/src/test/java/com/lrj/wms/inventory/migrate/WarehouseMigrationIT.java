@@ -107,6 +107,8 @@ class WarehouseMigrationIT {
         sourceJdbc.update("INSERT INTO count_serial_intent(id,enterprise_id,warehouse_id,adjustment_id,plan_id,serial_id,sku_id,operation_id,kind,from_epoch,state,result_json,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES('COUNT-SN-M','ENT-1','WH-A','COUNT-ADJUST-M','PLAN-M','SN-A','SKU','COUNT-OP-M','MISSING',3,'DONE',CAST(? AS JSON),7,4,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","{\"state\":\"MISSING\",\"ownerEpoch\":3}");
         sourceJdbc.update("INSERT INTO serial_pick_fact(id,enterprise_id,warehouse_id,command_id,operation_id,allocation_id,attempt_id,order_line_id,sku_id,serial_id,owner_epoch,source_balance_id,target_balance_id,created_at,updated_at) VALUES('SERIAL-PICK-M','ENT-1','WH-A','PICK-M','OP-M','ALLOC-M','ATT-M','ORDER-LINE-M','SKU','SN-M',3,'SOURCE-B','TARGET-B',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))");
         sourceJdbc.update("INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,state,attempts,claim_epoch,next_attempt_at,created_at,updated_at) VALUES('RELEASE-MIGRATION','ENT-1','WH-A','SN-A','SKU','TRANSFER-M','RELEASE-M',3,?,'ISOLATED',12,15,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))","b".repeat(64));
+        sourceJdbc.update("INSERT INTO serial_shipment_intent(id,enterprise_id,warehouse_id,command_id,serial_id,sku_id,pick_fact_id,balance_id,shipment_ref,owner_epoch,state,result_json,claim_epoch,attempts,next_attempt_at,created_at,updated_at) VALUES('SHIP-M','ENT-1','WH-A','SHIP-CMD-M','SN-M','SKU','SERIAL-PICK-M','TARGET-B','SHIP-OP-M',3,'DONE',CAST(? AS JSON),9,3,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
+                "{\"schemaVersion\":1,\"enterpriseId\":\"ENT-1\",\"warehouseId\":\"WH-A\",\"skuId\":\"SKU\",\"normalizedSerial\":\"SN-M\",\"ownerEpoch\":3,\"shipmentRef\":\"SHIP-OP-M\"}");
         try (SqlSession session = sourceSessions.openSession(false)) {
             WarehouseMigrationService migrate = new WarehouseMigrationService(session, sourceJdbc, targetJdbc, clock);
             assertEquals(ACTIVE_COPY, migrate.prepare("ENT-1", "WH-A", "CELL-A", "CELL-B").get("state"));
@@ -116,7 +118,7 @@ class WarehouseMigrationIT {
         }
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"));
-        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent","serial_pick_fact"))
+        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent","serial_pick_fact","serial_shipment_intent"))
             assertEquals(sourceJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"),targetJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"));
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"));

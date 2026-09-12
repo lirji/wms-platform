@@ -52,7 +52,8 @@ def write_op(method, path, op, tag, scope, body, success, extra_params=None, des
         "      parameters:",
     ]
     for param in params:
-        lines.append(f"        {param}")
+        # 内联参数可含多行，逐行缩进，否则首个新增查询参数会生成不可解析的OpenAPI。
+        lines.extend(f"        {line}" for line in param.splitlines())
     if body:
         lines += [
             "      requestBody:",
@@ -144,6 +145,11 @@ post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pac
 post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shipments",
      "confirmShipment", "outbound", "outbound.ship", "ShipmentRequest", ("202",),
      "发运；库存同步返回202", wh + ["- $ref: '#/components/parameters/OutboundOrderId'"])
+get("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shippable-serials",
+    "listShippableSerials", "outbound", "outbound.read", ("200",),
+    "原订单行暂存桶下已拣过账且未受理发运的SN及ownerEpoch；查询不占用额度",
+    wh + ["- $ref: '#/components/parameters/OutboundOrderId'"] + cursor +
+    [f"- name: {name}\n  in: query\n  required: true\n  schema: {{type: string, minLength: 1, maxLength: 64}}" for name in ("orderLineId", "stagingLocationId", "lotId")])
 post("/api/wms/v1/warehouses/{warehouseId}/moves", "moveStock", "inventory", "stock.move",
      "MoveRequest", ("202",), "移库", wh)
 post("/api/wms/v1/warehouses/{warehouseId}/stock-holds", "createStockHold", "inventory",
@@ -290,9 +296,9 @@ post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/can
 for suffix, op, scope, body in [("reviews", "reviewCount", "count.record", None), ("approvals", "approveCount", "adjustment.approve", "CountApproveRequest"), ("applications", "applyCount", "adjustment.apply", "CountApplyRequest")]:
     post("/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/" + suffix, op, "count", scope, body, ("202",) if suffix == "applications" else ("200",), "盘点调整：序列登记未齐返回REGISTRY_PENDING，原操作固定，数量尚未调整" if suffix == "applications" else "盘点作业", wh + ["- $ref: '#/components/parameters/CountPlanId'"])
 get("/api/wms/v1/warehouses/{warehouseId}/action-effects", "listActionEffects", "idempotency", "task.read", ("200",), "效果列表", wh + cursor)
-get("/api/wms/v1/jobs", "listJobs", "job", "job.read", ("200",), "仓任务列表", cursor + ["- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string, maxLength: 64 }"])
+get("/api/wms/v1/jobs", "listJobs", "job", "job.read", ("200",), "仓任务列表", cursor + ["- in: query\n  name: warehouseId\n  required: true\n  schema: { type: string, maxLength: 64 }"])
 get("/api/wms/v1/reconciliation-cases", "listReconciliationCasesByQuery", "recon", "recon.read", ("200",), "指定单仓差异单", cursor + ["- $ref: '#/components/parameters/WarehouseIdsQuery'"])
-post("/api/wms/v1/reconciliation-cases/{id}/remediations", "remediateReconciliationByQuery", "recon", "recon.remediate", "RemediationRequest", ("202",), "差异单修复", ["- in: path\n          name: id\n          required: true\n          schema: { type: string }", "- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string }"])
+post("/api/wms/v1/reconciliation-cases/{id}/remediations", "remediateReconciliationByQuery", "recon", "recon.remediate", "RemediationRequest", ("202",), "差异单修复", ["- in: path\n  name: id\n  required: true\n  schema: { type: string }", "- in: query\n  name: warehouseId\n  required: true\n  schema: { type: string }"])
 for suffix, op, scope in [("issues", "issueTransfer", "transfer.create"), ("losses", "confirmTransferLoss", "stock.move")]:
     post("/api/wms/v1/transfers/{transferId}/" + suffix, op, "transfer", scope, "TransferPartRequest", ("202",), "调拨数量作业", ["- $ref: '#/components/parameters/TransferId'"])
 
@@ -308,6 +314,9 @@ for suffix, operation in [("claims", "claimSerialIdentity"), ("activations", "ac
          "SerialIdentityCommand", ("200",), "仅受信服务主体调用，JWT企业仓范围和原操作引用必需", ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"], success_schema="SerialIdentity")
 get("/internal/wms/v1/serial-identities", "getSerialIdentity", "internal-registry", "serial.registry.read", ("200",),
     "查询实时全局登记，检查当前归属仓权限", ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/SerialSkuQuery'", "- $ref: '#/components/parameters/SerialQuery'"], success_schema="SerialIdentity")
+post("/internal/wms/v1/serial-identities/shipments", "registerSerialShipment", "internal-registry", "serial.registry.write",
+     "SerialShipmentCommand", ("200",), "受信库存主体登记已提交发运；原仓原epoch的ACTIVE进入SHIPPED，重放只返回不可变原事实证明",
+     ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"], success_schema="SerialShipmentResult")
 
 for suffix, operation, schema in [
     ("missing", "markSerialMissing", "SerialMissingCommand"),
@@ -319,18 +328,18 @@ for suffix, operation, schema in [
     ("destination-confirmations", "confirmSerialDestination", "SerialTransferConfirmCommand")]:
     post("/internal/wms/v1/serial-identities/"+suffix, operation, "internal-registry", "serial.registry.write",
          schema, ("200",), "受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓",
-         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"] + (["- in: header\n          name: X-Wms-Serial-Release-Proof\n          required: false\n          description: 显式请求原始源释放凭证，旧请求保持原身份响应\n          schema: { type: string, enum: ['1'] }"] if suffix == "source-releases" else []), success_schema="SerialIdentity")
+         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"] + (["- in: header\n  name: X-Wms-Serial-Release-Proof\n  required: false\n  description: 显式请求原始源释放凭证，旧请求保持原身份响应\n  schema: { type: string, enum: ['1'] }"] if suffix == "source-releases" else []), success_schema="SerialIdentity")
 get("/internal/wms/v1/serial-identities/transfers/{transferId}", "getSerialTransfer", "internal-registry", "serial.registry.read", ("200",),
     "检查转移源或目的仓范围并查询原始释放/接收引用",
     ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/TransferId'",
      "- $ref: '#/components/parameters/SerialSkuQuery'", "- $ref: '#/components/parameters/SerialQuery'",
-     "- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string, minLength: 1, maxLength: 64 }"], success_schema="SerialTransfer")
+     "- in: query\n  name: warehouseId\n  required: true\n  schema: { type: string, minLength: 1, maxLength: 64 }"], success_schema="SerialTransfer")
 
 get("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries", "listSerialRecoveries", "common", "messaging.read", ("200",),
-    "登记恢复元数据与隔离原因，稳定分页", wh+cursor+["- in: query\n          name: state\n          schema: { type: string, enum: [PENDING, RUNNING, DONE, ISOLATED, SUPERSEDED] }"])
+    "登记恢复元数据与隔离原因，稳定分页", wh+cursor+["- in: query\n  name: state\n  schema: { type: string, enum: [PENDING, RUNNING, DONE, ISOLATED, SUPERSEDED] }"])
 post("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries", "retrySerialRecovery", "common", "messaging.recover",
     "MessageRetryRequest", ("202",), "核查隔离原因后受审计重排原意图，领取代际递增",
-    wh+["- in: path\n          name: intentId\n          required: true\n          schema: { type: string, maxLength: 64 }"], success_schema="SerialRecoveryAccepted")
+    wh+["- in: path\n  name: intentId\n  required: true\n  schema: { type: string, maxLength: 64 }"], success_schema="SerialRecoveryAccepted")
 
 header = """openapi: 3.1.0
 info:
@@ -1045,8 +1054,10 @@ components:
       type: "object"
       additionalProperties: false
       required: ["orderLineId","qty"]
-      description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
+      description: 消息启用时库位和批次必需；序列发运还须指定原已拣SN/epoch，数量等于身份数。库存POSTED不代表全球登记已确认，后者可查serial-recoveries的SHIPMENT。
       properties:
+        serialExecution:
+          $ref: '#/components/schemas/SerialExecutionSelection'
         stagingLocationId:
           type: string
           minLength: 1
@@ -1898,6 +1909,26 @@ components:
         serial: { type: string, minLength: 1, maxLength: 128 }
         factRef: { $ref: '#/components/schemas/Id' }
         expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialShipmentCommand:
+      $ref: '#/components/schemas/SerialMissingCommand'
+      description: 结构与库存事实引用一致，但语义为原发运而非盘亏；expectedEpoch拒绝小数。
+    SerialShipmentResult:
+      type: object
+      additionalProperties: false
+      required: [shipment]
+      properties:
+        shipment:
+          type: object
+          additionalProperties: false
+          required: [schemaVersion, enterpriseId, warehouseId, skuId, normalizedSerial, ownerEpoch, shipmentRef]
+          properties:
+            schemaVersion: { type: integer, const: 1 }
+            enterpriseId: { $ref: '#/components/schemas/Id' }
+            warehouseId: { $ref: '#/components/schemas/Id' }
+            skuId: { $ref: '#/components/schemas/Id' }
+            normalizedSerial: { type: string, minLength: 1, maxLength: 128 }
+            ownerEpoch: { type: integer, format: int64, minimum: 0 }
+            shipmentRef: { $ref: '#/components/schemas/Id' }
     SerialTransferPrepareCommand:
       type: object
       additionalProperties: false

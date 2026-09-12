@@ -52,10 +52,11 @@ public class InventoryCatalogJobs {
     public void serialTransferRecovery() {
         clearSchedulerContext();
         String[] scope=requireScope(2);
+        var shipped=new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry).execute(scope[0],scope[1]);
         var released=new com.lrj.wms.inventory.serial.SerialReleaseRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry).execute(scope[0],scope[1]);
         var report=new com.lrj.wms.inventory.serial.SerialRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry,registry).execute(scope[0],scope[1],10);
-        XxlJobHelper.log("serial recovered={}, failed={}, released={}, releaseFailed={}",report.completed(),report.failed(),released.completed(),released.failed());
-        if(report.failed()+released.failed()>0) throw new IllegalStateException("登记恢复失败已保留HOLD及有界退避/隔离记录");
+        XxlJobHelper.log("serial recovered={}, failed={}, released={}, releaseFailed={}, shipped={}, shipmentFailed={}",report.completed(),report.failed(),released.completed(),released.failed(),shipped.completed(),shipped.failed());
+        if(report.failed()+released.failed()+shipped.failed()>0) throw new IllegalStateException("登记恢复失败已保留原事实及有界退避/隔离记录");
     }
 
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)

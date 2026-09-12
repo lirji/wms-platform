@@ -41,21 +41,21 @@ paths:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - name: ownerId
-  in: query
-  required: true
-  schema: {type: string, minLength: 1, maxLength: 64}
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
         - name: skuId
-  in: query
-  required: true
-  schema: {type: string, minLength: 1, maxLength: 64}
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
         - name: locationId
-  in: query
-  required: true
-  schema: {type: string, minLength: 1, maxLength: 64}
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
         - name: lotId
-  in: query
-  required: false
-  schema: {type: string, minLength: 1, maxLength: 64, default: NO_LOT}
+          in: query
+          required: false
+          schema: {type: string, minLength: 1, maxLength: 64, default: NO_LOT}
       responses:
         '200':
           description: 成功
@@ -855,6 +855,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AcceptedOperation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shippable-serials:
+    get:
+      operationId: listShippableSerials
+      tags: [outbound]
+      summary: 原订单行暂存桶下已拣过账且未受理发运的SN及ownerEpoch；查询不占用额度
+      security:
+        - oidc: [outbound.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/OutboundOrderId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: orderLineId
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
+        - name: stagingLocationId
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
+        - name: lotId
+          in: query
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 64}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -3336,6 +3382,44 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /internal/wms/v1/serial-identities/shipments:
+    post:
+      operationId: registerSerialShipment
+      tags: [internal-registry]
+      summary: 受信库存主体登记已提交发运；原仓原epoch的ACTIVE进入SHIPPED，重放只返回不可变原事实证明
+      security:
+        - oidc: [serial.registry.write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/SerialEnterpriseHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialShipmentCommand'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialShipmentResult'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /internal/wms/v1/serial-identities/missing:
     post:
       operationId: markSerialMissing
@@ -4403,8 +4487,10 @@ components:
       type: "object"
       additionalProperties: false
       required: ["orderLineId","qty"]
-      description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
+      description: 消息启用时库位和批次必需；序列发运还须指定原已拣SN/epoch，数量等于身份数。库存POSTED不代表全球登记已确认，后者可查serial-recoveries的SHIPMENT。
       properties:
+        serialExecution:
+          $ref: '#/components/schemas/SerialExecutionSelection'
         stagingLocationId:
           type: string
           minLength: 1
@@ -5256,6 +5342,26 @@ components:
         serial: { type: string, minLength: 1, maxLength: 128 }
         factRef: { $ref: '#/components/schemas/Id' }
         expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SerialShipmentCommand:
+      $ref: '#/components/schemas/SerialMissingCommand'
+      description: 结构与库存事实引用一致，但语义为原发运而非盘亏；expectedEpoch拒绝小数。
+    SerialShipmentResult:
+      type: object
+      additionalProperties: false
+      required: [shipment]
+      properties:
+        shipment:
+          type: object
+          additionalProperties: false
+          required: [schemaVersion, enterpriseId, warehouseId, skuId, normalizedSerial, ownerEpoch, shipmentRef]
+          properties:
+            schemaVersion: { type: integer, const: 1 }
+            enterpriseId: { $ref: '#/components/schemas/Id' }
+            warehouseId: { $ref: '#/components/schemas/Id' }
+            skuId: { $ref: '#/components/schemas/Id' }
+            normalizedSerial: { type: string, minLength: 1, maxLength: 128 }
+            ownerEpoch: { type: integer, format: int64, minimum: 0 }
+            shipmentRef: { $ref: '#/components/schemas/Id' }
     SerialTransferPrepareCommand:
       type: object
       additionalProperties: false

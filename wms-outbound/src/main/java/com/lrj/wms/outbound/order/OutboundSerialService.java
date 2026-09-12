@@ -46,4 +46,27 @@ public final class OutboundSerialService {
                 throw new OutboundException("SERIAL_PICK_CONFLICT","原身份回执不能覆盖已释放状态");
         }
     }
+    /** 数量不能替代原SN发运额度，同事务锁定原行、暂存桶及归属代际。 */
+    public void claimShipment(String e,String w,String command,String line,StockPostingContext context,SerialExecutionSelection selection,boolean replay) {
+        var mapper=session.getMapper(OutboundSerialMapper.class);
+        for(var identity:selection.identities()) {
+            var input=new HashMap<String,Object>(Map.of("e",e,"w",w,"line",line,"sku",context.skuId(),"serial",identity.serialId(),"epoch",identity.ownerEpoch()));
+            var row=mapper.lockForShipment(input);
+            if(row==null || !context.allocationId().equals(row.get("allocation_id")) || !context.allocationAttemptId().equals(row.get("attempt_id"))
+                    || !context.sourceLocationId().equals(row.get("target_location_id")) || !context.lotId().equals(row.get("lot_id")))
+                throw new OutboundException("SERIAL_SHIP_CONFLICT","所选SN不属于原订单行或暂存桶");
+            if(command.equals(row.get("shipment_command_id"))) continue;
+            if(replay || !"PICKED".equals(row.get("state")) || row.get("shipment_command_id")!=null)
+                throw new OutboundException("SERIAL_SHIP_CONFLICT","身份未完成拣货回执或已被其他发运占用");
+            input.putAll(Map.of("id",row.get("id"),"version",row.get("version"),"command",command,"now",Timestamp.from(clock.instant())));
+            if(mapper.claimShipment(input)!=1) throw new OutboundException("SERIAL_SHIP_CONFLICT","发运身份占用竞争");
+        }
+    }
+    /** 原来源回执去重后才调用；每个SN确认失败须回滚整次T3。 */
+    public void shipmentPosted(String e,String w,String command,SerialExecutionSelection selection) {
+        var mapper=session.getMapper(OutboundSerialMapper.class);
+        for(var identity:selection.identities())
+            if(mapper.shipmentPosted(e,w,command,identity.serialId(),identity.ownerEpoch().longValue(),Timestamp.from(clock.instant()))!=1)
+                throw new OutboundException("SERIAL_SHIP_CONFLICT","原发运身份回执缺少匹配占用");
+    }
 }

@@ -63,6 +63,15 @@ public final class SerialRegistryController {
         }
     }
 
+    /** 仅受信库存主体登记已提交发运事实，独立历史证明不等于当前库存授权。 */
+    @PostMapping("/shipments")
+    public Map<String,Object> ship(@AuthenticationPrincipal Jwt jwt,@RequestHeader("Idempotency-Key") String command,
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise,@Valid @RequestBody ShipmentCommand body) {
+        require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
+        return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"SHIP",body,
+                service -> service.ship(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.factRef(),body.expectedEpoch().longValue()));
+    }
+
     /** 失踪与盘盈是有原事实引用的登记动作，复用本地幂等审计事务。 */
     @PostMapping("/missing")
     public Map<String,Object> missing(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
@@ -139,6 +148,16 @@ public final class SerialRegistryController {
         }
     }
     /** factRef是已发生的库存事实，epoch防止旧归属事件覆盖现授权。 */
+    public record ShipmentCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String skuId,
+            @NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String factRef,
+            @jakarta.validation.constraints.NotNull Number expectedEpoch) {
+        /** 保留JSON数值类型再校验，禁止小数被Long反序列化截断后消费有效归属。 */
+        public ShipmentCommand {
+            if(!(expectedEpoch instanceof Integer || expectedEpoch instanceof Long) || expectedEpoch.longValue()<0)
+                throw new IllegalArgumentException("发运归属代际必须是非负整数");
+            expectedEpoch=expectedEpoch.longValue();
+        }
+    }
     public record MissingCommand(@NotBlank @Size(max=64) String warehouseId,@NotBlank @Size(max=64) String skuId,
             @NotBlank @Size(max=128) String serial,@NotBlank @Size(max=64) String factRef,
             @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Long expectedEpoch) { }

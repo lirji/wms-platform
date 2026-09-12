@@ -34,8 +34,10 @@ public final class SerialRecoveryOperations {
         if(kind==1) row=releases.lock(e,w,intent);
         com.lrj.wms.inventory.count.CountSerialMapper counts=null;
         if(row==null) {kind=2;counts=session.getMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);row=counts.lock(e,w,intent);}
+        SerialShipmentMapper shipments=null;
+        if(row==null) {kind=3;shipments=session.getMapper(SerialShipmentMapper.class);row=shipments.lock(e,w,intent);}
         if(row==null) throw new InventoryException("RESOURCE_NOT_FOUND","恢复意图不存在");
-        int changed=kind==0?mapper.requeue(e,w,intent,epoch,now):kind==1?releases.requeue(e,w,intent,epoch,now):counts.requeue(e,w,intent,epoch,now);
+        int changed=kind==0?mapper.requeue(e,w,intent,epoch,now):kind==1?releases.requeue(e,w,intent,epoch,now):kind==2?counts.requeue(e,w,intent,epoch,now):shipments.requeue(e,w,intent,epoch,now);
         if(changed!=1) throw new InventoryException("VERSION_CONFLICT","仅可重新排队当前代际的隔离意图");
         return Map.of("recoveryId",id,"intentId",intent,"status","RETRY_ACCEPTED","replayed",false);
     }

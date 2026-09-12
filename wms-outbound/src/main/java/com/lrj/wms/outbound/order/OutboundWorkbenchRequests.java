@@ -57,7 +57,14 @@ public final class OutboundWorkbenchRequests {
             @Size(max = 64) String shipmentPartId,
             @NotBlank @Size(max = 64) String orderLineId,
             @Size(max = 64) String clientOperationId,
-            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty) { }
+            @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty,
+            @Valid com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution) {
+        /** 协议边界验证数量与身份集合，避免到业务事务内才发现不一致。 */
+        public ShipRequest { if(serialExecution!=null) serialExecution.requireQuantity(qty); }
+        public ShipRequest(String stagingLocationId,String lotId,String shipmentPartId,String orderLineId,String clientOperationId,BigDecimal qty) {
+            this(stagingLocationId,lotId,shipmentPartId,orderLineId,clientOperationId,qty,null);
+        }
+    }
     /** CancelRequest：在数据库用例开始前校验类型、范围和必填项。 */
     public record CancelRequest(
             @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false) BigDecimal qty,

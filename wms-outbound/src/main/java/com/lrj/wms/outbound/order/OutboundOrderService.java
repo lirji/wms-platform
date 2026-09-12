@@ -295,6 +295,7 @@ public final class OutboundOrderService {
             if (mapper().addShippedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED", now()) != 1) {
                 throw new OutboundException("OVER_SHIP", "过账发运超过实物发运");
             }
+            new OutboundPostingService(session,clock).recordShipResult(enterpriseId,warehouseId,commandId,postedQty);
         }
         mapper().refreshStockSync(enterpriseId, warehouseId, lineId);
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));

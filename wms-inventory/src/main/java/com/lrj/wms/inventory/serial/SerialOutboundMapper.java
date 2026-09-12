@@ -10,4 +10,6 @@ public interface SerialOutboundMapper {
     /** 只读完整桶下的当前可选身份，不把查询结果当作已占用凭证。 */
     java.util.List<Map<String,Object>> available(@Param("e") String e,@Param("w") String w,@Param("owner") String owner,
             @Param("sku") String sku,@Param("location") String location,@Param("lot") String lot,@Param("page") com.lrj.wms.runtime.web.CursorPage page);
+    /** 原身份的活跃PICK归属必须与本次SHIP预占上下文一致。 */
+    Map<String,Object> lockPicked(@Param("e") String e,@Param("w") String w,@Param("sku") String sku,@Param("serial") String serial,@Param("epoch") long epoch);
 }

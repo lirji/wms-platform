@@ -2,41 +2,44 @@
 
 ## 任务目标
 
-按用户确认的收货分批，持续完成R13/R14/R15/R22及正常提交推送main。已授权Git联网；不强推、不部署生产、不改共享数据/其他工作树；无子Agent授权。
+按用户最新“按照修改之后的工作流继续”，完成剩余 R13/R14/R15/R22。唯一有限验收在 docs/delivery/wms-v1/DELIVERY_PLAN.md 的“剩余整改有限验收”，顺序 OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。沿用隔离组件测试与正常 Git 发布授权，不部署生产、不操作共享数据、不使用子 Agent。
 
 ## 已完成
 
-- 远程main与fix/count-serial-reservation为3e2c720；按批收货/质检/上架、源释放恢复、完整SN盘点输入及逐身份持久恢复、盘点占用保护均已发布。545ae48的main/分支CI成功，3e2 main CI34721632607运行中，不能推对应ref取消。
-- 序列PICK当前切片已验证：来源V017原选择/逐SN占用/原回执；库存V041原预占与具体SN原子移动；53表迁移；库存serial-stock有界权限查询返回epoch；SerialExecutionSelectionV1，序列内部出库V2（普通V1摘要不变）。跨任务/订单行、错epoch、最后SN写失败全回滚、原重放不拉回、实际Kafka双Jar重启恢复、查询越权/游标边界、消息降级拒绝、HTTP数量/身份不一致400。
-- /tmp/wms-serial-pick-first-it.log SUCCESS16IT；/tmp/wms-serial-pick-process-it.log SUCCESS18IT（内部V1时）；/tmp/wms-serial-pick-final-it.log 正常V2通过但异常探针缺发布元数据而失败；修正探针为真实入箱payload后 /tmp/wms-serial-pick-probes-it.log 06:22:49 SUCCESS来源HTTP2/实际进程1。全局登记与TC身份在PICK进程测试为明确夹具，不称真实全链。
+- 文档17份已发布main4812941，最新控制台与文档在远程main；源码切片验证后整合，根控制台工作区不动。
+- 后端基线3e2c720已发布普通消息、真实TM/TC/RM、序列入库及盘点。本地PICK提交dd22cd0和既有验证证据保留。
+- SHIP已补恢复器、稳定原事实HTTP调用、SHIPMENT恢复查询/审计重排、原订单行可发运SN查询和公开契约。原发运证明单独含schemaVersion，不把库存POSTED当全球登记完成。
+- 首次相关模块编译打包通过，日志.local/serial-shipment-compile.log，14.019秒，未运行测试。
+- 定向数据库验收 `.local/serial-shipment-second-it.log` 已通过：OutboundPickIT 7、OutboundReservationPostingIT 4、SerialRegistryHttpIT 3，共14项。覆盖分批身份、最终写回滚、原证明重放、审计与旧执行器隔离；库存登记故障采用端口夹具。
+- 修复既有OpenAPI生成器多行参数缩进，OpenApiContractTest 5项通过；最新内部发运接口加入后重新生成91路径。
+- `.local/serial-shipment-process-it.log` 07:21:44 BUILD SUCCESS：来源HTTP2、登记HTTP3、双库迁移6、实际进程1；已验证分批扣账失败重启、真实登记已提交但回执丢失和再次重启恢复。当前无Maven在运行。
 
 ## 已修改文件
 
-- 当前独立分支fix/serial-outbound-execution，在唯一集成工作树/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；HEAD3e2c720，PICK切片待逻辑提交。
-- 来源OutboundSerialService/Mapper、OutboundPostingService、DTO/controller/T3；库存SerialOutboundStockService/Mapper/SerialStockController、StockCommandService/MessageHandler；SourceCommandContextStore、SerialExecutionSelection；V017/V041、迁移清单、三个IT及实际进程/HTTPIT；OpenAPI生成89路径，required112；交付三文档和SERIAL_OUTBOUND_DESIGN。
+- outbound 来源SHIP/身份额度/可发运查询、inventory 原预占扣减/发运意图/持久恢复、registry 独立SHIPPED及历史凭证；V018/V042/V005追加迁移。
+- 原有来源、库存、登记HTTP IT补部分发运/重复/最终写失败/审计重排/旧领取代际测试；git diff为准。
+- scripts/generate-openapi.py、OpenAPI及scope（90路径）；DELIVERY_PLAN有限验收与本文件。
 
 ## 未完成
 
-- PICK契约/门禁/smoke及逻辑提交，随后继续SHIP（不得将PICK称整个序列出库完成）。当前没有Maven，21057已退出。
-- SHIP：来源明确原已拣未发SN+epoch选择与T3、库存原预占身份扣减与不可变待登记发运事实、全球SHIPPED及有界可靠恢复/人工重排、公开可发SN查询/契约/真实故障验证。不能冒用MISSING；普通摘要不变。
-- R13可信三方水位：SnapshotExportService.export与StockInternalReconcile.closeWindow不能只信非空字符串，需真实来源关闭/过账/回执凭证。
-- R14公开序列调拨（sealSource/stageDestination仍只有测试调用）、TC终态通知/原RM资源及Fence迁移、全局提交后取消的业务补偿。
-- R15上述来源恢复；归档仅候选计划，无授权期限不能虚构删除/导出。
-- R22代码/阶段CI已过，最后全源码组合verify及最终remoteCI；未核实/转换共享生产历史时间。
-- 单桶完整SN盘点观察最多200，>200分段完整输入协议未实现；外部WCS/容量/RTO/RPO/50AC签署不能伪造。
+- OUT代码和定向验收已通过；当前待逻辑提交、整合main文档/控制台、必要集成门禁与发布。
+- WATERMARK：可信来源关闭/库存过账/回执水位，禁止调用者字符串充当完整证明。
+- TRANSFER：公开序列调拨；TC：原资源/Fence/终态通知迁移；COMP：全局提交后取消补偿；FINAL：最后组合、R22结项及远程CI。
+- 外部 OQ-03、AC-26现场黑盒、真实WCS、容量/RTO/RPO和生产历史时间不能伪造。
 
 ## 当前问题
 
-- 所有exec显式唯一workdir，绝不输出完整进程参数或环境（可能有Cursor凭据）。禁止并发Maven或构建时改源码。全部隔离Testcontainers，不使用共享dev_infra数据。
-- 远程main CI未完成不得推取消它；任务分支尚未push，PICK可以先本地逻辑commit，再完成SHIP一起正常推送。
-- verify-contracts先暂存预期生成文件；scripts/check-required-its.py门禁；现有SBOM两个OSV命中不称零漏洞。
+- 唯一后端工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/serial-outbound-execution，HEAD dd22cd0；保留未提交SHIP代码。
+- 定向数据库验收包括原身份分次发运、回执丢失/最后本地写失败、错证明、审计回滚、租约接管旧回执；其中登记端口故障夹具不称真实网络证明。
+- 不在Maven运行中修改源码；输出重定向.local，只读结果/首个相关错误；同类失败两次复核原因。
+- 原根控制台分支和文档分支保持不动，不从真实.env获取测试凭据。
 
 ## 下一步建议
 
-1. 完成PICK门禁/smoke/commit，当前测试全结束。
-2. SHIP采用来源PICK历史新增shipment命令/posted进度，库存独立ship intent保存原PICK/SN/epoch/operation。全球新增SHIPPED事实，不重用MISSING；网络外呼在TX外，CAS租约/预算及人工恢复沿用既有规则。
-3. 逐项完成以上R13/R14/R15剩余再组合verify和发布，不等待继续。
+1. 暂存核对OUT，契约生成一致性与文档注释检查后提交；整合最新main，保留已完善文档，更新迁移54表等事实。
+2. 已通过证据可复用；集成导致相关变化再补测。真实XXL执行器的admin为协议夹具；生产及完整TC仍未验收。
+3. 同步实际变更文档与必需IT清单，整合main并正常提交发布该片，再继续其余有限验收。
 
 ## 恢复 Prompt
 
-读取本文件，继续唯一集成工作树fix/serial-outbound-execution的剩余四项，不重做已发布收货分批/盘点，不等继续。先确认最新工作树/Maven状态，保护用户根目录main f9710ef。
+先读本文件和唯一计划，核对git status与正在运行的Maven。从OUT未完成继续，不重做已发布入库/盘点，不丢弃SHIP，不把部分成功当全部整改完成，不等待逐片“继续”。

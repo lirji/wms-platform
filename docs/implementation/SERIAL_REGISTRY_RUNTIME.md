@@ -27,3 +27,11 @@
 兼容旧首次激活记录：新节点写入receipt_operation_id=原claim_operation_id。旧ACTIVE缺该字段时，只允许同仓、同原认领操作且transfer_id为空的写入重放补齐；已转移身份不能借旧认领操作补齐或取得收货成功。
 
 恢复领取、授权落库和人工重排持有短事务仓路由共享锁；迁移QUIESCING/RETIRED仓拒绝写入，网络调用期间不持有该锁。
+
+## 分次发运确认
+
+`POST /internal/wms/v1/serial-identities/shipments`只接受受信服务主体、企业/仓范围、`serial.registry.write`和原发运事实；expectedEpoch必须是非负整数。返回独立shipment证明（schemaVersion=1、企业/仓/SKU/SN/epoch/shipmentRef），历史重放保持该证明，不用当前身份重建历史。SHIPPED不能被旧收货认领或激活恢复为ACTIVE。
+
+库存V042持久化serial_shipment_intent，`serialTransferRecovery`先恢复发运，再执行原释放/收货恢复，各阶段独立有界。发运阶段每轮20项/10秒、15秒领取租约、12次自动尝试；远程调用沿用上述配置与配额，不占库存事务。SHIPMENT查询与审计重排沿用serial-recoveries入口；失败不能再次扣库存。登记成功和本地最终写入之间的失败通过原证明重放恢复。升级顺序为登记服务→库存调用器/消费者→来源。
+
+2026-09-13实际三服务JAR、Kafka、MySQL与XXL执行器验证已通过，见[序列出库证据](SERIAL_OUTBOUND_DESIGN.md)。XXL admin是协议夹具，生产配置和容量尚未验收。

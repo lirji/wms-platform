@@ -63,6 +63,23 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 来源PICK已过账且尚未受理发运的原身份；读取不占用，SHIP事务再次校验。 */
+    @GetMapping("/outbound-orders/{outboundOrderId}/shippable-serials")
+    public Map<String,Object> shippableSerials(@AuthenticationPrincipal Jwt jwt,@PathVariable String warehouseId,
+            @PathVariable String outboundOrderId,@RequestParam String orderLineId,@RequestParam String stagingLocationId,
+            @RequestParam String lotId,@RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor) {
+        WmsJwtAuthorities.requireWarehouse(jwt,warehouseId);WmsJwtAuthorities.requireScope(jwt,"outbound.read");
+        for(String value:new String[]{outboundOrderId,orderLineId,stagingLocationId,lotId})
+            if(value.isBlank() || value.length()>64) throw new OutboundException("INVALID_ARGUMENT","发运身份查询需要原订单行和暂存桶");
+        String e=WmsJwtAuthorities.enterpriseId(jwt);
+        var page=com.lrj.wms.runtime.web.CursorPage.parse(limit,cursor,com.lrj.wms.runtime.web.CursorPage.scope(
+                "shippable-serials",e,warehouseId,outboundOrderId,orderLineId,stagingLocationId,lotId));
+        try(var session=sessions.openSession()) {
+            var rows=session.getMapper(OutboundSerialMapper.class).shippable(e,warehouseId,outboundOrderId,orderLineId,stagingLocationId,lotId,page);
+            var result=page.result(rows,false);rows.forEach(row -> row.remove("id"));return result;
+        }
+    }
+
     @PostMapping("/outbound-orders")
     public ResponseEntity<Map<String, Object>> create(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @RequestHeader("Idempotency-Key") String idempotencyKey,
@@ -193,12 +210,20 @@ public class OutboundWorkbenchController {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
             requireContext(body.stagingLocationId(), body.lotId());
+            // 即使运行消息暂时关闭，已有序列拣货也不能经旧数量入口绕过逐身份占用。
+            if(body.lotId()==null) {
+                session.getMapper(OutboundOrderMapper.class).lockOrder(WmsJwtAuthorities.enterpriseId(jwt),warehouseId,outboundOrderId);
+                var line=session.getMapper(OutboundOrderMapper.class).lockLineByOrderLine(WmsJwtAuthorities.enterpriseId(jwt),warehouseId,outboundOrderId,body.orderLineId());
+                if(line!=null && session.getMapper(OutboundSerialMapper.class).serialLine(WmsJwtAuthorities.enterpriseId(jwt),warehouseId,line.get("id").toString())>0)
+                    throw new OutboundException("SERIAL_SHIP_CONFLICT","序列发运需要原暂存桶及身份选择");
+            }
+            if(body.serialExecution()!=null && body.lotId()==null) throw new OutboundException("SERIAL_SHIP_CONFLICT","序列发运必须提供明确暂存桶");
             Map<String, Object> result = body.lotId() == null
                     ? new OutboundOrderService(session, Clock.systemUTC()).shipPartial(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
                         outboundOrderId, body.orderLineId(), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId())
                     : new OutboundPostingService(session, Clock.systemUTC()).ship(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId(), body.stagingLocationId(), body.lotId());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId(), body.stagingLocationId(), body.lotId(), body.serialExecution());
             session.commit();
             Map<String, Object> accepted = accepted(warehouseId, result, "SHIPPED");
             accepted.put("statusUrl", "/api/wms/v1/warehouses/" + warehouseId + "/outbound-orders/" + outboundOrderId);
@@ -239,7 +264,7 @@ public class OutboundWorkbenchController {
         HttpStatus status = switch (error.code()) {
             case "UNKNOWN_ORDER", "UNKNOWN_LINE", "UNKNOWN_TASK" -> HttpStatus.NOT_FOUND;
             case "VERSION_CONFLICT", "TASK_NOT_CLAIMABLE", "TCC_NOT_COMMITTED", "EVIDENCE_MISMATCH", "AUTH_CONFLICT",
-                    "AUTH_REQUIRED", "IDEMPOTENCY_PAYLOAD_MISMATCH", "SERIAL_PICK_CONFLICT", "SERIAL_PICK_CONTEXT_REQUIRED" -> HttpStatus.CONFLICT;
+                    "AUTH_REQUIRED", "IDEMPOTENCY_PAYLOAD_MISMATCH", "SERIAL_PICK_CONFLICT", "SERIAL_PICK_CONTEXT_REQUIRED", "SERIAL_SHIP_CONFLICT" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));

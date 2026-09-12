@@ -60,14 +60,14 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 serialObservation = RuntimeMessage.JSON.treeToValue(observation, com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
                 serialObservation.requireQuantity(rawQty);
             } catch (RuntimeException invalid) { throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED"); }
-        } else if (serialEnabled && !Set.of("CANCEL","QUALITY","PUTAWAY","PICK").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        } else if (serialEnabled && !Set.of("CANCEL","QUALITY","PUTAWAY","PICK","SHIP").contains(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
         else if (payload.hasNonNull("serialObservation")) throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if(payload.hasNonNull("serialQualityObservation") && (!serialEnabled || !"QUALITY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if(payload.hasNonNull("serialSelection") && (!serialEnabled || !"PUTAWAY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution=null;
-        if(serialEnabled && "PICK".equals(action)) {
+        if(serialEnabled && Set.of("PICK","SHIP").contains(action)) {
             try {
                 var raw=payload.path("serialExecution");
                 if(!raw.isObject() || raw.properties().stream().anyMatch(p -> !Set.of("schemaVersion","identities").contains(p.getKey()))

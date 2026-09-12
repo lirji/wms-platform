@@ -50,4 +50,11 @@ public interface SerialRegistryMapper {
     /** 兼容旧节点首次激活未写收货引用，只允许原始认领身份补齐。 */
     int repairActiveReceipt(@Param("enterpriseId") String enterpriseId,@Param("skuId") String skuId,
             @Param("serial") String serial,@Param("warehouseId") String warehouseId,@Param("operationId") String operationId,@Param("now") Timestamp now);
+    /** 原发运记录与身份终态同事务提交，不吞唯一或完整性冲突。 */
+    int insertShipment(@Param("row") Map<String,Object> row);
+    /** 按原事实读取历史证明，不能用当前身份猜测旧发运。 */
+    Map<String,Object> lockShipment(@Param("e") String e,@Param("sku") String sku,@Param("serial") String serial,@Param("ref") String ref);
+    /** 只有原仓原代际的ACTIVE可变成SHIPPED。 */
+    int casShipped(@Param("e") String e,@Param("sku") String sku,@Param("serial") String serial,@Param("w") String w,
+            @Param("epoch") long epoch,@Param("version") long version,@Param("now") Timestamp now);
 }

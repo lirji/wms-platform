@@ -37,7 +37,9 @@ class OutboundReservationPostingIT {
         var config = new Configuration(new Environment("outbound-posting-it", new JdbcTransactionFactory(), ds));
         DatabaseInstants.configure(config);
         for (var mapper : List.of(MasterdataMapper.class, InventoryMapper.class, OutboxMapper.class,
-                CommandDedupMapper.class, EffectMapper.class, StockCommandMapper.class,com.lrj.wms.inventory.serial.LocalSerialMapper.class,com.lrj.wms.inventory.serial.SerialOutboundMapper.class)) config.addMapper(mapper);
+                CommandDedupMapper.class, EffectMapper.class, StockCommandMapper.class,com.lrj.wms.inventory.serial.LocalSerialMapper.class,com.lrj.wms.inventory.serial.SerialOutboundMapper.class,
+                com.lrj.wms.inventory.serial.SerialShipmentMapper.class,com.lrj.wms.inventory.serial.SerialRecoveryMapper.class,
+                com.lrj.wms.inventory.serial.SerialReleaseMapper.class,com.lrj.wms.inventory.count.CountSerialMapper.class)) config.addMapper(mapper);
         sessions = new SqlSessionFactoryBuilder().build(config); jdbc = new JdbcTemplate(ds);
         try (var session = sessions.openSession(false)) {
             var md = new MasterdataService(session, CLOCK); md.createWarehouse("WH", "ENT", "WH", "隔离仓", "UTC");
@@ -131,6 +133,84 @@ class OutboundReservationPostingIT {
         amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='STAGE'","4");
         assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM serial_pick_fact WHERE sku_id='SERIAL' AND order_line_id='LINE' AND owner_epoch=1",Integer.class));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='SERIAL-FIRST'",Integer.class));
+        verifySerialShipmentAndRecovery();
+    }
+
+    /** 数量/身份/发运意图共同回滚；登记端口在此为故障夹具，真实HTTP另有进程验收。 */
+    private static void verifySerialShipmentAndRecovery() {
+        try(var session=sessions.openSession(false)) {
+            assertThrows(InventoryException.class,() -> serialShip(session,"SERIAL-WRONG-LINE","OTHER",serialSelection("SERIAL-1")));session.rollback();
+        }
+        jdbc.execute("ALTER TABLE serial_shipment_intent ADD CONSTRAINT fail_last_ship_identity CHECK(command_id<>'SERIAL-SHIP' OR serial_id<>'SERIAL-2')");
+        try {try(var session=sessions.openSession(false)) {
+            assertThrows(RuntimeException.class,() -> serialShip(session,"SERIAL-SHIP","LINE",serialSelection("SERIAL-1","SERIAL-2")));session.rollback();
+        }} finally {jdbc.execute("ALTER TABLE serial_shipment_intent DROP CHECK fail_last_ship_identity");}
+        amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='STAGE'","4");
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_shipment_intent",Integer.class));
+        try(var session=sessions.openSession(false)) {serialShip(session,"SERIAL-SHIP","LINE",serialSelection("SERIAL-1","SERIAL-2"));session.commit();}
+        try(var session=sessions.openSession(false)) {serialShip(session,"SERIAL-SHIP","LINE",serialSelection("serial-2","serial-1"));session.commit();}
+        try(var session=sessions.openSession(false)) {
+            assertThrows(InventoryException.class,() -> serialShip(session,"SERIAL-DOUBLE-SHIP","LINE",serialSelection("SERIAL-1")));session.rollback();
+        }
+        amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='STAGE'","2");
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE state='SHIPPED' AND registry_state='ACTIVE'",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE command_id='SERIAL-SHIP'",Integer.class));
+        var calls=new java.util.concurrent.ConcurrentHashMap<String,Integer>();
+        com.lrj.wms.inventory.serial.SerialShipmentRegistryPort registry=(e,sku,sn,w,ref,epoch) -> {
+            calls.merge(sn,1,Integer::sum);
+            // 从独立连接可见已提交事实，远程期间不保留发运业务事务。
+            assertEquals("SHIPPED",jdbc.queryForObject("SELECT state FROM local_serial WHERE serial_id=?",String.class,sn));
+            return shipmentProof(e,w,sku,sn,ref,epoch);
+        };
+        jdbc.execute("ALTER TABLE serial_shipment_intent ADD CONSTRAINT fail_last_ship_proof CHECK(serial_id<>'SERIAL-2' OR state<>'DONE')");
+        try {
+            var first=new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(sessions,CLOCK,registry).execute("ENT","WH");
+            assertEquals(1,first.completed());assertEquals(1,first.failed());
+        } finally {jdbc.execute("ALTER TABLE serial_shipment_intent DROP CHECK fail_last_ship_proof");}
+        assertEquals("ACTIVE",jdbc.queryForObject("SELECT registry_state FROM local_serial WHERE serial_id='SERIAL-2'",String.class));
+        var later=Clock.offset(CLOCK,java.time.Duration.ofSeconds(20));
+        assertEquals(1,new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(sessions,later,registry).execute("ENT","WH").completed());
+        assertEquals(1,calls.get("SERIAL-1"));assertEquals(2,calls.get("SERIAL-2"));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM serial_shipment_intent WHERE state='DONE' AND result_json IS NOT NULL",Integer.class));
+        // 错误证明不完成；人工重排审计失败时不能只解锁意图。
+        try(var session=sessions.openSession(false)) {serialShip(session,"SERIAL-SHIP-3","LINE",serialSelection("SERIAL-3"));session.commit();}
+        com.lrj.wms.inventory.serial.SerialShipmentRegistryPort wrong=(e,sku,sn,w,ref,epoch) -> shipmentProof(e,w,sku,sn,ref,epoch+1);
+        assertEquals(1,new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(sessions,CLOCK,wrong).execute("ENT","WH").failed());
+        assertEquals("ACTIVE",jdbc.queryForObject("SELECT registry_state FROM local_serial WHERE serial_id='SERIAL-3'",String.class));
+        jdbc.update("UPDATE serial_shipment_intent SET state='ISOLATED' WHERE serial_id='SERIAL-3'");
+        String intent=jdbc.queryForObject("SELECT id FROM serial_shipment_intent WHERE serial_id='SERIAL-3'",String.class);
+        long epoch=jdbc.queryForObject("SELECT claim_epoch FROM serial_shipment_intent WHERE id=?",Long.class,intent);
+        jdbc.execute("ALTER TABLE serial_shipment_intent ADD CONSTRAINT fail_ship_requeue CHECK(serial_id<>'SERIAL-3' OR state='ISOLATED')");
+        try {try(var session=sessions.openSession(false)) {
+            assertThrows(RuntimeException.class,() -> com.lrj.wms.inventory.serial.SerialRecoveryOperations.retry(session,CLOCK,"ENT","WH",intent,"SHIP-RETRY","operator",epoch,"已核对原发运事实"));session.rollback();
+        }} finally {jdbc.execute("ALTER TABLE serial_shipment_intent DROP CHECK fail_ship_requeue");}
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM serial_recovery_audit WHERE command_id='SHIP-RETRY'",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            com.lrj.wms.inventory.serial.SerialRecoveryOperations.retry(session,CLOCK,"ENT","WH",intent,"SHIP-RETRY","operator",epoch,"已核对原发运事实");session.commit();
+        }
+        var started=new CountDownLatch(1);var resume=new CountDownLatch(1);var executor=Executors.newSingleThreadExecutor();
+        com.lrj.wms.inventory.serial.SerialShipmentRegistryPort blocked=(e,sku,sn,w,ref,ownerEpoch) -> {
+            started.countDown();try {if(!resume.await(8,TimeUnit.SECONDS)) throw new IllegalStateException("test timeout");}
+            catch(InterruptedException failure) {Thread.currentThread().interrupt();throw new IllegalStateException(failure);}
+            return shipmentProof(e,w,sku,sn,ref,ownerEpoch);
+        };
+        try {
+            var old=executor.submit(() -> new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(sessions,CLOCK,blocked).execute("ENT","WH"));
+            assertTrue(started.await(5,TimeUnit.SECONDS));
+            assertEquals(1,new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(sessions,later,registry).execute("ENT","WH").completed());
+            long version=jdbc.queryForObject("SELECT version FROM serial_shipment_intent WHERE id=?",Long.class,intent);
+            resume.countDown();assertEquals(0,old.get(5,TimeUnit.SECONDS).completed());
+            assertEquals(version,jdbc.queryForObject("SELECT version FROM serial_shipment_intent WHERE id=?",Long.class,intent));
+        } catch(Exception failure) {throw new AssertionError(failure);} finally {resume.countDown();executor.shutdownNow();}
+        amount("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SERIAL' AND location_id='STAGE'","1");
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM serial_shipment_intent WHERE state='DONE'",Integer.class));
+    }
+    private static Map<String,Object> shipmentProof(String e,String w,String sku,String sn,String ref,long epoch) {
+        return Map.of("shipment",Map.of("schemaVersion",1,"enterpriseId",e,"warehouseId",w,"skuId",sku,"normalizedSerial",sn,"ownerEpoch",epoch,"shipmentRef",ref));
+    }
+    private static Map<String,Object> serialShip(SqlSession session,String command,String line,com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+        return new StockCommandService(session,CLOCK).applyOutbound("ENT","WH",command,"SHIP","ORDER-SERIAL",command,"INTERNAL-LINE","actor","EXEC-"+command,line,
+                context("SERIAL","SHIP"),Quantity.parse(Integer.toString(selection.identities().size()),0),null,selection);
     }
     private static com.lrj.wms.contract.messaging.SerialExecutionSelection serialSelection(String... serials) {
         return new com.lrj.wms.contract.messaging.SerialExecutionSelection(1,java.util.Arrays.stream(serials).map(sn -> new com.lrj.wms.contract.messaging.SerialExecutionSelection.Identity(sn,1L)).toList());
