@@ -7,6 +7,7 @@ describe("errorBanner", () => {
   it("does not call a 401 session error 权限不足", () => {
     render(errorBanner({ status: 401, message: "UNAUTHENTICATED" }));
     expect(screen.getByText("登录已失效")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "去登录" })).toBeTruthy();
     expect(screen.queryByText("权限不足")).toBeNull();
   });
 

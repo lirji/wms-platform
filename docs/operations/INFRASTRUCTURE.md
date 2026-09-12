@@ -1,6 +1,6 @@
 # 基础设施与连接清单
 
-核对基线 `main 3e2c720`（2026-09-13）。本表来自[根 Compose](../../compose.yaml)、[中间件 Compose](../../deploy/compose.local.yml)、[环境模板](../../.env.example)和[初始化目录](../../deploy/init)。本次只核对仓库声明，未连接数据库、登录控制台或读取本机真实 `.env`；不代表现场实例或生产版本已验证。
+核对基线 `main c5c96e3`（2026-09-13）。本表来自[根 Compose](../../compose.yaml)、[中间件 Compose](../../deploy/compose.local.yml)、[环境模板](../../.env.example)和[初始化目录](../../deploy/init)。本次只核对仓库声明，未连接数据库、登录控制台或读取本机真实 `.env`；不代表现场实例或生产版本已验证。
 
 ## 环境与地址
 

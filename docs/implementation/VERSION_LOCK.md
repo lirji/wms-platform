@@ -2,9 +2,9 @@
 
 ## 状态
 
-核对基线 `main 3e2c720`（2026-09-13）。后端声明来自[根 POM](../../pom.xml)、[Wrapper](../../.mvn/wrapper/maven-wrapper.properties)，镜像来自[应用 Dockerfile](../../deploy/app.Dockerfile)、[前端 Dockerfile](../../wms-console/Dockerfile)和[Compose](../../deploy/compose.local.yml)。以下版本是仓库声明与既有验证记录，不是现场探测或生产版本锁定。
+核对基线 `main c5c96e3`（2026-09-13）。后端声明来自[根 POM](../../pom.xml)、[Wrapper](../../.mvn/wrapper/maven-wrapper.properties)，镜像来自[应用 Dockerfile](../../deploy/app.Dockerfile)、[前端 Dockerfile](../../wms-console/Dockerfile)和[Compose](../../deploy/compose.local.yml)。以下版本是仓库声明与既有验证记录，不是现场探测或生产版本锁定。
 
-该代码基线的[main CI](https://github.com/lirji/wms-platform/actions/runs/34721632607)已通过；真实 TM/TC/RM 与故障恢复已有阶段证据，见[原生 RM](RUNTIME_TCC_RM.md)、[自动执行](FULFILLMENT_EXECUTION.md)和[TC 恢复](FULFILLMENT_TC_RECOVERY.md)。TC 终态通知、资源/Fence 迁移及全局提交后的取消补偿仍未完成，不能继续沿用“正式 TM/RM 尚未实现”，也不能据局部通过标完整验收。
+后端代码与依赖相对 `3e2c720` 未变，其[main CI](https://github.com/lirji/wms-platform/actions/runs/34721632607)已通过；控制台后续变更见[当前状态](../delivery/wms-v1/DELIVERY_STATUS.md)，不把旧 CI 当成新前端验证。真实 TM/TC/RM 与故障恢复已有阶段证据，见[原生 RM](RUNTIME_TCC_RM.md)、[自动执行](FULFILLMENT_EXECUTION.md)和[TC 恢复](FULFILLMENT_TC_RECOVERY.md)。TC 终态通知、资源/Fence 迁移及全局提交后的取消补偿仍未完成，不能继续沿用“正式 TM/RM 尚未实现”，也不能据局部通过标完整验收。
 
 | 组件 | 本轮版本 | 已验证范围 |
 | --- | --- | --- |

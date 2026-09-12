@@ -21,10 +21,13 @@ describe("InboundDetailPage", () => {
     expect(screen.getByRole("heading", { name: "入库单 ASN-1" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
     expect(screen.getByRole("button", { name: "提交收货" })).toBeTruthy();
+    expect(screen.getByText("序列号观察")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "质检" }));
     expect(screen.getByRole("button", { name: "记录质检" })).toBeTruthy();
+    expect(screen.getByText("累计合格身份")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "上架" }));
     expect(screen.getByRole("button", { name: "提交上架" })).toBeTruthy();
+    expect(screen.getByText("上架身份")).toBeTruthy();
   });
 
   it("hides inbound commands when the token has no job scopes", () => {

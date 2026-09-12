@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Form, Input } from "antd";
+import { Checkbox, Form, Input } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
+import { SerialIdsField } from "../../shared/serial/SerialIdsField";
+import { countObservation, countText } from "../../shared/serial/serialIds";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
@@ -56,25 +58,33 @@ export function CountDetailPage() {
               embedded
               requireScope="count.record"
               title="点数 / 复盘"
-              hint="同 observation 重试。序列号行必须走身份集合，这里只录数量行。"
+              hint="同 observation 重试。序列号行必须提交身份集合；空集合表示全部未见。普通行留空身份字段。"
               operation={`count-observe:${countPlanId}`}
               submitLabel="提交点数"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/observations`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: {
-                  lineId: values.lineId,
-                  observationId: key,
-                  qty: values.qty,
-                  roundNo: Number(values.roundNo || "1")
-                }
-              })}
+              onRun={(key, values) => {
+                const serialObservation = countObservation(values.serialIds || "", values.allMissing === "true");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/observations`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    lineId: values.lineId,
+                    observationId: key,
+                    qty: serialObservation ? countText(serialObservation.serialIds) : values.qty,
+                    roundNo: Number(values.roundNo || "1"),
+                    ...(serialObservation ? { serialObservation } : {})
+                  }
+                });
+              }}
             >
               <Form.Item label="快照行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="数量" name="qty" extra="身份观察时按实见个数提交；全部未见提交 0。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
               <Form.Item label="轮次" name="roundNo" initialValue="1"><Input /></Form.Item>
+              <Form.Item name="allMissing" valuePropName="checked" getValueFromEvent={(event) => event.target.checked ? "true" : "false"}>
+                <Checkbox>序列号行全部未见（空集合）</Checkbox>
+              </Form.Item>
+              <SerialIdsField name="serialIds" label="实见身份" extra="序列号行填写完整实见清单。勾选全部未见时不要再填。" />
             </CommandCard>
           </CommandCol>
           <CommandCol title="复盘" requireScope="count.record">

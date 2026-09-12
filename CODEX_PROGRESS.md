@@ -8,11 +8,12 @@
 
 ## 已完成
 
-- 已发布业务基线 main `3e2c7209dba79af09cbb7d5678dc39943cc28957`；main CI `34721632607` success。
+- 当前远程代码基线 main `c5c96e3aa4cf0ba58dbfab863fc8c797f9db1387`。后端仍为 `3e2c720` 的相同源码/依赖，其 CI `34721632607` success；最新控制台基线 CI `34723887946` 运行中。
+- 控制台 `b6f44ac` 已发布：序列号观察、202 保留原键/有界轮询、单据双状态、401 去登录、序列恢复/消息重排、履约 attempt 执行、商品/库位/批次三表、单位写入及门禁只读。既有本地 21 文件/41 用例/typecheck/build 通过；本次未重跑。公开拣/发/调拨序列号字段仍缺，页面未发明。
 - 已发布普通消息、多 Cell 路由、真实 TM/TC/原生 RM 与出库授权、序列号分批收货/质检/上架/源释放、完整身份盘点/逐身份恢复/占用保护；详情见 `docs/delivery/wms-v1/DELIVERY_STATUS.md`。
-- 文档工作树：`/Users/liruijun/personal/LLM/wms-platform/.local/project-documentation`，任务分支 `feat/project-documentation`，从上述 main 基线建立；保留根工作区与后端未发布改动。
+- 文档工作树：`/Users/liruijun/personal/LLM/wms-platform/.local/project-documentation`，任务分支 `feat/project-documentation`，从后端 main 3e2c720 基线建立，随后整合已发布控制台 c5c96e3；保留根工作区与后端未发布改动。
 - 已补充文档入口、连接清单和数据/API索引，校正架构/版本/运行手册/交付状态，标识历史证据及现场未核验项。
-- 本地检查通过：文档53份/仓库链接231/AC50/唯一任务64；契约88路径且生成物无差异；Compose模板静态解析；git diff --check。另核对10个Maven模块、锁文件版本、各模块最高迁移、52表迁移清单和109项必需IT。没有运行Maven、npm业务测试或启动环境。
+- 本地检查通过：文档53份/仓库链接234/AC50/唯一任务64（已整合控制台文档）；契约88路径且生成物无差异；Compose模板静态解析；git diff --check。另核对10个Maven模块、锁文件版本、各模块最高迁移、52表迁移清单和109项必需IT。没有运行Maven、npm业务测试或启动环境。
 
 ## 已修改文件
 
@@ -23,14 +24,17 @@
 
 ## 未完成
 
-- 当前文档：本地检查已通过；提交后合并新远程 main c5c96e3 的控制台更新，处理状态文档重叠，复查并正常发布。纯文档提交按既有规则使用 [skip ci]，不触发新 verify，不取消正在运行的控制台基线 CI 34723887946。
+- 当前文档：主体提交 c32cb54；已合并 c5c96e3 的控制台更新并保留其前端文档/证据，复查后正常推任务分支及远程 main。纯文档使用既有 [skip ci] 规则，不触发新 verify，不取消正在运行的控制台基线 CI 34723887946。
 - 后端 R13：序列号 PICK/SHIP 完整链路及可信水位。PICK 本地提交 `dd22cd01934953ba16c9e95dd584a56be5604d12`，尚未发布；SHIP 有未验证改动。
 - 后端 R14：公开序列调拨接入、TC 终态通知与原资源/Fence 迁移、全局提交后取消补偿。
 - 后端 R15：上述路径恢复接线；归档仅候选，保留期限/删除/导出未批准。
 - 后端 R22：已发布时间实现和 CI 通过；剩余整体整改完成后再复验结项，未核验/转换生产历史数据。
+- 控制台 AC-26 现场黑盒仍 open：序列号收货、202 原键、401/429、对账审批与断网重连；需获授权 Casdoor/隔离栈，后续公开拣/发契约完成再补 UI。
 - 外部验收：OQ-03、真实 WCS、容量/RTO/RPO、全部 50 AC；不能编造输入。单桶 SN 观察上限 200，大桶分段协议尚未实现。
 
 ## 当前问题
+
+- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `feat/console-serial-jobs`，保留其分支/文件，不切换或覆盖；文档在独立工作树查看，后端也使用独立工作树。
 
 - 后端独立工作树 `/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate`，分支 `fix/serial-outbound-execution`。该树内旧进度可能落后实际 HEAD，恢复必须先核对 git status 与提交，不按旧记录重做盘点切片。
 - 本地 dd22cd0 的序列 PICK 已有阶段验证，不能计入 main 文档的已交付；SHIP 未提交工作包括 registry V005、outbound V018、inventory V042 与相关 service/mapper/controller，尚未编译/测试，不能发布。

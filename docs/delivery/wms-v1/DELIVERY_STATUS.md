@@ -2,7 +2,7 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。当前已发布业务基线为 `main 3e2c720`，对应 [GitHub Actions 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
+更新时间：2026-09-13。当前已发布代码基线为 `main c5c96e3`，含控制台切片 `b6f44ac`；最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 运行中。后端代码与依赖相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
 
 用户当前优先要求完善项目文档。文档按该已发布代码核对，未启动环境、修改业务源码或升级依赖。持续授权正常提交并合入远程 main；不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 
@@ -10,7 +10,7 @@
 
 | 范围 | 当前结果 | 实现与证据 |
 | --- | --- | --- |
-| 应用与控制台 | 五个后端进程、React 作业台、OIDC/scope/企业及仓校验 | [架构](../../design/01-architecture.md)、[前端说明](../../../wms-console/README.md) |
+| 应用与控制台 | 五个后端进程、React 作业台、OIDC/scope/企业及仓校验；新控制台接序列号观察、202 保留幂等键及有界轮询、双状态、恢复/消息重排、attempt执行、单位及门禁查询 | [架构](../../design/01-architecture.md)、[前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md)、[页面交接](CURSOR_HANDOFF.md) |
 | 普通库存消息 | RECEIVE、分批 QUALITY/PUTAWAY、普通 PICK/SHIP/CANCEL 的持久 Inbox/Outbox 与恢复；多 Cell 路由 | [消息运行](../../implementation/MESSAGING_RUNTIME.md)、[出库消息](../../implementation/OUTBOUND_MESSAGING.md)、[Cell 路由](../../implementation/INVENTORY_CELL_MESSAGING.md) |
 | 跨仓履约 | 真实 TM/TC/原生 RM、原 XID/branch 恢复、库存确认到出库授权 | [执行及真实进程证据](../../implementation/FULFILLMENT_EXECUTION.md)、[RM 边界](../../implementation/RUNTIME_TCC_RM.md) |
 | 序列号入库 | 按收货批次记录身份、身份质检、分次上架与源释放持久恢复 | [收货批次](../../implementation/SERIAL_RECEIPT_BATCH.md)、[上架](../../implementation/SERIAL_PUTAWAY.md)、[源释放](../../implementation/SERIAL_SOURCE_RELEASE.md) |
@@ -34,7 +34,7 @@
 ## 未发布开发与门禁
 
 - 序列号 PICK 有本地提交 `dd22cd0`，位于 `fix/serial-outbound-execution`；后续 SHIP 工作区改动尚未验证。两者不属于上述 main 基线，具体恢复入口见根进度文件。
-- 工程 CI：基线 `3e2c720` **pass**。本轮文档结构/链接（53份、231链接）、契约88路径/生成物一致、Compose模板静态解析及 diff 检查通过；没有重跑业务测试或启动环境。
+- 工程验证：后端基线 `3e2c720` CI **pass**；控制台切片记录本地 21 文件/41 用例、typecheck/build 通过，最新 main CI **运行中**，AC-26 现场黑盒仍 open。本轮文档结构/链接、契约88路径/生成物一致、Compose模板静态解析及 diff 检查通过；没有重跑业务测试或启动环境。纯文档使用既有 `[skip ci]` 规则，不取消正在运行的工作流。
 - 完整功能/非功能验收：**未完成**。历史 [AC_EVIDENCE](AC_EVIDENCE.md) 和 [DELIVERY_REPORT](DELIVERY_REPORT.md) 保留当时的证据缺口；其中“真实 TM/RM 未实现”等早期结论已由后续专题证据更新，但没有因此自动关闭全部 AC。
 - 生产安全与环境：版本锁、漏洞例外、生产凭据/ACL、容量和恢复目标未签署。[既有 OSV 快照](../../implementation/sbom/osv-findings.md)仍记录两个组件命中，本次未重新扫描。
 
@@ -44,6 +44,7 @@
 
 ### 早期交付记录
 
+- 2026-09-13：控制台切片 `b6f44ac` 已合入 main；序列号收货/PDA/质检/上架/盘点观察、202 原键轮询、任务恢复/消息重排、履约执行和主数据补面。本地 41 测/typecheck/build 通过；未发明公开拣/发/调拨序列号字段，现场黑盒未验收。
 - 2026-09-12：控制台 README 写明本机 Vite `4181` 与门户 Docker `18180` 分工。不是 50 AC。
 - 2026-09-12：`verify.yml` 在提交说明或 PR 标题含 `[skip ci]` / `[ci skip]` / `[no ci]` 时跳过 java 与 console。不是 50 AC。
 - 2026-09-12：扩展 `seed-local.sh`，向隔离库存库写开账余额/投影/草稿盘点，向应用库写入库/出库/履约/调拨演示单。已发布远程 main `38ef86e`。未发明 OQ-03，未写 TCC ALLOCATED。不是 50 AC。

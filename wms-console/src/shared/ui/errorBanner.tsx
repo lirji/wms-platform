@@ -1,3 +1,4 @@
+import { Button } from "antd";
 import { ApiError } from "../../api/client";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 import { StatusBanner } from "./StatusBanner";
@@ -15,7 +16,12 @@ export function errorBanner(error: unknown) {
   const code = apiError?.code;
   const message = apiError?.message ? truncate(apiError.message) : "";
   if (apiError?.status === 401) {
-    return <StatusBanner kind="error" title="登录已失效" detail="请重新登录。这不是仓权限不足。" />;
+    return (
+      <>
+        <StatusBanner kind="error" title="登录已失效" detail="请重新登录。这不是仓权限不足。" />
+        <Button type="primary" href="/login" style={{ marginTop: 8 }}>去登录</Button>
+      </>
+    );
   }
   if (apiError?.status === 403) {
     return <ForbiddenBanner message={message} code={code} />;

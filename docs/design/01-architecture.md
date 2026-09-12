@@ -1,6 +1,6 @@
 # 总体架构与实现边界
 
-核对基线：`main 3e2c720`（2026-09-13）。本文件同时保留业务目标与当前实现，两者在下面分别标识。版本以[版本记录](../implementation/VERSION_LOCK.md)为准，配置入口见[连接清单](../operations/INFRASTRUCTURE.md)。
+核对基线：`main c5c96e3`（2026-09-13）。本文件同时保留业务目标与当前实现，两者在下面分别标识。版本以[版本记录](../implementation/VERSION_LOCK.md)为准，配置入口见[连接清单](../operations/INFRASTRUCTURE.md)。
 
 ## 当前实现快照
 

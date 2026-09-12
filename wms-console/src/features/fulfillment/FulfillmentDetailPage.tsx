@@ -95,6 +95,58 @@ export function FulfillmentDetailPage() {
               <Form.Item label="原因" name="reason"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
+          <CommandCol title="执行跨仓分配" requireScope="fulfillment.execute">
+            <CommandCard
+              embedded
+              requireScope="fulfillment.execute"
+              title="执行跨仓分配"
+              hint="202 只表示执行器已受理。没有 TC 终态证据时不会写成 ALLOCATED。"
+              operation={`execute:${fulfillmentId}`}
+              submitLabel="提交执行"
+              disabled={!token}
+              onDone={reload}
+              onRun={(key, values) => api(`/api/wms/v1/fulfillments/${fulfillmentId}/attempts/${values.attemptId || field(record, "activeAttemptId")}/executions`, token, {
+                method: "POST",
+                idempotencyKey: key,
+                body: {
+                  clientOperationId: key,
+                  warehouses: [{
+                    schemaVersion: 1,
+                    enterpriseId: values.enterpriseId,
+                    warehouseId: values.warehouseId || warehouseId,
+                    ownerId: values.ownerId,
+                    allocationId: values.allocationId || field(record, "activeAttemptId") || fulfillmentId,
+                    attemptId: values.attemptId || field(record, "activeAttemptId"),
+                    cellId: values.cellId,
+                    routeEpoch: Number(values.routeEpoch || "1"),
+                    lines: [{
+                      orderLineId: values.orderLineId,
+                      skuId: values.skuId,
+                      sourceLocationId: values.sourceLocationId,
+                      lotId: values.lotId || "NO_LOT",
+                      qty: values.qty,
+                      baseUnit: values.baseUnit || "EA",
+                      minRemainingDays: Number(values.minRemainingDays || "0")
+                    }]
+                  }]
+                }
+              })}
+            >
+              <Form.Item label="企业" name="enterpriseId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="参与仓" name="warehouseId" initialValue={warehouseId}><Input /></Form.Item>
+              <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="attemptId" name="attemptId"><Input placeholder="默认用活动 attempt" /></Form.Item>
+              <Form.Item label="allocationId" name="allocationId"><Input /></Form.Item>
+              <Form.Item label="cellId" name="cellId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="routeEpoch" name="routeEpoch" initialValue="1"><Input /></Form.Item>
+              <Form.Item label="履约行" name="orderLineId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="来源库位" name="sourceLocationId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="批次" name="lotId" initialValue="NO_LOT"><Input /></Form.Item>
+              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="单位" name="baseUnit" initialValue="EA"><Input /></Form.Item>
+            </CommandCard>
+          </CommandCol>
           <CommandCol title="生成本仓出库单" requireScope="fulfillment.execute">
             <CommandCard
               embedded

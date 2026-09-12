@@ -1,6 +1,6 @@
 # 本地运行与验证
 
-文件名保留以兼容已有链接；内容已按 `main 3e2c720`（2026-09-13）更新，覆盖当前实现。快速导航：[容器运行](../../deploy/README.md)、[连接清单](../operations/INFRASTRUCTURE.md)、[版本记录](VERSION_LOCK.md)、[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
+文件名保留以兼容已有链接；内容已按 `main c5c96e3`（2026-09-13）更新，覆盖当前实现。快速导航：[容器运行](../../deploy/README.md)、[连接清单](../operations/INFRASTRUCTURE.md)、[版本记录](VERSION_LOCK.md)、[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
 
 ## 运行路径
 
@@ -71,6 +71,6 @@ python3 scripts/check-required-its.py --suite failure
 
 ## CI 与发布边界
 
-[verify.yml](../../.github/workflows/verify.yml) 执行脚本/文档/契约检查、Java 默认验证、进程 smoke、三组独立 profile 和前端检查，并上传测试报告；没有生产部署步骤。该基线的 [main CI 已通过](https://github.com/lirji/wms-platform/actions/runs/34721632607)。文档整理复用代码基线证据，不冒充重跑。
+[verify.yml](../../.github/workflows/verify.yml) 执行脚本/文档/契约检查、Java 默认验证、进程 smoke、三组独立 profile 和前端检查，并上传测试报告；没有生产部署步骤。后端复用未变代码基线 `3e2c720` 的 [main CI 通过证据](https://github.com/lirji/wms-platform/actions/runs/34721632607)；后续控制台变更的 CI 单独记录于[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。文档整理不冒充业务重跑。
 
 现有规则允许纯文档提交使用 `[skip ci]` / `[ci skip]` / `[no ci]`，不适用于代码修改；使用时仍先本地完成文档相关检查，并在交付摘要明确 CI 跳过。未完成远程 CI 不能记为成功。持续 Git 授权只涵盖正常提交/推送，不等同于生产部署授权。
