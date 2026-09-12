@@ -35,7 +35,7 @@
 
     <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLine" resultType="map">
-        SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, stock_sync_status, version
+        SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, cancelled_posted_qty, base_unit, stock_sync_status, version
         FROM outbound_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -44,7 +44,7 @@
 
     <!-- lockLineByOrderLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLineByOrderLine" resultType="map">
-        SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, stock_sync_status, version
+        SELECT id, order_id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, cancelled_posted_qty, base_unit, stock_sync_status, version
         FROM outbound_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -112,7 +112,7 @@
     <!-- addCancelled：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <update id="addCancelled">
         UPDATE outbound_line
-        SET cancelled_qty=cancelled_qty+#{qty}, version=version+1, updated_at=#{now}
+        SET cancelled_qty=cancelled_qty+#{qty}, stock_sync_status='PENDING', version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{lineId}
@@ -126,7 +126,7 @@
 
     <!-- lockTask：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockTask" resultType="map">
-        SELECT id, document_id, document_line_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, action_id, device_command_id, version
+        SELECT id, document_id, document_line_id, source_location_id, target_location_id, planned_qty, completed_qty, state, assignee_id, claim_epoch, action_id, device_command_id, version
         FROM outbound_task
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -187,7 +187,7 @@
 
     <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listLines" resultType="map">
-        SELECT id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, base_unit, stock_sync_status, version
+        SELECT id, order_line_id, sku_id, allocated_qty, picked_physical_qty, picked_posted_qty, packed_physical_qty, packed_posted_qty, shipped_physical_qty, shipped_posted_qty, cancelled_qty, cancelled_posted_qty, base_unit, stock_sync_status, version
         FROM outbound_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
@@ -225,5 +225,27 @@
         UPDATE outbound_task SET state='CANCELLED', version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND document_line_id=#{lineId}
             AND task_type='PICK' AND state IN ('PLANNED','STARTED')
+    </update>
+    <insert id="addBucketPicked">
+        INSERT INTO outbound_bucket_progress(enterprise_id,warehouse_id,line_id,location_id,lot_id,
+            picked_posted_qty,shipped_physical_qty,version,created_at,updated_at)
+        VALUES(#{enterpriseId},#{warehouseId},#{lineId},#{locationId},#{lotId},#{qty},0,0,#{now},#{now})
+        ON DUPLICATE KEY UPDATE picked_posted_qty=picked_posted_qty+#{qty},version=version+1,updated_at=#{now}
+    </insert>
+    <update id="claimBucketShipment">
+        UPDATE outbound_bucket_progress SET shipped_physical_qty=shipped_physical_qty+#{qty},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND line_id=#{lineId}
+            AND location_id=#{locationId} AND lot_id=#{lotId} AND shipped_physical_qty+#{qty}&lt;=picked_posted_qty
+    </update>
+    <update id="addCancelledPosted">
+        UPDATE outbound_line SET cancelled_posted_qty=cancelled_posted_qty+#{qty}, version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
+          AND cancelled_posted_qty+#{qty}&lt;=cancelled_qty
+    </update>
+    <update id="refreshStockSync">
+        UPDATE outbound_line SET stock_sync_status=CASE
+            WHEN picked_posted_qty=picked_physical_qty AND shipped_posted_qty=shipped_physical_qty
+                AND cancelled_posted_qty=cancelled_qty THEN 'POSTED' ELSE 'PENDING' END
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
     </update>
 </mapper>

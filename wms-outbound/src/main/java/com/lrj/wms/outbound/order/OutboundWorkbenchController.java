@@ -34,8 +34,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class OutboundWorkbenchController {
     private final SqlSessionFactory sessions;
 
-    public OutboundWorkbenchController(SqlSessionFactory sessions) {
-        this.sessions = sessions;
+    private final boolean messagingEnabled;
+    public OutboundWorkbenchController(SqlSessionFactory sessions,
+            @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}") boolean messagingEnabled) {
+        this.sessions = sessions; this.messagingEnabled = messagingEnabled;
     }
 
     @GetMapping("/outbound-orders")
@@ -158,9 +160,13 @@ public class OutboundWorkbenchController {
             @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.PickRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
-            Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).pickPartial(
+            requireContext(body.lotId(), body.lotId());
+            Map<String, Object> result = body.lotId() == null
+                    ? new OutboundOrderService(session, Clock.systemUTC()).pickPartial(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
+                        taskId, com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId())
+                    : new OutboundPostingService(session, Clock.systemUTC()).pick(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, taskId,
-                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.pickPartId(), body.lotId());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "PICKED"));
         }
@@ -185,9 +191,13 @@ public class OutboundWorkbenchController {
             @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.ShipRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
-            Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).shipPartial(
+            requireContext(body.stagingLocationId(), body.lotId());
+            Map<String, Object> result = body.lotId() == null
+                    ? new OutboundOrderService(session, Clock.systemUTC()).shipPartial(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
+                        outboundOrderId, body.orderLineId(), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId())
+                    : new OutboundPostingService(session, Clock.systemUTC()).ship(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), qty(body.qty()), body.shipmentPartId(), body.stagingLocationId(), body.lotId());
             session.commit();
             Map<String, Object> accepted = accepted(warehouseId, result, "SHIPPED");
             accepted.put("statusUrl", "/api/wms/v1/warehouses/" + warehouseId + "/outbound-orders/" + outboundOrderId);
@@ -201,9 +211,13 @@ public class OutboundWorkbenchController {
             @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody OutboundWorkbenchRequests.CancelRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession(false)) {
-            Map<String, Object> result = new OutboundOrderService(session, Clock.systemUTC()).cancelUnpicked(
+            requireContext(body.sourceLocationId(), body.lotId());
+            Map<String, Object> result = body.lotId() == null
+                    ? new OutboundOrderService(session, Clock.systemUTC()).cancelUnpicked(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
+                        outboundOrderId, body.orderLineId(), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), body.qty())
+                    : new OutboundPostingService(session, Clock.systemUTC()).cancel(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, outboundOrderId, body.orderLineId(),
-                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
+                    com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), body.sourceLocationId(), body.lotId(), body.qty());
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, result, "CANCEL_REQUESTED"));
         }
@@ -230,10 +244,17 @@ public class OutboundWorkbenchController {
         return ResponseEntity.status(status).body(HttpJson.error(error.code(), error.getMessage()));
     }
 
+    /** 旧无消息客户端保留兼容入口；启用真实投递后，缺原始桶只能拒绝，不能猜测。 */
+    private void requireContext(String location, String lot) {
+        if ((location == null) != (lot == null) || messagingEnabled && (location == null || lot == null)
+                || location != null && location.isBlank() || lot != null && lot.isBlank())
+            throw new OutboundException("POSTING_CONTEXT_REQUIRED", "启用消息后需要原始库位和批次，且必须成组提供");
+    }
+
     private static Map<String, Object> accepted(String warehouseId, Map<String, Object> result, String physical) {
         Map<String, Object> body = new LinkedHashMap<>(HttpJson.row(result));
         body.put("physicalStatus", physical);
-        body.put("stockSyncStatus", "PENDING");
+        body.put("stockSyncStatus", "APPLIED".equals(result.get("state")) ? "POSTED" : result.getOrDefault("state", "PENDING"));
         body.put("operationId", result.getOrDefault("commandId", result.get("taskId")));
         body.put("statusUrl", "/api/wms/v1/warehouses/" + warehouseId + "/outbound-orders/"
                 + result.getOrDefault("documentId", result.getOrDefault("orderId", "")));

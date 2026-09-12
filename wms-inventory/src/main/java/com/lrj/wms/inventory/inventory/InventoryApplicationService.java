@@ -511,6 +511,79 @@ public final class InventoryApplicationService {
         }
     }
 
+    /**
+     * 运行消息按原订单行消费已确认预占。桶相同并不意味着预占归属相同；
+     * 多次拣货形成多个子行，发运必须有界地消费这些子行，不能只取第一行。
+     * 本方法仅在StockCommand事务内调用，幂等由外层原命令/凭证承担。
+     */
+    public void postOutboundReservation(String enterpriseId, String warehouseId, String operationId, String documentId,
+            String actorId, String action, String allocationId, String attemptId, String orderLineId,
+            StockBucketKey source, StockBucketKey target, Quantity qty) {
+        if (!java.util.Set.of("PICK", "SHIP", "CANCEL").contains(action) || orderLineId == null
+                || orderLineId.isBlank() || orderLineId.length() > 64) {
+            throw new InventoryException("INVALID_RESERVATION_CONTEXT", "需要明确动作和原预占订单行");
+        }
+        requireSameScope(enterpriseId, warehouseId, source); requirePositive(qty);
+        if (!InventoryCodes.QUALITY_GOOD.equals(source.qualityCode()))
+            throw new InventoryException("INVALID_RESERVATION_CONTEXT", "出库仅消费合格库存预占");
+        boolean pick = "PICK".equals(action), ship = "SHIP".equals(action);
+        if (pick) {
+            if (target == null || source.locationId().equals(target.locationId())
+                    || !StockBucketKey.of(enterpriseId, warehouseId, source.ownerId(), target.locationId(),
+                        source.skuId(), source.lotId(), source.qualityCode()).equals(target)) {
+                throw new InventoryException("INVALID_RESERVATION_CONTEXT", "拣货只能在同货主商品批次质量内转桶");
+            }
+        } else if (target != null) throw new InventoryException("INVALID_RESERVATION_CONTEXT", "该动作没有目标桶");
+        requireWritable(enterpriseId, warehouseId);
+        InventoryMapper mapper = mapper(); Timestamp now = now();
+        var keys = pick ? StockBucketKey.lockOrder(List.of(source, target)) : List.of(source);
+        for (String location : keys.stream().map(StockBucketKey::locationId).distinct().sorted().toList())
+            requireGate(mapper, enterpriseId, warehouseId, location, InventoryCodes.CMD_NORMAL_MUTATION);
+        var head = mapper.lockReservationByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
+        if (head == null || !ReservationState.CONFIRMED.equals(head.get("state")))
+            throw new InventoryException("RESERVATION_NOT_CONFIRMED", "仅原尝试已确认预占可执行出库");
+        // 取消释放不受效期阻止；新拣发不能绕过实时批次校验。
+        if (pick || ship) requireLiveLot(enterpriseId, warehouseId, source);
+        Map<StockBucketKey, Map<String, Object>> balances = new java.util.LinkedHashMap<>();
+        for (var key : keys) balances.put(key, ensureBalance(mapper, key, now));
+        var sourceRow = balances.get(source);
+        var lines = mapper.lockOutboundLines(enterpriseId, warehouseId, String.valueOf(head.get("id")), orderLineId,
+                String.valueOf(sourceRow.get("id")), ship);
+        boolean hasMore = lines.size() > 200;
+        if (hasMore) lines = lines.subList(0, 200);
+        BigDecimal amount = qty.toBigDecimal();
+        BigDecimal available = lines.stream().map(row -> decimal(row, "remaining_qty")).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (available.compareTo(amount) < 0) throw new InventoryException(hasMore ? "RESERVATION_BATCH_LIMIT" : "RESERVATION_LINE_INSUFFICIENT",
+                hasMore ? "当前前200条分批不足，请减小本次数量继续消费" : "原订单行对应桶的可执行预占不足");
+        BigDecimal rest = amount;
+        for (var line : lines) {
+            if (rest.signum() == 0) break;
+            BigDecimal part = rest.min(decimal(line, "remaining_qty")); String id = String.valueOf(line.get("id"));
+            int changed = pick ? mapper.casSplitPick(enterpriseId, warehouseId, id, part, now)
+                    : ship ? mapper.casConsumePicked(enterpriseId, warehouseId, id, part, now)
+                    : mapper.casReleaseUnpicked(enterpriseId, warehouseId, id, part, now);
+            if (changed != 1) throw new InventoryException("VERSION_CONFLICT", "预占分批消费冲突");
+            if (pick && mapper.insertReservationLine(UUID.randomUUID().toString(), enterpriseId, warehouseId,
+                    String.valueOf(head.get("id")), id, orderLineId, String.valueOf(balances.get(target).get("id")),
+                    part, part, part, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, now) != 1)
+                throw new InventoryException("VERSION_CONFLICT", "已拣预占分批创建冲突");
+            rest = rest.subtract(part);
+        }
+        BigDecimal physical = pick || ship ? amount.negate() : BigDecimal.ZERO;
+        apply(mapper, enterpriseId, warehouseId, String.valueOf(sourceRow.get("id")), physical, amount.negate(),
+                longValue(sourceRow.get("version")), now, "STOCK_INSUFFICIENT", "出库库存数量或占用冲突");
+        writeLedger(mapper, enterpriseId, warehouseId, operationId, 1, source,
+                pick ? InventoryCodes.REASON_MOVE_OUT : ship ? InventoryCodes.REASON_SHIP : InventoryCodes.REASON_RELEASE,
+                physical, amount.negate(), documentId, actorId, now);
+        if (pick) {
+            var row = balances.get(target);
+            apply(mapper, enterpriseId, warehouseId, String.valueOf(row.get("id")), amount, amount,
+                    longValue(row.get("version")), now, "VERSION_CONFLICT", "拣入库存版本冲突");
+            writeLedger(mapper, enterpriseId, warehouseId, operationId, 2, target, InventoryCodes.REASON_MOVE_IN,
+                    amount, amount, documentId, actorId, now);
+        }
+    }
+
     /** 发运：实物与预占同量减少。permit/claim 在 S2-04a。 */
     public void ship(String enterpriseId, String warehouseId, String operationId, String documentId, String actorId,
             StockBucketKey bucket, Quantity qty) {

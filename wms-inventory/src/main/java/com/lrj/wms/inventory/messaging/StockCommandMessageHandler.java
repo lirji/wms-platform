@@ -19,12 +19,17 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
     public StockCommandMessageHandler(Clock clock) { this.clock = clock; }
 
     @Override public void apply(SqlSession session, RuntimeMessage message) {
-        if (!"wms-inbound".equals(message.sourceService()) || !"StockCommandRequested".equals(message.eventType())) {
+        boolean outbound = "wms-outbound".equals(message.sourceService());
+        if ((!outbound && !"wms-inbound".equals(message.sourceService())) || !"StockCommandRequested".equals(message.eventType())) {
             throw new MessageRejectedException("UNSUPPORTED_COMMAND_SOURCE");
         }
         JsonNode payload = message.payload();
         String action = required(payload, "action");
-        if (!Set.of("RECEIVE", "QUALITY", "PUTAWAY").contains(action)) throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
+        if (!(outbound ? Set.of("PICK", "SHIP", "CANCEL") : Set.of("RECEIVE", "QUALITY", "PUTAWAY")).contains(action))
+            throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
+        if (outbound && (!payload.path("outboundSchemaVersion").isIntegralNumber()
+                || !payload.path("outboundSchemaVersion").canConvertToInt() || payload.path("outboundSchemaVersion").intValue() != 1))
+            throw new MessageRejectedException("UNSUPPORTED_OUTBOUND_SCHEMA");
         StockPostingContext context;
         BigDecimal rawQty;
         try {
@@ -41,7 +46,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         var location = masterdata.getLocation(enterprise, warehouse, context.sourceLocationId());
         if (!active(sku) || !active(wh) || !active(location)) throw new MessageRejectedException("MASTERDATA_NOT_ACTIVE");
         if (!context.baseUnit().equals(sku.get("base_unit"))) throw new MessageRejectedException("BASE_UNIT_MISMATCH");
-        if (flag(sku.get("serial_enabled"))) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
+        if (flag(sku.get("serial_enabled")) && !"CANCEL".equals(action)) throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
         boolean hasLot = !"NO_LOT".equals(context.lotId());
         if (flag(sku.get("lot_enabled")) != hasLot) throw new MessageRejectedException("LOT_POLICY_MISMATCH");
         if (hasLot) {
@@ -56,7 +61,16 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         String commandId = required(payload, "commandId");
         var bucket = StockBucketKey.of(enterprise, warehouse, context.ownerId(), context.sourceLocationId(), context.skuId(), context.lotId(), context.qualityCode());
         Map<String, Object> command;
-        if ("QUALITY".equals(action)) {
+        if (outbound) {
+            if ("PICK".equals(action)) {
+                var targetLocation = masterdata.getLocation(enterprise, warehouse, context.targetLocationId());
+                if (!active(targetLocation)) throw new MessageRejectedException("INVALID_PICK_LOCATION");
+            }
+            command = new StockCommandService(session, clock).applyOutbound(enterprise, warehouse, commandId, action,
+                    required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
+                    required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "reservationOrderLineId"),
+                    context, qty, payload.hasNonNull("previousCommandId") ? required(payload, "previousCommandId") : null);
+        } else if ("QUALITY".equals(action)) {
             com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
             try {
                 var rawDecision = payload.path("qualityDecision");

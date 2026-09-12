@@ -501,6 +501,64 @@ public final class StockCommandService {
         return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
     }
 
+    /**
+     * 出库运行命令使用完整原始身份摘要，T2同时提交预占、余额、流水及来源执行凭证。
+     * CANCEL是独立释放业务效果，APPLIED回执不等于将另一条PICK/SHIP命令取消。
+     */
+    public Map<String, Object> applyOutbound(String enterpriseId, String warehouseId, String commandId, String action,
+            String factParentId, String factPartId, String factLineId, String actorId, String sourceExecutionId,
+            String reservationOrderLineId, com.lrj.wms.contract.messaging.StockPostingContext context,
+            Quantity qty, String previousCommandId) {
+        if (!java.util.Set.of("PICK", "SHIP", "CANCEL").contains(action))
+            throw new InventoryException("INVALID_RESERVATION_CONTEXT", "未知出库动作");
+        context.requireForAction(action);
+        for (String id : new String[] {commandId, factParentId, factPartId, factLineId, sourceExecutionId, reservationOrderLineId})
+            if (id == null || id.isBlank() || id.length() > 64) throw new InventoryException("INVALID_RESERVATION_CONTEXT", "原出库身份缺失或超长");
+        String sourceService = StockCommandCodes.SOURCE_OUTBOUND;
+        var json = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        String digest = com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(json.writeValueAsString(
+                java.util.List.of("OUTBOUND_POSTING_V1", enterpriseId, warehouseId, action, factParentId, factPartId,
+                        factLineId, sourceExecutionId, reservationOrderLineId, context, qty.toBigDecimal().stripTrailingZeros().toPlainString())));
+        Timestamp now = Timestamp.from(clock.instant());
+        var effects = session.getMapper(EffectMapper.class); var commands = session.getMapper(StockCommandMapper.class);
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
+                "SHIP".equals(action) ? EffectCodes.FACT_SHIPMENT_PART : EffectCodes.FACT_SUB_ACTION,
+                factParentId, factPartId, factLineId, now);
+        var effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        var reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId, action, effectId, effect, previousCommandId, digest);
+        if (reused != null) {
+            if (!digest.equals(reused.get("payload_digest"))) throw new InventoryException("COMMAND_CONFLICT", "同出库事实不能更换预占或过账维度");
+            return view(reused);
+        }
+        long attempt = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId, action,
+                effectId, digest, previousCommandId, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null)
+            return get(enterpriseId, warehouseId, sourceService, commandId);
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attempt, EffectCodes.STATE_OPEN, now) != 1)
+            throw new InventoryException("VERSION_CONFLICT", "出库效果绑定冲突");
+        var source = StockBucketKey.of(enterpriseId, warehouseId, context.ownerId(), context.sourceLocationId(),
+                context.skuId(), context.lotId(), context.qualityCode());
+        var target = context.targetLocationId() == null ? null : StockBucketKey.of(enterpriseId, warehouseId, context.ownerId(),
+                context.targetLocationId(), context.skuId(), context.lotId(), context.qualityCode());
+        // 库存流水operationId跨来源共享唯一空间，按企业/仓/服务/原命令生成稳定身份。
+        String operation = com.lrj.wms.runtime.messaging.RuntimeMessage.hash(json.writeValueAsString(
+                java.util.List.of(sourceService, enterpriseId, warehouseId, commandId)));
+        new InventoryApplicationService(session, clock).postOutboundReservation(enterpriseId, warehouseId, operation,
+                context.documentId(), actorId, action, context.allocationId(), context.allocationAttemptId(),
+                reservationOrderLineId, source, target, qty);
+        String postingId = UUID.randomUUID().toString();
+        String postingType = "SHIP".equals(action) ? StockCommandCodes.POSTING_SHIPMENT : "CANCEL".equals(action) ? "RELEASE" : StockCommandCodes.POSTING_PICK;
+        String manifest = json.writeValueAsString(Map.of("operationId", operation, "reservationOrderLineId", reservationOrderLineId,
+                "allocationId", context.allocationId(), "allocationAttemptId", context.allocationAttemptId()));
+        if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
+                UUID.randomUUID().toString(), postingType, qty.toBigDecimal(), sourceExecutionId, context.documentId(), manifest, now) != 1
+                || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1
+                || commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                    StockCommandCodes.CMD_APPLIED, json.writeValueAsString(Map.of("postingId", postingId)), now) != 1)
+            throw new InventoryException("VERSION_CONFLICT", "出库凭证与命令必须同时提交");
+        return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
+    }
+
     /** 设备未知：permit/效果进入 UNKNOWN，不释放占用，不能普通取消。 */
     public Map<String, Object> markUnknown(String enterpriseId, String warehouseId, String sourceService, String commandId) {
         Timestamp now = Timestamp.from(clock.instant());

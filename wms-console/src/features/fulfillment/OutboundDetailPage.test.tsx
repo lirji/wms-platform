@@ -28,7 +28,7 @@ describe("OutboundDetailPage", () => {
     expect(screen.getByRole("button", { name: "确认包装" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^部分发运$/ }));
     expect(screen.getByRole("button", { name: "确认发运" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /^取消未拣回库$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^取消未拣$/ }));
     expect(screen.getByRole("button", { name: "取消剩余" })).toBeTruthy();
   });
 });

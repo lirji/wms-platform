@@ -1,10 +1,10 @@
 # 消息运行与恢复
 
-当前实现范围：入库HTTP收货RECEIVE → 来源T1/Outbox → Kafka → 库存Inbox/T2/结果Outbox → Kafka → 来源Inbox/T3，以及库存事件查询投影。质检、上架和出库消息链仍在实施；不得据此关闭整个 R13。只操作本项目隔离组件，未部署生产。
+当前实现范围：入库HTTP收货RECEIVE → 来源T1/Outbox → Kafka → 库存Inbox/T2/结果Outbox → Kafka → 来源Inbox/T3，以及库存事件查询投影。分批质检/上架已验证，出库实现和证据见[出库消息](OUTBOUND_MESSAGING.md)，序列号身份链仍在实施；不得据此关闭整个 R13。只操作本项目隔离组件，未部署生产。
 
 ## 配置和启动
 
-Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGING_ENABLED=false`，验证收货闭环时完成数据库/OIDC配置后同时设为 true；本机进程使用 `.env.example` 的 `WMS_MESSAGING_*`。开启而没有 broker 或数据库时启动失败。先执行本项目 kafka-init 创建 `<prefix>.inventory.events`、`<prefix>.inbound.commands`、`<prefix>.inbound.results`；不开启自动建 Topic。隔离开发 Topic 一分区、一副本，最多保留七天或每分区256MiB，这是测试容量上限，不是生产保留依据或高可用承诺。旧 outbox Topic 保留供旧夹具使用，不自动迁移位点。
+Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGING_ENABLED=false`，验证收货闭环时完成数据库/OIDC配置后同时设为 true；本机进程使用 `.env.example` 的 `WMS_MESSAGING_*`。开启而没有 broker 或数据库时启动失败。先执行本项目 kafka-init 创建 `<prefix>.inventory.events`、`<prefix>.inbound.commands`、`<prefix>.inbound.results`；出库还需outbound.commands/outbound.results，履约确认还需fulfillment.results。不开启自动建 Topic。隔离开发 Topic 一分区、一副本，最多保留七天或每分区256MiB，这是测试容量上限，不是生产保留依据或高可用承诺。旧 outbox Topic 保留供旧夹具使用，不自动迁移位点。
 
 生产凭据按来源服务独立分配：inbound 写本环境 inbound.commands、读 inbound.results；inventory 读 inbound.commands，写 inbound.results 和 inventory.events，投影消费者只读同环境 inventory.events 和自己的消费者组。企业/仓在受信服务信封中验证；Topic 来源校验依赖 broker ACL，开发 PLAINTEXT 无法提供身份认证。TLS/SASL 凭据从受控环境注入，不记录 JAAS/令牌。生产副本、ISR、保留、ACL、容量、RTO/RPO 需要真实环境确认。
 
@@ -28,7 +28,7 @@ Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGIN
 
 收货请求新增可选 `locationId` / `lotId`，两者成组；来源消息开关启用时必须提供。旧客户端的两者均省略模式只适用于尚未启用消息的兼容窗口。调用方不提交owner/SKU/单位/质量：来源从自己的订单行读取owner、SKU和基础单位，并将RECEIVE质量固定为HOLD；库存服务仍须再次依据权威SKU/批次/库位进行校验。无批次标识也必须显式提交，不能为旧命令回填猜测值。
 
-`StockPostingContext`位于公开契约模块；`SourceCommandContextStore`只操作当前服务自己的来源协议表。原始上下文、摘要和requestId在同一个T1写入source_command与source_outbox。重放只比较业务维度，保留首次执行人、时刻和关联ID；历史命令没有上下文时返回明确冲突，需要有证据的核对恢复。此步骤已由收货运行链路使用，其他动作仍需各自的库存适配与故障验证。
+`StockPostingContext`位于公开契约模块；`SourceCommandContextStore`只操作当前服务自己的来源协议表。原始上下文、摘要和requestId在同一个T1写入source_command与source_outbox。重放只比较业务维度，保留首次执行人、时刻和关联ID；历史命令没有上下文时返回明确冲突，需要有证据的核对恢复。此步骤已用于收货、分批质检/上架；出库额外冻结原预占订单行和outboundSchemaVersion，见出库消息文档。
 
 来源发布器和追加迁移已用SourceOutboxIT通过真实Kafka/MySQL验证。每条领取单独提交，元数据查询后释放连接，收到broker确认后按领取代际置PUBLISHED；旧上下文和过期尝试隔离。来源运行Bean、库存RECEIVE T2消费和结果回传已接通；其他动作仍在实施。
 

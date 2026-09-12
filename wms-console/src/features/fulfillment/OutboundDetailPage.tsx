@@ -121,10 +121,11 @@ export function OutboundDetailPage() {
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${values.taskId}/picks`, token, {
                 method: "POST",
                 idempotencyKey: key,
-                body: { qty: values.qty, clientOperationId: key }
+                body: { qty: values.qty, lotId: values.lotId, clientOperationId: key }
               })}
             >
               <Form.Item label="任务" name="taskId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="批次" name="lotId" rules={[{ required: true }]} extra="不管理批次的商品填写 NO_LOT"><Input /></Form.Item>
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
@@ -153,7 +154,7 @@ export function OutboundDetailPage() {
               embedded
               requireScope="outbound.ship"
               title="部分发运"
-              hint="不能超过已包装未发量。货已发出、库存待同步时不要再点一次当新发运。"
+              hint="必须已有本集货位、批次的拣货过账回执，且不能超过已包装未发量。"
               operation={`ship:${outboundOrderId}`}
               submitLabel="确认发运"
               disabled={!token}
@@ -161,20 +162,22 @@ export function OutboundDetailPage() {
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/shipments`, token, {
                 method: "POST",
                 idempotencyKey: key,
-                body: { orderLineId: values.orderLineId, qty: values.qty, clientOperationId: key }
+                body: { orderLineId: values.orderLineId, qty: values.qty, stagingLocationId: values.stagingLocationId, lotId: values.lotId, clientOperationId: key }
               })}
             >
+              <Form.Item label="集货位" name="stagingLocationId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="批次" name="lotId" rules={[{ required: true }]} extra="不管理批次的商品填写 NO_LOT"><Input /></Form.Item>
               <Form.Item label="出库行" name="orderLineId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol title="取消未拣回库" requireScope="outbound.pick">
+          <CommandCol title="取消未拣" requireScope="outbound.pick">
             <CommandCard
               embedded
               danger
               requireScope="outbound.pick"
-              title="取消未拣回库"
-              hint="只取消未拣剩余。已拣未发不会在这里直接回滚库存。"
+              title="取消未拣"
+              hint="释放指定原库位和批次的未拣预占，等待库存回执。"
               operation={`cancel:${outboundOrderId}`}
               submitLabel="取消剩余"
               disabled={!token}
@@ -182,9 +185,12 @@ export function OutboundDetailPage() {
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/cancellations`, token, {
                 method: "POST",
                 idempotencyKey: key,
-                body: { orderLineId: values.orderLineId, clientOperationId: key }
+                body: { orderLineId: values.orderLineId, sourceLocationId: values.sourceLocationId, lotId: values.lotId, qty: values.qty, clientOperationId: key }
               })}
             >
+              <Form.Item label="本桶取消量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="原库位" name="sourceLocationId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="批次" name="lotId" rules={[{ required: true }]} extra="不管理批次的商品填写 NO_LOT"><Input /></Form.Item>
               <Form.Item label="出库行" name="orderLineId" rules={[{ required: true }]}><Input /></Form.Item>
             </CommandCard>
           </CommandCol>

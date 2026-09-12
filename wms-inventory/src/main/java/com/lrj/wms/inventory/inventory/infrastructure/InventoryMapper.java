@@ -148,4 +148,13 @@ public interface InventoryMapper {
     /** casReleaseRemaining：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int casReleaseRemaining(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("expected") BigDecimal expected, @Param("now") Timestamp now);
+    /** 按原订单行锁定有界预占分批；不能拿同桶其他订单行或已拣行代替未拣行。 */
+    java.util.List<Map<String, Object>> lockOutboundLines(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("reservationId") String reservationId,
+            @Param("orderLineId") String orderLineId, @Param("balanceId") String balanceId,
+            @Param("picked") boolean picked);
+
+    /** 未拣分批允许部分释放；有在途占用的行不参与普通取消。 */
+    int casReleaseUnpicked(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 }

@@ -156,6 +156,8 @@ public final class OutboundOrderService {
         if (replay != null) {
             replay.put("taskId", taskId); replay.put("lineId", line.get("id")); return replay;
         }
+        if (!java.util.Set.of(TASK_PLANNED, TASK_STARTED).contains(String.valueOf(task.get("state"))))
+            throw new OutboundException("TASK_NOT_EXECUTABLE", "已完成或取消任务不能受理新的拣货分批");
         BigDecimal remainTask = decimal(task.get("planned_qty")).subtract(decimal(task.get("completed_qty")));
         if (qty.compareTo(remainTask) > 0 || qty.compareTo(remainUnpicked(line)) > 0) {
             throw new OutboundException("OVER_PICK", "拣货超过任务或行剩余量");
@@ -189,7 +191,9 @@ public final class OutboundOrderService {
             if (mapper().addPickedPosted(enterpriseId, warehouseId, lineId, postedQty, "POSTED", now()) != 1) {
                 throw new OutboundException("VERSION_CONFLICT", "拣货回执累计与实物数量不一致");
             }
+            new OutboundPostingService(session, clock).recordPickResult(enterpriseId, warehouseId, lineId, commandId, postedQty);
         }
+        mapper().refreshStockSync(enterpriseId, warehouseId, lineId);
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
         return result;
     }
@@ -274,13 +278,20 @@ public final class OutboundOrderService {
                 throw new OutboundException("OVER_SHIP", "过账发运超过实物发运");
             }
         }
+        mapper().refreshStockSync(enterpriseId, warehouseId, lineId);
         result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
         return result;
     }
 
-    /** 发运前取消未拣剩余量，写回库任务与来源取消命令。已拣未发不直接回滚库存。 */
+    /** 发运前取消未拣剩余量，记录释放意图并等待库存回执。已拣未发不直接回滚库存。 */
     public Map<String, Object> cancelUnpicked(String enterpriseId, String warehouseId, String orderId, String orderLineId,
             String commandId, String actorId) {
+        return cancelUnpicked(enterpriseId, warehouseId, orderId, orderLineId, commandId, actorId, null);
+    }
+
+    /** 指定本桶取消量，支持同订单行分布在多个批次/库位时分批释放；省略沿用整行剩余。 */
+    public Map<String, Object> cancelUnpicked(String enterpriseId, String warehouseId, String orderId, String orderLineId,
+            String commandId, String actorId, BigDecimal requestedQty) {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
@@ -289,12 +300,14 @@ public final class OutboundOrderService {
         var protocol = new SourceProtocolService(session, clock);
         String taskId = com.lrj.wms.runtime.command.CommandReplay.partId(orderId, commandId);
         Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_CANCEL, "SUB_ACTION",
-                enterpriseId, warehouseId, commandId, orderId, taskId, String.valueOf(line.get("id")), null);
+                enterpriseId, warehouseId, commandId, orderId, taskId, String.valueOf(line.get("id")), requestedQty);
         if (replay != null) {
-            replay.put("cancelledQty", replay.get("qty")); replay.put("taskId", taskId);
+            replay.put("cancelledQty", replay.get("qty")); replay.put("cancellationPartId", taskId);
             replay.put("action", SourceProtocolService.ACTION_CANCEL); return replay;
         }
-        BigDecimal remain = remainUnpicked(line);
+        BigDecimal remaining = remainUnpicked(line);
+        BigDecimal remain = requestedQty == null ? remaining : requestedQty;
+        if (remain.compareTo(remaining) > 0) throw new OutboundException("OVER_CANCEL", "取消超过原行未拣剩余");
         if (remain.signum() <= 0) {
             throw new OutboundException("NOTHING_TO_CANCEL", "没有可取消的未拣量");
         }
@@ -305,14 +318,29 @@ public final class OutboundOrderService {
                 throw new OutboundException("VERSION_CONFLICT", "取消数量更新冲突");
             }
             mapper.cancelOpenPickTasks(enterpriseId, warehouseId, String.valueOf(line.get("id")), now);
-            mapper.insertTask(taskId, enterpriseId, warehouseId, TASK_RESTOCK, orderId, String.valueOf(line.get("id")),
-                    null, null, remain, TASK_PLANNED, now);
+            // 未拣库存从未移出原桶，只需释放预占；不能生成无库位的虚假回库任务。
             settleOrder(mapper, enterpriseId, warehouseId, orderId, String.valueOf(line.get("id")), now);
         }
         command.put("cancelledQty", remain);
-        command.put("taskId", taskId);
+        command.put("cancellationPartId", taskId);
         command.put("action", SourceProtocolService.ACTION_CANCEL);
         return command;
+    }
+
+    /** T3释放回执与来源Inbox同事务累计；取消完成不能伪装成库存实物移动。 */
+    public Map<String, Object> consumeCancel(String enterpriseId, String warehouseId, String lineId, String eventId,
+            String commandId, String resultState, String postingId, BigDecimal postedQty) {
+        var protocol = new SourceProtocolService(session, clock);
+        protocol.requireResultFact(enterpriseId, warehouseId, commandId, "CANCEL", lineId);
+        if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null)
+            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+        var result = protocol.consumeResult(enterpriseId, warehouseId, eventId, commandId, resultState, postingId, postedQty);
+        if (Boolean.TRUE.equals(result.get("consumed")) && "APPLIED".equals(resultState)
+                && mapper().addCancelledPosted(enterpriseId, warehouseId, lineId, postedQty, now()) != 1)
+            throw new OutboundException("VERSION_CONFLICT", "释放回执超过已受理取消量");
+        mapper().refreshStockSync(enterpriseId, warehouseId, lineId);
+        result.put("line", mapper().lockLine(enterpriseId, warehouseId, lineId));
+        return result;
     }
 
     private Map<String, Object> requireOrder(OutboundOrderMapper mapper, String enterpriseId, String warehouseId,

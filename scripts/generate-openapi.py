@@ -923,7 +923,12 @@ components:
       type: "object"
       additionalProperties: false
       required: ["qty"]
+      description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
       properties:
+        lotId:
+          type: string
+          minLength: 1
+          maxLength: 64
         pickPartId:
           type: string
           maxLength: 64
@@ -955,7 +960,16 @@ components:
       type: "object"
       additionalProperties: false
       required: ["orderLineId","qty"]
+      description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
       properties:
+        stagingLocationId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        lotId:
+          type: string
+          minLength: 1
+          maxLength: 64
         shipmentPartId:
           type: string
           maxLength: 64
@@ -1586,7 +1600,20 @@ components:
       type: "object"
       additionalProperties: false
       required: ["orderLineId"]
+      description: 库位及批次在消息启用时必需；消息关闭兼容期允许同时省略，不回填历史命令。
       properties:
+        qty:
+          type: string
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: 指定桶的本次取消量；省略沿用原行全部未拣剩余，不能超过原行剩余。
+        sourceLocationId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        lotId:
+          type: string
+          minLength: 1
+          maxLength: 64
         orderLineId:
           type: "string"
           maxLength: 64

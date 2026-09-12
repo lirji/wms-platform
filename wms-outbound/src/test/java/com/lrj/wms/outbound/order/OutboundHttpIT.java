@@ -62,6 +62,8 @@ class OutboundHttpIT {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired private org.apache.ibatis.session.SqlSessionFactory sessions;
+
     @AfterAll
     static void cleanup() {
         MYSQL.stop();
@@ -127,17 +129,34 @@ class OutboundHttpIT {
         HttpResponse<String> wrongType = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PUTAWAY", token);
         assertEquals(400, wrongType.statusCode());
         HttpResponse<String> picked = post("/api/wms/v1/warehouses/WH-A/tasks/" + taskId + "/picks", token, "CMD-PICK-1",
-                "{\"qty\":\"2\"}");
+                "{\"qty\":\"2\",\"lotId\":\"NO_LOT\"}");
         assertEquals(202, picked.statusCode());
         HttpResponse<String> packed = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/packings", token,
                 "CMD-PACK-1", "{\"orderLineId\":\"OL-1\",\"qty\":\"2\"}");
         assertEquals(201, packed.statusCode());
         HttpResponse<String> shipped = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/shipments",
-                token, "CMD-SHIP-1", "{\"orderLineId\":\"OL-1\",\"qty\":\"1\"}");
-        assertEquals(202, shipped.statusCode());
+                token, "CMD-SHIP-1", "{\"orderLineId\":\"OL-1\",\"qty\":\"1\",\"stagingLocationId\":\"LOC-S\",\"lotId\":\"NO_LOT\"}");
+        assertEquals(400, shipped.statusCode(), shipped.body());
+        assertTrue(shipped.body().contains("PICK_POSTING_PENDING"));
+        // 本HTTP测试没有库存进程；明确用领域回执夹具验证发运屏障，不冒充消息链路。
+        try (var session = sessions.openSession(false)) {
+            String lineId = new JdbcTemplate(dataSource).queryForObject("SELECT id FROM outbound_line WHERE order_id=? AND order_line_id='OL-1'", String.class, orderId);
+            new OutboundOrderService(session, java.time.Clock.systemUTC()).consumePick("ENT-1", "WH-A", lineId,
+                    "FIXTURE-PICK-RESULT", "CMD-PICK-1", "APPLIED", "FIXTURE-PICK-POSTING", new java.math.BigDecimal("2"));
+            session.commit();
+        }
+        shipped = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/shipments", token, "CMD-SHIP-1",
+                "{\"orderLineId\":\"OL-1\",\"qty\":\"1\",\"stagingLocationId\":\"LOC-S\",\"lotId\":\"NO_LOT\"}");
+        assertEquals(202, shipped.statusCode(), shipped.body());
         HttpResponse<String> cancelled = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/cancellations",
-                token, "CMD-CXL-1", "{\"orderLineId\":\"OL-1\"}");
-        assertEquals(202, cancelled.statusCode());
+                token, "CMD-CXL-1", "{\"orderLineId\":\"OL-1\",\"sourceLocationId\":\"LOC-P\",\"lotId\":\"NO_LOT\",\"qty\":\"1\"}");
+        assertEquals(202, cancelled.statusCode(), cancelled.body());
+        assertEquals(0, new java.math.BigDecimal("1").compareTo(new JdbcTemplate(dataSource).queryForObject(
+                "SELECT cancelled_qty FROM outbound_line WHERE order_id=?", java.math.BigDecimal.class, orderId)));
+        var cancelledTask = post("/api/wms/v1/warehouses/WH-A/tasks/" + taskId + "/picks", token, "AFTER-CANCEL",
+                "{\"qty\":\"1\",\"lotId\":\"NO_LOT\"}");
+        assertEquals(400, cancelledTask.statusCode(), cancelledTask.body());
+        assertTrue(cancelledTask.body().contains("TASK_NOT_EXECUTABLE"));
         HttpResponse<String> forbidden = get("/api/wms/v1/warehouses/WH-B/outbound-orders", token);
         assertEquals(403, forbidden.statusCode());
         String exec = token(List.of("WH-A"), List.of("outbound.create", "outbound.read", "fulfillment.execute"));

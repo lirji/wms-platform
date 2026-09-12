@@ -256,3 +256,13 @@ V014以追加迁移修复历史父目录Inbox漏扫，V015增加原分配确认�
 证据：`/tmp/wms-confirmation-verified-it.log` 2026-09-13 02:21:36 BUILD SUCCESS，FulfillmentInboxMigrationIT 1、FulfillmentHttpIT 2、ReservationTccIT 3和双进程FulfillmentConfirmationProcessesIT 1通过。最后迟到回执修复后，`/tmp/wms-confirmation-replay-final-it.log` 02:24:47 BUILD SUCCESS，FulfillmentMappingIT 3、FulfillmentBarrierIT 1和双进程确认1再次通过。验证旧Inbox原正文/微秒/epoch=7保留、审计重排不降代际、双服务最终Inbox失败全事务回滚与重启恢复、重复/错分支/未知契约处理；Compose静态config及文档/契约检查通过，默认必需用例70项。
 
 Try与TC证据是本消息测试明确提供的夹具，真实TC只读适配已有独立证据，不能拼成真实TM/RM全链。履约屏障Outbox发布器、出库授权消费、PICK/SHIP/CANCEL、序列号观察与盘点逐身份恢复继续实施。
+
+## R13 出库可靠消息与原预占归属
+
+已接通[出库消息](../../implementation/OUTBOUND_MESSAGING.md)：PICK/SHIP/CANCEL经真实Kafka在出库/库存两服务间执行T1/T2/T3。来源冻结实际桶和原业务订单行；库存按原CONFIRMED分配/attempt及订单行消费，不能借用同桶其他行。多次拣货形成的子行可一次发运，每命令最多消费200条，201条可按200+1继续。凭证关联真实sourceExecutionId，完整摘要拒绝同键改绑。
+
+来源桶级额度随PICK回执增加、SHIP首次受理条件扣用，与原命令同事务；不扫描完整历史。CANCEL按桶支持部分数量，只释放预占、不生成虚假RESTOCK，取消posted列收到回执才累计，旧任务取消后不能接新分批。消息关闭时保留旧客户端兼容，启用后必需原库位/批次，页面与87路径OpenAPI同步；Compose补齐出库和履约确认Topic，消息开关默认false。
+
+证据：/tmp/wms-outbound-bucket-final-it.log 2026-09-13 02:49:43 BUILD SUCCESS，出库双进程1、预占身份/并发/201分批真实MySQL3、入库分批双进程1、出库HTTP1/领域5/协议2及单元通过。最终回执信封与状态URL修正后，/tmp/wms-outbound-replay-final-it.log 02:51:39 BUILD SUCCESS，重新构建入库/出库/库存Jar，出库双进程1与HTTP1再通过。测试覆盖最后Outbox/Inbox写失败的全事务回滚、重启恢复、重复/换桶拒绝、错误来源动作/回执信封隔离。控制台33用例/typecheck/build通过，最后数量字段定向测试/build通过。默认必需用例74项。
+
+预占Try/Confirm和TC授权是该消息测试明确提供的夹具，不能据此声称真实履约TM/RM和授权传播完成。序列号PICK/SHIP需后续观察身份链；CANCEL不更改序列号。可信来源水位、盘点逐身份登记及最终组合CI继续实施。

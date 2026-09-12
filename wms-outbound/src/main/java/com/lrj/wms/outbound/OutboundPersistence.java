@@ -46,6 +46,7 @@ class OutboundPersistence {
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
         config.addMapper(SourceMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(OutboundTaskMapper.class);

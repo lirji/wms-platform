@@ -133,4 +133,18 @@ public interface OutboundOrderMapper {
             @Param("taskId") String taskId, @Param("commandId") String commandId);
     int cancelOpenPickTasks(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId, @Param("now") Timestamp now);
+    /** 原PICK回执去重成功后增加本桶发运额度，和来源Inbox同事务。 */
+    int addBucketPicked(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("locationId") String locationId, @Param("lotId") String lotId,
+            @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+    /** 原SHIP首次受理才消费本桶额度，不能因重放或未知结果重复占用。 */
+    int claimBucketShipment(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("locationId") String locationId, @Param("lotId") String lotId,
+            @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+    /** 取消回执只能累计到已受理取消量；重放由来源Inbox挡住。 */
+    int addCancelledPosted(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+    /** 全部拣发及取消都同步后才展示POSTED，不能用单条回执掩盖其他待同步动作。 */
+    int refreshStockSync(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("lineId") String lineId);
 }

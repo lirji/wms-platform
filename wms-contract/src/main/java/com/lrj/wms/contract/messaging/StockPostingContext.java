@@ -29,10 +29,13 @@ public record StockPostingContext(String documentId, String ownerId, String skuI
                     throw new IllegalArgumentException("上架需要不同的来源/目标库位和合格质量");
                 }
             }
-            case "PICK", "SHIP" -> {
+            case "PICK", "SHIP", "CANCEL" -> {
                 required(allocationId, 64); required(allocationAttemptId, 64);
                 if (!"GOOD".equals(qualityCode)) throw new IllegalArgumentException("出库需要合格库存");
-                if ("PICK".equals(action)) required(targetLocationId, 64);
+                if ("PICK".equals(action)) {
+                    required(targetLocationId, 64);
+                    if (sourceLocationId.equals(targetLocationId)) throw new IllegalArgumentException("拣货源目标不能相同");
+                } else if (targetLocationId != null) throw new IllegalArgumentException("发运或取消没有目标桶");
             }
             default -> throw new IllegalArgumentException("尚未定义该动作的库存过账契约");
         }

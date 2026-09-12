@@ -235,4 +235,24 @@
         AND remaining_qty&gt;0
         AND remaining_qty=#{expected}
     </update>
+    <!-- 201行为越界探针；分配头锁串行同尝试的分批变化，禁止LIMIT 1任取其他行。 -->
+    <select id="lockOutboundLines" resultType="map">
+        SELECT id, reservation_id, parent_line_id, order_line_id, balance_id, requested_qty,
+               remaining_qty, picked_qty, consumed_qty, released_qty, inflight_qty, version
+        FROM reservation_line
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+          AND reservation_id=#{reservationId} AND order_line_id=#{orderLineId} AND balance_id=#{balanceId}
+          AND remaining_qty&gt;0 AND inflight_qty=0
+        <choose>
+            <when test="picked">AND parent_line_id IS NOT NULL AND picked_qty=remaining_qty</when>
+            <otherwise>AND parent_line_id IS NULL AND picked_qty=0</otherwise>
+        </choose>
+        ORDER BY remaining_qty, id LIMIT 201 FOR UPDATE
+    </select>
+    <update id="casReleaseUnpicked">
+        UPDATE reservation_line SET released_qty=released_qty+#{qty}, remaining_qty=remaining_qty-#{qty},
+            version=version+1, updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
+          AND parent_line_id IS NULL AND picked_qty=0 AND inflight_qty=0 AND remaining_qty&gt;=#{qty}
+    </update>
 </mapper>

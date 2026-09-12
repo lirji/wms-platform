@@ -44,13 +44,13 @@ public class InventoryMessagingConfiguration {
     @Bean
     RuntimeInbox inventoryRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
         return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".inventory.events", "wms-inventory",
-                settings.topicPrefix() + ".inbound.commands", "wms-inbound"), Clock.systemUTC());
+                settings.topicPrefix() + ".inbound.commands", "wms-inbound", settings.topicPrefix() + ".outbound.commands", "wms-outbound"), Clock.systemUTC());
     }
 
     @Bean
     KafkaInboxConsumer inventoryKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
         return new KafkaInboxConsumer(settings, settings.topicPrefix() + ".inventory-projection",
-                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands"), inbox);
+                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands", settings.topicPrefix() + ".outbound.commands"), inbox);
     }
 
     @Bean
@@ -66,7 +66,7 @@ public class InventoryMessagingConfiguration {
         return new MessageWorker("inventory-inbox", () -> {
             for (int i = 0; i < 32 && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
-                    if ("wms-inbound".equals(message.sourceService())) {
+                    if (java.util.Set.of("wms-inbound", "wms-outbound").contains(message.sourceService())) {
                         new StockCommandMessageHandler(Clock.systemUTC()).apply(session, message);
                         return;
                     }

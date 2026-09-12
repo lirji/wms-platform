@@ -20,20 +20,42 @@ public final class SourceCommandContextStore {
     /** 上架等衍生动作额外固定原收货批次，不能仅因两个批次落在同桶就允许互换。 */
     public void bind(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
             String receiptCommandId, boolean replayed) {
+        bindContext(enterpriseId, warehouseId, commandId, context, receiptCommandId, null, replayed);
+    }
+
+    /** 出库同时冻结权威预占使用的原订单行，不能把来源库的内部行ID当作预占订单行。 */
+    public void bindOutbound(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
+            String reservationOrderLineId, boolean replayed) {
+        if (reservationOrderLineId == null || reservationOrderLineId.isBlank() || reservationOrderLineId.length() > 64)
+            throw new CommandConflictException();
+        bindContext(enterpriseId, warehouseId, commandId, context, null, reservationOrderLineId, replayed);
+    }
+
+    private void bindContext(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
+            String receiptCommandId, String reservationOrderLineId, boolean replayed) {
         if (receiptCommandId != null && (receiptCommandId.isBlank() || receiptCommandId.length() > 64)) throw new CommandConflictException();
         var mapper = session.getMapper(SourceContextMapper.class);
         var command = mapper.lockCommand(enterpriseId, warehouseId, commandId);
         if (command == null) throw new IllegalStateException("来源命令不存在");
-        context.requireForAction(String.valueOf(command.get("action")));
+        String action = String.valueOf(command.get("action"));
+        context.requireForAction(action);
+        if (reservationOrderLineId != null && !java.util.Set.of("PICK", "SHIP", "CANCEL").contains(action)) throw new CommandConflictException();
         var payload = RuntimeMessage.JSON.readTree(String.valueOf(command.get("payload_json")));
         if (!(payload instanceof ObjectNode object)) throw new IllegalStateException("来源命令正文无效");
         var supplied = RuntimeMessage.JSON.valueToTree(context);
         if (object.has("postingContext")) {
             if (!object.path("postingContext").equals(supplied)
-                    || receiptCommandId != null && !receiptCommandId.equals(object.path("receiptCommandId").asString())) throw new CommandConflictException();
+                    || receiptCommandId != null && !receiptCommandId.equals(object.path("receiptCommandId").asString())
+                    || reservationOrderLineId != null && (!reservationOrderLineId.equals(object.path("reservationOrderLineId").asString())
+                        || !object.path("outboundSchemaVersion").isIntegralNumber()
+                        || !object.path("outboundSchemaVersion").canConvertToInt()
+                        || object.path("outboundSchemaVersion").intValue() != 1)) throw new CommandConflictException();
             return;
         }
         if (replayed) throw new MissingCommandContextException();
+        if (reservationOrderLineId != null) {
+            object.put("reservationOrderLineId", reservationOrderLineId); object.put("outboundSchemaVersion", 1);
+        }
         if (receiptCommandId != null) object.put("receiptCommandId", receiptCommandId);
         object.put("schemaVersion", 1);
         object.set("postingContext", supplied);

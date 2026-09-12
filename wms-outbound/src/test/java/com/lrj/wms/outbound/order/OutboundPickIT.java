@@ -121,7 +121,7 @@ class OutboundPickIT {
                 "SELECT COUNT(*) FROM source_command WHERE command_id='CMD-CXL' AND action='CANCEL'", Integer.class));
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbound_package WHERE package_no='PKG-1'", Integer.class));
-        assertEquals(1, jdbc.queryForObject(
+        assertEquals(0, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbound_task WHERE document_id=? AND task_type='RESTOCK'", Integer.class,
                 orderId));
         assertEquals(0, jdbc.queryForObject(
