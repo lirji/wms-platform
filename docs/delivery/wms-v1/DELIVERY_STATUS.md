@@ -2,7 +2,7 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。当前已发布代码基线为 `main c5c96e3`，含控制台切片 `b6f44ac`；最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 的 console 已成功、java 运行中。后端代码与依赖相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
+更新时间：2026-09-13。当前已发布代码基线为 `main 4812941`（含控制台 `b6f44ac` / `c5c96e3`）。本机 `wms-local` 已按该代码重建五个后端与控制台，readiness 与控制台入口 200；不是 50 AC / AC-26 accepted。最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 以当时记录为准。后端业务源码相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
 
 用户当前优先要求完善项目文档；17份文档整理已由 c32cb54 / f0b2c81 发布远程 main。文档按上述业务源码基线核对，未启动环境、修改业务源码或升级依赖。持续授权正常提交并合入远程 main；不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 

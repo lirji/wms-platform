@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-09-13：按当前 main `4812941` 在 Docker 重建 `wms-local` 五个后端与控制台（项目改挂根 `compose.yaml`，保留数据卷）。旧卷缺 `wms_registry` 已初始化账号；四业务库按时区门禁补了已核对的 UTC `legacy-evidence`。readiness 与控制台 `/` `/login` 均 200；镜像含 `serialIds` 资源。健康 UP 不是 50 AC / AC-26 accepted。未操作共享 dev-infra，未 `--volumes`。
 - 当前业务源码基线 main `c5c96e3aa4cf0ba58dbfab863fc8c797f9db1387`。后端仍为 `3e2c720` 的相同源码/依赖，其 CI `34721632607` success；最新控制台基线 CI `34723887946` 的 console 已成功、java 运行中；文档推送后该运行未被取消。
 - 控制台 `b6f44ac` 已发布：序列号观察、202 保留原键/有界轮询、单据双状态、401 去登录、序列恢复/消息重排、履约 attempt 执行、商品/库位/批次三表、单位写入及门禁只读。既有本地 21 文件/41 用例/typecheck/build 通过；本次未重跑。公开拣/发/调拨序列号字段仍缺，页面未发明。
 - 已发布普通消息、多 Cell 路由、真实 TM/TC/原生 RM 与出库授权、序列号分批收货/质检/上架/源释放、完整身份盘点/逐身份恢复/占用保护；详情见 `docs/delivery/wms-v1/DELIVERY_STATUS.md`。
@@ -34,7 +35,7 @@
 
 ## 当前问题
 
-- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `feat/console-serial-jobs`，保留其分支/文件，不切换或覆盖；文档在独立工作树查看，后端也使用独立工作树。
+- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `main`（`4812941`）。不要切到 `.local/backend-remediation-integrate`。现场 `.env` 在根目录（gitignore），口令不进仓库。
 
 - 后端独立工作树 `/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate`，分支 `fix/serial-outbound-execution`。该树内旧进度可能落后实际 HEAD，恢复必须先核对 git status 与提交，不按旧记录重做盘点切片。
 - 本地 dd22cd0 的序列 PICK 已有阶段验证，不能计入 main 文档的已交付；SHIP 未提交工作包括 registry V005、outbound V018、inventory V042 与相关 service/mapper/controller，尚未编译/测试，不能发布。
