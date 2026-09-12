@@ -11,7 +11,7 @@
 - 来源：已批准 DELIVERY_PLAN；持续 Git 发布；用户要求做到 S9 / 50 AC 且不必逐步确认。
 - 测试目标：localhost / Testcontainers MySQL 8.4.11。
 - 排除：生产部署、共享 dev-infra、编造 OQ-03、把 simulator 当真实设备、把合成峰值当签署容量。
-- 不推送仍在跑 verify 的 `main`。
+- 本轮用户要求把任务分支合入远程 main；当时没有进行中的 main verify。
 
 ## 门禁
 
@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
-| Git发布 | pass（本切片） | 远程 main `f466efc`（含 Ant Design 作业台与 F5 命令接入） |
+| Git发布 | pass（本切片） | 用户授权快进合入：`feat/console-ops-density` 含 F6/F7（`4f63771`） |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
 
 ## 本轮
@@ -35,10 +35,10 @@
 - 2026-09-12 F5：作业详情接到已落地写命令；跨仓 ALLOCATED 仍要真实 TC。已发布远程 main `f466efc`，Docker 控制台与四服务已按该提交重建。不是 50 AC / AC-26 accepted。
 - 2026-09-12 AC-26 现场走查：Casdoor 收货→质检→上架→跨仓准备（PLANNED）→拣→部分发→未拣回库。重复行主键改为 409。证据 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md)。仍 open。
 - 2026-09-12 F6：队列页抽屉建单、单据命令抽屉、首页活队列、401≠403；Casdoor 作业 scope 已补全。需重新登录。不是 50 AC / AC-26 accepted。
-- 2026-09-12 前端架构技能复查：不另起 IA。F7 已落地（登录一列、权限按 scope 隐藏、列宽/cursor/错误码、单据 Tabs）。不是 50 AC / AC-26 accepted。
+- 2026-09-12 前端架构技能复查：不另起 IA。F7 已落地（登录一列、权限按 scope 隐藏、列宽/cursor/错误码、单据 Tabs）。用户要求合入远程 main 并重建 Docker console。不是 50 AC / AC-26 accepted。
 
 ## 未完成
 
-- 进行中的 main verify `34683583780`（`f466efc`）结束前不推 main。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。
+- S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 真实 TC ALLOCATED。AC-42。上一轮 main verify `34683583780` 已取消，本轮在无进行中 main verify 时推送。
 
 无生产部署。
