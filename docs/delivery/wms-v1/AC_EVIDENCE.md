@@ -33,7 +33,7 @@
 | AC-21 | local-pass | `OutboxRecoveryLoadIT` | 消费者一次效果跨进程 |
 | AC-22 | local-pass | `InventoryProjectionIT` | 重建追平现场 |
 | AC-23 | local-pass | `StockInternalReconcileIT` | 工作台审批现场 |
-| AC-24 | local-pass | recon-wms 分类/消费测试；WMS `SnapshotExportIT` | WMS+recon 真实联调 |
+| AC-24 | local-pass | WMS `SnapshotExportIT`/`SnapshotHttpIT`；recon `WmsExportContractTest` 消费 WMS JSONL | 仍缺跨仓库进程联调与金额回归现场 |
 | AC-25 | blocked | 出库 simulator / UNKNOWN sweep（仅模拟，单独列） | 无授权真实设备/协议环境（S8-05） |
 | AC-26 | open | console 状态条单测 + 构建 | 未做 Cursor UI 黑盒/OIDC 联调 |
 | AC-27 | blocked | `run-capacity.sh --scenario agreed-peak` 无签署输入则退出 2 | 缺 OQ-05 签署峰值；correctness 只对应既有并发 IT |
