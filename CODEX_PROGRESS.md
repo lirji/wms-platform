@@ -13,14 +13,14 @@
 
 ## 已修改文件
 
-- 当前未提交 R13 分批质检：ReceiptQualityDecision；入库 ReceiptQualityService/Mapper、V012；库存 ReceiptQualityStockService/Mapper、V029；SourceProtocol/消息适配/质量转桶、HTTP DTO/契约与双进程测试。
+- R13 分批质检已提交 26c4472；当前分批上架/批次列表/控制台切片修改 InboundReceiptService、ReceiptQuality Mapper/Service、V013/V014、StockCommandService/消息适配/批次库存额度、SourceCommandContextStore、HTTP DTO/契约、双进程测试及入库/PDA 页面。
 
 - 既有整改分布于后端模块、运行库、契约、配置和验证脚本；14 个提交可查 git log db02821..7e258d0。
 - 当前登记服务批次：wms-serial-registry/、deploy/init/mysql-apps/30-serial-registry.sh、compose.yaml、deploy/compose.local.yml、.env.example、OpenAPI 生成器/产物、required-its 脚本/清单及进度文档。
 
 ## 未完成
 
-- R13：分批质检首轮双进程真实链路通过，等值小数重放补验已通过；PUTAWAY/PICK/SHIP/CANCEL、序列号观察链路仍待。
+- R13：分批质检首轮双进程真实链路通过，等值小数重放补验已通过；PUTAWAY 与批次列表已双进程验证，控制台 typecheck/33 测试/build 通过；PICK/SHIP/CANCEL、序列号观察链路仍待。
 - R14：库存到登记服务真实有界 HTTP 适配、转移相关入口与恢复、履约 TM/TC 真实协调和终态证据传播。
 - R15：serialTransferRecovery、stockInternalReconcile、archivePlanner；对账现有查询有界性不足，归档只能规划，不能未经授权删除。
 - R22：固定时间语义、UTC API 与历史 DATETIME 兼容；禁止猜测旧库时区。
@@ -38,7 +38,7 @@
 
 ## 下一步建议
 
-1. /tmp/wms-batch-quality-final-it.log 已于 00:30:25 BUILD SUCCESS，当前没有运行 Maven；正在提交分批质检，随后接分批上架。当前在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 分支，基于已发布 f9710ef，主目录 main 保持不动。先实现分批质检的 T1/Outbox、库存 HOLD/GOOD/REJECTED 转换、T3 与分批上架。
+1. 当前没有运行 Maven。分批质检已提交 26c4472；分批上架 /tmp/wms-batch-putaway-it.log 于 00:35:29、批次列表 /tmp/wms-batch-list-it.log 于 00:37:32 BUILD SUCCESS。控制台 npm typecheck/33 测试/build 已通过，正在提交本切片。仅在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 工作，主目录 main 保持不动。
 2. 随后补 R13 出库消息及 R14 真实登记/TM/TC 适配，接 R15 三任务和 R22 时间兼容；补迁移数据清单，更新契约与有意义的集成验证。
 3. 继续观察 main CI 34704623423；不能取消其他运行，不并发 Maven 写同一 target，不在 Maven 编译中修改 Java/XML。完成各逻辑单元后更新进度并提交，最终正常合并推送。
 

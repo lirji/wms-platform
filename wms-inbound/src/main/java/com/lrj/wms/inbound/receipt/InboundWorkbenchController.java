@@ -81,6 +81,18 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 收货批次按本单据授权范围分页，供质检与上架选择同一个事实。 */
+    @GetMapping("/inbound-orders/{inboundOrderId}/receipts")
+    public Map<String, Object> receiptBatches(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+            @PathVariable String inboundOrderId, @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String cursor) {
+        WmsJwtAuthorities.requireScope(jwt, "inbound.read"); WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        try (var session = sessions.openSession()) {
+            return HttpJson.cursorPage(new ReceiptQualityService(session, Clock.systemUTC())
+                    .batches(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, inboundOrderId, limit, cursor));
+        }
+    }
+
     @PostMapping("/inbound-orders/{inboundOrderId}/receipts")
     public ResponseEntity<Map<String, Object>> receive(@AuthenticationPrincipal Jwt jwt,
             @PathVariable String warehouseId, @PathVariable String inboundOrderId,
@@ -128,6 +140,8 @@ public class InboundWorkbenchController {
                 var result = new ReceiptQualityService(session, Clock.systemUTC()).inspect(WmsJwtAuthorities.enterpriseId(jwt),
                         warehouseId, body.lineId(), commandId, jwt.getSubject(), decision);
                 session.commit();
+                result.put("operationId", result.get("commandId"));
+                result.put("stockSyncStatus", "APPLIED".equals(result.get("state")) ? "POSTED" : "PENDING");
                 return ResponseEntity.accepted().body(HttpJson.row(result));
             }
             Map<String, Object> result = new InboundReceiptService(session, Clock.systemUTC()).inspect(
@@ -187,12 +201,14 @@ public class InboundWorkbenchController {
             @PathVariable String warehouseId, @PathVariable String taskId,
             @RequestHeader("Idempotency-Key") String idempotencyKey, @jakarta.validation.Valid @RequestBody InboundWorkbenchRequests.PutawayRequest body) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
+        if (messagingEnabled && (body.receiptCommandId() == null || body.receiptCommandId().isBlank()))
+            throw new InboundException("RECEIPT_BATCH_REQUIRED", "消息上架必须指定原收货批次");
         try (SqlSession session = sessions.openSession(false)) {
             Map<String, Object> result = new InboundReceiptService(session, Clock.systemUTC()).putaway(
                     WmsJwtAuthorities.enterpriseId(jwt), warehouseId, body.inboundOrderId(), body.lineId(),
                     taskId, firstNonBlank(body.locationId(), body.targetLocationId()),
                     firstNonBlank(body.locationType(), InboundReceiptService.LOCATION_STORAGE),
-                    qty(body.qty()), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject());
+                    qty(body.qty()), com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()), jwt.getSubject(), body.receiptCommandId());
             result.put("clientOperationId", com.lrj.wms.runtime.command.CommandKeys.resolve(idempotencyKey, body.clientOperationId()));
             session.commit();
             return ResponseEntity.accepted().body(accepted(warehouseId, body.inboundOrderId(), result, "PUTAWAY"));

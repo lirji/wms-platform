@@ -323,6 +323,42 @@ public final class StockCommandService {
                 commands.lockPermitByCommand(enterpriseId, warehouseId, sourceService, commandId));
     }
 
+    /** 分批上架：先锁定本批质量额度，再将同货主SKU批次的GOOD库存搬到存储位。 */
+    public Map<String, Object> applyPutaway(String enterpriseId, String warehouseId, String commandId,
+            String factParentId, String factPartId, String factLineId, String documentId, String actorId,
+            String sourceExecutionId, String receiptCommandId, StockBucketKey source, StockBucketKey target, Quantity qty) {
+        String sourceService = StockCommandCodes.SOURCE_INBOUND, action = EffectCodes.ACTION_PUTAWAY;
+        Timestamp now = Timestamp.from(clock.instant());
+        var effects = session.getMapper(EffectMapper.class);
+        var commands = session.getMapper(StockCommandMapper.class);
+        String digest = CommandDigest.v1(action, documentId, source, qty.toPlainString(), target.locationId(), receiptCommandId);
+        String effectId = ensureEffect(effects, enterpriseId, warehouseId, sourceService, action,
+                EffectCodes.FACT_SUB_ACTION, factParentId, factPartId, factLineId, now);
+        var effect = effects.lockEffect(enterpriseId, warehouseId, effectId);
+        var reused = reuseExisting(commands, enterpriseId, warehouseId, sourceService, commandId, action, effectId, effect, null, digest);
+        if (reused != null) return view(reused);
+        long attempt = acceptCommand(effects, commands, enterpriseId, warehouseId, sourceService, commandId, action,
+                effectId, digest, null, effect, now);
+        if (replayTerminal(commands, enterpriseId, warehouseId, sourceService, commandId, digest) != null)
+            return get(enterpriseId, warehouseId, sourceService, commandId);
+        if (effects.casBindActive(enterpriseId, warehouseId, effectId, commandId, attempt, EffectCodes.STATE_OPEN, now) != 1)
+            throw new InventoryException("VERSION_CONFLICT", "上架效果绑定冲突");
+        new com.lrj.wms.inventory.quality.ReceiptQualityStockService(session, clock).putaway(enterpriseId, warehouseId,
+                receiptCommandId, documentId, source, qty.toBigDecimal());
+        String operation = UUID.nameUUIDFromBytes(("PUTAWAY/" + enterpriseId + "/" + warehouseId + "/" + commandId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        new InventoryApplicationService(session, clock).move(enterpriseId, warehouseId, operation, documentId, actorId, source, target, qty, false);
+        String postingId = UUID.randomUUID().toString();
+        String manifest = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("operationId", operation));
+        if (commands.insertPosting(postingId, enterpriseId, warehouseId, sourceService, commandId, effectId, action,
+                UUID.randomUUID().toString(), "PUTAWAY", qty.toBigDecimal(), sourceExecutionId, documentId, manifest, now) != 1
+                || effects.casApply(enterpriseId, warehouseId, effectId, commandId, now) != 1
+                || commands.casState(enterpriseId, warehouseId, sourceService, commandId, StockCommandCodes.CMD_PENDING,
+                    StockCommandCodes.CMD_APPLIED, com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of("postingId", postingId)), now) != 1)
+            throw new InventoryException("VERSION_CONFLICT", "上架凭证写入冲突");
+        return appliedView(enterpriseId, warehouseId, sourceService, commandId, postingId);
+    }
+
     /** 分批质检的命令、质量转桶、凭证与效果一次提交，迟到重复命令只恢复原凭证。 */
     public Map<String, Object> applyQuality(String enterpriseId, String warehouseId, String commandId,
             String factLineId, String documentId, String actorId, String sourceExecutionId, StockBucketKey hold,

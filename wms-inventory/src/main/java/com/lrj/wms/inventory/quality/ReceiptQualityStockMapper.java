@@ -14,4 +14,7 @@ public interface ReceiptQualityStockMapper {
     int apply(@Param("ent") String ent, @Param("wh") String wh, @Param("receipt") String receipt,
             @Param("sourceVersion") long sourceVersion, @Param("expected") long expected,
             @Param("accepted") BigDecimal accepted, @Param("rejected") BigDecimal rejected, @Param("now") Timestamp now);
+    int addPutaway(@Param("ent") String ent, @Param("wh") String wh, @Param("receipt") String receipt,
+            @Param("expected") long expected, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
 }
+

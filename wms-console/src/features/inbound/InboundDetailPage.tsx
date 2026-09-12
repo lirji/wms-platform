@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { Form, Input } from "antd";
+import { Button, Card, Form, Input, Select, Space, Table } from "antd";
 import { useParams } from "react-router-dom";
+import { field, nextCursorOf, withQuery, type ItemRecord } from "../../api/envelope";
+import { useResource } from "../../shared/useResource";
+import { errorBanner } from "../../shared/ui/errorBanner";
 import { api } from "../../api/client";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
@@ -16,8 +19,17 @@ export function InboundDetailPage() {
     : undefined;
   const { record, error, loading } = useDocument(token, path, tick);
   const reload = () => setTick((current) => current + 1);
+  const [cursors, setCursors] = useState<string[]>([""]);
+  const batches = useResource(token, path ? [withQuery(`${path}/receipts`, { limit: "50", cursor: cursors.at(-1) })] : [], tick);
+  const nextCursor = nextCursorOf(batches.payloads[0]);
+  function batchValues(values: Record<string, string>) {
+    const batch = batches.rows.find((row) => row.receiptCommandId === values.receiptCommandId);
+    if (!batch || batches.loading || batches.error) throw new Error("请刷新并选择当前收货批次");
+    return { receiptCommandId: values.receiptCommandId, lineId: field(batch, "lineId"), sourceVersion: Number(batch.qualitySourceVersion) + 1 };
+  }
 
   return (
+    <>
     <DocumentWorkbench
       backTo={`/w/${warehouseId}/inbound`}
       backLabel="返回入库列表"
@@ -45,10 +57,12 @@ export function InboundDetailPage() {
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/inbound-orders/${inboundOrderId}/receipts`, token, {
                 method: "POST",
                 idempotencyKey: key,
-                body: { lineId: values.lineId, qty: values.qty, receiptPartId: `PART-${key}`, clientOperationId: key }
+                body: { lineId: values.lineId, locationId: values.locationId, lotId: values.lotId, qty: values.qty, receiptPartId: `PART-${key}`, clientOperationId: key }
               })}
             >
               <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="收货库位" name="locationId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="货品批次" name="lotId" extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
@@ -57,25 +71,24 @@ export function InboundDetailPage() {
               embedded
               requireScope="quality.inspect"
               title="质检"
-              hint="accepted + rejected 不能超过已收实物。"
+              hint="填写所选收货批次的累计合格量和不合格量。前次库存同步完成后才能修订。"
               operation={`qc:${warehouseId}:${inboundOrderId}`}
               submitLabel="记录质检"
               disabled={!token}
               onDone={reload}
               onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/quality-inspections/${key}/results`, token, {
                 method: "POST",
+                idempotencyKey: key,
                 body: {
-                  lineId: values.lineId,
+                  ...batchValues(values),
                   acceptedQty: values.acceptedQty,
-                  rejectedQty: values.rejectedQty || "0",
-                  sourceVersion: Number(values.sourceVersion || "1")
+                  rejectedQty: values.rejectedQty || "0"
                 }
               })}
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="合格量" name="acceptedQty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
-              <Form.Item label="不合格量" name="rejectedQty" initialValue="0"><Input inputMode="decimal" /></Form.Item>
-              <Form.Item label="来源版本" name="sourceVersion" initialValue="1"><Input /></Form.Item>
+              <ReceiptBatchField rows={batches.rows} disabled={batches.loading || Boolean(batches.error)} />
+              <Form.Item label="累计合格量" name="acceptedQty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="累计不合格量" name="rejectedQty" initialValue="0"><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="上架" requireScope="inbound.putaway">
@@ -93,7 +106,7 @@ export function InboundDetailPage() {
                 idempotencyKey: key,
                 body: {
                   inboundOrderId,
-                  lineId: values.lineId,
+                  ...batchValues(values),
                   locationId: values.locationId,
                   targetLocationId: values.locationId,
                   locationType: "STORAGE",
@@ -102,7 +115,7 @@ export function InboundDetailPage() {
                 }
               })}
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
+              <ReceiptBatchField rows={batches.rows} requireQuality disabled={batches.loading || Boolean(batches.error)} />
               <Form.Item label="存储库位" name="locationId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
@@ -110,5 +123,33 @@ export function InboundDetailPage() {
         </>
       )}
     />
+    <Card title="收货批次" extra={<Button onClick={reload}>刷新批次</Button>}>
+      {batches.error ? errorBanner(batches.error) : null}
+      <Table rowKey="id" size="small" loading={batches.loading} dataSource={batches.rows} pagination={false} scroll={{ x: 800 }} columns={[
+        { title: "收货批次", dataIndex: "receiptCommandId" },
+        { title: "行", dataIndex: "lineId" },
+        { title: "收货库位", dataIndex: "locationId" },
+        { title: "收货量", dataIndex: "qty" },
+        { title: "累计合格", dataIndex: "acceptedQty" },
+        { title: "累计不合格", dataIndex: "rejectedQty" },
+        { title: "已上架", dataIndex: "putawayQty" },
+        { title: "质检同步", render: (_, row) => field(row, "qualityState") === "APPLIED" ? "已同步" : field(row, "qualityState") === "PENDING" ? "同步中" : "未质检" }
+      ]} />
+      <Space style={{ marginTop: 12 }}>
+        <Button disabled={batches.loading || cursors.length === 1} onClick={() => setCursors((prev) => prev.slice(0, -1))}>上一页</Button>
+        <Button disabled={batches.loading || !nextCursor} onClick={() => setCursors((prev) => [...prev, nextCursor])}>下一页</Button>
+      </Space>
+    </Card>
+    </>
   );
+}
+
+function ReceiptBatchField({ rows, requireQuality, disabled }: { rows: ItemRecord[]; requireQuality?: boolean; disabled: boolean }) {
+  return <Form.Item label="收货批次" name="receiptCommandId" extra="选择下方列表当前页中的批次；翻页或刷新后请重新核对。" rules={[{ required: true }]}>
+    <Select disabled={disabled} showSearch optionFilterProp="label" options={rows.map((row) => ({
+      value: field(row, "receiptCommandId"),
+      label: `${field(row, "receiptCommandId")} · ${field(row, "locationId")} · 收货 ${field(row, "qty")} / 合格 ${field(row, "acceptedQty")} / 已上架 ${field(row, "putawayQty")}`,
+      disabled: !row.contextAvailable || row.stockSyncStatus !== "APPLIED" || row.qualityState === "PENDING" || (requireQuality && row.qualityState !== "APPLIED")
+    }))} />
+  </Form.Item>;
 }

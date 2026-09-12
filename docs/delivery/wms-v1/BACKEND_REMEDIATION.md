@@ -169,3 +169,13 @@ T1 的 inbound_receipt_quality/inbound_quality_revision、原操作者、来源�
 /tmp/wms-batch-quality-it.log 已 BUILD SUCCESS：原入库域/HTTP 回归和实际两个 Jar + 两个 MySQL + Kafka + RSA JWT 的分批质检链路。两批同一行不同库位互不混用，超批数量拒绝、重复/迟到事件不重复转桶，最后状态更新注入 CHECK 失败时转桶与流水回滚，恢复后自动续跑。等值小数格式和严格消息版本检查的补充验证另见最新进度。TP99 unverified。分批上架与出库链路尚未完成，R13保持进行中。
 
 补充验证 /tmp/wms-batch-quality-final-it.log 于 00:30:25 BUILD SUCCESS：超出本批但未超整行的质检仍拒绝，2 与 2.0 重放一致；双进程故障恢复/迟到消息及所有单元测试通过。
+
+## R13 分批上架与批次入口（2026-09-13）
+
+分批上架在来源 T1 将 task 固定到原收货批次/库位，并以 CAS 扣减该批已同步的累计合格额度；同 task 不能更换批次。库存 T2 独立校验本库原收货证据、批次质量额度及真实 STORAGE 主数据，额度、GOOD 移库、流水、effect 与结果 Outbox 同事务提交。重复命令先查幂等效果，不再扣减额度。质检修订不能将合格量降至本批已上架量以下。V013/V014 为追加迁移，不猜测旧任务归属。
+
+新增仓/企业/订单限定的收货批次游标接口（最多 200），仅返回操作需要的维度，不暴露持久化消息正文。控制台按服务端批次选择质检/上架，收货和 PDA 显式输入库位、货品批次；PDA 明确受理后才清理幂等键，网络失败保留原键。
+
+真实两个 Jar、两个 MySQL、Kafka、RSA JWT：/tmp/wms-batch-putaway-it.log 于 00:35:29 BUILD SUCCESS（InboundReceiptIT 5、InboundHttpIT 1、ReceiveMessagingProcessesIT 1）；新增批次游标与响应校验 /tmp/wms-batch-list-it.log 于 00:37:32 BUILD SUCCESS。覆盖按批超额拒绝、换批拒绝、跨批上架、重复不重复记账、源/库存额度一致；此前质量故障回滚/自动续跑回归保留。未将本切片作为出库、序列号或完整 R13 完成证据。
+
+控制台 typecheck、33 项既有回归和 production build 通过（/tmp/wms-batch-console.log、/tmp/wms-batch-console-build.log）。文档结构通过；契约生成与暂存产物一致性在提交后复验。

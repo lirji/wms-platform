@@ -24,7 +24,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         }
         JsonNode payload = message.payload();
         String action = required(payload, "action");
-        if (!Set.of("RECEIVE", "QUALITY").contains(action)) throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
+        if (!Set.of("RECEIVE", "QUALITY", "PUTAWAY").contains(action)) throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
         StockPostingContext context;
         BigDecimal rawQty;
         try {
@@ -71,6 +71,13 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             command = new StockCommandService(session, clock).applyQuality(enterprise, warehouse, commandId,
                     required(payload, "factLineId"), context.documentId(), required(payload, "actorId"),
                     required(payload, "sourceExecutionId"), bucket, decision);
+        } else if ("PUTAWAY".equals(action)) {
+            var targetLocation = masterdata.getLocation(enterprise, warehouse, context.targetLocationId());
+            if (!active(targetLocation) || !"STORAGE".equals(targetLocation.get("location_type"))) throw new MessageRejectedException("INVALID_PUTAWAY_LOCATION");
+            var target = StockBucketKey.of(enterprise, warehouse, context.ownerId(), context.targetLocationId(), context.skuId(), context.lotId(), "GOOD");
+            command = new StockCommandService(session, clock).applyPutaway(enterprise, warehouse, commandId,
+                    required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),
+                    context.documentId(), required(payload, "actorId"), required(payload, "sourceExecutionId"), required(payload, "receiptCommandId"), bucket, target, qty);
         } else {
             command = new StockCommandService(session, clock).applyReceive(enterprise, warehouse, message.sourceService(), commandId,
                 required(payload, "factParentId"), required(payload, "factPartId"), required(payload, "factLineId"),

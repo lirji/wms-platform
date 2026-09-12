@@ -14,6 +14,13 @@ public final class SourceCommandContextStore {
 
     /** 首次绑定保留请求关联；重试只比较业务维度，不改第一次的actor/执行时间/requestId。 */
     public void bind(String enterpriseId, String warehouseId, String commandId, StockPostingContext context, boolean replayed) {
+        bind(enterpriseId, warehouseId, commandId, context, null, replayed);
+    }
+
+    /** 上架等衍生动作额外固定原收货批次，不能仅因两个批次落在同桶就允许互换。 */
+    public void bind(String enterpriseId, String warehouseId, String commandId, StockPostingContext context,
+            String receiptCommandId, boolean replayed) {
+        if (receiptCommandId != null && (receiptCommandId.isBlank() || receiptCommandId.length() > 64)) throw new CommandConflictException();
         var mapper = session.getMapper(SourceContextMapper.class);
         var command = mapper.lockCommand(enterpriseId, warehouseId, commandId);
         if (command == null) throw new IllegalStateException("来源命令不存在");
@@ -22,10 +29,12 @@ public final class SourceCommandContextStore {
         if (!(payload instanceof ObjectNode object)) throw new IllegalStateException("来源命令正文无效");
         var supplied = RuntimeMessage.JSON.valueToTree(context);
         if (object.has("postingContext")) {
-            if (!object.path("postingContext").equals(supplied)) throw new CommandConflictException();
+            if (!object.path("postingContext").equals(supplied)
+                    || receiptCommandId != null && !receiptCommandId.equals(object.path("receiptCommandId").asString())) throw new CommandConflictException();
             return;
         }
         if (replayed) throw new MissingCommandContextException();
+        if (receiptCommandId != null) object.put("receiptCommandId", receiptCommandId);
         object.put("schemaVersion", 1);
         object.set("postingContext", supplied);
         object.put("postingContextDigest", RuntimeMessage.contentHash(supplied.toString()));

@@ -41,5 +41,18 @@ public final class ReceiptQualityStockService {
         if (mapper.apply(ent, wh, decision.receiptCommandId(), decision.sourceVersion(), ((Number) current.get("version")).longValue(),
                 decision.acceptedQty(), decision.rejectedQty(), now) != 1) throw new InventoryException("VERSION_CONFLICT", "质检并发状态变更");
     }
+    /** 在上架转桶的同一事务消耗本批合格量；不能以同桶其他批次的余额替代本批额度。 */
+    public void putaway(String ent, String wh, String receiptCommand, String document, StockBucketKey source, BigDecimal qty) {
+        var mapper = session.getMapper(ReceiptQualityStockMapper.class);
+        var receipt = mapper.receipt(ent, wh, receiptCommand);
+        if (receipt == null || !document.equals(receipt.get("source_document_id")) || !source.ownerId().equals(receipt.get("owner_id"))
+                || !source.locationId().equals(receipt.get("location_id")) || !source.skuId().equals(receipt.get("sku_id"))
+                || !source.lotId().equals(receipt.get("lot_id")) || !"HOLD".equals(receipt.get("quality_code")) || !"GOOD".equals(source.qualityCode()))
+            throw new InventoryException("RECEIPT_CONTEXT_MISMATCH", "上架库存不属于原收货批次");
+        var quality = mapper.lock(ent, wh, receiptCommand);
+        if (quality == null || mapper.addPutaway(ent, wh, receiptCommand, ((Number) quality.get("version")).longValue(), qty,
+                Timestamp.from(clock.instant())) != 1) throw new InventoryException("QC_INSUFFICIENT_ACCEPTED", "该批已生效合格量不足");
+    }
+
     private static BigDecimal decimal(Object value) { return new BigDecimal(value.toString()); }
 }

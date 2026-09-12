@@ -41,4 +41,29 @@
           state=#{state},version=version+1,updated_at=#{now}
         WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND active_command_id=#{command} AND state='PENDING'
     </update>
+    <!-- 待质检版本不允许借旧额度继续上架；并发任务共同消耗本批额度。 -->
+    <update id="addPutaway">
+        UPDATE inbound_receipt_quality SET putaway_qty=putaway_qty+#{qty},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} AND version=#{expected}
+          AND state='APPLIED' AND source_version=applied_version AND putaway_qty+#{qty} &lt;= accepted_qty
+    </update>
+    <update id="bindTask">
+        UPDATE inbound_task SET receipt_command_id=#{receipt},source_location_id=#{location},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND id=#{task} AND receipt_command_id IS NULL AND completed_qty=0
+    </update>
+    <!-- 按来源命令唯一键稳定翻页；原始正文仅供服务端提取库存维度，不直接返回调用方。 -->
+    <select id="batches" resultType="map">
+        SELECT c.command_id AS id,e.fact_line_id AS lineId,c.state AS stockSyncStatus,c.payload_json,
+          COALESCE(q.source_version,0) AS qualitySourceVersion,COALESCE(q.applied_version,0) AS qualityAppliedVersion,
+          COALESCE(q.accepted_qty,0) AS acceptedQty,COALESCE(q.rejected_qty,0) AS rejectedQty,
+          COALESCE(q.putaway_qty,0) AS putawayQty,COALESCE(q.state,'OPEN') AS qualityState
+        FROM inbound_line l JOIN source_effect e ON e.enterprise_id=l.enterprise_id AND e.warehouse_id=l.warehouse_id
+          AND e.fact_line_id=l.id AND e.source_service='wms-inbound' AND e.action='RECEIVE'
+        JOIN source_command c ON c.business_effect_key=e.id AND c.enterprise_id=e.enterprise_id AND c.warehouse_id=e.warehouse_id
+          AND c.action=e.action AND (c.command_id=e.active_command_id OR c.command_id=e.applied_command_id)
+        LEFT JOIN inbound_receipt_quality q ON q.enterprise_id=c.enterprise_id AND q.warehouse_id=c.warehouse_id AND q.receipt_command_id=c.command_id
+        WHERE l.enterprise_id=#{ent} AND l.warehouse_id=#{wh} AND l.order_id=#{order}
+        <if test="page.id != null">AND c.command_id &gt; #{page.id}</if>
+        ORDER BY c.command_id LIMIT #{page.fetchLimit}
+    </select>
 </mapper>

@@ -1,6 +1,6 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { Button, Card, Form, Input, Space, Typography } from "antd";
-import { api, rememberKey } from "../../api/client";
+import { api, clearKey, rememberKey } from "../../api/client";
 import { field, type ItemRecord } from "../../api/envelope";
 import { hasScope } from "../../auth/can";
 import { errorBanner } from "../../shared/ui/errorBanner";
@@ -19,23 +19,28 @@ export function ReceivePage() {
   const [tone, setTone] = useState<"ok" | "err" | "idle">("idle");
   const [result, setResult] = useState<ItemRecord | null>(null);
   const [error, setError] = useState<unknown>();
-  const key = useMemo(
-    () => rememberKey(`receive:${warehouseId}:${orderId}:${lineId}`),
-    [warehouseId, orderId, lineId]
-  );
+  const [locationId, setLocationId] = useState("");
+  const [lotId, setLotId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
 
   async function submit() {
     const nextLine = scan || lineId;
-    if (!token || !orderId || !nextLine || !qty || !warehouseId || warehouseId === "_") {
+    if (!token || !orderId || !nextLine || !qty || !locationId || !lotId || submitting.current || !warehouseId || warehouseId === "_") {
       return;
     }
+    submitting.current = true;
+    setBusy(true);
+    const operation = `receive:${warehouseId}:${orderId}:${nextLine}`;
+    const key = rememberKey(operation);
     setFeedback("提交中");
     try {
       const body = await api(`/api/wms/v1/warehouses/${warehouseId}/inbound-orders/${orderId}/receipts`, token, {
         method: "POST",
         idempotencyKey: key,
-        body: { lineId: nextLine, qty, clientOperationId: key, receiptPartId: `PART-${key}` }
+        body: { lineId: nextLine, locationId, lotId, qty, clientOperationId: key, receiptPartId: `PART-${key}` }
       });
+      clearKey(operation);
       setResult(body as ItemRecord);
       setError(undefined);
       setTone("ok");
@@ -46,6 +51,9 @@ export function ReceivePage() {
       setTone("err");
       setFeedback("扫码失败");
       playScanTone(false);
+    } finally {
+      submitting.current = false;
+      setBusy(false);
     }
   }
 
@@ -82,10 +90,16 @@ export function ReceivePage() {
           <Form.Item label="行/扫码" required>
             <Input size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
           </Form.Item>
-          <Form.Item label="数量（字符串）" required>
+          <Form.Item label="收货库位" required>
+            <Input size="large" value={locationId} onChange={(event) => setLocationId(event.target.value)} />
+          </Form.Item>
+          <Form.Item label="货品批次" required extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。">
+            <Input size="large" value={lotId} onChange={(event) => setLotId(event.target.value)} />
+          </Form.Item>
+          <Form.Item label="数量" required>
             <Input size="large" inputMode="decimal" value={qty} onChange={(event) => setQty(event.target.value)} />
           </Form.Item>
-          <Button type="primary" htmlType="submit" size="large" block disabled={!hasScope(scopes, "inbound.receive")}>回车提交</Button>
+          <Button type="primary" htmlType="submit" size="large" block loading={busy} disabled={busy || !hasScope(scopes, "inbound.receive")}>回车提交</Button>
         </Form>
       </Card>
     </Space>

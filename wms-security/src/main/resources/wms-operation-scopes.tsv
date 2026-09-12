@@ -22,6 +22,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/count-plans	count.read
 GET	/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}	count.read
 GET	/api/wms/v1/warehouses/{warehouseId}/inbound-orders	inbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}	inbound.read
+GET	/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts	inbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/inventory/{balanceId}/ledger	stock.audit
 GET	/api/wms/v1/warehouses/{warehouseId}/locations	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/locations/{locationId}	masterdata.read

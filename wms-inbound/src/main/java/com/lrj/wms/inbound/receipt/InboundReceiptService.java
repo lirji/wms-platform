@@ -271,6 +271,13 @@ public final class InboundReceiptService {
     /** 上架实物：不超过已收未上架且质检合格量；目标必须是存储位。 */
     public Map<String, Object> putaway(String enterpriseId, String warehouseId, String orderId, String lineId,
             String taskId, String targetLocationId, String targetLocationType, BigDecimal qty, String commandId, String actorId) {
+        return putaway(enterpriseId, warehouseId, orderId, lineId, taskId, targetLocationId, targetLocationType, qty, commandId, actorId, null);
+    }
+
+    /** 新消息路径明确绑定原收货批次；旧无批次调用只保留原本的行级兼容行为。 */
+    public Map<String, Object> putaway(String enterpriseId, String warehouseId, String orderId, String lineId,
+            String taskId, String targetLocationId, String targetLocationType, BigDecimal qty, String commandId, String actorId,
+            String receiptCommandId) {
         requireIdentity("操作人", actorId);
         requireIdentity("命令", commandId);
         if (qty == null || qty.signum() <= 0) throw new InboundException("INVALID_QTY", "上架数量必须为正");
@@ -291,10 +298,33 @@ public final class InboundReceiptService {
                 || qty.compareTo(decimal(task.get("planned_qty"))) != 0)) {
             throw new com.lrj.wms.runtime.command.CommandConflictException();
         }
+        com.lrj.wms.contract.messaging.StockPostingContext batchContext = null;
+        if (receiptCommandId != null) {
+            var receipt = session.getMapper(ReceiptQualityMapper.class).receipt(enterpriseId, warehouseId, receiptCommandId);
+            if (receipt == null || !lineId.equals(receipt.get("line_id")) || !orderId.equals(receipt.get("order_id")))
+                throw new InboundException("UNKNOWN_RECEIPT_BATCH", "收货批次不属于该入库单行");
+            var payload = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(String.valueOf(receipt.get("payload_json")));
+            if (!payload.hasNonNull("postingContext")) throw new InboundException("MISSING_POSTING_CONTEXT", "原收货缺少库存维度");
+            var original = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(payload.path("postingContext"), com.lrj.wms.contract.messaging.StockPostingContext.class);
+            original.requireForAction("RECEIVE");
+            if (original.sourceLocationId().equals(targetLocationId)) throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架目标不能与收货库位相同");
+            batchContext = new com.lrj.wms.contract.messaging.StockPostingContext(orderId, original.ownerId(), original.skuId(), original.baseUnit(),
+                    original.sourceLocationId(), targetLocationId, original.lotId(), "GOOD", null, null);
+            if (task != null && (task.get("receipt_command_id") != null && !receiptCommandId.equals(task.get("receipt_command_id"))
+                    || task.get("source_location_id") != null && !original.sourceLocationId().equals(task.get("source_location_id"))))
+                throw new com.lrj.wms.runtime.command.CommandConflictException();
+        } else if (task != null && task.get("receipt_command_id") != null) {
+            throw new InboundException("RECEIPT_BATCH_REQUIRED", "分批上架任务不能退回无批次路径");
+        }
         var replay = protocol.replayIfPresent(SourceProtocolService.ACTION_PUTAWAY, "SUB_ACTION",
                 enterpriseId, warehouseId, commandId, orderId, taskId, lineId, qty);
         if (replay != null) {
             if (task == null) throw new InboundException("TASK_MISSING", "历史上架命令缺少对应任务");
+            if (batchContext != null) {
+                if (task.get("receipt_command_id") == null) throw new InboundException("MISSING_POSTING_CONTEXT", "历史任务没有可信批次绑定");
+                new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bind(enterpriseId, warehouseId,
+                        String.valueOf(replay.get("commandId")), batchContext, receiptCommandId, true);
+            }
             replay.put("taskId", taskId); replay.put("lineId", lineId);
             return replay;
         }
@@ -305,19 +335,25 @@ public final class InboundReceiptService {
         if (task != null && task.get("assignee_id") != null && !actorId.equals(task.get("assignee_id"))) {
             throw new InboundException("TASK_ASSIGNEE_MISMATCH", "任务已由其他操作人领取");
         }
-        Map<String, Object> inspection = mapper.latestInspection(enterpriseId, warehouseId, lineId);
-        if (inspection == null) {
-            throw new InboundException("QC_REQUIRED", "上架前必须完成质检");
+        Map<String, Object> batchQuality = null;
+        BigDecimal accepted;
+        BigDecimal already;
+        if (batchContext != null) {
+            batchQuality = session.getMapper(ReceiptQualityMapper.class).lock(enterpriseId, warehouseId, receiptCommandId);
+            if (batchQuality == null || !"APPLIED".equals(batchQuality.get("state"))
+                    || !batchQuality.get("source_version").equals(batchQuality.get("applied_version")))
+                throw new InboundException("QC_REQUIRED", "该批质检尚未在库存生效");
+            accepted = decimal(batchQuality.get("accepted_qty"));
+            already = decimal(batchQuality.get("putaway_qty"));
+        } else {
+            Map<String, Object> inspection = mapper.latestInspection(enterpriseId, warehouseId, lineId);
+            if (inspection == null) throw new InboundException("QC_REQUIRED", "上架前必须完成质检");
+            if (RESULT_REJECTED.equals(String.valueOf(inspection.get("result_code")))) throw new InboundException("QC_REJECTED", "质检不合格不能上架");
+            accepted = decimal(inspection.get("accepted_qty"));
+            already = decimal(line.get("putaway_physical_qty"));
         }
-        if (RESULT_REJECTED.equals(String.valueOf(inspection.get("result_code")))) {
-            throw new InboundException("QC_REJECTED", "质检不合格不能上架");
-        }
-        BigDecimal accepted = decimal(inspection.get("accepted_qty"));
-        BigDecimal already = decimal(line.get("putaway_physical_qty"));
-        if (already.add(qty).compareTo(accepted) > 0) {
-            throw new InboundException("QC_INSUFFICIENT_ACCEPTED", "上架超过质检合格量");
-        }
-        BigDecimal remain = decimal(line.get("received_physical_qty")).subtract(already);
+        if (already.add(qty).compareTo(accepted) > 0) throw new InboundException("QC_INSUFFICIENT_ACCEPTED", "上架超过该批质检合格量");
+        BigDecimal remain = decimal(line.get("received_physical_qty")).subtract(decimal(line.get("putaway_physical_qty")));
         if (qty.compareTo(remain) > 0) {
             throw new InboundException("OVER_PUTAWAY", "上架超过已收未上架量");
         }
@@ -325,15 +361,23 @@ public final class InboundReceiptService {
         Map<String, Object> command = protocol.submitPutaway(enterpriseId, warehouseId,
                 commandId, orderId, taskId, lineId, actorId, qty);
         if (!Boolean.TRUE.equals(command.get("replayed"))) {
+            if (batchQuality != null && session.getMapper(ReceiptQualityMapper.class).addPutaway(enterpriseId, warehouseId,
+                    receiptCommandId, ((Number) batchQuality.get("version")).longValue(), qty, now) != 1)
+                throw new InboundException("VERSION_CONFLICT", "分批上架额度竞争");
             if (mapper.addPutawayPhysical(enterpriseId, warehouseId, lineId, qty, now) != 1) {
                 throw new InboundException("VERSION_CONFLICT", "上架行更新冲突");
             }
-            if (task == null) mapper.insertTask(taskId, enterpriseId, warehouseId, "PUTAWAY", orderId, lineId, null,
+            if (task == null) mapper.insertTask(taskId, enterpriseId, warehouseId, "PUTAWAY", orderId, lineId, batchContext == null ? null : batchContext.sourceLocationId(),
                     targetLocationId, qty, "STARTED", now);
+            if (batchContext != null && (task == null || task.get("receipt_command_id") == null)
+                    && session.getMapper(ReceiptQualityMapper.class).bindTask(enterpriseId, warehouseId, taskId, receiptCommandId,
+                            batchContext.sourceLocationId(), now) != 1) throw new InboundException("VERSION_CONFLICT", "任务批次绑定竞争");
             if (mapper.addTaskCompleted(enterpriseId, warehouseId, taskId, qty, "COMPLETED", now) != 1) {
                 throw new InboundException("VERSION_CONFLICT", "上架任务更新冲突");
             }
         }
+        if (batchContext != null) new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session).bind(enterpriseId, warehouseId,
+                String.valueOf(command.get("commandId")), batchContext, receiptCommandId, Boolean.TRUE.equals(command.get("replayed")));
         command.put("taskId", taskId);
         command.put("lineId", lineId);
         return command;

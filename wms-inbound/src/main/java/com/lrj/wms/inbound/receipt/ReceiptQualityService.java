@@ -20,6 +20,24 @@ public final class ReceiptQualityService {
     private final Clock clock;
     public ReceiptQualityService(SqlSession session, Clock clock) { this.session = session; this.clock = clock; }
 
+    /** 批次选择只返回本单据的有界元数据，不暴露来源命令原始正文。 */
+    public Map<String, Object> batches(String ent, String wh, String order, Integer limit, String cursor) {
+        if (session.getMapper(InboundReceiptMapper.class).getOrder(ent, wh, order) == null) throw new InboundException("RESOURCE_NOT_FOUND", "入库单不存在");
+        var page = com.lrj.wms.runtime.web.CursorPage.parse(limit, cursor,
+                com.lrj.wms.runtime.web.CursorPage.scope("receipt-batches", ent, wh, order));
+        var rows = session.getMapper(ReceiptQualityMapper.class).batches(ent, wh, order, page);
+        for (var row : rows) {
+            var payload = RuntimeMessage.JSON.readTree(String.valueOf(row.remove("payload_json")));
+            row.put("receiptCommandId", row.get("id")); row.put("qty", payload.path("qty").asString());
+            var context = payload.path("postingContext"); row.put("contextAvailable", context.isObject());
+            if (context.isObject()) {
+                row.put("locationId", context.path("sourceLocationId").asString());
+                row.put("lotId", context.path("lotId").asString()); row.put("skuId", context.path("skuId").asString());
+            }
+        }
+        return page.result(rows, false);
+    }
+
     /** 只接受已过账批次，待确认版本不能被下一版本越过；重试保持原命令和操作者。 */
     public Map<String, Object> inspect(String ent, String wh, String lineId, String command, String actor,
             ReceiptQualityDecision decision) {

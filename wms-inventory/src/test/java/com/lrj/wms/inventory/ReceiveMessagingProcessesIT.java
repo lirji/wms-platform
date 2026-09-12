@@ -72,6 +72,7 @@ class ReceiveMessagingProcessesIT {
                 masterdata.createWarehouse("WH", "ENT", "WH", "测试仓", "UTC");
                 masterdata.createLocation("LOC", "GATE", "ENT", "WH", "LOC", "A", "RECEIVING", new BigDecimal("100"), "EA");
                 masterdata.createLocation("LOC-B", "GATE-B", "ENT", "WH", "LOC-B", "A", "RECEIVING", new BigDecimal("100"), "EA");
+                masterdata.createLocation("STORAGE", "GATE-STORAGE", "ENT", "WH", "STORAGE", "A", "STORAGE", new BigDecimal("100"), "EA");
                 masterdata.createSku(SkuPolicy.create("SKU", "ENT", "SKU", "测试商品", "EA", 0, false, false, false, 1, "ACTIVE"), "UNIT");
                 session.commit();
             }
@@ -188,6 +189,43 @@ class ReceiveMessagingProcessesIT {
             await(() -> stockDb.queryForObject("SELECT COUNT(*) FROM runtime_message_inbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.eventId'))='LATE-QUALITY' AND status='DONE'", Integer.class) == 1,
                     20, "迟到质检重放未消费", in, stock);
             assertEquals(finalLedgers, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            // 上架必须绑定该批质量额度；同一入库行的另一批余额不能补足本批超额请求。
+            String putawayToken = token(issuer, rsa, List.of("inbound.putaway"));
+            String putawayA = "{\"inboundOrderId\":\"ORDER\",\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-CMD\",\"targetLocationId\":\"STORAGE\",\"qty\":\"2\"}";
+            assertEquals(400, post(base + "/tasks/PUTAWAY-OVER/putaways", putawayToken, "PUTAWAY-OVER", putawayA.replace("\"2\"", "\"4\"")).statusCode());
+            var putawayAccepted = post(base + "/tasks/PUTAWAY-A/putaways", putawayToken, "PUTAWAY-A", putawayA);
+            assertEquals(202, putawayAccepted.statusCode(), putawayAccepted.body());
+            await(() -> "APPLIED".equals(inDb.queryForObject("SELECT state FROM source_command WHERE command_id='PUTAWAY-A'", String.class)),
+                    30, "第一批上架未闭环，日志=" + logs, in, stock);
+            int afterPutaway = stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            assertEquals(202, post(base + "/tasks/PUTAWAY-A/putaways", putawayToken, "PUTAWAY-REPLAY", putawayA).statusCode());
+            assertEquals(afterPutaway, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            assertEquals(409, post(base + "/tasks/PUTAWAY-A/putaways", putawayToken, "PUTAWAY-OTHER-BATCH", putawayA.replace("RECEIVE-CMD", "RECEIVE-B")).statusCode());
+            assertEquals(400, post(base + "/tasks/PUTAWAY-OVER-REMAIN/putaways", putawayToken, "PUTAWAY-OVER-REMAIN", putawayA).statusCode());
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'", BigDecimal.class).compareTo(BigDecimal.ONE));
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='STORAGE' AND quality_code='GOOD'", BigDecimal.class).compareTo(new BigDecimal("2")));
+            String downgrade = qualityBody.replace("\"2\"", "\"1\"").replace("\"sourceVersion\":1", "\"sourceVersion\":3");
+            assertEquals(400, post(base + "/quality-inspections/INSPECT-A-V3/results", qualityToken, "QUALITY-A-V3", downgrade).statusCode());
+            assertEquals(202, post(base + "/tasks/PUTAWAY-B/putaways", putawayToken, "PUTAWAY-B", putawayA.replace("RECEIVE-CMD", "RECEIVE-B")).statusCode());
+            assertEquals(202, post(base + "/tasks/PUTAWAY-A-REST/putaways", putawayToken, "PUTAWAY-A-REST", putawayA.replace("\"2\"", "\"1\"")).statusCode());
+            await(() -> inDb.queryForObject("SELECT putaway_posted_qty FROM inbound_line WHERE id='LINE'", BigDecimal.class).compareTo(new BigDecimal("5")) == 0,
+                    30, "分批上架累计未完成", in, stock);
+            assertEquals(0, stockDb.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE location_id='STORAGE' AND quality_code='GOOD'", BigDecimal.class).compareTo(new BigDecimal("5")));
+            assertEquals(0, stockDb.queryForObject("SELECT SUM(putaway_qty) FROM stock_receipt_quality", BigDecimal.class).compareTo(new BigDecimal("5")));
+            assertEquals(0, inDb.queryForObject("SELECT SUM(putaway_qty) FROM inbound_receipt_quality", BigDecimal.class).compareTo(new BigDecimal("5")));
+            var firstPage = http.send(HttpRequest.newBuilder(URI.create(receiptPath + "?limit=1")).timeout(Duration.ofSeconds(5))
+                    .header("Authorization", "Bearer " + token).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, firstPage.statusCode(), firstPage.body());
+            var firstBatch = RuntimeMessage.JSON.readTree(firstPage.body());
+            assertEquals(1, firstBatch.path("items").size());
+            assertFalse(firstBatch.path("items").get(0).has("payload_json"));
+            var secondPage = http.send(HttpRequest.newBuilder(URI.create(receiptPath + "?limit=1&cursor=" + firstBatch.path("nextCursor").asString()))
+                    .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, secondPage.statusCode(), secondPage.body());
+            var secondBatch = RuntimeMessage.JSON.readTree(secondPage.body());
+            assertEquals(1, secondBatch.path("items").size());
+            assertNotEquals(firstBatch.path("items").get(0).path("id").asString(), secondBatch.path("items").get(0).path("id").asString());
+            assertFalse(secondBatch.has("nextCursor"));
             // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
             stop(inboundProcess); inboundProcess = null;
             stop(inventoryProcess); inventoryProcess = null;

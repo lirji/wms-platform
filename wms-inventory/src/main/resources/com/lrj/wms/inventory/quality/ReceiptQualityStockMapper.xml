@@ -24,4 +24,9 @@
         WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} AND version=#{expected}
           AND source_version+1=#{sourceVersion} AND putaway_qty &lt;= #{accepted}
     </update>
+    <update id="addPutaway">
+        UPDATE stock_receipt_quality SET putaway_qty=putaway_qty+#{qty},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{ent} AND warehouse_id=#{wh} AND receipt_command_id=#{receipt} AND version=#{expected}
+          AND source_version>0 AND putaway_qty+#{qty} &lt;= accepted_qty
+    </update>
 </mapper>

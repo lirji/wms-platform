@@ -101,6 +101,9 @@ get("/api/wms/v1/warehouses/{warehouseId}/inbound-orders", "listInboundOrders", 
 get("/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}", "getInboundOrder",
     "inbound", "inbound.read", ("200",), "入库单详情",
     wh + ["- $ref: '#/components/parameters/InboundOrderId'"])
+get("/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts",
+    "listReceiptBatches", "inbound", "inbound.read", ("200",), "按原收货命令稳定分页，返回本批质量及上架状态",
+    wh + ["- $ref: '#/components/parameters/InboundOrderId'"] + cursor)
 post("/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts",
      "confirmReceipt", "inbound", "inbound.receive", "ReceiptRequest", ("202",),
      "记录收货事实；涉及库存同步返回202",
@@ -864,6 +867,11 @@ components:
       additionalProperties: false
       required: ["inboundOrderId","lineId","qty"]
       properties:
+        receiptCommandId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 原收货批次命令；消息启用时必填，上架不能挪用其他批次的合格量
         inboundOrderId:
           type: "string"
           maxLength: 64

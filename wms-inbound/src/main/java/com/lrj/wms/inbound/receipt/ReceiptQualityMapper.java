@@ -24,4 +24,12 @@ public interface ReceiptQualityMapper {
             @Param("accepted") BigDecimal accepted, @Param("rejected") BigDecimal rejected, @Param("now") Timestamp now);
     int applied(@Param("ent") String ent, @Param("wh") String wh, @Param("command") String command,
             @Param("state") String state, @Param("now") Timestamp now);
+    int addPutaway(@Param("ent") String ent, @Param("wh") String wh, @Param("receipt") String receipt,
+            @Param("expected") long expected, @Param("qty") BigDecimal qty, @Param("now") Timestamp now);
+    int bindTask(@Param("ent") String ent, @Param("wh") String wh, @Param("task") String task,
+            @Param("receipt") String receipt, @Param("location") String location, @Param("now") Timestamp now);
+    List<Map<String, Object>> batches(@Param("ent") String ent, @Param("wh") String wh,
+            @Param("order") String order, @Param("page") com.lrj.wms.runtime.web.CursorPage page);
 }
+
+
