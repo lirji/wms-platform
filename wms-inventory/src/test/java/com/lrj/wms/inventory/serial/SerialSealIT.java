@@ -133,6 +133,14 @@ class SerialSealIT {
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM local_serial WHERE serial_id='SN-TR'", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-DST'",
                 Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='REL-1'",
+                Integer.class));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT on_hand_qty FROM stock_balance WHERE warehouse_id='WH-A' AND sku_id='SKU-TR'", BigDecimal.class)
+                .compareTo(BigDecimal.ZERO));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT on_hand_qty FROM stock_balance WHERE warehouse_id='WH-B' AND sku_id='SKU-TR'", BigDecimal.class)
+                .compareTo(new BigDecimal("1.000000")));
         assertEquals("SEALED", jdbc.queryForObject(
                 "SELECT state FROM local_serial WHERE warehouse_id='WH-A' AND serial_id='SN-TR'", String.class));
     }

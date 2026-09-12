@@ -453,3 +453,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 解冻按本计划余额上的 `MISSING_PENDING` 计数，不把同仓其他计划的未收敛行算进来。
 - `SerialReceiptService.recover` 对 MISSING/MISSING_PENDING 返回 `SERIAL_MISSING`，不按原收货复活。
 - 确认：无 critical/high；AC-18/19 仍 planned；未发明 OQ-03；未到 S8 不创建 `wms-console/`。冻结竞态与两仓守恒留给 S6-04。
+
+## S6-04 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- `sealSource` 在同一本地事务先扣 on_hand 再 CAS SEALED；同 `releaseRef` 流水存在则不二次扣减。扣后 `on_hand < reserved+claim` 拒绝。
+- `TransferStockService` 只写库存库；`TransferConservationIT` 用 filesystem Flyway 迁履约库，不把 fulfillment jar 叠进 inventory 迁移 classpath。
+- QUIESCING 后新预占走门禁拒绝，不依赖线程调度“碰巧”。登记未见释放不得把目的放成 AUTHORIZED。
+- 确认：无 critical/high；AC-16/17/18/19 仍 planned；未发明 OQ-03；未到 S8 不创建 `wms-console/`。

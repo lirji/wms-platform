@@ -611,3 +611,16 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `CountIT` / `SerialReceiptIT` / `SerialSealIT` | 回归 0 失败 | V014 未破坏数量盘点与收货封闭 |
 
 结论：S6-03a 本地 pass。不能当作 AC-18/19 生产通过。冻结竞态、转移恢复与两仓守恒留给 S6-04。
+
+## S6-04 冻结竞态、转移恢复与两仓守恒
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未发明 OQ-03。未到 S8，未创建 `wms-console/`。库存库与履约库分事务，不是生产 HTTP/TC。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `CountFreezeRaceIT` | QUIESCING 后并发 freeze=`FROZEN`、reserve=`STOCK_FROZEN`；reserved=0，on_hand=10 | 同库存库两连接 |
+| `SerialTransferRecoveryIT` | 源仓 SEALED 且 on_hand=0；登记未见释放时目的 HOLD；恢复后 AUTHORIZED；`REL-RV` 流水仍 1 行 | 库存本库 + 内存登记 |
+| `TransferConservationIT` | 源 1 + 目的 3 + 在途 0 + 损耗 1 = 5；发出操作库存/履约各重放一次 | 两物理 MySQL |
+| `SerialSealIT` / `CountIT` | 回归 0 失败 | 源仓扣量未破坏原封闭/数量盘点 |
+
+结论：S6-04 本地 pass。不能当作 AC-16/17/18/19 生产通过。S7 任务框架仍 planned。

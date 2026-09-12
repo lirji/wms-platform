@@ -6,6 +6,7 @@ import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
@@ -15,7 +16,7 @@ import org.apache.ibatis.session.SqlSession;
 
 /**
  * 仓内序列号转移。源仓 SEALED 后旧授权消息不得恢复可用；目的仓未获登记接收前保持 HOLD。
- * 本切片不减少源仓数量、不发明 OQ-03。
+ * 源仓封闭时扣 1 个 on_hand；同释放引用重放不二次扣减。不发明 OQ-03。
  */
 public final class SerialTransferLocalService {
     public static final String STATE_SEALED = "SEALED";
@@ -55,6 +56,26 @@ public final class SerialTransferLocalService {
         }
         if (!SerialReceiptService.STATE_AUTHORIZED.equals(String.valueOf(row.get("state")))) {
             throw new InventoryException("SERIAL_STATE_CONFLICT", "当前本地状态不能封闭");
+        }
+        InventoryMapper inventory = session.getMapper(InventoryMapper.class);
+        String balanceId = row.get("balance_id") == null ? null : String.valueOf(row.get("balance_id"));
+        if (balanceId == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "源仓序列号没有绑定余额");
+        }
+        Map<String, Object> balance = inventory.lockBalanceById(enterpriseId, warehouseId, balanceId);
+        if (balance == null) {
+            throw new InventoryException("RESOURCE_NOT_FOUND", "源仓余额不存在");
+        }
+        if (inventory.countLedger(enterpriseId, warehouseId, releaseRef) == 0) {
+            if (inventory.casAdjust(enterpriseId, warehouseId, balanceId, new BigDecimal("-1"), BigDecimal.ZERO,
+                    BigDecimal.ZERO, asLong(balance.get("version")), now) != 1) {
+                throw new InventoryException("RESERVATION_CONFLICT", "源仓封闭后不足覆盖预占");
+            }
+            Map<String, Object> after = inventory.lockBalanceById(enterpriseId, warehouseId, balanceId);
+            inventory.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, releaseRef, 1, balanceId,
+                    new BigDecimal("-1"), BigDecimal.ZERO, BigDecimal.ZERO, decimal(after.get("on_hand_qty")),
+                    decimal(after.get("reserved_qty")), decimal(after.get("free_execution_claim_qty")),
+                    asLong(after.get("version")), "TRANSFER_ISSUE", transferId, "TRANSFER", now, now);
         }
         if (locals.casSeal(enterpriseId, warehouseId, normalized, SerialReceiptService.STATE_AUTHORIZED, STATE_SEALED,
                 transferId, releaseRef, "TRANSFER_PREPARED", expectedEpoch, now) != 1) {
@@ -191,6 +212,16 @@ public final class SerialTransferLocalService {
             return number.longValue();
         }
         return 0L;
+    }
+
+    private static BigDecimal decimal(Object value) {
+        if (value instanceof BigDecimal qty) {
+            return qty;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
     }
 
 }
