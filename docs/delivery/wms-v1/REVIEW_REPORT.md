@@ -434,3 +434,12 @@ Backend Architect子代理只读复核10专项，提出两项修正并已纳入�
 - 源仓 `SEALED` 后 `receiveHold`/`recover`/`applyObservedAuthorization` 不得改回 AUTHORIZED。目的未在途保持 HOLD。
 - 本片不扣源仓数量、不写两仓库存守恒，那是 S6-04/`TransferConservationIT`。
 - 确认：无 critical/high；AC-16/17 仍 planned；未发明 OQ-03；未到 S8 不创建 `wms-console/`。
+
+## S6-03 复核
+
+同会话对实际 diff 复核，不是独立多智能体审查。
+
+- 冻结前检查 `free_execution_claim` 与 STARTED/UNKNOWN permit。点数用独立 `observation_id`，复盘不覆盖原行。
+- 盘亏 `counted < reserved+claim` 标 `RESERVATION_CONFLICT` 且不改 on_hand；部分失败不解冻。
+- 库存迁移用 `V013__count_plan.sql`，不占用 fulfillment 的 V004/V005。
+- 确认：无 critical/high；AC-18/19 仍 planned；序列号观察集合留给 S6-03a；未到 S8 不创建 `wms-console/`。

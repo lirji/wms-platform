@@ -584,3 +584,16 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | 定向 Maven | serial-registry 3 项、inventory 5 项，0 失败 | 定向 |
 
 结论：S6-02 本地 pass。不能当作 AC-16/17 生产通过。源仓数量扣减与两仓守恒留给 S6-04。
+
+## S6-03 盘点排空冻结与预占冲突
+
+环境：2026-09-12，macOS arm64、Microsoft JDK21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未发明 OQ-03。未到 S8，未创建 `wms-console/`。库存本库，不是跨服务排空或生产 HTTP。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `CountIT` 主路径 | QUIESCING 拒新预占；冻结快照 10；点数 8 复盘 7 不覆盖旧观察；审批后调整 on_hand=7；解冻 OPEN | 库存本库 |
+| `CountIT` 预占冲突 | 预占 6 盘点 3 → `RESERVATION_CONFLICT`；on_hand 仍 10；解冻 `COUNT_APPLY_PENDING`；门禁保持 FROZEN | 库存本库 |
+| `CountIT` 排空 | `free_execution_claim>0` 时 `COUNT_DRAIN_PENDING` | 不是三服务实物排空 |
+| `InventoryApplicationIT` / `InventoryDomainTest` | 回归 0 失败 | V013 未破坏门禁原语 |
+
+结论：S6-03 本地 pass。不能当作 AC-18/19 生产通过。序列号 FOUND/MISSING 留给 S6-03a。

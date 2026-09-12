@@ -2,7 +2,7 @@
 
 ## 当前阶段与授权
 
-- 状态：in-progress；阶段：S6-02（序列号 TRANSFER_PREPARED/SEALED/IN_TRANSIT/RECEIVING/ACTIVE 与 epoch）。
+- 状态：in-progress；阶段：S6-03（盘点 QUIESCING/冻结/点数/审批/预占冲突）。S6-02 本地已提交 `b735ba1`。
 - 用户要求按唯一计划做到 S9 / 50 AC，且切片完成后不必再说「继续」。
 - 仅操作隔离工作树 `.local/s1-masterdata`；不部署生产，不改共享 dev-infra。
 - 分支：`feat/wms-s6-02`。S5-06 已在 remote main `97e35fa`。S6-01 `01eeeaa`、S6-01a `29f8181` 已推任务分支，等 S5-06 main CI 后再按序快进 main。
@@ -33,6 +33,6 @@
 
 ## 未完成
 
-- 按序发布 S6-01、S6-01a、S6-02。S6-03…S9。50 项 AC。OQ-03。S8 `wms-console/`。
+- 按序发布 S6-01、S6-01a、S6-02、S6-03。S6-03a…S9。50 项 AC。OQ-03。S8 `wms-console/`。
 
 无生产部署。
