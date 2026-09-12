@@ -76,6 +76,8 @@ class OutboundHttpIT {
         registry.add("wms.outbound.datasource.password", MYSQL::getPassword);
         registry.add("wms.oidc.issuer", () -> ISSUER);
         registry.add("wms.oidc.client-id", () -> "wms-platform");
+        registry.add("wms.reconciliation.window-enabled", () -> "true");
+        registry.add("wms.reconciliation.allowed-subjects", () -> "wms-wh-a");
     }
 
     @TestConfiguration
@@ -205,6 +207,37 @@ class OutboundHttpIT {
         assertEquals(400, response.statusCode(), response.body());
     }
 
+    @Test
+    void sourceWindowRequiresTrustedSubjectAndReturnsOriginalScopedProof() throws Exception {
+        String path="/internal/wms/v1/warehouses/WH-WINDOW/reconciliation-windows/HTTP-CUT";
+        String body="{\"cutoff\":\"2026-09-12T00:00:00Z\"}";
+        String trusted=token(List.of("WH-WINDOW"),List.of("recon.evidence"));
+        assertEquals(403,post(path,token(List.of("WH-WINDOW"),List.of("recon.read")),"CUT",body).statusCode());
+        assertEquals(403,post(path,token(List.of("WH-WINDOW"),List.of("recon.evidence"),"untrusted"),"CUT",body).statusCode());
+        assertEquals(403,post(path,token(List.of("WH-OTHER"),List.of("recon.evidence")),"CUT",body).statusCode());
+        assertEquals(400,post(path,trusted,"CUT","{}").statusCode());
+        var response=post(path,trusted,"CUT",body);assertEquals(200,response.statusCode(),response.body());
+        var proof=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(response.body());
+        assertEquals("COMPLETE",proof.path("state").asString());assertEquals(0,proof.path("factCount").asInt());
+        assertEquals(response.body(),post(path,trusted,"CUT-REPLAY",body).body());
+        assertEquals(400,post(path,trusted,"CUT-CHANGED","{\"cutoff\":\"2026-09-12T00:00:01Z\"}").statusCode());
+        var page=get(path+"/facts?cutoff=2026-09-12T00%3A00%3A00Z",trusted);assertEquals(200,page.statusCode(),page.body());
+        var facts=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(page.body());
+        assertEquals("wms-outbound",facts.path("sourceService").asString());assertEquals(proof.path("digest"),facts.path("digest"));
+        assertTrue(facts.path("facts").isEmpty());
+        // 原来源T1已提交但尚无T3；HTTP不能输出可被当作完整水位的事实页。
+        try(var session=sessions.openSession(false)) {
+            new com.lrj.wms.outbound.protocol.SourceProtocolService(session,java.time.Clock.fixed(java.time.Instant.parse("2026-09-11T00:00:00Z"),java.time.ZoneOffset.UTC))
+                    .submitShip("ENT-1","WH-PENDING","PENDING-WINDOW","ORDER","PART","LINE","fixture",java.math.BigDecimal.ONE);
+            session.commit();
+        }
+        String pending="/internal/wms/v1/warehouses/WH-PENDING/reconciliation-windows/PENDING-CUT";
+        String pendingToken=token(List.of("WH-PENDING"),List.of("recon.evidence"));
+        assertEquals(202,post(pending,pendingToken,"PENDING",body).statusCode());
+        var incomplete=get(pending+"/facts?cutoff=2026-09-12T00%3A00%3A00Z",pendingToken);
+        assertEquals(409,incomplete.statusCode(),incomplete.body());assertTrue(incomplete.body().contains("SOURCE_INCOMPLETE"));
+    }
+
     private HttpResponse<String> get(String path, String bearer) throws Exception {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("Authorization", "Bearer " + bearer).GET().build(), HttpResponse.BodyHandlers.ofString());
@@ -232,9 +265,12 @@ class OutboundHttpIT {
     }
 
     private static String token(List<String> warehouses, List<String> scopes) throws Exception {
+        return token(warehouses,scopes,"wms-wh-a");
+    }
+    private static String token(List<String> warehouses,List<String> scopes,String subject) throws Exception {
         RSAKey rsa = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
-        JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-wh-a").issuer(ISSUER).audience("wms-platform")
+        JWTClaimsSet claims = new JWTClaimsSet.Builder().subject(subject).issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
                 .claim("warehouses", warehouses).claim("scope", scopes).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);

@@ -341,6 +341,15 @@ post("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries"
     "MessageRetryRequest", ("202",), "核查隔离原因后受审计重排原意图，领取代际递增",
     wh+["- in: path\n  name: intentId\n  required: true\n  schema: { type: string, maxLength: 64 }"], success_schema="SerialRecoveryAccepted")
 
+window_params = wh + ["- in: path\n  name: cutoffId\n  required: true\n  schema: { type: string, minLength: 1, maxLength: 64 }"]
+post("/internal/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}", "collectSourceWindow", "recon", "recon.evidence",
+     "SourceWindowRequest", ("200", "202"), "受信服务调用来源节点，每次核对200项；旧来源写节点全部退出后才可启用。缺T3返回202，原窗口与时刻不可替换",
+     window_params, success_schema="SourceWindowProof")
+get("/internal/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/facts", "readSourceWindowFacts", "recon", "recon.evidence",
+    ("200",), "来源完整窗口的稳定事实页；未完成返回409 SOURCE_INCOMPLETE。接收方必须核对完整计数与摘要，不能只信单页",
+    window_params + ["- in: query\n  name: cutoff\n  required: true\n  schema: { type: string, format: date-time, maxLength: 64 }",
+                     "- in: query\n  name: cursor\n  required: false\n  schema: { type: string, maxLength: 64 }"], success_schema="SourceWindowPage")
+
 header = """openapi: 3.1.0
 info:
   title: WMS v1 HTTP contract
@@ -1909,6 +1918,51 @@ components:
         serial: { type: string, minLength: 1, maxLength: 128 }
         factRef: { $ref: '#/components/schemas/Id' }
         expectedEpoch: { type: integer, format: int64, minimum: 0 }
+    SourceWindowRequest:
+      type: object
+      required: [cutoff]
+      properties:
+        cutoff: { type: string, format: date-time, maxLength: 64, description: 过去的UTC排他上界，最大微秒精度 }
+    SourceWindowProof:
+      type: object
+      required: [schemaVersion, sourceService, enterpriseId, warehouseId, cutoffId, cutoff, state, factCount, digest]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        sourceService: { type: string, enum: [wms-inbound, wms-outbound] }
+        enterpriseId: { $ref: '#/components/schemas/Id' }
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        cutoffId: { $ref: '#/components/schemas/Id' }
+        cutoff: { type: string, format: date-time }
+        state: { type: string, enum: [COLLECTING, COMPLETE] }
+        factCount: { type: integer, format: int64, minimum: 0 }
+        digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+    SourceWindowPage:
+      type: object
+      required: [schemaVersion, sourceService, enterpriseId, warehouseId, cutoffId, cutoff, factCount, digest, facts, nextCursor]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        sourceService: { type: string, enum: [wms-inbound, wms-outbound] }
+        enterpriseId: { $ref: '#/components/schemas/Id' }
+        warehouseId: { $ref: '#/components/schemas/Id' }
+        cutoffId: { $ref: '#/components/schemas/Id' }
+        cutoff: { type: string, format: date-time }
+        factCount: { type: integer, format: int64, minimum: 0 }
+        digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        nextCursor: { type: [string, 'null'], maxLength: 64 }
+        facts:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [commandId, action, executionId, quantity, postedQuantity, postingId, occurredAt]
+            properties:
+              commandId: { $ref: '#/components/schemas/Id' }
+              action: { type: string, enum: [RECEIVE, QUALITY, PUTAWAY, PICK, SHIP, CANCEL] }
+              executionId: { $ref: '#/components/schemas/Id' }
+              quantity: { type: string }
+              postedQuantity: { type: string }
+              postingId: { $ref: '#/components/schemas/Id' }
+              occurredAt: { type: string, format: date-time }
     SerialShipmentCommand:
       $ref: '#/components/schemas/SerialMissingCommand'
       description: 结构与库存事实引用一致，但语义为原发运而非盘亏；expectedEpoch拒绝小数。

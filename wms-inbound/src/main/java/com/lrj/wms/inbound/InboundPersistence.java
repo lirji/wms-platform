@@ -47,6 +47,7 @@ class InboundPersistence {
         config.addMapper(SourceMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceWindowMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         config.addMapper(com.lrj.wms.inbound.receipt.ReceiptQualityMapper.class);
         config.addMapper(com.lrj.wms.inbound.receipt.ReceiptSerialPutawayMapper.class);

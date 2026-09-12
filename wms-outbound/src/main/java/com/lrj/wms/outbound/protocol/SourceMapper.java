@@ -7,6 +7,10 @@ import org.apache.ibatis.annotations.Param;
 
 /** 出库来源协议表。必须带企业/仓条件。 */
 public interface SourceMapper {
+    /** T1与关窗使用同一范围锁，时间必须在获得锁后生成。 */
+    int ensureWindowGuard(@Param("e") String e,@Param("w") String w);
+    Map<String,Object> lockWindowGuard(@Param("e") String e,@Param("w") String w);
+
     /** 回执绑定来源事实，禁止消息任意指定另一业务行。身份字段创建后不可修改。 */
     Map<String, Object> commandFact(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("commandId") String commandId);

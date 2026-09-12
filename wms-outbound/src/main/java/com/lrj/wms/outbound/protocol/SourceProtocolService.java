@@ -19,6 +19,16 @@ public final class SourceProtocolService {
     public static final String ACTION_PICK = "PICK";
     public static final String ACTION_CANCEL = "CANCEL";
 
+    /** 同一仓来源T1与关窗串行，避免时间早于cutoff的事务在证明完成后才提交。 */
+    private Timestamp commandTime(String e,String w,String command) {
+        var mapper=session.getMapper(SourceMapper.class);
+        mapper.ensureWindowGuard(e,w);var guard=mapper.lockWindowGuard(e,w);
+        Timestamp now=Timestamp.from(clock.instant());
+        if(guard.get("closed_before")!=null && now.toInstant().isBefore(com.lrj.wms.runtime.db.DatabaseInstants.require(guard.get("closed_before")))
+                && mapper.getCommand(e,w,command)==null) throw new IllegalArgumentException("SOURCE_WINDOW_CLOSED");
+        return now;
+    }
+
     private final SqlSession session;
     private final Clock clock;
 
@@ -30,7 +40,7 @@ public final class SourceProtocolService {
     /** T1：保存效果、命令、实物与 Outbox。 */
     public Map<String, Object> submitShip(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty) {
-        Timestamp now = Timestamp.from(clock.instant());
+        Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(ACTION_SHIP + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();
@@ -91,7 +101,7 @@ public final class SourceProtocolService {
     private Map<String, Object> submitAction(String action, String factType, String enterpriseId, String warehouseId,
             String commandId, String parentId, String partId, String lineId, String actorId, BigDecimal qty,
             String previousCommandId) {
-        Timestamp now = Timestamp.from(clock.instant());
+        Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(action + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();

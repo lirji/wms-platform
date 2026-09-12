@@ -19,6 +19,16 @@ public final class SourceProtocolService {
     public static final String ACTION_PUTAWAY = "PUTAWAY";
     public static final String ACTION_QUALITY = "QUALITY";
 
+    /** 同一仓来源T1与关窗串行，避免时间早于cutoff的事务在证明完成后才提交。 */
+    private Timestamp commandTime(String e,String w,String command) {
+        var mapper=session.getMapper(SourceMapper.class);
+        mapper.ensureWindowGuard(e,w);var guard=mapper.lockWindowGuard(e,w);
+        Timestamp now=Timestamp.from(clock.instant());
+        if(guard.get("closed_before")!=null && now.toInstant().isBefore(com.lrj.wms.runtime.db.DatabaseInstants.require(guard.get("closed_before")))
+                && mapper.getCommand(e,w,command)==null) throw new IllegalArgumentException("SOURCE_WINDOW_CLOSED");
+        return now;
+    }
+
     private final SqlSession session;
     private final Clock clock;
 
@@ -36,7 +46,7 @@ public final class SourceProtocolService {
     /** T1；previousCommandId 非空表示安全关闭后的下一尝试。 */
     public Map<String, Object> submitReceive(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty, String previousCommandId) {
-        Timestamp now = Timestamp.from(clock.instant());
+        Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(ACTION_RECEIVE + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();
@@ -97,7 +107,7 @@ public final class SourceProtocolService {
     /** T1：上架子动作命令。 */
     public Map<String, Object> submitPutaway(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, BigDecimal qty) {
-        Timestamp now = Timestamp.from(clock.instant());
+        Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(ACTION_PUTAWAY + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();
@@ -133,7 +143,7 @@ public final class SourceProtocolService {
     public Map<String, Object> submitQuality(String enterpriseId, String warehouseId, String commandId, String parentId,
             String partId, String lineId, String actorId, com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
         BigDecimal qty = decision.inspectedQty();
-        Timestamp now = Timestamp.from(clock.instant());
+        Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         String digest = sha256(ACTION_QUALITY + '\u001f' + commandId + '\u001f' + qty.toPlainString());
         String effectCandidate = UUID.randomUUID().toString();

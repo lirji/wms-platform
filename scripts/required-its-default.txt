@@ -177,3 +177,8 @@ com.lrj.wms.outbound.order.OutboundHttpIT#serialQuantityMismatchIsRejectedBefore
 # 分次发运原身份与独立历史证明；既有实际进程/迁移测试同时覆盖SHIP
 com.lrj.wms.outbound.order.OutboundPickIT#partialSerialShipmentConsumesOnlyPostedOriginalIdentitiesAndReceiptIsAtomic
 com.lrj.wms.serial.SerialRegistryHttpIT#shipmentHasImmutableProofAndNeverReactivatesByOldReceipt
+
+# 来源关窗权威、在途事务与重启分页；不代替库存侧完整水位核验
+com.lrj.wms.outbound.protocol.SourceWindowIT#persistedPagesWaitForReceiptAndRollbackWithoutLosingOriginalDigest
+com.lrj.wms.outbound.protocol.SourceWindowIT#freezeWaitsForInFlightT1AndRejectsBackdatedNewCommand
+com.lrj.wms.outbound.order.OutboundHttpIT#sourceWindowRequiresTrustedSubjectAndReturnsOriginalScopedProof

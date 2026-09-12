@@ -6,8 +6,8 @@
 
 | 权威模块 | 负责的数据 | Compose schema | 迁移目录 / 当前最高版本 |
 | --- | --- | --- | --- |
-| inbound | 入库单、分批收货观察、质检、上架、来源命令及回执 | `wms_inbound` | [inbound 迁移](../../wms-inbound/src/main/resources/db/migration)；V016 `serial_putaway_selection` |
-| outbound | 出库单、拣发任务、实物执行、取消、履约授权快照 | `wms_outbound` | [outbound 迁移](../../wms-outbound/src/main/resources/db/migration)；V018 `serial_shipment_claim` |
+| inbound | 入库单、分批收货观察、质检、上架、来源命令及回执 | `wms_inbound` | [inbound 迁移](../../wms-inbound/src/main/resources/db/migration)；V017 `source_reconciliation_window` |
+| outbound | 出库单、拣发任务、实物执行、取消、履约授权快照 | `wms_outbound` | [outbound 迁移](../../wms-outbound/src/main/resources/db/migration)；V019 `source_reconciliation_window` |
 | inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V042 `serial_shipment_intent` |
 | serial-registry | 企业 + SKU + SN 身份、归属和转移凭据 | `wms_registry` | [registry 迁移](../../wms-serial-registry/src/main/resources/db/migration/registry)；V005 `serial_shipment` |
 | fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V019 `empty_launch_terminal_evidence` |
@@ -20,13 +20,15 @@
 
 ## HTTP 与鉴权
 
-- [OpenAPI](../../wms-contract/src/main/resources/openapi/wms-v1.yaml)：本基线 91 个 path、104 个 operation，包含请求/响应、错误和 scope 声明；统计不代表对应场景全部验收。
+- [OpenAPI](../../wms-contract/src/main/resources/openapi/wms-v1.yaml)：本基线 93 个 path、106 个 operation，包含请求/响应、错误和 scope 声明；统计不代表对应场景全部验收。
 - [权限映射](../../wms-security/src/main/resources/wms-operation-scopes.tsv)：服务端按操作校验 scope、企业及仓授权。序列号登记另外校验受信服务主体；内部 TCC 路径仍有专门的隔离与身份要求。
 - [契约生成器](../../scripts/generate-openapi.py)与[契约校验](../../scripts/verify-contracts.sh)：修改 API 时同步生成器、OpenAPI、权限与真实 HTTP 测试，不能只改页面权限显示。
 - 写命令按接口要求传 `Idempotency-Key`，重试保持原业务身份和正文；HTTP 202 表示受理或处理中，不代表库存过账、TC 全局成功或实物完成。
 - 数量必须携带单位/精度语义，时间使用明确 UTC/偏移规则。跨 JVM 与历史数据库的边界以[数据库时间](DATABASE_TIME.md)为准。
 
 前端代理路径见[连接清单](../operations/INFRASTRUCTURE.md)。业务路径认证默认拒绝；liveness、readiness 和业务成功是三种不同证据。
+
+来源关窗证明提供端已增加内部受信入口，默认关闭；全部旧来源写节点退出后才可启用。来源窗口COMPLETE不代表库存核验或快照完整，库存采集尚在实施，见[可信水位](RECONCILIATION_WATERMARK.md)。
 
 ## 事件、一致性与恢复
 
@@ -52,4 +54,4 @@ sequenceDiagram
 
 ## 验证入口
 
-数据库语义由真实 MySQL 集成测试验证，单纯 Mock 不证明事务或并发正确。默认必需 IT 名单在[required-its-default.txt](../../scripts/required-its-default.txt)（本基线 114 项）；构建/profile/smoke 的准确命令见[运行与验证](S0_RUNBOOK.md)。既有结果见[阶段组合证据](REMEDIATION_VERIFICATION_2026-09-13.md)，其提交和范围必须一起阅读，不能把旧计数当成当前代码重测结果。
+数据库语义由真实 MySQL 集成测试验证，单纯 Mock 不证明事务或并发正确。默认必需 IT 名单在[required-its-default.txt](../../scripts/required-its-default.txt)（本基线 117 项）；构建/profile/smoke 的准确命令见[运行与验证](S0_RUNBOOK.md)。既有结果见[阶段组合证据](REMEDIATION_VERIFICATION_2026-09-13.md)，其提交和范围必须一起阅读，不能把旧计数当成当前代码重测结果。

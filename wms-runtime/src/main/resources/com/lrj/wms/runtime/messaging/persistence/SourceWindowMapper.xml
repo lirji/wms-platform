@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.runtime.messaging.persistence.SourceWindowMapper">
+  <insert id="ensureGuard">
+    INSERT INTO source_window_guard(enterprise_id,warehouse_id) VALUES(#{e},#{w}) ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
+  </insert>
+  <select id="lockGuard" resultType="map">
+    SELECT closed_before FROM source_window_guard WHERE enterprise_id=#{e} AND warehouse_id=#{w} FOR UPDATE
+  </select>
+  <update id="freeze">
+    UPDATE source_window_guard SET closed_before=GREATEST(COALESCE(closed_before,#{cutoff}),#{cutoff}) WHERE enterprise_id=#{e} AND warehouse_id=#{w}
+  </update>
+  <insert id="create">
+    INSERT INTO source_reconciliation_window(enterprise_id,warehouse_id,cutoff_id,closed_at,digest)
+    VALUES(#{e},#{w},#{id},#{cutoff},#{digest}) ON DUPLICATE KEY UPDATE cutoff_id=cutoff_id
+  </insert>
+  <select id="lock" resultType="map">
+    SELECT cutoff_id,closed_at,last_command_id,fact_count,digest,state,version FROM source_reconciliation_window
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} FOR UPDATE
+  </select>
+  <select id="page" resultType="map" timeout="3">
+    SELECT c.command_id,c.state,c.posting_id,c.source_execution_id,
+      CAST(JSON_TYPE(JSON_EXTRACT(c.payload_json,'$.postingContext'))='OBJECT' AS UNSIGNED) AS has_posting_context,
+      x.physical_qty,x.posted_qty,x.executed_at,c.action
+    FROM source_command c LEFT JOIN source_execution x ON x.enterprise_id=c.enterprise_id AND x.warehouse_id=c.warehouse_id
+      AND x.command_id=c.command_id AND x.id=c.source_execution_id
+    WHERE c.enterprise_id=#{e} AND c.warehouse_id=#{w} AND c.created_at &lt; #{cutoff}
+    <if test="after != null">AND c.command_id &gt; #{after}</if>
+    ORDER BY c.command_id LIMIT 201
+  </select>
+  <update id="advance">
+    UPDATE source_reconciliation_window SET last_command_id=#{after},fact_count=#{count},digest=#{digest},state=#{state},version=version+1
+    WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} AND version=#{version} AND state='COLLECTING'
+  </update>
+</mapper>

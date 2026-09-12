@@ -166,4 +166,10 @@
           AND e.enterprise_id=c.enterprise_id AND e.warehouse_id=c.warehouse_id
         WHERE c.enterprise_id=#{enterpriseId} AND c.warehouse_id=#{warehouseId} AND c.command_id=#{commandId}
     </select>
+    <insert id="ensureWindowGuard">
+        INSERT INTO source_window_guard(enterprise_id,warehouse_id) VALUES(#{e},#{w}) ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
+    </insert>
+    <select id="lockWindowGuard" resultType="map">
+        SELECT warehouse_id,closed_before FROM source_window_guard WHERE enterprise_id=#{e} AND warehouse_id=#{w} FOR UPDATE
+    </select>
 </mapper>
