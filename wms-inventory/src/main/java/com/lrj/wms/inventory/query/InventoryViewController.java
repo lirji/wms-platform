@@ -42,8 +42,8 @@ public class InventoryViewController {
         String warehouseId = warehouseIds.getFirst();
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
-            return new InventoryProjectionService(session, Clock.systemUTC()).query(WmsJwtAuthorities.enterpriseId(jwt), warehouseId,
-                    skuId, limit == null ? 50 : limit);
+            return InventoryHttpJson.body(new InventoryProjectionService(session, Clock.systemUTC())
+                    .query(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, skuId, limit == null ? 50 : limit));
         }
     }
 
