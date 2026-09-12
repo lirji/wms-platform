@@ -3,7 +3,7 @@
 ## 当前阶段与授权
 
 - 状态：in-progress；阶段：S9-05 证据汇总。route-gate + AC-24 HTTP IT 已在远程 main `4dee112`。
-- 任务分支：`feat/console-frontend-ia`（基于远程 main `1ca61a8`）。
+- 任务分支：`feat/console-enterprise-ui`（基于远程 main `06d3d81`）。
 - 未发明 OQ-03。S8-05 无授权设备。S9-01 无签署容量输入。
 
 ## 授权记录
@@ -30,7 +30,8 @@
 - 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console，已在远程 main `87a233b`。
 - 2026-09-12：控制台登录/`returnTo`/OIDC 已在远程 main。
 - 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。
-- 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。AC-26 写作业链未做，不是 50 AC accepted。
+- 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。
+- 2026-09-12：控制台视觉改为企业作业台（侧栏、KPI、密表）。AC-26 写作业链未做，不是 50 AC accepted。
 
 ## 未完成
 

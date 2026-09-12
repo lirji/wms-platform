@@ -55,7 +55,7 @@ export function ReceivePage() {
 
   return (
     <section className="pda">
-      <PageHead title="PDA 收货" sub="扫码枪连续输入，成功失败同时用文字说明，不只靠颜色。" />
+      <PageHead eyebrow={warehouseId || "未选仓"} title="PDA 收货" sub="扫码枪连续输入，成功失败同时用文字说明，不只靠颜色。" />
       <div className="pda-card">
         <p aria-live="assertive" className={`tone tone-${tone}`}>{feedback}</p>
         {error ? errorBanner(error) : null}

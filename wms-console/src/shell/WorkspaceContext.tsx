@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 export type WorkspaceValue = {
   token?: string;
   warehouseId: string;
+  warehouseName?: string;
 };
 
 const WorkspaceContext = createContext<WorkspaceValue>({ warehouseId: "" });

@@ -18,7 +18,7 @@ export function PdaShell({ user, token }: { user: User; token?: string }) {
               <small>{warehouseId || "未选仓"} · {displayName}</small>
             </span>
           </Link>
-          <Link className="btn btn-ghost" to={warehouseId ? `/w/${warehouseId}` : "/"}>返回工作台</Link>
+          <Link className="btn" to={warehouseId ? `/w/${warehouseId}` : "/"}>返回工作台</Link>
         </header>
         <main className="app-main">
           <Outlet />

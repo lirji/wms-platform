@@ -29,7 +29,7 @@ const LABELS: Record<BannerKind, string> = {
   "sync-pending": "货已执行，库存待同步",
   "serial-hold": "序列号隔离中",
   error: "失败",
-  success: "成功"
+  success: "查询就绪"
 };
 
 export function StatusBanner({ kind, title, detail, operationId }: StatusBannerProps) {
