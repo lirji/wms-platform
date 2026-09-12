@@ -39,6 +39,9 @@ services:
       WMS_INBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_inbound?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INBOUND_DB_USER: wms_inbound
       WMS_INBOUND_DB_PASSWORD: ${WMS_INBOUND_DB_PASSWORD:?set WMS_INBOUND_DB_PASSWORD}
+      WMS_MESSAGING_ENABLED: ${WMS_INBOUND_MESSAGING_ENABLED:-false}
+      WMS_MESSAGING_BOOTSTRAPSERVERS: kafka:9092
+      WMS_MESSAGING_TOPICPREFIX: ${WMS_MESSAGING_TOPIC_PREFIX:-wms.local}
     depends_on:
       mysql-apps:
         condition: service_healthy
@@ -83,7 +86,7 @@ services:
       WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INVENTORY_DB_USER: wms_inventory_a
       WMS_INVENTORY_DB_PASSWORD: ${WMS_INVENTORY_A_DB_PASSWORD:?set WMS_INVENTORY_A_DB_PASSWORD}
-      # 当前仅启用库存事件投影；来源命令链路待完成后再独立启用。
+      # 与入库开关一起启用时，覆盖收货RECEIVE和库存事件投影。
       WMS_MESSAGING_ENABLED: ${WMS_INVENTORY_MESSAGING_ENABLED:-false}
       WMS_MESSAGING_BOOTSTRAPSERVERS: kafka:9092
       WMS_MESSAGING_TOPICPREFIX: ${WMS_MESSAGING_TOPIC_PREFIX:-wms.local}

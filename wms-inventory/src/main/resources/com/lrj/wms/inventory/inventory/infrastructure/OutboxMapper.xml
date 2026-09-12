@@ -65,4 +65,11 @@
         AND claim_epoch=#{claimEpoch}
         AND status='CLAIMED'
     </update>
+    <insert id="insertCommandResult">
+        INSERT INTO outbox_event (event_id, enterprise_id, warehouse_id, aggregate_type, aggregate_id, aggregate_version,
+          event_type, operation_id, payload, status, claim_epoch, next_attempt_at, version, created_at, updated_at)
+        VALUES (#{eventId}, #{enterpriseId}, #{warehouseId}, 'StockCommand', #{commandId}, 1,
+          'InventoryCommandResult', #{commandId}, CAST(#{payload} AS JSON), 'PENDING', 0, #{now}, 0, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE event_id=event_id
+    </insert>
 </mapper>

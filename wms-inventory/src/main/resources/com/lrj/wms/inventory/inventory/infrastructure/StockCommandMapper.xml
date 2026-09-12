@@ -119,4 +119,9 @@
         AND id=#{id}
         AND reversed_qty+#{qty}&lt;=quantity
     </update>
+    <select id="postingByCommand" resultType="map">
+        SELECT id, quantity, source_execution_id, source_document_id, action, created_at
+        FROM stock_posting WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
+          AND source_service=#{sourceService} AND command_id=#{commandId}
+    </select>
 </mapper>

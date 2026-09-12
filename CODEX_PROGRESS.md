@@ -180,3 +180,17 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - 下一个库存适配可复用MasterdataHttpMapper.getSku（base_unit/quantity_scale/lot_enabled/serial_enabled/state）与MasterdataMapper.getLocation；getLot现未返回owner_id，须新增权威scope校验查询。StockCommandMapper需postingByCommand（表已有enterprise/warehouse/source/command唯一索引）；结果写Outbox与T2/DONE同TX，发送结果按来源results topic。数量解析用Quantity按权威SKU精度，RECEIVE=HOLD，序列号SKU缺显式serial不能静默普通入账。错误契约隔离，不以重试补猜未知原始事实。
 
 - 22:47：来源发布器集成 `/tmp/wms-source-publisher-it.log` BUILD SUCCESS，SourceOutboxIT1、InboundReceipt5、ReceiptObservation2、InboundHttp1+全部单元；当前无Maven。正在独立提交T1上下文/发布器，再接完整收货T2/回执。
+
+
+## 最新检查点 2026-09-12 22:59（收货双进程闭环已通过）
+
+- T1上下文/发布器已提交 **d811386**（28文件），目前9个本地任务提交未push。当前工作树本批RECEIVE T2/T3接线，均本任务改动。
+- 新 `inbound/messaging/InboundMessagingConfiguration`：enabled=true时producer/sourceOutbox worker + RuntimeInbox(inbound.results受信inventory)/Kafka consumer + T3 worker + KafkaDependencyHealth。T3只从本库commandFact取得行与动作，不信消息提供任意行；结果qty/postingId类型验证。SOURCE_CONFIG目前只实际支持RECEIVE（PUTAWAY回执分支已备好，但命令上下文/库存原语未补）。
+- 新 `inventory/messaging/StockCommandMessageHandler`：仅inbound StockCommandRequested RECEIVE；按本库MasterdataHttpMapper.getWarehouse/getSku/getLocation/getLot核验ACTIVE、baseUnit、qty精度、lot开关/owner/SKU/warehouse；serial_enabled缺观察集合永久隔离，不能普通过账。调用StockCommandService.applyReceive，原sourceExecution/actor/document随消息入账；新增StockCommandMapper.postingByCommand，从真实posting取qty/id；OutboxMapper.insertCommandResult稳定eventID(source/ent/wh/command/state)唯一，无重复结果。
+- InventoryMessagingConfiguration同时订阅inbound.commands+inventory.events；InventoryEventTransport构造现在第三参是**topicPrefix**，结果按payload.recipientService路由<source>.results，其余inventory.events；payload.requestId为null时用eventID稳定关联。新版InventoryMessagingIT补建inbound.commands测试Topic。
+- 新 **ReceiveMessagingProcessesIT** 启动已构建inbound/inventory两个独立可执行Jar、两个MySQL、Kafka、本地真实RSA JWKS+JWT。建单/无上下文400；暂停专属Kafka再HTTP收货202/PENDING；解除暂停自动T1→T2→结果→T3；换key重试和不同eventID同回执后source posted3、HOLD3、ledger/posting各1、actor原JWT。Jar路径按0.1.0-SNAPSHOT，进程stdout在wms-inventory/target/receive-messaging-processes/{inbound,inventory}.log（无令牌/密码命令行）。正常测试先停进程再关组件。
+- `/tmp/wms-receive-processes-it.log`初次因RSAKey import歧义编译失败，已显式RSA接口导入，随后完整通过。最后把KafkaMessagePublisher.retries=3 / retry.backoff.ms=100、总delivery5秒并改正常退出顺序，再跑 **/tmp/wms-receive-processes-final-it.log BUILD SUCCESS**：ReceiveMessagingProcessesIT1、InventoryMessagingIT1+全部单元。当前无运行Maven。
+- SourceOutboxPublisher增加outbox payload.commandId必须和本库row.commandId一致校验。Compose/.env有inbound与inventory分别默认false消息开关；kafka-init建立inventory.events/inbound.commands/inbound.results（只改配置未启动栈），docs/MESSAGING_RUNTIME已改为RECEIVE闭环实际范围。
+- **用户问题待答（必要业务范围，不能按超时默认）**：通过request_user_input_async询问“质检按每次收货分批（推荐）还是整条入库行（需分摊各批次）”。因为一行可多lot/location，仅行级accepted/rejected无法推断每桶HOLD→GOOD/REJECTED分配。等答前继续独立R15/R14/R21/R22，不能擅自选整行分摊。此前OQ03/真实WCS/签署容量仍未解决。
+- 接下来先记录/提交当前RECEIVE批次，再做独立整改；R13仍缺质量/PUTAWAY/PICK/SHIP/CANCEL、serial观察、消息人工重放与积压指标。R14真实TM/TC/serial服务未接，R15余下serial/reconcile/count/archive仍fail，R22时间兼容未做；R23已完成。最后必须全profiles/CI/普通merge push main，无生产部署。
+- R15只读发现：CountService.applyLine审批后按plan→line→balance锁、已APPLIED/ZERO重放，serial registry默认Unavailable；当前直接insertLedger**没有Outbox**，恢复接线时必须补投影事件且处理失败状态。StockInternalReconcile.execute固定首100余额、无界ledger/reserved/serial查询，不能机械调用宣称完整。历史DATETIME按JVM墙钟恢复，R22不可直接把旧值当UTC。

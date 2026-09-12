@@ -28,20 +28,21 @@ public class InventoryMessagingConfiguration {
 
     @Bean
     RuntimeInbox inventoryRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
-        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".inventory.events", "wms-inventory"), Clock.systemUTC());
+        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".inventory.events", "wms-inventory",
+                settings.topicPrefix() + ".inbound.commands", "wms-inbound"), Clock.systemUTC());
     }
 
     @Bean
     KafkaInboxConsumer inventoryKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
         return new KafkaInboxConsumer(settings, settings.topicPrefix() + ".inventory-projection",
-                List.of(settings.topicPrefix() + ".inventory.events"), inbox);
+                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands"), inbox);
     }
 
     @Bean
     MessageWorker inventoryOutboxWorker(SqlSessionFactory sessions, KafkaSettings settings,
             KafkaMessagePublisher publisher, OutboxBudget budget) {
         var outbox = new OutboxPublisher(sessions, new InventoryEventTransport(sessions, publisher,
-                settings.topicPrefix() + ".inventory.events"), Clock.systemUTC(), budget);
+                settings.topicPrefix()), Clock.systemUTC(), budget);
         return new MessageWorker("inventory-outbox", outbox::publishDue);
     }
 
@@ -50,6 +51,10 @@ public class InventoryMessagingConfiguration {
         return new MessageWorker("inventory-inbox", () -> {
             for (int i = 0; i < 32 && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
+                    if ("wms-inbound".equals(message.sourceService())) {
+                        new StockCommandMessageHandler(Clock.systemUTC()).apply(session, message);
+                        return;
+                    }
                     if (InventoryCodes.EVENT_RESERVATION_CONFIRMED.equals(message.eventType())) return;
                     if (!InventoryCodes.EVENT_BALANCE_CHANGED.equals(message.eventType())) throw new MessageRejectedException("UNSUPPORTED_EVENT_TYPE");
                     var payload = message.payload();

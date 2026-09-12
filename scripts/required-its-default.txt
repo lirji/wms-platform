@@ -69,3 +69,6 @@ com.lrj.wms.inbound.receipt.InboundReceiptIT#receiveInspectPutawayTotalsAndRejec
 # R13 来源原始维度与真实发布；独立于最终收货闭环验收。
 com.lrj.wms.inbound.receipt.InboundReceiptIT#postingContextIsAtomicImmutableAndCannotBeGuessedForLegacyReplay
 com.lrj.wms.inbound.messaging.SourceOutboxIT#publishesOriginalSourceFactAndIsolatesMissingLegacyContext
+
+# R13 正式进程HTTP→T1→Kafka→T2→回执→T3，含中断恢复和重复回执。
+com.lrj.wms.inventory.ReceiveMessagingProcessesIT#receiptSurvivesBrokerOutageAndUpdatesSourceExactlyOnce

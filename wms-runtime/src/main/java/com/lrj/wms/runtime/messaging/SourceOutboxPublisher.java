@@ -75,6 +75,9 @@ public final class SourceOutboxPublisher {
         } catch (MessageRejectedException rejected) { throw rejected; }
         catch (RuntimeException malformed) { throw new MessageRejectedException("INVALID_COMMAND_CONTEXT"); }
         String enterprise = text(event, "enterprise_id"), warehouse = text(event, "warehouse_id"), commandId = text(event, "command_id");
+        if (!body.path("commandId").isString() || !commandId.equals(body.path("commandId").asString())) {
+            throw new MessageRejectedException("SOURCE_COMMAND_IDENTITY_MISMATCH");
+        }
         Map<String, Object> metadata;
         try (var session = sessions.openSession()) {
             metadata = session.getMapper(SourceOutboxMapper.class).metadata(enterprise, warehouse, commandId);

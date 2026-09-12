@@ -127,7 +127,9 @@ services:
         for topic in wms.local.inbound.outbox wms.local.outbound.outbox wms.local.inventory.outbox; do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$$bootstrap" --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1
         done
-        /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$$bootstrap" --create --if-not-exists --topic "$${WMS_TOPIC_PREFIX}.inventory.events" --partitions 1 --replication-factor 1 --config retention.ms=604800000 --config retention.bytes=268435456
+        for suffix in inventory.events inbound.commands inbound.results; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$$bootstrap" --create --if-not-exists --topic "$${WMS_TOPIC_PREFIX}.$$suffix" --partitions 1 --replication-factor 1 --config retention.ms=604800000 --config retention.bytes=268435456
+        done
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$$bootstrap" --list
     networks: [wms-local]
 

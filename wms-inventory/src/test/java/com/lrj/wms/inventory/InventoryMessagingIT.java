@@ -36,7 +36,7 @@ class InventoryMessagingIT {
         MYSQL.start(); KAFKA.start();
         var properties = new Properties(); properties.put("bootstrap.servers", KAFKA.getBootstrapServers());
         try (var admin = AdminClient.create(properties)) {
-            admin.createTopics(List.of(new NewTopic("wms.test.inventory.events", 3, (short) 1))).all().get(20, TimeUnit.SECONDS);
+            admin.createTopics(List.of(new NewTopic("wms.test.inventory.events", 3, (short) 1), new NewTopic("wms.test.inbound.commands", 1, (short) 1))).all().get(20, TimeUnit.SECONDS);
         } catch (Exception error) { throw new IllegalStateException(error); }
     }
     @DynamicPropertySource static void properties(DynamicPropertyRegistry properties) {

@@ -11,10 +11,10 @@ import tools.jackson.databind.node.ObjectNode;
 public final class InventoryEventTransport implements OutboxTransport {
     private final SqlSessionFactory sessions;
     private final KafkaMessagePublisher publisher;
-    private final String topic;
+    private final String topicPrefix;
 
-    public InventoryEventTransport(SqlSessionFactory sessions, KafkaMessagePublisher publisher, String topic) {
-        this.sessions = sessions; this.publisher = publisher; this.topic = topic;
+    public InventoryEventTransport(SqlSessionFactory sessions, KafkaMessagePublisher publisher, String topicPrefix) {
+        this.sessions = sessions; this.publisher = publisher; this.topicPrefix = topicPrefix;
     }
 
     @Override public void publish(OutboxRecord record) {
@@ -32,9 +32,15 @@ public final class InventoryEventTransport implements OutboxTransport {
             }
         }
         // 历史事件无请求ID时用事件本身稳定关联，不能在每次重发生成不同内容。
-        String requestId = payload.has("requestId") ? payload.path("requestId").asString() : record.eventId();
+        String requestId = payload.hasNonNull("requestId") ? payload.path("requestId").asString() : record.eventId();
         var message = new RuntimeMessage(1, record.eventId(), "wms-inventory", record.enterpriseId(), record.warehouseId(),
                 record.eventType(), record.aggregateId(), record.aggregateVersion(), record.occurredAt().toString(), requestId, payload);
+        String topic = topicPrefix + ".inventory.events";
+        if ("InventoryCommandResult".equals(record.eventType())) {
+            String recipient = payload.path("recipientService").asString();
+            if (!java.util.Set.of("wms-inbound", "wms-outbound").contains(recipient)) throw new OutboxIsolateException("回执目标来源不合法");
+            topic = topicPrefix + "." + recipient.substring(4) + ".results";
+        }
         publisher.publish(topic, RuntimeMessage.hash(record.enterpriseId() + "/" + record.warehouseId() + "/" + record.aggregateId()), message.encode());
     }
 }

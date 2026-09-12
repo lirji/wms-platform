@@ -103,3 +103,11 @@ T3 现在核验命令动作、不可变事实行、过账数量和活动尝试�
 收货可显式提交locationId/lotId，来源数据库派生document/owner/SKU/baseUnit，固定收货质量HOLD。命令与Outbox同T1绑定相同上下文、摘要和requestId；重放不能修改原始维度或给历史minimal命令补猜。新增source_outbox领取/租约/确认/隔离列；真实发布器一次领取一条并释放DB连接后等待确认，保留原eventId/actor/执行事实/时刻，使用来源效果身份维持重试的分区键，旧minimal消息隔离。
 
 `/tmp/wms-source-publisher-it.log` BUILD SUCCESS：SourceOutboxIT1（真实Kafka/MySQL）、InboundReceiptIT5、ReceiptObservationIT2、InboundHttpIT1及所有单元。当前来源发布器尚未注册Spring运行Bean，库存T2消息适配与结果回传待接线；这不是完整收货闭环验收。
+
+## R13 收货双进程闭环
+
+入库正式配置接通来源发布器、结果Inbox/worker和消息就绪检查；库存配置消费受信inbound.commands，在本库校验主数据并RECEIVE入HOLD桶。stock_posting恢复真实回执数量，结果Outbox与T2及Inbox DONE同事务，按recipientService路由inbound.results。来源按自己命令事实行处理T3，终态重放不再累计。
+
+`/tmp/wms-receive-processes-final-it.log` BUILD SUCCESS：ReceiveMessagingProcessesIT1（两个本次构建的独立服务Jar、JWT HTTP、两库、专属Kafka）和InventoryMessagingIT1及全部单元；测试包括broker暂停/恢复、同事实换键重试、不同事件ID重复真实回执、HOLD桶与单条流水/凭证、原始操作人传递。最后将Kafka单次客户端重试显式限为3次且总截止5秒，重跑通过；正常结束先关闭服务进程再关闭组件。
+
+当前RECEIVE适配对序列号SKU缺观察集合显式隔离；质检、上架、出库、人工隔离重放与积压指标仍待，不能关闭整个R13。质检按收货分批还是按整条入库行并分摊各批次，需要业务范围确认，已询问用户；在此期间继续独立整改项。

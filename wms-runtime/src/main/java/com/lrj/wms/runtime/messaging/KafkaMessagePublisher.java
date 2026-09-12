@@ -18,6 +18,8 @@ public final class KafkaMessagePublisher implements AutoCloseable {
         properties.put("enable.idempotence", "true");
         properties.put("max.in.flight.requests.per.connection", "5");
         properties.put("delivery.timeout.ms", "5000");
+        properties.put("retries", "3");
+        properties.put("retry.backoff.ms", "100");
         properties.put("request.timeout.ms", "3000");
         properties.put("max.block.ms", "1000");
         properties.put("linger.ms", "0");
