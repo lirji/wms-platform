@@ -1,5 +1,11 @@
 # 后端整改阶段组合验证（2026-09-13）
 
+## 原生RM重启测试修正
+
+0a1ec85的main CI34716410427成功，分支CI34716400385失败于B仓重启后过早HTTP请求：TC回调在Bean初始化阶段已经完成，但Tomcat尚未监听。新增明确readiness等待，保留原XID、branch和CONFIRMED断言。04:42:04 `/tmp/wms-cell-routing-second-it.log`复验成功，RuntimeRmProcessesIT及AllocationExecutionProcessesIT共2个真实进程IT，无失败、错误或跳过。该证据不是当前全部源码的全仓verify。
+
+## 早期组合基线
+
 范围：任务分支 `fix/backend-review-remediation`，业务源码提交 `c5348d2`；此前11个关联切片基于远程 `main f9710ef`。只使用任务独立工作树与隔离测试组件，未部署生产，未修改共享数据库或根用户工作树。
 
 | 检查 | 结果与测量范围 |

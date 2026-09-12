@@ -98,6 +98,8 @@ class RuntimeRmProcessesIT {
                     assertEquals(1,count(sqlA,"SELECT COUNT(*) FROM outbox_event WHERE event_type='ReservationConfirmed'"));
                     assertEquals(1,count(sqlB,"SELECT COUNT(*) FROM outbox_event WHERE event_type='ReservationConfirmed'"));
                     assertEquals(rb.branchId(),sqlB.queryForObject("SELECT branch_id FROM inventory_tcc_intent WHERE attempt_id='COMMIT'",Long.class));
+                    // RM回调在Bean初始化时已可接收；数据库Confirm完成不代表Tomcat端口已开放。
+                    await(()->healthy(portB),45,"B的TC回调已恢复但HTTP未就绪",processA,processB);
                     assertEquals("CONFIRMED",ok(post(portB,"B",xid,request("B","COMMIT",3),token)).state());
                     String rollback=tm.begin("native-rm-rollback",60000);
                     ok(post(portA,"A",rollback,request("A","ROLLBACK",1),token));
