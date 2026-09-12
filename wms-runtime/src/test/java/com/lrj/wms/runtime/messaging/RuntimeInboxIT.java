@@ -19,13 +19,14 @@ class RuntimeInboxIT {
         try (var mysql = new MySQLContainer("mysql:8.4.11")) {
             mysql.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             try (var connection = source.getConnection(); var sql = connection.createStatement()) {
                 sql.execute(java.nio.file.Files.readString(java.nio.file.Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", "V024__runtime_message_inbox.sql")));
                 sql.execute(java.nio.file.Files.readString(java.nio.file.Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", "V028__message_recovery.sql")).split(";")[0]);
                 sql.execute("CREATE TABLE test_effect(id VARCHAR(64) PRIMARY KEY COMMENT '原始业务事件') COMMENT='仅本测试的业务效果'");
             }
             var configuration = new Configuration(new Environment("runtime-inbox", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
             configuration.addMapper(RuntimeInboxMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(configuration);
             var time = new AtomicReference<>(Instant.parse("2026-09-12T00:00:00Z"));

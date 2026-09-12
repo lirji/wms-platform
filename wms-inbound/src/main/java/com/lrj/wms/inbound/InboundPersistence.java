@@ -5,6 +5,7 @@ import com.lrj.wms.inbound.receipt.InboundReceiptMapper;
 import com.lrj.wms.inbound.receipt.InboundTaskMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.DatabaseTimePolicy;
 import com.lrj.wms.runtime.db.RuntimeDataSources;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
@@ -24,20 +25,21 @@ import org.springframework.context.annotation.Conditional;
 class InboundPersistence {
     /** 有界连接池由 Spring 关闭，避免停机留下连接和维护线程。 */
     @Bean(destroyMethod = "close")
-    HikariDataSource dataSource(InboundDatasourceProperties properties, DatabaseBudget budget) {
-        return RuntimeDataSources.create("inbound", properties.url(), properties.username(), properties.password(), budget);
+    HikariDataSource dataSource(InboundDatasourceProperties properties, DatabaseBudget budget, DatabaseTimePolicy time) {
+        return RuntimeDataSources.create("inbound", properties.url(), properties.username(), properties.password(), budget, time);
     }
 
     @Bean
-    Flyway flyway(DataSource dataSource) {
+    Flyway flyway(DataSource dataSource, DatabaseTimePolicy time) {
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        flyway.migrate();
+        time.initialize(dataSource,flyway::migrate);
         return flyway;
     }
 
     @Bean
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
         config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);

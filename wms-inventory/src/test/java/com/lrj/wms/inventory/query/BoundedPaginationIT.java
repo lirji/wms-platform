@@ -25,7 +25,7 @@ class BoundedPaginationIT {
     @Test void pagesEqualTimestampsWithoutDuplicatesAndFiltersUnauthorizedWarehouses() {
         try (var mysql = new MySQLContainer("mysql:8.4.11")) {
             mysql.start();
-            var ds = new MysqlDataSource(); ds.setUrl(mysql.getJdbcUrl()); ds.setUser(mysql.getUsername()); ds.setPassword(mysql.getPassword());
+            var ds = new MysqlDataSource(); ds.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); ds.setUser(mysql.getUsername()); ds.setPassword(mysql.getPassword());
             Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
             var jdbc = new JdbcTemplate(ds);
             var now = Timestamp.valueOf("2026-09-12 00:00:00.123456");
@@ -33,6 +33,7 @@ class BoundedPaginationIT {
             jdbc.update("INSERT INTO count_plan (id,enterprise_id,warehouse_id,status,reason_code,created_at,updated_at) VALUES ('foreign','OTHER','WH','DRAFT','CYCLE',?,?)", now, now);
             for (String id : List.of("A", "B", "C")) jdbc.update("INSERT INTO warehouse (id,enterprise_id,warehouse_id,code,name,timezone,state,created_at,updated_at) VALUES (?,'ENT',?,?,?,'UTC','ACTIVE',?,?)", id, id, id, id, now, now);
             var config = new Configuration(new Environment("page", new JdbcTransactionFactory(), ds));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(CountMapper.class); config.addMapper(MasterdataMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(config);
             List<String> ids = new ArrayList<>(); String cursor = null;

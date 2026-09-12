@@ -41,6 +41,7 @@ class MasterdataMigrationIT {
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
         jdbc = new JdbcTemplate(dataSource);
         Configuration config = new Configuration(new Environment("masterdata", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
@@ -120,7 +121,7 @@ class MasterdataMigrationIT {
 
     private static DataSource source() {
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         return source;

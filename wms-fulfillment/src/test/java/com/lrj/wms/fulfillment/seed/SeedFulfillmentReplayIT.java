@@ -24,7 +24,7 @@ class SeedFulfillmentReplayIT {
                 .withUsername("wms").withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         dataSource = source;

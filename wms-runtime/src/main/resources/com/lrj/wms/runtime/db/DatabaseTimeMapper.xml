@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.runtime.db.DatabaseTimeMapper">
+    <select id="sessionOffset" resultType="string">SELECT @@session.time_zone</select>
+    <select id="policyTableExists" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='database_time_policy'
+    </select>
+    <select id="existingTables" resultType="int">
+        SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'
+            AND table_name NOT IN ('flyway_schema_history','database_time_policy')
+    </select>
+    <select id="policy" resultType="map">SELECT storage_offset,evidence_ref FROM database_time_policy WHERE id=1</select>
+    <insert id="register">
+        INSERT INTO database_time_policy (id,storage_offset,evidence_ref,registered_at)
+        VALUES (1,#{offset},#{evidence},UTC_TIMESTAMP(6)) ON DUPLICATE KEY UPDATE id=id
+    </insert>
+</mapper>

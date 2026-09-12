@@ -19,6 +19,7 @@ class MapperXmlBindingTest {
                     String className = root.relativize(source).toString().replace('/', '.').replace(".java", "");
                     Class<?> mapper = Class.forName(className);
                     var config = new Configuration();
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
                     config.addMapper(mapper);
                     config.getMappedStatementNames();
                     for (var method : mapper.getDeclaredMethods()) {

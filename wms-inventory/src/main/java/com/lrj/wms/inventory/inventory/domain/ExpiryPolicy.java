@@ -8,7 +8,7 @@ import java.util.Date;
 
 /**
  * 实时效期。有效区间左闭右开：now &lt; expires_at 才满足；时刻为空表示未绑定失效。
- * DATETIME 按 JDBC 本地墙钟还原 Instant，与查询接口一致。
+ * DATETIME 由显式配置的 JDBC 边界还原 Instant，禁止依赖 JVM 默认时区。
  */
 public final class ExpiryPolicy {
     private ExpiryPolicy() {
@@ -35,7 +35,7 @@ public final class ExpiryPolicy {
             return date.toInstant();
         }
         if (value instanceof LocalDateTime localDateTime) {
-            return localDateTime.atZone(ZoneId.systemDefault()).toInstant();
+            return com.lrj.wms.runtime.db.DatabaseInstants.require(localDateTime);
         }
         throw new IllegalArgumentException("无法识别的效期类型：" + value.getClass().getName());
     }

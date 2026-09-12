@@ -36,7 +36,9 @@ services:
     environment:
       <<: *app-env
       WMS_HTTP_PORT: "18181"
-      WMS_INBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_inbound?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_RUNTIME_DB_TIME_STORAGE_ZONE: ${WMS_INBOUND_STORAGE_ZONE:-UTC}
+      WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE: ${WMS_INBOUND_LEGACY_TIME_EVIDENCE:-}
+      WMS_INBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_inbound?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INBOUND_DB_USER: wms_inbound
       WMS_INBOUND_DB_PASSWORD: ${WMS_INBOUND_DB_PASSWORD:?set WMS_INBOUND_DB_PASSWORD}
       WMS_MESSAGING_ENABLED: ${WMS_INBOUND_MESSAGING_ENABLED:-false}
@@ -62,7 +64,9 @@ services:
     environment:
       <<: *app-env
       WMS_HTTP_PORT: "18182"
-      WMS_OUTBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_outbound?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_RUNTIME_DB_TIME_STORAGE_ZONE: ${WMS_OUTBOUND_STORAGE_ZONE:-UTC}
+      WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE: ${WMS_OUTBOUND_LEGACY_TIME_EVIDENCE:-}
+      WMS_OUTBOUND_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_outbound?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
       WMS_OUTBOUND_DB_USER: wms_outbound
       WMS_OUTBOUND_DB_PASSWORD: ${WMS_OUTBOUND_DB_PASSWORD:?set WMS_OUTBOUND_DB_PASSWORD}
     depends_on:
@@ -84,7 +88,9 @@ services:
     environment:
       <<: *app-env
       WMS_HTTP_PORT: "18183"
-      WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_RUNTIME_DB_TIME_STORAGE_ZONE: ${WMS_INVENTORY_STORAGE_ZONE:-UTC}
+      WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE: ${WMS_INVENTORY_LEGACY_TIME_EVIDENCE:-}
+      WMS_INVENTORY_JDBC_URL: jdbc:mysql://mysql-cell-a:3306/wms_inventory?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
       WMS_INVENTORY_DB_USER: wms_inventory_a
       WMS_INVENTORY_DB_PASSWORD: ${WMS_INVENTORY_A_DB_PASSWORD:?set WMS_INVENTORY_A_DB_PASSWORD}
       # 与入库开关一起启用时，覆盖收货RECEIVE和库存事件投影。
@@ -116,7 +122,9 @@ services:
     environment:
       <<: *app-env
       WMS_HTTP_PORT: "18184"
-      WMS_SERIAL_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_registry?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_RUNTIME_DB_TIME_STORAGE_ZONE: ${WMS_SERIAL_STORAGE_ZONE:-UTC}
+      WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE: ${WMS_SERIAL_LEGACY_TIME_EVIDENCE:-}
+      WMS_SERIAL_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_registry?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
       WMS_SERIAL_DB_USER: wms_registry
       WMS_SERIAL_DB_PASSWORD: ${WMS_SERIAL_DB_PASSWORD:?set WMS_SERIAL_DB_PASSWORD}
       WMS_SERIAL_ALLOWED_SUBJECTS: ${WMS_SERIAL_ALLOWED_SUBJECTS:-}
@@ -139,7 +147,9 @@ services:
     environment:
       <<: *app-env
       WMS_HTTP_PORT: "18185"
-      WMS_FULFILLMENT_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_fulfillment?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      WMS_RUNTIME_DB_TIME_STORAGE_ZONE: ${WMS_FULFILLMENT_STORAGE_ZONE:-UTC}
+      WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE: ${WMS_FULFILLMENT_LEGACY_TIME_EVIDENCE:-}
+      WMS_FULFILLMENT_JDBC_URL: jdbc:mysql://mysql-apps:3306/wms_fulfillment?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
       WMS_FULFILLMENT_DB_USER: wms_fulfillment
       WMS_FULFILLMENT_DB_PASSWORD: ${WMS_FULFILLMENT_DB_PASSWORD:?set WMS_FULFILLMENT_DB_PASSWORD}
     depends_on:

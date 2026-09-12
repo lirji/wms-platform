@@ -44,11 +44,12 @@ class InventoryProjectionIT {
                 .withUsername("wms").withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
         Configuration config = new Configuration(new Environment("query", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);

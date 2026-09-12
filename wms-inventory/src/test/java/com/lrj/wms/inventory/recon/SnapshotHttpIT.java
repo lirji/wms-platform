@@ -68,12 +68,13 @@ class SnapshotHttpIT {
                     .withUsername("wms").withPassword(UUID.randomUUID().toString());
             MYSQL.start();
             MysqlDataSource source = new MysqlDataSource();
-            source.setUrl(MYSQL.getJdbcUrl());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(MYSQL.getJdbcUrl(), "UTC"));
             source.setUser(MYSQL.getUsername());
             source.setPassword(MYSQL.getPassword());
             Clock clock = Clock.fixed(RECEIVED, ZoneOffset.UTC);
             SeedLocal.seed(source, clock, Set.of(SeedCatalog.WAREHOUSE_A, SeedCatalog.WAREHOUSE_B));
             Configuration config = new Configuration(new Environment("snap-http", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(MasterdataMapper.class);
             config.addMapper(InventoryMapper.class);
             config.addMapper(OutboxMapper.class);

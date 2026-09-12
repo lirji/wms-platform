@@ -22,7 +22,7 @@ class MessageQueueMetricsIT {
         try (var mysql = new MySQLContainer("mysql:8.4.11")) {
             mysql.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             try (var connection = source.getConnection(); var statement = connection.createStatement()) {
                 for (String file : new String[]{"V024__runtime_message_inbox.sql", "V005__outbox.sql", "V027__message_queue_metrics.sql"}) {
                     for (String sql : Files.readString(Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", file)).split(";")) {
@@ -42,6 +42,7 @@ class MessageQueueMetricsIT {
                 insert.executeBatch();
             }
             var configuration = new Configuration(new Environment("metrics", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
             configuration.addMapper(MessageQueueMetricsMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(configuration);
             var time = new AtomicReference<>(now);

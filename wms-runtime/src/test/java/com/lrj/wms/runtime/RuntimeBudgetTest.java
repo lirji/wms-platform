@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RuntimeBudgetTest {
     @Test void cursorRejectsWrongScopeAndInvalidSize() {
         var page = CursorPage.chronological(1, null, "tenant-a:warehouse-a");
-        var time = LocalDateTime.parse("2026-09-12T00:00:00");
+        var time = java.sql.Timestamp.from(java.time.Instant.parse("2026-09-12T00:00:00Z"));
         var body = page.result(List.of(Map.of("id", "B", "created_at", time), Map.of("id", "A", "created_at", time)), true);
         String token = (String) body.get("nextCursor");
         assertEquals("B", CursorPage.chronological(1, token, page.scope()).id());

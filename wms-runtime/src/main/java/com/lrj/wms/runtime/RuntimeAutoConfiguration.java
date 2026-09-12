@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 
 /** 环境配置是当前唯一权威来源；非法预算启动失败，不默默套用默认值。 */
 @AutoConfiguration
-@EnableConfigurationProperties({DatabaseBudget.class, AdmissionBudget.class, com.lrj.wms.runtime.cache.QueryCacheProperties.class})
+@EnableConfigurationProperties({com.lrj.wms.runtime.db.DatabaseTimePolicy.class, DatabaseBudget.class, AdmissionBudget.class, com.lrj.wms.runtime.cache.QueryCacheProperties.class})
 public class RuntimeAutoConfiguration {
     @Bean public AdmissionGate admissionGate(AdmissionBudget budget) { return new AdmissionGate(budget); }
     @Bean(destroyMethod = "close")

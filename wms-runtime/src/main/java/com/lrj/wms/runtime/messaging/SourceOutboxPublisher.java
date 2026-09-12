@@ -112,10 +112,10 @@ public final class SourceOutboxPublisher {
         if (value == null) throw new MessageRejectedException("SOURCE_FACT_MISSING");
         return String.valueOf(value);
     }
-    /** 沿用既有DATETIME墙钟兼容规则；R22统一时间适配时同时迁移该边界。 */
+    /** 数据库时间策略在JDBC边界完成转换；没有来源的墙钟值不得发布成瞬时事件。 */
     private static Instant instant(Object value) {
         if (value instanceof Timestamp timestamp) return timestamp.toInstant();
-        if (value instanceof LocalDateTime local) return local.atZone(ZoneId.systemDefault()).toInstant();
+        if (value instanceof LocalDateTime local) return com.lrj.wms.runtime.db.DatabaseInstants.require(local);
         throw new MessageRejectedException("SOURCE_TIME_MISSING");
     }
 }

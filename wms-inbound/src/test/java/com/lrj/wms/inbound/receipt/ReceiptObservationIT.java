@@ -36,12 +36,13 @@ class ReceiptObservationIT {
                 .withUsername("wms").withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
         jdbc = new JdbcTemplate(source);
         Configuration config = new Configuration(new Environment("inbound", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(SourceMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);

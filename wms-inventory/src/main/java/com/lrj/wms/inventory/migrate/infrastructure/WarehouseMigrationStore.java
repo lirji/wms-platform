@@ -34,6 +34,7 @@ public final class WarehouseMigrationStore {
 
     private static SqlSessionFactory factory(DataSource dataSource) {
         var config = new Configuration(new Environment("migration", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(30);
         config.setCallSettersOnNulls(true);
         config.addMapper(MigrationCopyMapper.class);

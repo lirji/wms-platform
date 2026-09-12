@@ -191,3 +191,13 @@ archivePlanner 已实现实际候选规划，参数 enterprise,warehouse,runKey,
 /tmp/wms-recon-archive-it.log 于 00:47:48 BUILD SUCCESS，StockInternalReconcileIT 4 项及全部单元通过：205 余额跨重启三页、未访问差异不误关闭、保留审批操作引用、最后检查点失败整页回滚；205 旧流水加 1 近期流水仅规划前者，分两次续跑、重复计划幂等、改变依据拒绝、规划检查点故障回滚且源余额/206 流水不变。先前增量测试暴露测试查询未限定仓，已修正夹具后通过。
 
 R15 仍余 serialTransferRecovery，依赖 R14 真实登记端口；三方水位事实接线继续随 R13 处理，不能仅凭 handler 已注册宣称所有外部链路完成。
+
+## R22 数据库固定偏移与 UTC 边界（2026-09-13）
+
+DatabaseTimePolicy 在迁移前核对旧库来源、数据库会话偏移，在迁移后持久化不可覆盖的物理库规则。新空库 UTC；已有业务表但无来源记录时拒绝启动，必须给出核实后的固定偏移与依据引用；+08 旧值原样保存，按已声明偏移读写后输出 UTC。区域夏令时/混合时区历史没有被猜测或自动转换，仍需独立数据审计。五个服务和种子入口同样遵守规则，Compose 按库配置且移除重复 JDBC 时区别名。
+
+JDBC 显式设置会话/连接偏移、保留瞬时与微秒、拒绝零日期；MyBatis Map 对 TIMESTAMP 显式读取 Timestamp，修复只设驱动 getObject 选项仍返回 LocalDateTime 的问题。HTTP、效期、消息和恢复边界不再使用 JVM 默认时区。时间游标升级为保存 Instant 的 v2，跨 JVM 以 Timestamp 绑定 SQL；纯 ID v1 继续兼容，无时区的旧时间游标明确失效。上线需安排旧读节点排空，不能宣称 v1 旧节点已能读取 v2。完整配置与升级限制见 [DATABASE_TIME.md](../../implementation/DATABASE_TIME.md)。
+
+/tmp/wms-time-cross-jvm-it.log 于 00:59:43 BUILD SUCCESS：真实 MySQL 下上海/美西独立 JVM 验证新库 UTC、微秒、跨 JVM 分页和 DATE 不漂移；旧 +08 库未知来源拒绝、声明后不改写旧值、偏移不可覆盖；InboundHttpIT、ReceiveMessagingProcessesIT、StockInternalReconcileIT、SerialRegistryHttpIT、FulfillmentHttpIT 通过。增加会话/精度约束后 TimeSemanticsIT 于 01:01:02 再次通过；实际四个 Seed*ReplayIT、BoundedPaginationIT、SourceOutboxIT 于 01:03:13 BUILD SUCCESS（/tmp/wms-time-seed-pagination-it.log）。直接 JDBC 测试夹具同步为显式 UTC，不通过修改测试 JVM 全局时区隐藏问题。58 个必需用例清单新增跨 JVM 与两个 R15 故障恢复门禁，最终全量组合仍待。
+
+当前没有访问、转换或部署共享/生产数据库；其历史时区不能据此宣称已核实。R22 代码与定向证据已完成，整体整改仍有 R13/R14/R15 及最终验证工作。

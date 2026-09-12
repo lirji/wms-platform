@@ -39,18 +39,26 @@ public final class SeedLocal {
         Map<String, String> flags = flags(args);
         String jdbc = required(flags, "jdbc", "WMS_SEED_JDBC_URL");
         requireIsolated(jdbc);
+        var time = new com.lrj.wms.runtime.db.DatabaseTimePolicy(System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_STORAGE_ZONE", "UTC"),
+                System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE", ""));
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(jdbc);
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(jdbc,time.storageZone()));
         source.setUser(required(flags, "username", "WMS_SEED_DB_USER"));
         source.setPassword(optionalPassword(flags));
         Set<String> warehouses = Set.copyOf(List.of(required(flags, "warehouses", "WMS_SEED_WAREHOUSES").split(",")));
-        Map<String, Integer> counts = seed(source, Clock.systemUTC(), warehouses);
+        Map<String, Integer> counts = seed(source, Clock.systemUTC(), warehouses, time);
         System.out.println("seed-local ok " + counts);
     }
 
     /** 对单个物理库存库执行迁移并幂等写入指定仓的种子。 */
     public static Map<String, Integer> seed(DataSource dataSource, Clock clock, Set<String> warehouseIds) {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        return seed(dataSource,clock,warehouseIds,new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", ""));
+    }
+
+    /** 隔离库种子也验证时间来源，避免混入另一时区的演示数据。 */
+    public static Map<String, Integer> seed(DataSource dataSource, Clock clock, Set<String> warehouseIds, com.lrj.wms.runtime.db.DatabaseTimePolicy time) {
+        var migration = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
+        time.initialize(dataSource,migration::migrate);
         SqlSessionFactory sessions = sessions(dataSource);
         try (SqlSession session = sessions.openSession(false)) {
             MasterdataService service = new MasterdataService(session, clock);
@@ -173,6 +181,7 @@ public final class SeedLocal {
 
     private static SqlSessionFactory sessions(DataSource dataSource) {
         Configuration config = new Configuration(new Environment("seed", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(CountMapper.class);

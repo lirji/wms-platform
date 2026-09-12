@@ -262,7 +262,7 @@ public final class WarehouseMigrationService {
             return timestamp;
         }
         if (value instanceof java.time.LocalDateTime local) {
-            return Timestamp.valueOf(local);
+            return Timestamp.from(com.lrj.wms.runtime.db.DatabaseInstants.require(local));
         }
         return null;
     }

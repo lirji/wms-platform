@@ -550,7 +550,7 @@ public final class FulfillmentService {
             return timestamp.toInstant();
         }
         if (value instanceof java.time.LocalDateTime local) {
-            return local.atZone(java.time.ZoneId.systemDefault()).toInstant();
+            return com.lrj.wms.runtime.db.DatabaseInstants.require(local);
         }
         if (value instanceof Instant instant) {
             return instant;

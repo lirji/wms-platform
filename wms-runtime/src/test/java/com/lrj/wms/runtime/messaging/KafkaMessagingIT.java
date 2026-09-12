@@ -20,7 +20,7 @@ class KafkaMessagingIT {
             kafka.start();
             mysql.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             try (var connection = source.getConnection(); var statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_inbox (id VARCHAR(64) PRIMARY KEY COMMENT '测试事件身份', payload JSON NOT NULL COMMENT '原始消息') COMMENT='仅本测试的持久化收件箱'");
             }

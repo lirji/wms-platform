@@ -130,7 +130,7 @@ final class MasterdataHttp {
             return date.toInstant().toString();
         }
         if (value instanceof LocalDateTime localDateTime) {
-            return localDateTime.atZone(ZoneId.systemDefault()).toInstant().toString();
+            return com.lrj.wms.runtime.db.DatabaseInstants.require(localDateTime).toString();
         }
         if (value instanceof BigDecimal decimal) {
             return decimal.stripTrailingZeros().toPlainString();

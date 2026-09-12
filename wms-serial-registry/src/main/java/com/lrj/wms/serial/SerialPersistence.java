@@ -1,6 +1,7 @@
 package com.lrj.wms.serial;
 
 import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.DatabaseTimePolicy;
 import com.lrj.wms.runtime.db.RuntimeDataSources;
 import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
@@ -21,21 +22,22 @@ import org.springframework.context.annotation.Conditional;
 public class SerialPersistence {
     /** 连接预算沿用公共运行约束；没有受信调用主体时拒绝启动业务库。 */
     @Bean(destroyMethod = "close")
-    HikariDataSource dataSource(SerialDatasourceProperties properties, SerialAccessProperties access, DatabaseBudget budget) {
+    HikariDataSource dataSource(SerialDatasourceProperties properties, SerialAccessProperties access, DatabaseBudget budget, DatabaseTimePolicy time) {
         if (access.allowedSubjects().isEmpty()) throw new IllegalArgumentException("必须显式配置序列号登记受信服务主体");
-        return RuntimeDataSources.create("serial-registry", properties.url(), properties.username(), properties.password(), budget);
+        return RuntimeDataSources.create("serial-registry", properties.url(), properties.username(), properties.password(), budget, time);
     }
 
     @Bean
-    Flyway flyway(DataSource source) {
+    Flyway flyway(DataSource source, DatabaseTimePolicy time) {
         var migration = Flyway.configure().dataSource(source).locations("classpath:db/migration/registry").load();
-        migration.migrate();
+        time.initialize(source,migration::migrate);
         return migration;
     }
 
     @Bean
     SqlSessionFactory sqlSessionFactory(DataSource source, Flyway migration, DatabaseBudget budget) {
         var config = new Configuration(new Environment("serial-registry", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(SerialRegistryMapper.class);
         config.addMapper(SerialTransferMapper.class);

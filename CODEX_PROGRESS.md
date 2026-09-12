@@ -13,6 +13,8 @@
 
 ## 已修改文件
 
+- 当前未提交 R22：wms-runtime db 时间策略/Mapper/映射与游标，各服务 Persistence/HTTP 时间边界、新时间规则迁移；隔离 JDBC 夹具改为显式 UTC。R15 已提交 8019a45。
+
 - 当前 R15 切片：StockInternalReconcile/Mapper、ArchivePlanner/Mapper、InventoryCatalogJobs/Persistence、V030/V031 与 StockInternalReconcileIT。
 
 - R13 分批质检已提交 26c4472；当前分批上架/批次列表/控制台切片修改 InboundReceiptService、ReceiptQuality Mapper/Service、V013/V014、StockCommandService/消息适配/批次库存额度、SourceCommandContextStore、HTTP DTO/契约、双进程测试及入库/PDA 页面。
@@ -25,7 +27,7 @@
 - R13：分批质检首轮双进程真实链路通过，等值小数重放补验已通过；PUTAWAY 与批次列表已双进程验证，控制台 typecheck/33 测试/build 通过；PICK/SHIP/CANCEL、序列号观察链路仍待。
 - R14：库存到登记服务真实有界 HTTP 适配、转移相关入口与恢复、履约 TM/TC 真实协调和终态证据传播。
 - R15：内部对账持久化有界游标及 archivePlanner 候选规划已验证，尚余 serialTransferRecovery；三方水位由 R13 的可信来源流程建立，归档导出/删除不伪称完成。
-- R22：固定时间语义、UTC API 与历史 DATETIME 兼容；禁止猜测旧库时区。
+- R22：代码与跨 JVM 定向证据完成，等待最终全量组合验证。已有共享/生产库须自己提供经核实历史时区依据，未执行转换/部署。
 - WarehouseMigrationStore.COPY_TABLES 遗漏消息恢复、盘点等仓权威表，需补允许列表及迁移验证。
 - 最终组合 profiles、远程 CI、SBOM 最终依赖图复核；实际容量签署/隔离环境、真实 WCS、OQ-03、50 AC。既有 Tomcat/fastjson 安全问题保持记录，不默认为安全验收。
 
@@ -40,9 +42,9 @@
 
 ## 下一步建议
 
-1. 当前没有运行 Maven。分批质检已提交 26c4472；分批上架 /tmp/wms-batch-putaway-it.log 于 00:35:29、批次列表 /tmp/wms-batch-list-it.log 于 00:37:32 BUILD SUCCESS。控制台 npm typecheck/33 测试/build 已通过，上架切片提交 9a9b9fc。R15 内部对账/归档候选 /tmp/wms-recon-archive-it.log 于 00:47:48 BUILD SUCCESS（4 项真实数据库测试及全部单元），正在提交该切片。仅在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 工作，主目录 main 保持不动。
+1. 当前没有运行 Maven。R22 跨 JVM/HTTP/双进程真库于 00:59:43，通过追加会话校验于 01:01:02；四个实际种子重放/分页/发布于 01:03:13 BUILD SUCCESS（/tmp/wms-time-seed-pagination-it.log）。正在提交 R22。随后修复 MessageWorker 健康状态抖动和 CI profile 重复执行，再继续 R14 登记端口/恢复与真实 TM/TC、R13 出库，补仓迁移表清单。仅在 .local/backend-remediation-integrate 的 fix/backend-review-remediation 工作，主目录 main 保持不动。
 2. 随后补 R13 出库消息及 R14 真实登记/TM/TC 适配，接 R15 三任务和 R22 时间兼容；补迁移数据清单，更新契约与有意义的集成验证。
-3. 继续观察 main CI 34704623423；不能取消其他运行，不并发 Maven 写同一 target，不在 Maven 编译中修改 Java/XML。完成各逻辑单元后更新进度并提交，最终正常合并推送。
+3. main CI 34704623423 已失败：default/warehouse 通过，tc profile 重复运行 InventoryMessagingIT 时 readiness UP/DOWN 抖动；MessageWorker 每轮开始清空成功状态造成抖动，待修复最后完成状态/新鲜度并给启动健康断言有界等待。不能取消其他运行，不并发 Maven 写同一 target，不在 Maven 编译中修改 Java/XML。完成各逻辑单元后更新进度并提交，最终正常合并推送。
 
 ## 恢复 Prompt
 

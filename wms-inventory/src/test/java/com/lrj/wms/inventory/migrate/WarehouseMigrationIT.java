@@ -181,7 +181,7 @@ class WarehouseMigrationIT {
 
     private static MysqlDataSource datasource(MySQLContainer mysql) {
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         return source;
@@ -189,6 +189,7 @@ class WarehouseMigrationIT {
 
     private static SqlSessionFactory sessions(String name, MysqlDataSource source) {
         Configuration config = new Configuration(new Environment(name, new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);

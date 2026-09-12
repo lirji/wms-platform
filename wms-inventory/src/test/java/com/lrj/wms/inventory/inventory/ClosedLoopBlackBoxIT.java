@@ -383,7 +383,7 @@ class ClosedLoopBlackBoxIT {
 
     private static MysqlDataSource dataSource(MySQLContainer mysql) {
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         return source;
@@ -392,6 +392,7 @@ class ClosedLoopBlackBoxIT {
     @SafeVarargs
     private static SqlSessionFactory sessions(String id, MysqlDataSource source, Class<?>... mappers) {
         Configuration config = new Configuration(new Environment(id, new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         for (Class<?> mapper : mappers) {
             config.addMapper(mapper);
         }

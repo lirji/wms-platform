@@ -98,7 +98,7 @@ class IsolatedRestoreIT {
 
     private static MysqlDataSource datasource(MySQLContainer mysql) {
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         return source;
@@ -106,6 +106,7 @@ class IsolatedRestoreIT {
 
     private static Configuration config(String name, MysqlDataSource source) {
         Configuration configuration = new Configuration(new Environment(name, new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
         configuration.addMapper(MasterdataMapper.class);
         configuration.addMapper(InventoryMapper.class);
         configuration.addMapper(OutboxMapper.class);

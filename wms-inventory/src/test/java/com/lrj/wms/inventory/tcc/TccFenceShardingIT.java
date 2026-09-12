@@ -95,6 +95,7 @@ class TccFenceShardingIT {
         fence = InventoryTccFence.bind(routed);
         Configuration config = new Configuration(
                 new Environment("shard", new SpringManagedTransactionFactory(), routed));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
@@ -234,6 +235,7 @@ class TccFenceShardingIT {
             template.executeWithoutResult(status -> {
                 Configuration config = new Configuration(
                         new Environment("seed", new SpringManagedTransactionFactory(), routed));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
                 config.addMapper(MasterdataMapper.class);
                 var session = new SqlSessionTemplate(new SqlSessionFactoryBuilder().build(config));
                 MasterdataService masterdata = new MasterdataService(session, clock);
@@ -253,6 +255,7 @@ class TccFenceShardingIT {
             template.executeWithoutResult(status -> {
                 Configuration config = new Configuration(
                         new Environment("rcv", new SpringManagedTransactionFactory(), routed));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
                 config.addMapper(MasterdataMapper.class);
                 config.addMapper(InventoryMapper.class);
                 config.addMapper(OutboxMapper.class);
@@ -296,8 +299,8 @@ class TccFenceShardingIT {
 
     private static DataSource source(String database, String user) {
         MysqlDataSource ds = new MysqlDataSource();
-        ds.setURL("jdbc:mysql://" + mysql.getHost() + ":" + mysql.getMappedPort(3306) + "/" + database
-                + "?allowPublicKeyRetrieval=true&useSSL=false");
+        ds.setURL(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone("jdbc:mysql://" + mysql.getHost() + ":" + mysql.getMappedPort(3306) + "/" + database
+                + "?allowPublicKeyRetrieval=true&useSSL=false", "UTC"));
         ds.setUser(user);
         ds.setPassword(mysql.getPassword());
         return ds;

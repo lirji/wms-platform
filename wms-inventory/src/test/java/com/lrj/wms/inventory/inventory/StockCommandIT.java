@@ -50,13 +50,14 @@ class StockCommandIT {
                 .withUsername("wms").withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         DataSource dataSource = source;
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
         jdbc = new JdbcTemplate(dataSource);
         Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(EffectMapper.class);
         config.addMapper(InventoryMapper.class);

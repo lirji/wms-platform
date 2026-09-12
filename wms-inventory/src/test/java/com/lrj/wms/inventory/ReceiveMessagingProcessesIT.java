@@ -66,6 +66,7 @@ class ReceiveMessagingProcessesIT {
             await(() -> health(inboundPort) && health(inventoryPort), 75, "两个真实服务未启动，日志=" + logs, in, stock);
             var stockSource = source(inventory);
             var configuration = new Configuration(new Environment("seed-only", new JdbcTransactionFactory(), stockSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
             configuration.addMapper(MasterdataMapper.class);
             try (var session = new SqlSessionFactoryBuilder().build(configuration).openSession(false)) {
                 var masterdata = new MasterdataService(session, Clock.systemUTC());
@@ -250,7 +251,7 @@ class ReceiveMessagingProcessesIT {
         return builder.redirectErrorStream(true).redirectOutput(logs.resolve(service + ".log").toFile()).start();
     }
     private static com.mysql.cj.jdbc.MysqlDataSource source(MySQLContainer db) {
-        var source = new com.mysql.cj.jdbc.MysqlDataSource(); source.setUrl(db.getJdbcUrl()); source.setUser(db.getUsername()); source.setPassword(db.getPassword()); return source;
+        var source = new com.mysql.cj.jdbc.MysqlDataSource(); source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(db.getJdbcUrl(), "UTC")); source.setUser(db.getUsername()); source.setPassword(db.getPassword()); return source;
     }
     private HttpResponse<String> post(String url, String token, String key, String body) throws Exception {
         return http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token)

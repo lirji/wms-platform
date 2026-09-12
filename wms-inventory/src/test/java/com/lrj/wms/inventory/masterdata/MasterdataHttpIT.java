@@ -51,7 +51,7 @@ class MasterdataHttpIT {
                     .withUsername("wms").withPassword(UUID.randomUUID().toString());
             MYSQL.start();
             MysqlDataSource source = new MysqlDataSource();
-            source.setUrl(MYSQL.getJdbcUrl());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(MYSQL.getJdbcUrl(), "UTC"));
             source.setUser(MYSQL.getUsername());
             source.setPassword(MYSQL.getPassword());
             SeedLocal.seed(source, Clock.fixed(Instant.parse("2026-09-10T13:00:00Z"), ZoneOffset.UTC),

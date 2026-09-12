@@ -24,7 +24,7 @@ class MessageRecoveryIT {
         try (var mysql = new MySQLContainer("mysql:8.4.11")) {
             mysql.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             try (var connection = source.getConnection(); var statement = connection.createStatement()) {
                 for (String file : List.of("V024__runtime_message_inbox.sql", "V005__outbox.sql", "V028__message_recovery.sql")) {
                     for (String sql : Files.readString(Path.of("..", "wms-inventory", "src", "main", "resources", "db", "migration", file)).split(";")) {
@@ -34,6 +34,7 @@ class MessageRecoveryIT {
                 statement.execute("CREATE TABLE test_recovered_effect(id VARCHAR(64) PRIMARY KEY COMMENT '原始消息标识') COMMENT='测试消息恢复效果'");
             }
             var configuration = new Configuration(new Environment("recovery", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
             configuration.addMapper(RuntimeInboxMapper.class); configuration.addMapper(MessageRecoveryMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(configuration);
             var jdbc = new JdbcTemplate(source);

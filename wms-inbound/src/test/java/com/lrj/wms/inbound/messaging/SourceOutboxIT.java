@@ -27,9 +27,10 @@ class SourceOutboxIT {
         try (var mysql = new MySQLContainer("mysql:8.4.11"); var kafka = new KafkaContainer("apache/kafka:3.8.0")) {
             mysql.start(); kafka.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(mysql.getJdbcUrl()); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
+            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
             Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
             var config = new Configuration(new Environment("source", new JdbcTransactionFactory(), source));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
             config.addMapper(SourceMapper.class); config.addMapper(InboundReceiptMapper.class);
             config.addMapper(MessageRecoveryMapper.class);
             config.addMapper(SourceContextMapper.class); config.addMapper(SourceOutboxMapper.class);

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /** 有界键集分页。游标绑定资源和身份范围，不能被误用于另一筛选；授权仍由 SQL 范围保证。 */
-public record CursorPage(int limit, String id, LocalDateTime time, String scope) {
+public record CursorPage(int limit, String id, Timestamp time, String scope) {
     private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
     /** 长度与类型由 JSON 数组编码，避免标识符含冒号时产生查询范围碰撞。 */
@@ -41,7 +41,8 @@ public record CursorPage(int limit, String id, LocalDateTime time, String scope)
             throw new InvalidPageException("游标过长");
         }
         try (var in = new DataInputStream(new ByteArrayInputStream(Base64.getUrlDecoder().decode(cursor)))) {
-            if (in.readUnsignedByte() != 1 || !scope.equals(in.readUTF())) {
+            int version = in.readUnsignedByte();
+            if ((version != 1 && version != 2) || !scope.equals(in.readUTF())) {
                 throw new InvalidPageException("游标不属于当前查询范围");
             }
             String id = in.readUTF();
@@ -49,7 +50,8 @@ public record CursorPage(int limit, String id, LocalDateTime time, String scope)
             if (id.isBlank() || id.length() > 64 || in.available() != 0) {
                 throw new InvalidPageException("游标无效");
             }
-            return new CursorPage(size, id, time.isEmpty() ? null : LocalDateTime.parse(time), scope);
+            if (version == 1 && !time.isEmpty()) throw new InvalidPageException("旧时间游标已失效，请重新从首页查询");
+            return new CursorPage(size, id, time.isEmpty() ? null : Timestamp.from(java.time.Instant.parse(time)), scope);
         } catch (InvalidPageException error) {
             throw error;
         } catch (Exception error) {
@@ -85,8 +87,7 @@ public record CursorPage(int limit, String id, LocalDateTime time, String scope)
         if (fetched.size() > limit) {
             Map<String, Object> last = items.getLast();
             Object raw = chronological ? last.get("created_at") : null;
-            String time = raw instanceof Timestamp value ? value.toLocalDateTime().toString()
-                    : raw == null ? "" : raw.toString();
+            String time = raw == null ? "" : com.lrj.wms.runtime.db.DatabaseInstants.require(raw).toString();
             result.put("nextCursor", encode(String.valueOf(last.get("id")), time));
         }
         return result;
@@ -96,7 +97,7 @@ public record CursorPage(int limit, String id, LocalDateTime time, String scope)
         try {
             var bytes = new ByteArrayOutputStream();
             try (var out = new DataOutputStream(bytes)) {
-                out.writeByte(1);
+                out.writeByte(time.isEmpty() ? 1 : 2);
                 out.writeUTF(scope);
                 out.writeUTF(id);
                 out.writeUTF(time);

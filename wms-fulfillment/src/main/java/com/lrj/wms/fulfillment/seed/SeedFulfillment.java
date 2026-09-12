@@ -37,11 +37,13 @@ public final class SeedFulfillment {
         Map<String, String> flags = flags(args);
         String jdbc = required(flags, "jdbc", "WMS_SEED_JDBC_URL");
         requireIsolated(jdbc);
+        var time = new com.lrj.wms.runtime.db.DatabaseTimePolicy(System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_STORAGE_ZONE", "UTC"),
+                System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE", ""));
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(jdbc);
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(jdbc,time.storageZone()));
         source.setUser(required(flags, "username", "WMS_SEED_DB_USER"));
         source.setPassword(optionalPassword(flags));
-        Map<String, Integer> counts = seed(source, Clock.systemUTC());
+        Map<String, Integer> counts = seed(source, Clock.systemUTC(), time);
         System.out.println("seed-fulfillment ok " + counts);
     }
 
@@ -56,7 +58,13 @@ public final class SeedFulfillment {
     }
 
     public static Map<String, Integer> seed(DataSource dataSource, Clock clock) {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration/fulfillment").load().migrate();
+        return seed(dataSource,clock,new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", ""));
+    }
+
+    /** 隔离库种子也验证时间来源，避免混入另一时区的演示数据。 */
+    public static Map<String, Integer> seed(DataSource dataSource, Clock clock, com.lrj.wms.runtime.db.DatabaseTimePolicy time) {
+        var migration = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration/fulfillment").load();
+        time.initialize(dataSource,migration::migrate);
         SqlSessionFactory sessions = sessions(dataSource);
         Timestamp now = Timestamp.from(clock.instant());
         try (SqlSession session = sessions.openSession(false)) {
@@ -123,6 +131,7 @@ public final class SeedFulfillment {
 
     private static SqlSessionFactory sessions(DataSource dataSource) {
         Configuration config = new Configuration(new Environment("seed", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(SeedFulfillmentMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }

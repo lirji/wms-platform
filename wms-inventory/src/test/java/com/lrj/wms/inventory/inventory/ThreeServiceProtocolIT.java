@@ -71,6 +71,7 @@ class ThreeServiceProtocolIT {
                 .locations("filesystem:" + root.resolve("wms-outbound/src/main/resources/db/migration")).load().migrate();
         Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(),
                 dataSource(inventoryDb)));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(EffectMapper.class);
         config.addMapper(InventoryMapper.class);
@@ -181,7 +182,7 @@ class ThreeServiceProtocolIT {
 
     private static DataSource dataSource(MySQLContainer mysql) {
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(mysql.getJdbcUrl());
+        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         return source;
