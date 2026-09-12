@@ -637,7 +637,9 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `SnapshotHttpIT` | 1/0，14.48s | 测试 JWT；ISO cutoff；跨仓 403；无 currency/amountMinor |
 | recon `WmsExportContractTest` | 1/0 | 消费 WMS JSONL 形状；拒绝金额字段。不是双方进程 |
 | `2d270ba` verify `34671971183` | failure | `tc-it` 仓路由误判；本任务回归 |
-| `4dee112` verify `34673286277` | in_progress（记录时） | 远程尚未证明 |
+| `4dee112` 分支 verify `34672595394` | success，44m33s | 含 tc-it / failure-it |
+| `4dee112` main verify `34673286277` | cancelled | 被 `a5ea7ad` 抢占 |
+| `a5ea7ad` main verify `34674304734` | cancelled，45m36s | java 45m 超时；tc-it 已通过 |
 
 阻塞：S8-05 无设备；S9-01 无签署峰值；AC-26/40 未 UI accepted；AC-42 无 TM/TC 宕机环境；AC-24 缺跨仓进程联调。
 

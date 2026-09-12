@@ -12,10 +12,10 @@
 
 ## 未完成
 
-- `4dee112` 远程 verify `34673286277`。S8-05 真实设备。S9-01 签署容量。OQ-03。UI accepted。50 AC 全量通过。
+- main `a5ea7ad` 被 45m timeout 取消。S8-05 真实设备。S9-01 签署容量。OQ-03。UI accepted。50 AC 全量通过。
 
 ## 下一步建议
 
-1. 不推仍在跑的 `main`。等 `34673286277`。
+1. 发布 60m java timeout 与 S9-05 文档后核对新的 main verify。
 2. S8-05 / S9-01 / AC-42 / UI 保持 blocked，除非给出设备、签署容量、OIDC 联调或 TM/TC 宕机环境。
 3. 继续 S9-05：不把 local-pass 写成全通过。

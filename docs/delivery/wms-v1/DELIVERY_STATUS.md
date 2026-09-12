@@ -12,13 +12,13 @@
 - 来源：已批准 DELIVERY_PLAN；持续 Git 发布；用户要求做到 S9 / 50 AC 且不必逐步确认。
 - 测试目标：localhost / Testcontainers MySQL 8.4.11。
 - 排除：生产部署、共享 dev-infra、编造 OQ-03、把 simulator 当真实设备、把合成峰值当签署容量。
-- 不推送仍在跑 verify 的 `main`（`34673286277`）。
+- 不推送仍在跑 verify 的 `main`。
 
 ## 门禁
 
 | 门禁 | 状态 | 证据/下一步 |
 | --- | --- | --- |
-| EG-01 工程/CI | running | `4dee112` verify `34673286277` in_progress；`2d270ba` `34671971183` 因 tc-it 失败（已修） |
+| EG-01 工程/CI | running | `4dee112` 任务分支 verify `34672595394` success（含 tc-it）；main `34673286277` 被后续 push 取消；`a5ea7ad` `34674304734` 在 45m timeout 处取消（tc-it 已绿） |
 | EG-05 外部与非功能 | running | S9-01 / S8-05 / AC-42 仍 blocked |
 | Git发布 | pass（本切片） | 远程 main 祖先含 `8351fd0` 与 `4dee112` |
 | S9-05 50 AC | fail | 见 [AC_EVIDENCE.md](AC_EVIDENCE.md) / [DELIVERY_REPORT.md](DELIVERY_REPORT.md) |
@@ -31,6 +31,6 @@
 
 ## 未完成
 
-- `34673286277` 远程结果。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。UI accepted。AC-42。
+- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。UI accepted。AC-42。
 
 无生产部署。

@@ -46,7 +46,7 @@
 
 未改 workflow。`SnapshotHttpIT` 已列入 `scripts/required-its-default.txt`。
 
-`4dee112` 远程 main verify `34673286277`：撰写时 **in_progress**。本地通过不能代替该次远程结果。
+`4dee112` 任务分支 verify [`34672595394`](https://github.com/lirji/wms-platform/actions/runs/34672595394)：**success**（含 default / warehouse-it / tc-it / failure-it）。同 SHA 的 main verify `34673286277` 被后续 `a5ea7ad` 取消。`a5ea7ad` main verify `34674304734` 在 java `timeout-minutes: 45` 处取消（当时 tc-it 已通过）。java 超时已改为 60 分钟。
 
 ## Git Publication
 
