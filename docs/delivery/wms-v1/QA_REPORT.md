@@ -624,3 +624,21 @@ AC-01/02/31 仍 planned。OQ-03 未确认，种子临期/过期批次使用显�
 | `SerialSealIT` / `CountIT` | 回归 0 失败 | 源仓扣量未破坏原封闭/数量盘点 |
 
 结论：S6-04 本地 pass。不能当作 AC-16/17/18/19 生产通过。S7 任务框架仍 planned。
+
+## S9-05 / route-gate（2026-09-12）
+
+环境：macOS arm64、Microsoft JDK 21、Docker 29.7.2、Testcontainers MySQL 8.4.11。未操作生产。未发明 OQ-03。
+
+| 用例/命令 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| `WarehouseRouteGateTest` | 1/0 | 缺表/无分片规则不是 `STALE_ROUTE` |
+| `TccFenceShardingIT` | 1/0，16.90s | 两物理库 + SS；修复后收货不再误判停写 |
+| `WarehouseMigrationIT` | 2/0 | 停写/切 epoch/旧写拒绝仍成立 |
+| `SnapshotHttpIT` | 1/0，14.48s | 测试 JWT；ISO cutoff；跨仓 403；无 currency/amountMinor |
+| recon `WmsExportContractTest` | 1/0 | 消费 WMS JSONL 形状；拒绝金额字段。不是双方进程 |
+| `2d270ba` verify `34671971183` | failure | `tc-it` 仓路由误判；本任务回归 |
+| `4dee112` verify `34673286277` | in_progress（记录时） | 远程尚未证明 |
+
+阻塞：S8-05 无设备；S9-01 无签署峰值；AC-26/40 未 UI accepted；AC-42 无 TM/TC 宕机环境；AC-24 缺跨仓进程联调。
+
+结论：**fail**（相对已批准 50 AC / 外部门禁）。local-pass 不得升格为全交付通过。
