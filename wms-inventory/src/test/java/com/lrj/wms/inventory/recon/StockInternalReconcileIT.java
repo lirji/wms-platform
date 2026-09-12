@@ -61,6 +61,7 @@ class StockInternalReconcileIT {
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
         config.addMapper(ReconciliationMapper.class);
+        config.addMapper(com.lrj.wms.inventory.archive.ArchivePlanMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(POSTED, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
@@ -79,7 +80,7 @@ class StockInternalReconcileIT {
             inventory.receive("ENT-1", "WH-A", "OP-SN", "DOC", "ACTOR", bucket("SKU-SN"), Quantity.parse("2", 0));
             session.commit();
         }
-        String qtyBalance = jdbc.queryForObject("SELECT id FROM stock_balance WHERE sku_id='SKU-Q'", String.class);
+        String qtyBalance = jdbc.queryForObject("SELECT id FROM stock_balance WHERE warehouse_id='WH-A' AND sku_id='SKU-Q'", String.class);
         String snBalance = jdbc.queryForObject("SELECT id FROM stock_balance WHERE sku_id='SKU-SN'", String.class);
         jdbc.update("UPDATE stock_balance SET on_hand_qty=on_hand_qty+1 WHERE id=?", qtyBalance);
         jdbc.update("UPDATE stock_balance SET reserved_qty=2 WHERE id=?", qtyBalance);
@@ -116,15 +117,15 @@ class StockInternalReconcileIT {
             Map<String, Object> ledgerCase = cases.stream()
                     .filter(row -> StockInternalReconcile.BALANCE_LEDGER.equals(row.get("case_type"))).findFirst()
                     .orElseThrow();
-            BigDecimal beforeQty = jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-Q'",
+            BigDecimal beforeQty = jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE warehouse_id='WH-A' AND sku_id='SKU-Q'",
                     BigDecimal.class);
             Map<String, Object> approved = recon.remediate("ENT-1", "WH-A", String.valueOf(ledgerCase.get("id")),
                     "APPROVE", "keep evidence", 0L, "auditor");
             assertEquals("REMEDIATING", approved.get("state"));
             assertEquals(Boolean.FALSE, approved.get("rewroteBalance"));
             assertEquals(0, beforeQty.compareTo(jdbc.queryForObject(
-                    "SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-Q'", BigDecimal.class)));
-            executeSql(session, "UPDATE stock_balance SET on_hand_qty=on_hand_qty-1 WHERE sku_id='SKU-Q'");
+                    "SELECT on_hand_qty FROM stock_balance WHERE warehouse_id='WH-A' AND sku_id='SKU-Q'", BigDecimal.class)));
+            executeSql(session, "UPDATE stock_balance SET on_hand_qty=on_hand_qty-1 WHERE warehouse_id='WH-A' AND sku_id='SKU-Q'");
             session.clearCache();
             StockInternalReconcile.Report again = recon.execute("ENT-1", "WH-A", "C-INT");
             assertEquals(1, again.closed());
@@ -172,6 +173,90 @@ class StockInternalReconcileIT {
                     .equals(String.valueOf(row.get("discrepancy_code")))));
             session.rollback();
         }
+    }
+
+    @Test
+    void checkpointsSurviveRestartAndNeverCloseUnvisitedCases() {
+        Clock clock = Clock.fixed(CUTOFF, ZoneOffset.UTC);
+        Timestamp now = Timestamp.from(POSTED);
+        for (int i = 0; i < 205; i++) {
+            jdbc.update("INSERT INTO stock_balance (id,enterprise_id,warehouse_id,owner_id,location_id,sku_id,lot_id,quality_code,on_hand_qty,reserved_qty,free_execution_claim_qty,version,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,0,0,?,?)",
+                    "BP-%03d".formatted(i), "ENT-1", "WH-P", "OWNER-" + i, "LOC-P", "SKU-Q", "NO_LOT", "GOOD", i == 0 ? 1 : 0, now, now);
+        }
+        try (var session = sessions.openSession(false)) {
+            new StockInternalReconcile(session, clock).closeWindow("ENT-1", "WH-P", "C-PAGE", Timestamp.from(CUTOFF), "S", "P", "R");
+            var mapper = session.getMapper(ReconciliationMapper.class);
+            mapper.insertCaseIgnore("CASE-LAST", "ENT-1", "WH-P", "C-PAGE", "BALANCE_LEDGER", "QTY_MISMATCH", "BP-204", "SKU-Q", BigDecimal.ZERO, BigDecimal.ONE, "fixture", now);
+            mapper.casCase("ENT-1", "WH-P", "CASE-LAST", "OPEN", "REMEDIATING", 0, "auditor", "repair-op", now);
+            session.commit();
+        }
+        jdbc.execute("ALTER TABLE reconciliation_scan ADD CONSTRAINT test_checkpoint_failure CHECK (cutoff_id <> 'C-PAGE' OR version=0)");
+        try (var session = sessions.openSession(false)) {
+            assertThrows(RuntimeException.class, () -> new StockInternalReconcile(session, clock).execute("ENT-1", "WH-P", "C-PAGE"));
+            session.rollback();
+        } finally { jdbc.execute("ALTER TABLE reconciliation_scan DROP CHECK test_checkpoint_failure"); }
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_case WHERE warehouse_id='WH-P'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_scan WHERE warehouse_id='WH-P'", Integer.class));
+        for (int page = 0; page < 3; page++) {
+            try (var session = sessions.openSession(false)) {
+                var result = new StockInternalReconcile(session, clock).execute("ENT-1", "WH-P", "C-PAGE");
+                assertEquals(page < 2 ? 100 : 5, result.scanned());
+                assertEquals(page == 2, result.cycleCompleted());
+                assertEquals(page == 2 ? 1 : 0, result.closed());
+                session.commit();
+            }
+            assertEquals(page < 2 ? "REMEDIATING" : "CLOSED", jdbc.queryForObject("SELECT state FROM reconciliation_case WHERE id='CASE-LAST'", String.class));
+        }
+        assertEquals("repair-op", jdbc.queryForObject("SELECT remediation_operation_id FROM reconciliation_case WHERE id='CASE-LAST'", String.class));
+        assertEquals(1, jdbc.queryForObject("SELECT completed_cycles FROM reconciliation_scan WHERE warehouse_id='WH-P'", Integer.class));
+        try (var session = sessions.openSession(false)) {
+            assertThrows(com.lrj.wms.inventory.jobs.JobRunException.class, () -> new StockInternalReconcile(session, clock)
+                    .closeWindow("ENT-1", "WH-P", "C-PAGE", Timestamp.from(CUTOFF.plusSeconds(1)), "S", "P", "R"));
+            session.rollback();
+        }
+    }
+
+    @Test
+    void archivePlansOnlyWithExplicitPolicyAndAtomicResume() {
+        var archiveBucket = StockBucketKey.of("ENT-1", "WH-ARCH", "OWNER-1", "LOC-ARCH", "SKU-Q", "NO_LOT", "GOOD");
+        try (var session = sessions.openSession(false)) {
+            var md = new MasterdataService(session, Clock.fixed(POSTED,ZoneOffset.UTC));
+            md.createWarehouse("WH-ARCH","ENT-1","ARCH","归档验证仓","Asia/Shanghai");
+            md.createLocation("LOC-ARCH","GATE-ARCH","ENT-1","WH-ARCH","ARCH","A","STORAGE", new BigDecimal("1000"), "EA");
+            var inventory = new InventoryApplicationService(session, Clock.fixed(POSTED,ZoneOffset.UTC));
+            for (int i=0;i<205;i++) inventory.receive("ENT-1","WH-ARCH","AR-"+i,"DOC","ACTOR",archiveBucket,Quantity.parse("1",0));
+            new InventoryApplicationService(session,Clock.fixed(CUTOFF.plusSeconds(30),ZoneOffset.UTC))
+                    .receive("ENT-1","WH-ARCH","AR-RECENT","DOC","ACTOR",archiveBucket,Quantity.parse("1",0));
+            session.commit();
+        }
+        Clock clock = Clock.fixed(CUTOFF.plusSeconds(60),ZoneOffset.UTC);
+        jdbc.execute("ALTER TABLE archive_plan ADD CONSTRAINT test_archive_failure CHECK (run_key <> 'A-RUN' OR version=0)");
+        try (var session = sessions.openSession(false)) {
+            assertThrows(RuntimeException.class, () -> new com.lrj.wms.inventory.archive.ArchivePlanner(session,clock)
+                    .execute("ENT-1","WH-ARCH","A-RUN",CUTOFF,"POLICY-REF","operator"));
+            session.rollback();
+        } finally { jdbc.execute("ALTER TABLE archive_plan DROP CHECK test_archive_failure"); }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM archive_plan_item WHERE warehouse_id='WH-ARCH'",Integer.class));
+        String manifest = null;
+        for(int page=0;page<3;page++) {
+            try(var session=sessions.openSession(false)) {
+                var result=new com.lrj.wms.inventory.archive.ArchivePlanner(session,clock).execute("ENT-1","WH-ARCH","A-RUN",CUTOFF,"POLICY-REF","operator");
+                assertEquals(page==0?"PLANNING":"PLANNED_EXPORT",result.get("state"));
+                assertEquals(page==0?200:205,((Number)result.get("candidateCount")).intValue());
+                assertEquals(false,result.get("deleted")); assertEquals(false,result.get("exported"));
+                if(page==2) assertEquals(manifest,result.get("manifestHash"));
+                manifest=String.valueOf(result.get("manifestHash"));
+                session.commit();
+            }
+        }
+        try(var session=sessions.openSession(false)) {
+            assertThrows(com.lrj.wms.inventory.jobs.JobRunException.class, () -> new com.lrj.wms.inventory.archive.ArchivePlanner(session,clock)
+                    .execute("ENT-1","WH-ARCH","A-RUN",CUTOFF,"DIFFERENT-POLICY","operator"));
+            session.rollback();
+        }
+        assertEquals(205,jdbc.queryForObject("SELECT COUNT(*) FROM archive_plan_item WHERE warehouse_id='WH-ARCH'",Integer.class));
+        assertEquals(206,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE warehouse_id='WH-ARCH'",Integer.class));
+        assertEquals(0,new BigDecimal("206").compareTo(jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE warehouse_id='WH-ARCH'",BigDecimal.class)));
     }
 
     private static StockBucketKey bucket(String skuId) {

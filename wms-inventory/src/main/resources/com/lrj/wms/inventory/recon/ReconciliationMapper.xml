@@ -6,7 +6,7 @@
     <insert id="upsertCutoff">
         INSERT INTO reconciliation_cutoff (id, enterprise_id, warehouse_id, cutoff_id, closed_at, source_watermark, posting_watermark, receipt_watermark, watermarks_complete, state, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cutoffId}, #{closedAt}, #{sourceWatermark}, #{postingWatermark}, #{receiptWatermark}, #{complete}, 'CLOSED', 0, #{now}, #{now})
-        ON DUPLICATE KEY UPDATE closed_at=VALUES(closed_at), source_watermark=VALUES(source_watermark), posting_watermark=VALUES(posting_watermark), receipt_watermark=VALUES(receipt_watermark), watermarks_complete=VALUES(watermarks_complete), updated_at=#{now}, version=version+1
+        ON DUPLICATE KEY UPDATE id=id
     </insert>
 
     <!-- lockCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
@@ -25,75 +25,62 @@
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
 
-    <!-- listBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listBalances" resultType="map">
-        SELECT b.id, b.sku_id, b.on_hand_qty, b.reserved_qty, b.free_execution_claim_qty, k.serial_enabled
-        FROM stock_balance b JOIN sku k ON k.enterprise_id=b.enterprise_id
-        AND k.id=b.sku_id
-        WHERE b.enterprise_id=#{enterpriseId}
-        AND b.warehouse_id=#{warehouseId}
-        AND b.updated_at&lt;#{cutoff}
-        ORDER BY b.id
-        LIMIT #{limit}
+    <!-- 单页一致性快照：当前余额与同一事务看到的最新流水、预占及序列号比较，不冒充全仓历史快照。 -->
+    <select id="balancePage" resultType="map">
+        SELECT b.id, b.sku_id, b.on_hand_qty, b.reserved_qty, k.serial_enabled,
+            COALESCE((SELECT l.on_hand_after FROM stock_ledger l
+                WHERE l.enterprise_id=b.enterprise_id AND l.warehouse_id=b.warehouse_id AND l.balance_id=b.id
+                ORDER BY l.balance_version DESC LIMIT 1),0) AS ledger_qty,
+            COALESCE((SELECT SUM(l.remaining_qty) FROM reservation_line l JOIN reservation r
+                ON r.enterprise_id=l.enterprise_id AND r.warehouse_id=l.warehouse_id AND r.id=l.reservation_id
+                WHERE l.enterprise_id=b.enterprise_id AND l.warehouse_id=b.warehouse_id AND l.balance_id=b.id
+                AND r.state IN ('TRIED','CONFIRMED')),0) AS remaining_qty,
+            (SELECT COUNT(*) FROM local_serial s WHERE s.enterprise_id=b.enterprise_id AND s.warehouse_id=b.warehouse_id
+                AND s.balance_id=b.id AND s.state IN ('HOLD_RECEIVED','AUTHORIZED','SEALED')) AS serial_count
+        FROM stock_balance b JOIN sku k ON k.enterprise_id=b.enterprise_id AND k.id=b.sku_id
+        WHERE b.enterprise_id=#{enterpriseId} AND b.warehouse_id=#{warehouseId} AND b.created_at &lt; #{cutoff}
+        <if test="cursor != null">AND b.id &gt; #{cursor}</if>
+        ORDER BY b.id LIMIT #{limit}
     </select>
-
-    <!-- listLedgerCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listLedgerCutoff" resultType="map">
-        SELECT l.balance_id, l.on_hand_after, l.reserved_after
-        FROM stock_ledger l INNER JOIN (SELECT balance_id, MAX(balance_version) AS v
-        FROM stock_ledger
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
-        AND occurred_at&lt;#{cutoff} GROUP BY balance_id) t ON l.balance_id=t.balance_id
-        AND l.balance_version=t.v
-        WHERE l.enterprise_id=#{enterpriseId}
-        AND l.warehouse_id=#{warehouseId}
+    <!-- 只匹配 PHYSICAL 来源事实，不能让同命令的 POSTED 投影覆盖物理事实。 -->
+    <select id="factPage" resultType="map">
+        SELECT f.id, f.source_service, f.command_id, f.quantity, f.occurred_at, p.id AS other_id, p.quantity AS other_qty
+        FROM source_execution_fact f LEFT JOIN stock_posting p ON p.enterprise_id=f.enterprise_id AND p.warehouse_id=f.warehouse_id
+            AND p.source_service=f.source_service AND p.command_id=f.command_id AND p.created_at &lt; #{cutoff}
+        WHERE f.enterprise_id=#{enterpriseId} AND f.warehouse_id=#{warehouseId} AND f.fact_kind='PHYSICAL' AND f.occurred_at &lt; #{cutoff}
+        <if test="cursor != null">AND f.id &gt; #{cursor}</if>
+        ORDER BY f.id LIMIT #{limit}
     </select>
-
-    <!-- listReservedRemaining：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listReservedRemaining" resultType="map">
-        SELECT l.balance_id, SUM(l.remaining_qty) AS remaining_qty
-        FROM reservation_line l JOIN reservation r ON r.enterprise_id=l.enterprise_id
-        AND r.warehouse_id=l.warehouse_id
-        AND r.id=l.reservation_id
-        WHERE l.enterprise_id=#{enterpriseId}
-        AND l.warehouse_id=#{warehouseId}
-        AND r.state IN ('TRIED','CONFIRMED') GROUP BY l.balance_id
+    <select id="postingPage" resultType="map">
+        SELECT p.id, p.source_service, p.command_id, p.quantity, f.id AS other_id
+        FROM stock_posting p LEFT JOIN source_execution_fact f ON f.enterprise_id=p.enterprise_id AND f.warehouse_id=p.warehouse_id
+            AND f.source_service=p.source_service AND f.command_id=p.command_id AND f.fact_kind='PHYSICAL' AND f.occurred_at &lt; #{cutoff}
+        WHERE p.enterprise_id=#{enterpriseId} AND p.warehouse_id=#{warehouseId} AND p.created_at &lt; #{cutoff}
+        <if test="cursor != null">AND p.id &gt; #{cursor}</if>
+        ORDER BY p.id LIMIT #{limit}
     </select>
-
-    <!-- listSerialCounts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listSerialCounts" resultType="map">
-        SELECT balance_id, COUNT(*) AS serial_count
-        FROM local_serial
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
-        AND state IN ('HOLD_RECEIVED','AUTHORIZED','SEALED')
-        AND balance_id IS NOT NULL GROUP BY balance_id
+    <insert id="insertScan">
+        INSERT INTO reconciliation_scan (id,enterprise_id,warehouse_id,cutoff_id,created_at,updated_at)
+        VALUES (#{id},#{enterpriseId},#{warehouseId},#{cutoffId},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lockScan" resultType="map">
+        SELECT * FROM reconciliation_scan WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND cutoff_id=#{cutoffId} FOR UPDATE
     </select>
-
-    <!-- listFacts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listFacts" resultType="map">
-        SELECT source_service, command_id, business_effect_key, fact_kind, quantity, occurred_at
-        FROM source_execution_fact
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
-        AND occurred_at&lt;#{cutoff}
-    </select>
-
-    <!-- listPostings：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listPostings" resultType="map">
-        SELECT source_service, command_id, business_effect_key, quantity, created_at
-        FROM stock_posting
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
-        AND created_at&lt;#{cutoff}
-    </select>
+    <update id="checkpoint">
+        UPDATE reconciliation_scan SET balance_cursor=#{scan.balance_cursor},fact_cursor=#{scan.fact_cursor},posting_cursor=#{scan.posting_cursor},
+            balance_done=#{scan.balance_done},fact_done=#{scan.fact_done},posting_done=#{scan.posting_done},
+            completed_cycles=completed_cycles+#{completed},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND cutoff_id=#{cutoffId} AND version=#{scan.version}
+    </update>
 
     <!-- insertCaseIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertCaseIgnore">
         INSERT INTO reconciliation_case (id, enterprise_id, warehouse_id, cutoff_id, case_type, discrepancy_code, scope_id, sku_id, expected_qty, actual_qty, state, evidence_ref, remediation_operation_id, approved_by, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cutoffId}, #{caseType}, #{code}, #{scopeId}, #{skuId}, #{expected}, #{actual}, 'OPEN', #{evidence}, NULL, NULL, 0, #{now}, #{now})
-        ON DUPLICATE KEY UPDATE updated_at=#{now}
+        ON DUPLICATE KEY UPDATE
+            approved_by=IF(state='CLOSED',NULL,approved_by), remediation_operation_id=IF(state='CLOSED',NULL,remediation_operation_id),
+            state=IF(state='CLOSED','OPEN',state), discrepancy_code=VALUES(discrepancy_code), expected_qty=VALUES(expected_qty),
+            actual_qty=VALUES(actual_qty), evidence_ref=VALUES(evidence_ref), updated_at=#{now}, version=version+1
     </insert>
 
     <!-- listCases：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
@@ -103,7 +90,7 @@
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND cutoff_id=#{cutoffId}
-        ORDER BY case_type, scope_id
+        ORDER BY case_type, scope_id LIMIT 200
     </select>
 
     <select id="listCasesPage" resultType="map">
@@ -149,11 +136,13 @@
 
     <!-- listRepairing：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listRepairing" resultType="map">
-        SELECT id, version, case_type, scope_id, state
+        SELECT id, version, case_type, scope_id, state, approved_by, remediation_operation_id
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND cutoff_id=#{cutoffId}
         AND state IN ('REMEDIATING','VERIFYING')
+        AND (<foreach collection="checked" item="key" separator=" OR ">(case_type=#{key.type} AND scope_id=#{key.scope})</foreach>)
+        ORDER BY id LIMIT 501
     </select>
 </mapper>

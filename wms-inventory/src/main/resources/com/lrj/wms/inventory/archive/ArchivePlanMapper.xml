@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.archive.ArchivePlanMapper">
+    <insert id="create">
+        INSERT INTO archive_plan (id,enterprise_id,warehouse_id,run_key,policy_ref,cutoff_at,manifest_hash,state,requested_by,created_at,updated_at)
+        VALUES (#{id},#{enterprise},#{warehouse},#{run},#{policy},#{cutoff},REPEAT('0',64),'PLANNING',#{actor},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
+    </insert>
+    <select id="lock" resultType="map">
+        SELECT * FROM archive_plan WHERE enterprise_id=#{enterprise} AND warehouse_id=#{warehouse} AND run_key=#{run} FOR UPDATE
+    </select>
+    <!-- JSON_ARRAY 固定全字段次序并由 MySQL 格式化类型，摘要不依赖执行器 JVM 时区；这里只枚举候选。 -->
+    <select id="candidates" resultType="map">
+        SELECT id, SHA2(CAST(JSON_ARRAY(id, enterprise_id, warehouse_id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta, free_execution_claim_delta, on_hand_after, reserved_after, free_execution_claim_after, balance_version, reason_code, document_id, actor_id, occurred_at, created_at) AS CHAR),256) AS payload_hash
+        FROM stock_ledger WHERE enterprise_id=#{enterprise} AND warehouse_id=#{warehouse}
+            AND occurred_at &lt; #{cutoff} AND created_at &lt; #{cutoff}
+        <if test="cursor != null">AND id &gt; #{cursor}</if>
+        ORDER BY id LIMIT 201
+    </select>
+    <insert id="item">
+        INSERT INTO archive_plan_item (id,enterprise_id,warehouse_id,plan_id,ledger_id,payload_hash,created_at)
+        VALUES (#{id},#{enterprise},#{warehouse},#{plan},#{ledger},#{hash},#{now})
+    </insert>
+    <update id="checkpoint">
+        UPDATE archive_plan SET cursor_id=#{cursor},candidate_count=candidate_count+#{count},manifest_hash=#{hash},state=#{state},version=version+1,updated_at=#{now}
+        WHERE enterprise_id=#{enterprise} AND warehouse_id=#{warehouse} AND id=#{id} AND version=#{version} AND state='PLANNING'
+    </update>
+</mapper>

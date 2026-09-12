@@ -51,7 +51,15 @@ public class InventoryCatalogJobs {
 
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
     public void stockInternalReconcile() {
-        unavailableHandler(WmsJobCatalog.STOCK_INTERNAL_RECONCILE);
+        clearSchedulerContext();
+        String[] scope = requireScope(3);
+        try (var session = requireSessions().openSession(org.apache.ibatis.session.TransactionIsolationLevel.REPEATABLE_READ)) {
+            var result = new com.lrj.wms.inventory.recon.StockInternalReconcile(session, java.time.Clock.systemUTC())
+                    .execute(scope[0], scope[1], scope[2]);
+            session.commit();
+            XxlJobHelper.log("recon scanned={}, opened={}, closed={}, cycleCompleted={}, watermarksComplete={}",
+                    result.scanned(), result.opened(), result.closed(), result.cycleCompleted(), result.watermarksComplete());
+        }
     }
 
     @XxlJob(WmsJobCatalog.EXTERNAL_RECONCILE_EXPORT)
@@ -84,7 +92,14 @@ public class InventoryCatalogJobs {
 
     @XxlJob(WmsJobCatalog.ARCHIVE_PLANNER)
     public void archivePlanner() {
-        unavailableHandler(WmsJobCatalog.ARCHIVE_PLANNER);
+        clearSchedulerContext();
+        String[] scope = requireScope(5);
+        try (var session = requireSessions().openSession(false)) {
+            var result = new com.lrj.wms.inventory.archive.ArchivePlanner(session, java.time.Clock.systemUTC()).execute(
+                    scope[0],scope[1],scope[2],java.time.Instant.parse(scope[3]),scope[4],"job:archivePlanner");
+            session.commit();
+            XxlJobHelper.log("archive plan={}, state={}, candidates={}", result.get("planId"),result.get("state"),result.get("candidateCount"));
+        }
     }
 
     @XxlJob(WmsJobCatalog.JOB_LEASE_RECOVERY)

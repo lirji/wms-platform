@@ -30,29 +30,21 @@ public interface ReconciliationMapper {
             @Param("occurredAt") Timestamp occurredAt, @Param("watermark") String watermark,
             @Param("now") Timestamp now);
 
-    /** listBalances：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listBalances(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff, @Param("limit") int limit);
-
-    /** listLedgerCutoff：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listLedgerCutoff(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff);
-
-    /** listReservedRemaining：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listReservedRemaining(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId);
-
-    /** listSerialCounts：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listSerialCounts(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId);
-
-    /** listFacts：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listFacts(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff);
-
-    /** listPostings：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    List<Map<String, Object>> listPostings(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoff") Timestamp cutoff);
+    /** 每类流最多读取一页，检查点与差异共用调用方事务。 */
+    @Options(timeout = 5)
+    List<Map<String, Object>> balancePage(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("cutoff") Timestamp cutoff, @Param("cursor") String cursor, @Param("limit") int limit);
+    @Options(timeout = 5)
+    List<Map<String, Object>> factPage(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("cutoff") Timestamp cutoff, @Param("cursor") String cursor, @Param("limit") int limit);
+    @Options(timeout = 5)
+    List<Map<String, Object>> postingPage(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("cutoff") Timestamp cutoff, @Param("cursor") String cursor, @Param("limit") int limit);
+    int insertScan(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("cutoffId") String cutoffId, @Param("id") String id, @Param("now") Timestamp now);
+    Map<String, Object> lockScan(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId, @Param("cutoffId") String cutoffId);
+    int checkpoint(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("cutoffId") String cutoffId, @Param("scan") Map<String, Object> scan, @Param("completed") boolean completed, @Param("now") Timestamp now);
 
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     /** insertCaseIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
@@ -87,5 +79,5 @@ public interface ReconciliationMapper {
 
     /** listRepairing：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     List<Map<String, Object>> listRepairing(@Param("enterpriseId") String enterpriseId,
-            @Param("warehouseId") String warehouseId, @Param("cutoffId") String cutoffId);
+            @Param("warehouseId") String warehouseId, @Param("cutoffId") String cutoffId, @Param("checked") List<Map<String, String>> checked);
 }

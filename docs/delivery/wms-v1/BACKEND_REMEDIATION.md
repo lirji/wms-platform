@@ -179,3 +179,15 @@ T1 的 inbound_receipt_quality/inbound_quality_revision、原操作者、来源�
 真实两个 Jar、两个 MySQL、Kafka、RSA JWT：/tmp/wms-batch-putaway-it.log 于 00:35:29 BUILD SUCCESS（InboundReceiptIT 5、InboundHttpIT 1、ReceiveMessagingProcessesIT 1）；新增批次游标与响应校验 /tmp/wms-batch-list-it.log 于 00:37:32 BUILD SUCCESS。覆盖按批超额拒绝、换批拒绝、跨批上架、重复不重复记账、源/库存额度一致；此前质量故障回滚/自动续跑回归保留。未将本切片作为出库、序列号或完整 R13 完成证据。
 
 控制台 typecheck、33 项既有回归和 production build 通过（/tmp/wms-batch-console.log、/tmp/wms-batch-console-build.log）。文档结构通过；契约生成与暂存产物一致性在提交后复验。
+
+## R15 有界内部对账与归档规划（2026-09-13）
+
+修复内部对账只扫描前 100 余额却全局关闭 REMEDIATING 差异的缺陷。现在每次最多 100 余额、100 来源 PHYSICAL 事实、100 库存 posting；V030 持久化三流游标，窗口行锁串行化，同事务提交差异和检查点。只复核/关闭本页明确检查过的身份；源服务也参与差异身份，POSTED 投影不能覆盖 PHYSICAL。窗口时刻及三方水位不可覆盖，修订需新窗口；已关闭差异复发重新打开。余额/流水/预占/序列号使用单页 REPEATABLE READ 当前一致性快照，明确区别于完整历史库存快照；未齐水位只落 SOURCE_INCOMPLETE，不判来源丢失。查询超时 5 秒，前台仍只分页查差异，不触发扫描。
+
+stockInternalReconcile handler 参数为 enterprise,warehouse,cutoffId，窗口必须已经由可信水位流程建立，不能临时把当前时刻伪装成已关闭窗口。每次触发只完成有界页，cycleCompleted 不等于差异修复或水位完备。
+
+archivePlanner 已实现实际候选规划，参数 enterprise,warehouse,runKey,cutoffISO,policyRef。显式提供过去关闭时刻和保留依据引用，不生成保留天数；V031 保存计划/候选引用/全字段摘要/链式 manifest。每次最多 200 行，计划行锁和版本检查防并发，候选与游标同事务；同键不能修改窗口或依据。PLANNED_EXPORT 只说明本次枚举结束，exported/deleted 均为 false。候选为关闭时刻之前的不可变库存流水；晚到数据进入新计划，导出需按清单逐项核对原行摘要、条数和 manifest，清理仍须独立授权并保留幂等身份。本轮未导出到对象存储，未删除任何业务数据。
+
+/tmp/wms-recon-archive-it.log 于 00:47:48 BUILD SUCCESS，StockInternalReconcileIT 4 项及全部单元通过：205 余额跨重启三页、未访问差异不误关闭、保留审批操作引用、最后检查点失败整页回滚；205 旧流水加 1 近期流水仅规划前者，分两次续跑、重复计划幂等、改变依据拒绝、规划检查点故障回滚且源余额/206 流水不变。先前增量测试暴露测试查询未限定仓，已修正夹具后通过。
+
+R15 仍余 serialTransferRecovery，依赖 R14 真实登记端口；三方水位事实接线继续随 R13 处理，不能仅凭 handler 已注册宣称所有外部链路完成。
