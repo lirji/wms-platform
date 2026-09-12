@@ -201,6 +201,10 @@ public final class TransferService {
         return view(enterpriseId, transferId);
     }
 
+    public List<Map<String, Object>> list(String enterpriseId, int limit) {
+        return mapper().listOrders(enterpriseId, limit);
+    }
+
     private Map<String, Object> applyFact(String enterpriseId, String transferId, String lineId, String operationId,
             BigDecimal qty, String action) {
         require(operationId, "INVALID_OPERATION", "操作键不能为空");

@@ -2,6 +2,7 @@ package com.lrj.wms.inbound.receipt;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -145,4 +146,28 @@ public interface InboundReceiptMapper {
     int bindObservation(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("id") String id, @Param("effectKey") String effectKey, @Param("commandId") String commandId,
             @Param("now") Timestamp now);
+
+    @Select("SELECT id, external_source, external_no, owner_id, status, version, created_at, updated_at "
+            + "FROM inbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "ORDER BY created_at DESC LIMIT #{limit}")
+    List<Map<String, Object>> listOrders(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("limit") int limit);
+
+    @Select("SELECT id, external_source, external_no, owner_id, status, version, created_at, updated_at "
+            + "FROM inbound_order WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{orderId}")
+    Map<String, Object> getOrder(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("orderId") String orderId);
+
+    @Select("SELECT id, external_line_id, sku_id, expected_qty, received_physical_qty, received_posted_qty, "
+            + "putaway_physical_qty, putaway_posted_qty, closed_qty, base_unit, stock_sync_status, version "
+            + "FROM inbound_line WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND order_id=#{orderId} ORDER BY id")
+    List<Map<String, Object>> listLines(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
+
+    @Select("SELECT id, task_type, document_id, document_line_id, planned_qty, completed_qty, state "
+            + "FROM inbound_task WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} "
+            + "AND document_id=#{orderId} ORDER BY created_at")
+    List<Map<String, Object>> listTasks(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("orderId") String orderId);
 }

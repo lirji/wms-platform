@@ -1,6 +1,6 @@
 # Cursor 前端实施交接
 
-状态：prepared，前端未实现、未验收。范围是未来 `wms-console/` 管理端与PDA适配页面。Cursor / Claude Code / Codex 均可实施前端、后端、数据库与 API，不再按工具拆分职责。OpenAPI 已落在 `wms-contract/src/main/resources/openapi/wms-v1.yaml`；inventory 已有主数据只读 HTTP 与 OIDC 资源服务器，但 `wms-console/` 仍未开始。禁止页面写死业务Mock。
+状态：ready-for-verification。`wms-console/` 已实现管理端与 PDA 页，数据只走后端 API；未配置 OIDC 时停在登录/配置态，不写死仓库或库存。入/出/履约工作台 HTTP 已补齐。真实 Casdoor + 四服务联调与交互验收后才能 accepted。禁止页面写死业务 Mock。
 
 ## 1. 页面与用户路径
 

@@ -34,6 +34,21 @@ public final class OutboundOrderService {
         this.clock = clock;
     }
 
+    public Map<String, Object> getOrder(String enterpriseId, String warehouseId, String orderId) {
+        Map<String, Object> order = mapper().getOrder(enterpriseId, warehouseId, orderId);
+        if (order == null) {
+            throw new OutboundException("UNKNOWN_ORDER", "出库单不存在");
+        }
+        Map<String, Object> body = orderView(order);
+        body.put("lines", mapper().listLines(enterpriseId, warehouseId, orderId));
+        body.put("tasks", mapper().listTasks(enterpriseId, warehouseId, orderId));
+        return body;
+    }
+
+    public List<Map<String, Object>> listOrders(String enterpriseId, String warehouseId, int limit) {
+        return mapper().listOrders(enterpriseId, warehouseId, limit);
+    }
+
     /** 按分配尝试幂等建单。重放返回原单，不写出库库存表。 */
     public Map<String, Object> createFromAllocation(String enterpriseId, String warehouseId, String allocationId,
             String attemptId, String ownerId, String authorizationId, List<Map<String, Object>> lines) {

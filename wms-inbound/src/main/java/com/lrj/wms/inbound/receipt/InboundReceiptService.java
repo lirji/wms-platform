@@ -34,6 +34,27 @@ public final class InboundReceiptService {
         this.clock = clock;
     }
 
+    public Map<String, Object> getOrder(String enterpriseId, String warehouseId, String orderId) {
+        Map<String, Object> order = mapper().getOrder(enterpriseId, warehouseId, orderId);
+        if (order == null) {
+            throw new InboundException("RESOURCE_NOT_FOUND", "入库单不存在");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("orderId", order.get("id"));
+        body.put("status", order.get("status"));
+        body.put("externalSource", order.get("external_source"));
+        body.put("externalNo", order.get("external_no"));
+        body.put("ownerId", order.get("owner_id"));
+        body.put("version", order.get("version"));
+        body.put("lines", mapper().listLines(enterpriseId, warehouseId, orderId));
+        body.put("tasks", mapper().listTasks(enterpriseId, warehouseId, orderId));
+        return body;
+    }
+
+    public List<Map<String, Object>> listOrders(String enterpriseId, String warehouseId, int limit) {
+        return mapper().listOrders(enterpriseId, warehouseId, limit);
+    }
+
     /** 创建入库单与行。同外部单号冲突由唯一键拒绝。 */
     public Map<String, Object> createOrder(String enterpriseId, String warehouseId, String orderId, String externalSource,
             String externalNo, String ownerId, List<Map<String, Object>> lines) {

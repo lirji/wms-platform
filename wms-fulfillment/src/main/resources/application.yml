@@ -20,3 +20,8 @@ wms:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
     client-id: ${WMS_OIDC_CLIENT_ID:}
+  fulfillment:
+    datasource:
+      url: ${WMS_FULFILLMENT_JDBC_URL:}
+      username: ${WMS_FULFILLMENT_DB_USER:}
+      password: ${WMS_FULFILLMENT_DB_PASSWORD:}

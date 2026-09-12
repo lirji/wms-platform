@@ -21,6 +21,10 @@ Thumbs.db
 # 本机工作树、smoke 日志、CI 复制的 failsafe 报告
 .local/
 
+# 前端依赖与构建产物
+wms-console/node_modules/
+wms-console/dist/
+
 # 进程、崩溃与合并残留
 *.log
 *.pid

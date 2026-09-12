@@ -51,6 +51,35 @@ public final class FulfillmentService {
         this.clock = clock;
     }
 
+    public Map<String, Object> get(String enterpriseId, String fulfillmentId) {
+        FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
+        Map<String, Object> order = mapper.lockOrder(enterpriseId, fulfillmentId);
+        if (order == null) {
+            throw new FulfillmentException("RESOURCE_NOT_FOUND", "履约单不存在");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("fulfillmentId", order.get("id"));
+        body.put("status", order.get("status"));
+        body.put("sourceSystem", order.get("source_system"));
+        body.put("sourceOrderNo", order.get("source_order_no"));
+        body.put("activeAttemptId", order.get("active_attempt_id"));
+        body.put("lines", mapper.lockLines(enterpriseId, fulfillmentId));
+        Object attemptId = order.get("active_attempt_id");
+        if (attemptId != null && !String.valueOf(attemptId).isBlank()) {
+            Map<String, Object> attempt = mapper.lockAttempt(enterpriseId, String.valueOf(attemptId));
+            body.put("attemptState", attempt == null ? null : attempt.get("state"));
+            body.put("tcObservedStatus", attempt == null ? null : attempt.get("tc_observed_status"));
+            body.put("participants", mapper.listParticipants(enterpriseId, String.valueOf(attemptId)));
+        } else {
+            body.put("participants", List.of());
+        }
+        return body;
+    }
+
+    public List<Map<String, Object>> list(String enterpriseId, int limit) {
+        return session.getMapper(FulfillmentMapper.class).listOrders(enterpriseId, limit);
+    }
+
     /** 按来源单号创建或重放履约单。异摘要拒绝。 */
     public Map<String, Object> createOrder(String enterpriseId, String sourceSystem, String sourceOrderNo,
             String digest, List<Map<String, Object>> lines, long strategyVersion) {
