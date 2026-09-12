@@ -1,0 +1,18 @@
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it } from "vitest";
+import { HomePage } from "./Pages";
+
+describe("HomePage", () => {
+  it("shows workbench modules without inventing warehouses", () => {
+    render(
+      <MemoryRouter>
+        <HomePage token={undefined} warehouseId="" setWarehouseId={() => undefined} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("heading", { name: "仓库工作台" })).toBeTruthy();
+    expect(screen.getByText("入库工作台")).toBeTruthy();
+    expect(screen.getByText(/还没有可作业的仓库/)).toBeTruthy();
+    expect(screen.queryByText("Internal Server Error")).toBeNull();
+  });
+});

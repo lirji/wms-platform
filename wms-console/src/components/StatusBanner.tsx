@@ -36,15 +36,17 @@ export function StatusBanner({ kind, title, detail, operationId }: StatusBannerP
   return (
     <section className={`banner banner-${kind}`} role="status" aria-live="polite" data-kind={kind}>
       <strong>{LABELS[kind]}</strong>
-      <p>{title}</p>
-      {detail ? <p>{detail}</p> : null}
-      {operationId ? <p>operationId: {operationId}</p> : null}
-      {kind === "accepted" || kind === "sync-pending" ? (
-        <p>禁止当作业务已成功，请按原命令查询结果，不要新建设备动作。</p>
-      ) : null}
-      {kind === "tcc" ? <p>库存已预留，等待 Seata 全局事务完成。没有强制释放按钮。</p> : null}
-      {kind === "conflict" ? <p>请确认最新记录后再提交；不会自动更换幂等键。</p> : null}
-      {kind === "serial-hold" ? <p>待登记或待转移确认，禁止拣货或发运。</p> : null}
+      <div>
+        <p>{title}</p>
+        {detail ? <p>{detail}</p> : null}
+        {operationId ? <p>operationId: {operationId}</p> : null}
+        {kind === "accepted" || kind === "sync-pending" ? (
+          <p>禁止当作业务已成功，请按原命令查询结果，不要新建设备动作。</p>
+        ) : null}
+        {kind === "tcc" ? <p>库存已预留，等待 Seata 全局事务完成。没有强制释放按钮。</p> : null}
+        {kind === "conflict" ? <p>请确认最新记录后再提交；不会自动更换幂等键。</p> : null}
+        {kind === "serial-hold" ? <p>待登记或待转移确认，禁止拣货或发运。</p> : null}
+      </div>
     </section>
   );
 }

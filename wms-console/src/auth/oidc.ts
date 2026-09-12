@@ -11,7 +11,7 @@ export function createUserManager(): UserManager {
   }
   return new UserManager({
     authority: issuer,
-    client_id: import.meta.env.VITE_OIDC_CLIENT_ID || "wms-console",
+    client_id: import.meta.env.VITE_OIDC_CLIENT_ID || "wms-platform",
     redirect_uri: `${window.location.origin}/callback`,
     post_logout_redirect_uri: window.location.origin,
     response_type: "code",

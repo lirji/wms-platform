@@ -17,6 +17,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!wms-console/.env.example
 
 # 本机工作树、smoke 日志、CI 复制的 failsafe 报告
 .local/
