@@ -18,5 +18,8 @@ export function errorBanner(error: unknown) {
   if (apiError?.status && apiError.status >= 500) {
     return <StatusBanner kind="error" title="对应服务暂时不可用" detail={`${apiError.status} ${apiError.message}`} />;
   }
-  return <StatusBanner kind="error" title={apiError?.message ?? "请求失败"} />;
+  if (apiError?.status === 404) {
+    return <StatusBanner kind="error" title="对应接口不存在或资源未找到" detail={`${apiError.status} ${apiError.message}`} />;
+  }
+  return <StatusBanner kind="error" title={apiError?.message ?? "请求失败"} detail={apiError?.status ? String(apiError.status) : undefined} />;
 }

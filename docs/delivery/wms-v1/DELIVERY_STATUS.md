@@ -29,10 +29,11 @@
 - 本地：`WarehouseRouteGateTest` 1/0；`TccFenceShardingIT` 1/0；`WarehouseMigrationIT` 2/0；`SnapshotHttpIT` 1/0；recon `WmsExportContractTest` 1/0。
 - 2026-09-12：根目录 `compose.yaml` 在容器内编译启动五服务与 console，已在远程 main `87a233b`。
 - 2026-09-12：控制台登录/`returnTo`/OIDC 已在远程 main。
-- 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。不是 UI accepted。
+- 2026-09-12：按 `docs/design/console-frontend/` 重做信息架构并落地作业模块。
+- 2026-09-12：Casdoor + inbound/outbound/inventory/fulfillment 只读联调与浏览器新路由已走通；任务页改绑已实现的 `GET /jobs?warehouseId=`。AC-26 写作业链未做，不是 50 AC accepted。
 
 ## 未完成
 
-- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。UI accepted。AC-42。
+- 新的 60m timeout main verify。S8-05。S9-01 签署峰值。50 AC 全量证据。OQ-03。AC-26 写作业。AC-42。
 
 无生产部署。

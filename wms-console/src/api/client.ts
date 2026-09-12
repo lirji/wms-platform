@@ -69,9 +69,7 @@ export async function api(path: string, token: string | undefined, options: Requ
     const error: ApiError = {
       status: response.status,
       code: typeof parsed === "object" && parsed && "code" in parsed ? String((parsed as { code: string }).code) : undefined,
-      message: typeof parsed === "object" && parsed && "message" in parsed
-        ? String((parsed as { message: string }).message)
-        : response.statusText,
+      message: messageOf(parsed, response.statusText),
       retryable: typeof parsed === "object" && parsed && "retryable" in parsed
         ? Boolean((parsed as { retryable: boolean }).retryable)
         : response.status === 202,
@@ -80,6 +78,19 @@ export async function api(path: string, token: string | undefined, options: Requ
     throw error;
   }
   return parsed;
+}
+
+function messageOf(parsed: unknown, fallback: string): string {
+  if (parsed && typeof parsed === "object") {
+    const body = parsed as { message?: unknown; error?: unknown };
+    if (typeof body.message === "string" && body.message) {
+      return body.message;
+    }
+    if (typeof body.error === "string" && body.error) {
+      return body.error;
+    }
+  }
+  return fallback || "请求失败";
 }
 
 function safeJson(text: string): unknown {

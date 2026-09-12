@@ -10,4 +10,4 @@
 | F3 | 入库履约调拨盘点任务对账列表 | F1 | no | `src/features/inbound|fulfillment|transfer|count|jobs|recon` | 列表来自契约路径，无 Mock 表 | done 2026-09-12 | live API |
 | F4 | PDA 收货独立壳 | F1 | no | `src/features/pda` | 回车提交；202 文案非成功 | done 2026-09-12 | live API |
 
-下一步：跑 `npm test` / `typecheck` / `check-docs.py`，再发布任务分支。
+下一步：AC-26 写作业链（收货→上架→跨仓→拣发）仍未做。S8-05 / S9-01 保持 blocked。

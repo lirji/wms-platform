@@ -53,6 +53,9 @@ require_var WMS_INVENTORY_B_DB_PASSWORD
 reject_shared "${WMS_INVENTORY_A_JDBC_URL}"
 reject_shared "${WMS_INVENTORY_B_JDBC_URL}"
 
+# -am exec:java 会在父模块找不到 SeedLocal；先装到本地仓库，再只在 inventory 上 exec。
+"${ROOT}/mvnw" -f "${ROOT}/pom.xml" -pl wms-inventory -am -q -DskipTests install
+
 seed_cell() {
   local jdbc="$1"
   local user="$2"
@@ -63,7 +66,7 @@ seed_cell() {
     WMS_SEED_DB_USER="${user}" \
     WMS_SEED_DB_PASSWORD="${password}" \
     WMS_SEED_WAREHOUSES="${warehouses}" \
-    "${ROOT}/mvnw" -f "${ROOT}/pom.xml" -pl wms-inventory -am -q -DskipTests exec:java \
+    "${ROOT}/mvnw" -f "${ROOT}/pom.xml" -pl wms-inventory -q -DskipTests exec:java \
       -Dexec.mainClass=com.lrj.wms.inventory.masterdata.SeedLocal
 }
 

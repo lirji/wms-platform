@@ -10,5 +10,6 @@ describe("API routing", () => {
   it("keeps inventory queries on inventory", () => {
     expect(serviceFor("/api/wms/v1/inventory")).toBe("inventory");
     expect(serviceFor("/api/wms/v1/skus")).toBe("inventory");
+    expect(serviceFor("/api/wms/v1/jobs?warehouseId=WH-A")).toBe("inventory");
   });
 });

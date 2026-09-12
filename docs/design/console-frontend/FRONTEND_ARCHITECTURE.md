@@ -134,8 +134,10 @@ wms-console/src/
 - 时区：展示可按仓，请求 UTC
 - TP99：本切片不新增后端接口；已有读接口预算仍以服务端文档为准，前端不宣称达标
 
+任务页绑定已落地的 `GET /api/wms/v1/jobs?warehouseId=`（inventory）。OpenAPI `GET /warehouses/{id}/tasks` 尚未实现，页面不伪造任务表。
+
 ## 11. 未决
 
-- 现场 Casdoor 联调后才能 UI accepted
 - 设备 UNKNOWN 与真实硬件仍 blocked（S8-05）
 - 主数据写 API 未实现，catalog 保持只读
+- AC-26 全链路写作业（收货→上架→跨仓→拣发）仍未做，不是 50 AC accepted
