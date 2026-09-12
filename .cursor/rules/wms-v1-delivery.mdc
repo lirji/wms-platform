@@ -1,0 +1,15 @@
+---
+description: WMS v1 已批准交付：做到 S9 / 50 AC，不要等「继续」
+alwaysApply: true
+---
+
+# WMS v1 overlay
+
+本仓库叠加在全局公共工作流之上，不改公共技能。
+
+- 已批准计划：`docs/delivery/wms-v1/`。做到 S9 与 50 项 AC，不必每步确认。
+- 连续交付：`~/.cursor/skills/continue-approved-delivery/SKILL.md`。
+- 不要发明 OQ-03。S8-05 无授权设备则 blocked。S9-01 无签署容量则 blocked。
+- 不要把 simulator 当真实设备，不要把合成峰值当签署容量。
+- 领域问题才读 `~/.codex/skills/engineering-workflows/references/wms-domain.md`。
+- 项目设计仍走公共两轨（前端架构 / 后端架构+选型）；本仓库已有栈则默认复用。
