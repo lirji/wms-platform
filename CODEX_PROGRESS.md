@@ -6,17 +6,16 @@
 
 ## 已完成
 
-- WMS S0、S4-01…S7-05 在 `38a7f6a`；main 另有 `abf9b90` gitignore。
-- S8-01/S8-04/S9-03/S9-06 在 `feat/wms-s9-03`。
+- WMS S0、S4-01…S7-05 及 S8-01/S8-04/S9-02/S9-03/S9-04/S9-06 在 `origin/main` `2d270ba`。
 - recon S8-02/S8-03 在 `01a443b`。
-- S9-02/S9-04 在 `feat/wms-s9-02`（本工作树）。
+- 本地迁移/恢复 IT 已通过；容量脚本无签署输入退出 2。
 
 ## 未完成
 
-- 合入 WMS S8/S9（等 main verify `34670313075`）。
-- S8-05 真实设备。S9-01 签署容量。OQ-03。UI accepted。50 AC。
+- 新 main verify。S8-05 真实设备。S9-01 签署容量。OQ-03。UI accepted。50 AC 证据。
 
 ## 下一步建议
 
-1. main verify 成功后在 `.local/main-integration` 合入 `feat/wms-s9-02` 并推 main。
+1. 核验 `2d270ba` 远程 CI；只修本任务引起的失败。
 2. S8-05 / S9-01 保持 blocked，除非给出授权设备或签署容量输入。
+3. 继续 S9-05：按 AC 补真实证据，不把 local-pass 写成全通过。

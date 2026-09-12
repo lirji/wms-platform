@@ -6,6 +6,7 @@ import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,13 @@ public class SnapshotExportController {
     }
 
     private static Timestamp closedAt(Object value) {
-        return value == null ? null : Timestamp.from(ExpiryPolicy.instantOf(value));
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String text) {
+            return Timestamp.from(Instant.parse(text));
+        }
+        return Timestamp.from(ExpiryPolicy.instantOf(value));
     }
 
     private static String text(Map<String, Object> body, String key) {

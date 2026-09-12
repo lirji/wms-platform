@@ -22,3 +22,5 @@ com.lrj.wms.inventory.effect.EffectHttpIT#nMinusOneClientOmitsDigestVersionAndIg
 com.lrj.wms.inventory.migrate.WarehouseMigrationIT#twoPhysicalDatabasesSwitchEpochAndRejectOldWrites
 com.lrj.wms.inventory.migrate.WarehouseMigrationIT#abortBeforeSwitchReopensSourceWrites
 com.lrj.wms.inventory.migrate.IsolatedRestoreIT#restoreSecondDatabaseAndMeasureLocalRtoRpo
+# S9-05 AC-24 快照 HTTP
+com.lrj.wms.inventory.recon.SnapshotHttpIT#exportAndReadQuantitySnapshotThenRejectCrossWarehouse
