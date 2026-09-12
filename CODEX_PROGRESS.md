@@ -68,3 +68,14 @@ S8-05 / S9-01 / AC-42 保持 blocked。用户已要求取消进行中的 main ve
 - R04已修改OrderService拒绝裸授权（建单始终PENDING，执行查授权与Committed证据联结）、AuthorizationService全字段重放校验与只允许PENDING绑定、Mapper加入证据查询；旧测试尚须改为可信证据夹具，未跑R04测试。
 - SBOM生成已完成（/tmp/wms-sbom.log BUILD SUCCESS）：168组件/158 purl，Tomcat与fastjson既有依赖命中。产物与说明归入首批；随后提交首批。不要并发启动Maven写同target。
 - 四服务smoke日志/tmp/wms-smoke.log；控制台npm ci后build及33测试通过（/tmp/wms-console-build.log、/tmp/wms-console-test.log）。
+
+
+## 最新检查点 2026-09-12 21:28
+
+- R16–R20已提交 `ee255e0`，143文件（含SBOM），尚未push。暂存区现在为空，工作树剩下R01–R04相关改动，不再需要前述index分批技巧。
+- `/tmp/wms-authorization-it.log` BUILD SUCCESS（02:22）：OutboundPickIT2、OutboundDispatchIT1、OutboundHttpIT1、OutboundExecutionBlackBoxIT2、ClosedLoopBlackBoxIT1，以及全模块单元测试。R04测试夹具已改为先插明确的本地测试TC证据再调用实际authorize，取消裸字符串自动授权。
+- 随后又让设备dispatch共用requireExecutable、TCC action显式依赖Fence Bean，并给原HTTP测试补齐它们真正使用的scope。正在session25893执行 `/tmp/wms-security-http-it.log`：InboundHttpIT,MasterdataHttpIT,EffectHttpIT,DomainHttpIT,SnapshotHttpIT,OutboundDispatchIT,ProductionTransactionsIT。不要并发Maven。
+- R01–R04成功后更新证据并独立提交，再R05–R12；全体整改完成后跑完整default/warehouse-it/tc-it/failure-it和CI、普通合并推送main。
+- 新增依赖许可证和OSV已核对并提交；既有Tomcat与fastjson命中，不能宣称生产安全门禁通过。
+
+- 2026-09-12 21:31：session25893结束 BUILD SUCCESS。R01–R04所有定向测试通过，正在独立提交。下一步直接R05–R12，当前没有运行中的Maven。全部整改仍未完成/尚未推送，不停在本批。

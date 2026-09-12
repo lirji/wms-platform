@@ -100,6 +100,9 @@ public class FulfillmentWorkbenchController {
             @jakarta.validation.Valid @RequestBody FulfillmentWorkbenchRequests.PrepareAttemptRequest body) {
         try (SqlSession session = sessions.openSession(false)) {
             List<Map<String, Object>> participants = body.lines().stream().map(FulfillmentWorkbenchRequests.AttemptLine::toModel).toList();
+            for (String warehouse : warehousesOf(body.warehouses(), participants)) {
+                WmsJwtAuthorities.requireWarehouse(jwt, warehouse);
+            }
             Map<String, Object> created = new FulfillmentService(session, Clock.systemUTC()).createAttempt(
                     WmsJwtAuthorities.enterpriseId(jwt), fulfillmentId, deadline(body.deadline()),
                     warehousesOf(body.warehouses(), participants), participants);
@@ -114,10 +117,10 @@ public class FulfillmentWorkbenchController {
             @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
-                com.lrj.wms.runtime.web.CursorPage.scope("Transfer", WmsJwtAuthorities.enterpriseId(jwt)));
+                com.lrj.wms.runtime.web.CursorPage.scope("Transfer", WmsJwtAuthorities.enterpriseId(jwt), new java.util.TreeSet<>(WmsJwtAuthorities.warehouses(jwt))));
         try (SqlSession session = sessions.openSession()) {
             return HttpJson.row(page.result(session.getMapper(TransferMapper.class)
-                    .listOrdersPage(WmsJwtAuthorities.enterpriseId(jwt), page), true));
+                    .listVisibleOrders(WmsJwtAuthorities.enterpriseId(jwt), WmsJwtAuthorities.warehouses(jwt), page), true));
         }
     }
 
@@ -130,6 +133,10 @@ public class FulfillmentWorkbenchController {
         try (SqlSession session = sessions.openSession()) {
             Map<String, Object> transfer = new TransferService(session, Clock.systemUTC())
                     .get(WmsJwtAuthorities.enterpriseId(jwt), transferId);
+            if (!WmsJwtAuthorities.warehouses(jwt).contains(String.valueOf(transfer.get("sourceWarehouseId")))
+                    && !WmsJwtAuthorities.warehouses(jwt).contains(String.valueOf(transfer.get("targetWarehouseId")))) {
+                throw new WarehouseForbiddenException("transfer");
+            }
             if (warehouseId != null && !warehouseId.equals(String.valueOf(transfer.get("sourceWarehouseId")))
                     && !warehouseId.equals(String.valueOf(transfer.get("targetWarehouseId")))) {
                 throw new WarehouseForbiddenException(warehouseId);

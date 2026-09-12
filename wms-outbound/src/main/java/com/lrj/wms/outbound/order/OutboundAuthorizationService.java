@@ -33,19 +33,28 @@ public final class OutboundAuthorizationService {
         require(evidenceRef, "TCC_NOT_COMMITTED", "缺少TC终态证据引用，拒绝授权");
         require(participantSetHash, "TCC_NOT_COMMITTED", "缺少参与者摘要，拒绝授权");
         OutboundAuthorizationMapper auths = session.getMapper(OutboundAuthorizationMapper.class);
+        // 先锁单据再读幂等记录，避免同单并发授权使用不同快照并回退业务状态。
+        Map<String, Object> order = session.getMapper(OutboundOrderMapper.class).lockOrder(enterpriseId, warehouseId, orderId);
+        if (order == null) throw new OutboundException("UNKNOWN_ORDER", "出库单不存在");
         Map<String, Object> existing = auths.getAuthorizationByKey(enterpriseId, warehouseId, clientOperationId);
+        if (existing == null) existing = auths.getAuthorizationById(enterpriseId, warehouseId, authorizationId);
         if (existing != null) {
             if (!orderId.equals(String.valueOf(existing.get("outbound_order_id")))
-                    || !authorizationId.equals(String.valueOf(existing.get("authorization_id")))) {
+                    || !authorizationId.equals(String.valueOf(existing.get("authorization_id")))
+                    || !attemptId.equals(String.valueOf(existing.get("attempt_id")))
+                    || !xid.equals(String.valueOf(existing.get("xid")))
+                    || !evidenceRef.equals(String.valueOf(existing.get("tc_terminal_evidence_ref")))
+                    || !participantSetHash.equals(String.valueOf(existing.get("participant_set_hash")))) {
                 throw new OutboundException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键授权内容不一致");
             }
-            return view(existing, session.getMapper(OutboundOrderMapper.class).lockOrder(enterpriseId, warehouseId,
-                    orderId));
+            if (!authorizationId.equals(order.get("execution_authorization_id"))
+                    || auths.verifiedAuthorization(enterpriseId, warehouseId, orderId, attemptId, authorizationId) == null) {
+                throw new OutboundException("AUTH_CONFLICT", "既有授权已失效或不再绑定当前单据");
+            }
+            return view(existing, order);
         }
-        Map<String, Object> order = session.getMapper(OutboundOrderMapper.class).lockOrder(enterpriseId, warehouseId,
-                orderId);
-        if (order == null) {
-            throw new OutboundException("UNKNOWN_ORDER", "出库单不存在");
+        if (!OutboundOrderService.STATUS_PENDING_AUTHORIZATION.equals(order.get("status"))) {
+            throw new OutboundException("AUTH_CONFLICT", "当前业务状态不接受新的执行授权");
         }
         if (!attemptId.equals(String.valueOf(order.get("attempt_id")))) {
             throw new OutboundException("ATTEMPT_MISMATCH", "attempt与出库单不一致");
@@ -66,14 +75,26 @@ public final class OutboundAuthorizationService {
             throw new OutboundException("EVIDENCE_MISMATCH", "请求与已落库TCC证据不一致");
         }
         Timestamp now = Timestamp.from(clock.instant());
-        auths.insertAuthorizationIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, orderId,
+        if (auths.insertAuthorizationIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, orderId,
                 clientOperationId, authorizationId, attemptId, xid, evidenceRef, participantSetHash, actorId,
-                AUTHORIZED, now);
+                AUTHORIZED, now) != 1) {
+            throw new OutboundException("AUTH_CONFLICT", "执行授权身份已被占用");
+        }
         if (auths.casBindAuthorization(enterpriseId, warehouseId, orderId, authorizationId, now) != 1) {
             throw new OutboundException("VERSION_CONFLICT", "执行授权绑定冲突");
         }
         return view(auths.getAuthorizationByKey(enterpriseId, warehouseId, clientOperationId),
                 session.getMapper(OutboundOrderMapper.class).lockOrder(enterpriseId, warehouseId, orderId));
+    }
+
+    /** 人工作业与设备派工共用成功屏障；持有本地事务锁直到用例提交。 */
+    public void requireExecutable(String enterpriseId, String warehouseId, Map<String, Object> order) {
+        Object authorization = order == null ? null : order.get("execution_authorization_id");
+        if (authorization == null || String.valueOf(authorization).isBlank()
+                || session.getMapper(OutboundAuthorizationMapper.class).verifiedAuthorization(enterpriseId, warehouseId,
+                        String.valueOf(order.get("id")), String.valueOf(order.get("attempt_id")), String.valueOf(authorization)) == null) {
+            throw new OutboundException("AUTH_REQUIRED", "作业必须有与当前单据和 Committed 证据一致的执行授权");
+        }
     }
 
     private static Map<String, Object> view(Map<String, Object> authorization, Map<String, Object> order) {

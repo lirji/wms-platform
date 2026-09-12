@@ -153,7 +153,7 @@ class InboundHttpIT {
         JWTClaimsSet claims = new JWTClaimsSet.Builder().subject("wms-wh-a").issuer(ISSUER).audience("wms-platform")
                 .expirationTime(new Date(System.currentTimeMillis() + 3_600_000)).claim("enterprise_id", "ENT-1")
                 .claim("warehouses", warehouses)
-                .claim("scope", List.of("inbound.create", "inbound.read", "task.read", "task.claim")).build();
+                .claim("scope", List.of("inbound.create", "inbound.read", "inbound.receive", "quality.inspect", "inbound.putaway", "task.read", "task.claim")).build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test").build(), claims);
         jwt.sign(new RSASSASigner(rsa));
         return jwt.serialize();

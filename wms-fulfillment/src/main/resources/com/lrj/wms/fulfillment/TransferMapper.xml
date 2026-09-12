@@ -200,4 +200,18 @@
         ORDER BY created_at DESC, id DESC
         LIMIT #{page.fetchLimit}
     </select>
+    <select id="listVisibleOrders" resultType="map">
+        SELECT id, source_warehouse_id, target_warehouse_id, status, version, created_at
+        FROM transfer_order
+        WHERE enterprise_id=#{enterpriseId}
+        <choose><when test="warehouses != null and !warehouses.isEmpty()">
+            AND (source_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>
+                OR target_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>)
+        </when><otherwise>AND 1=0</otherwise></choose>
+        <if test="page.id != null">
+            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{page.fetchLimit}
+    </select>
 </mapper>

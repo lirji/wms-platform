@@ -73,6 +73,7 @@ class OutboundPickIT {
             Map<String, Object> created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-1", "ATT-1", "OWNER-1",
                     "AUTH-1", List.of(Map.of("orderLineId", "L1", "skuId", "SKU-1", "qty", new BigDecimal("5"),
                             "baseUnit", "EA")));
+            authorizeForTest(session, "ENT-1", "WH-A", String.valueOf(created.get("id")), "ATT-1", "AUTH-1");
             Map<String, Object> replay = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-1", "ATT-1", "OWNER-1",
                     "AUTH-1", List.of(Map.of("orderLineId", "L1", "skuId", "SKU-1", "qty", new BigDecimal("5"),
                             "baseUnit", "EA")));
@@ -139,6 +140,7 @@ class OutboundPickIT {
             Map<String, Object> created = service.createFromAllocation("ENT-1", "WH-A", "ALLOC-SHIP", "ATT-SHIP",
                     "OWNER-1", "AUTH-2", List.of(Map.of("orderLineId", "L2", "skuId", "SKU-1", "qty",
                             new BigDecimal("5"), "baseUnit", "EA")));
+            authorizeForTest(session, "ENT-1", "WH-A", String.valueOf(created.get("id")), "ATT-SHIP", "AUTH-2");
             orderId = String.valueOf(created.get("id"));
             Map<String, Object> planned = service.planPickTask("ENT-1", "WH-A", orderId, "L2", "LOC-1", "STG-1",
                     new BigDecimal("5"));
@@ -168,5 +170,21 @@ class OutboundPickIT {
         assertEquals(0, jdbc.queryForObject("SELECT shipped_posted_qty FROM outbound_line WHERE id=?", BigDecimal.class,
                 lineId).compareTo(new BigDecimal("3.000000")));
         System.out.println("S5_OUTBOUND: ship bound by packed; posted replay; cancel settles SHIPPED");
+    }
+
+    /** 仅本地测试的终态证据夹具；仍调用实际授权服务，不证明真实 TC 集成。 */
+    private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
+            String orderId, String attempt, String authorization) {
+        if (!session.getConfiguration().hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {
+            session.getConfiguration().addMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class);
+        }
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(new org.springframework.jdbc.datasource.SingleConnectionDataSource(session.getConnection(), true));
+        String xid = "fixture-xid-" + attempt;
+        String evidence = "fixture-committed/" + attempt;
+        String hash = "e".repeat(64);
+        jdbc.update("INSERT INTO outbound_tcc_evidence (id,enterprise_id,warehouse_id,attempt_id,xid,tc_observed_status,tc_terminal_evidence_ref,participant_set_hash,created_at,updated_at) VALUES (?,?,?,?,?,'Committed',?,?,NOW(6),NOW(6))",
+                java.util.UUID.randomUUID().toString(), enterprise, warehouse, attempt, xid, evidence, hash);
+        new com.lrj.wms.outbound.order.OutboundAuthorizationService(session, java.time.Clock.systemUTC()).authorize(
+                enterprise, warehouse, orderId, "AUTH-KEY-" + attempt, "TEST-ACTOR", attempt, authorization, xid, evidence, hash);
     }
 }

@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "wms-contract/src/main/resources/openapi/wms-v1.yaml"
+SCOPE_OUT = ROOT / "wms-security/src/main/resources/wms-operation-scopes.tsv"
+scope_rules = []
 
 
 def responses(*codes, success_schema="ResourceEnvelope"):
@@ -29,6 +31,7 @@ def responses(*codes, success_schema="ResourceEnvelope"):
 
 
 def write_op(method, path, op, tag, scope, body, success, extra_params=None, description="", success_schema="ResourceEnvelope"):
+    scope_rules.append((method.upper(), path, scope))
     write = method in ("post", "put", "patch")
     params = extra_params or []
     if write:
@@ -268,6 +271,21 @@ post("/internal/wms/v1/warehouses/{warehouseId}/execution-permits/{permitId}/sta
      "startExecutionPermit", "internal-inventory", "inventory.permit",
      "ExecutionPermitStartRequest", ("200",), "开始执行许可",
      wh + ["- $ref: '#/components/parameters/PermitId'"])
+
+# 已有 HTTP 入口补齐契约；复用作业台的现有 scope，不新增第二套角色语义。
+get("/api/wms/v1/fulfillments", "listFulfillments", "fulfillment", "fulfillment.read", ("200",), "履约列表", cursor)
+post("/api/wms/v1/fulfillments/{fulfillmentId}/attempts", "prepareAttempt", "fulfillment", "fulfillment.execute", "PrepareAttemptRequest", ("201",), "准备参与仓分配", ["- $ref: '#/components/parameters/FulfillmentId'"])
+post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders", "createOutboundOrder", "outbound", "fulfillment.execute", "OutboundCreateRequest", ("201",), "登记待授权出库单", wh)
+post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick-tasks", "planPickTasks", "outbound", "outbound.pick", "PlanPickRequest", ("201",), "规划拣货任务", wh + ["- $ref: '#/components/parameters/OutboundOrderId'"])
+post("/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/cancellations", "cancelUnpicked", "outbound", "outbound.pick", "CancelUnpickedRequest", ("202",), "取消未拣数量", wh + ["- $ref: '#/components/parameters/OutboundOrderId'"])
+for suffix, op, scope, body in [("reviews", "reviewCount", "count.record", None), ("approvals", "approveCount", "adjustment.approve", "CountApproveRequest"), ("applications", "applyCount", "adjustment.apply", "CountApplyRequest")]:
+    post("/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/" + suffix, op, "count", scope, body, ("202",) if suffix == "applications" else ("200",), "盘点作业", wh + ["- $ref: '#/components/parameters/CountPlanId'"])
+get("/api/wms/v1/warehouses/{warehouseId}/action-effects", "listActionEffects", "idempotency", "task.read", ("200",), "效果列表", wh + cursor)
+get("/api/wms/v1/jobs", "listJobs", "job", "job.read", ("200",), "仓任务列表", cursor + ["- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string, maxLength: 64 }"])
+get("/api/wms/v1/reconciliation-cases", "listReconciliationCasesByQuery", "recon", "recon.read", ("200",), "指定单仓差异单", cursor + ["- $ref: '#/components/parameters/WarehouseIdsQuery'"])
+post("/api/wms/v1/reconciliation-cases/{id}/remediations", "remediateReconciliationByQuery", "recon", "recon.remediate", "RemediationRequest", ("202",), "差异单修复", ["- in: path\n          name: id\n          required: true\n          schema: { type: string }", "- in: query\n          name: warehouseId\n          required: true\n          schema: { type: string }"])
+for suffix, op, scope in [("issues", "issueTransfer", "transfer.create"), ("losses", "confirmTransferLoss", "stock.move")]:
+    post("/api/wms/v1/transfers/{transferId}/" + suffix, op, "transfer", scope, "TransferPartRequest", ("202",), "调拨数量作业", ["- $ref: '#/components/parameters/TransferId'"])
 
 header = """openapi: 3.1.0
 info:
@@ -1355,6 +1373,176 @@ components:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
           description: "精确十进制；必须大于0"
+    PrepareAttemptRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["lines"]
+      properties:
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        deadline:
+          type: "string"
+          maxLength: 64
+          format: "date-time"
+        warehouses:
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 64
+          maxItems: 200
+        lines:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AttemptLine"
+          minItems: 1
+          maxItems: 200
+    OutboundCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["allocationId","ownerId","lines"]
+      properties:
+        allocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        attemptId:
+          type: "string"
+          maxLength: 64
+        ownerId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        authorizationId:
+          type: "string"
+          maxLength: 64
+        lines:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OutboundLine"
+          minItems: 1
+          maxItems: 200
+    PlanPickRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","sourceLocationId","stagingLocationId","qty"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        sourceLocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        stagingLocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    CancelUnpickedRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    CountApproveRequest:
+      type: "object"
+      additionalProperties: false
+      properties:
+        approvalId:
+          type: "string"
+          maxLength: 64
+    CountApplyRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["lineId"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    TransferPartRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["qty"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+        transferLineId:
+          type: "string"
+          maxLength: 64
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+    AttemptLine:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","skuId","warehouseId","qty","baseUnit"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+          description: "兼容旧字段名 sourceLineId"
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        warehouseId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        baseUnit:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+          description: "兼容旧字段名 unit"
+    OutboundLine:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","skuId","qty"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        baseUnit:
+          type: "string"
+          maxLength: 32
     StockCommandRequest:
       type: object
       additionalProperties: false
@@ -1437,3 +1625,5 @@ text = header + "\n".join(path_yaml) + components
 text = "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
 OUT.write_text(text)
 print(f"wrote {OUT} paths={len(grouped)} bytes={OUT.stat().st_size}")
+
+SCOPE_OUT.write_text("# Generated from OpenAPI operation scopes; do not edit by hand.\n" + "".join("\t".join(rule) + "\n" for rule in sorted(set(scope_rules)) if rule[1].startswith("/api/wms/")))

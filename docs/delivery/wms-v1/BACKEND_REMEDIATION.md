@@ -35,3 +35,15 @@ L1默认500ms，L2最多5s并随机缩短0–20%；两层携带同一绝对截�
 ## 后续批次进度
 
 R01 生产装配回滚测试已通过，R02/R03 操作 scope 与调拨仓范围实现和定向测试通过；R04 出库授权正在修改，尚未验收。这些后续改动不属于首批 R16–R20 提交。
+
+
+## R01–R04 实现与验证
+
+- R01：普通 HTTP/任务 SqlSession 使用 JdbcTransactionFactory，TCC单独用同数据源的 SpringManagedTransactionFactory/SqlSessionTemplate。生产Bean装配测试验证盘点建到一半异常不留计划/范围，Try成功后异常不留Fence/预占/余额变化；已通过。
+- R02：OpenAPI与运行时同源生成79条公开路由权限，验签后按HTTP方法和解析路径逐一检查，未登记入口拒绝。scope支持字符串/数组；permissions支持显式作业授权；groups和仓声明不能冒充作业scope。补齐14个已有入口的契约，单测遍历每条路由的缺权、错误scope、组名碰撞和正确scope；契约测试检查实际Controller路径覆盖。已通过；入库、主数据、效果、库存领域、快照HTTP定向回归全部通过。
+- R03：调拨列表在SQL内限制至少一个参与仓获授权，再进行分页；游标绑定权限集合；详情省略warehouseId仍检查参与仓。准备分配检查全部参与仓权限。真实HTTP测试证明授权仓作为源/目的均可见，无关仓详情403，不可见行不挤掉分页结果；已通过。
+- R04：建单时携带authorizationId不授予执行能力，初始保持PENDING_AUTHORIZATION；人工作业及设备派工必须核验同企业/仓/单/attempt的AUTHORIZED记录，并联结匹配的Committed证据。重放检查XID/证据引用/参与者摘要，绑定仅允许待授权状态；不同键重放不回退PICKING。OutboundHttpIT、OutboundPickIT、OutboundDispatchIT、OutboundExecutionBlackBoxIT与ClosedLoopBlackBoxIT定向通过；设备入口共享检查与生产装配的最后回归也已通过。
+
+上述业务回归中的本地终态证据是明确的测试夹具，不是R14的真实TC到出库同步，也不证明完整MQ运行链路。R13/R14仍待实施。
+
+2026-09-12 21:31：R01–R04 最后 HTTP/生产装配回归 BUILD SUCCESS（`/tmp/wms-security-http-it.log`，19项集成测试及全模块单元测试）。本地检查通过后单独提交；远程组合CI仍待全部整改集成。

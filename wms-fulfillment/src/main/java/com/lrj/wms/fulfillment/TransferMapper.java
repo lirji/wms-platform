@@ -112,4 +112,8 @@ public interface TransferMapper {
 
     /** 同时间戳以主键打破平局，数据库最多读取一页加一条。 */
     List<Map<String, Object>> listOrdersPage(@Param("enterpriseId") String enterpriseId, @Param("page") com.lrj.wms.runtime.web.CursorPage page);
+    /** 公开查询先过滤参与仓权限，再执行稳定分页。 */
+    List<Map<String, Object>> listVisibleOrders(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouses") java.util.Set<String> warehouses,
+            @Param("page") com.lrj.wms.runtime.web.CursorPage page);
 }

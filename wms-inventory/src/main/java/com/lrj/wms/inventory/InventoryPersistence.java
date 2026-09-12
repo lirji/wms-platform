@@ -16,6 +16,8 @@ import org.apache.seata.rm.fence.SpringFenceHandler;
 import org.flywaydb.core.Flyway;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.mybatis.spring.transaction.SpringManagedTransactionFactory;
+import org.apache.ibatis.transaction.TransactionFactory;
+import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -40,10 +42,14 @@ class InventoryPersistence {
         return flyway;
     }
 
+    /** HTTP/任务使用显式 SqlSession 提交；必须由 JDBC 会话掌管物理事务。 */
     @Bean
     SqlSessionFactory sqlSessionFactory(DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
-        Configuration config = new Configuration(
-                new Environment("inventory", new SpringManagedTransactionFactory(), dataSource));
+        return sessions(dataSource, new JdbcTransactionFactory(), budget);
+    }
+
+    private static SqlSessionFactory sessions(DataSource dataSource, TransactionFactory transactions, DatabaseBudget budget) {
+        Configuration config = new Configuration(new Environment("inventory", transactions, dataSource));
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper.class);
@@ -63,6 +69,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.domain.infrastructure.DomainCommandMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class);
+        config.addMapper(com.lrj.wms.inventory.migrate.WarehouseRouteMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 
@@ -77,8 +84,11 @@ class InventoryPersistence {
         return InventoryTccFence.bind(dataSource, transactionManager);
     }
 
+    /** TCC 经官方 Fence 的 Spring 事务；模板与 Fence 共享数据源，不能复用手动事务工厂。 */
     @Bean
-    ReservationTccAction reservationTccAction(SqlSessionFactory sqlSessionFactory) {
+    ReservationTccAction reservationTccAction(DataSource dataSource, Flyway flyway, DatabaseBudget budget,
+            SpringFenceHandler inventoryTccFence) {
+        SqlSessionFactory sqlSessionFactory = sessions(dataSource, new SpringManagedTransactionFactory(), budget);
         return new ReservationTccAction(
                 new com.lrj.wms.inventory.inventory.InventoryApplicationService(new SqlSessionTemplate(sqlSessionFactory),
                         Clock.systemUTC()));

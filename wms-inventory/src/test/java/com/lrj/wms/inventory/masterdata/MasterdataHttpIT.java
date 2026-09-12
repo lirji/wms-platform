@@ -222,13 +222,14 @@ class MasterdataHttpIT {
         assertEquals(200, get("/api/wms/v1/warehouses/WH-A/lots/LOT-HTTP", reader).statusCode());
         assertEquals(403, get("/api/wms/v1/warehouses/WH-B", reader).statusCode());
         assertEquals(404, get("/api/wms/v1/skus/SKU-MISSING", reader).statusCode());
-        HttpResponse<String> ledger = get("/api/wms/v1/warehouses/WH-A/inventory/BAL-MISSING/ledger", reader);
+        String auditReader = token("wms-ops", List.of("WH-A"), List.of("stock.audit", "operation.read", "task.read"));
+        HttpResponse<String> ledger = get("/api/wms/v1/warehouses/WH-A/inventory/BAL-MISSING/ledger", auditReader);
         assertEquals(404, ledger.statusCode());
         assertEquals("BALANCE_NOT_FOUND", extract(ledger.body(), "code"));
-        HttpResponse<String> operation = get("/api/wms/v1/operations/OP-MISSING", reader);
+        HttpResponse<String> operation = get("/api/wms/v1/operations/OP-MISSING", auditReader);
         assertEquals(404, operation.statusCode());
-        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/action-effects", reader).statusCode());
-        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/tasks/TASK-MISSING/action-effects", reader).statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/action-effects", auditReader).statusCode());
+        assertEquals(200, get("/api/wms/v1/warehouses/WH-A/tasks/TASK-MISSING/action-effects", auditReader).statusCode());
     }
 
     private HttpResponse<String> post(String path, String bearer, String key, String json) throws Exception {

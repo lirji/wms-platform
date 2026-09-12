@@ -58,7 +58,7 @@ public final class OutboundOrderService {
         requireId(allocationId, "INVALID_ALLOCATION", "allocation不能为空");
         requireId(attemptId, "INVALID_ATTEMPT", "attempt不能为空");
         requireId(ownerId, "INVALID_OWNER", "货主不能为空");
-        boolean pendingAuth = authorizationId == null || authorizationId.isBlank();
+        // 建单请求中的授权标识不能证明 TCC 已提交；只能由核验入口绑定权威授权记录。
         if (lines == null || lines.isEmpty()) {
             throw new OutboundException("INVALID_LINE", "出库行不能为空");
         }
@@ -66,8 +66,7 @@ public final class OutboundOrderService {
         OutboundOrderMapper mapper = mapper();
         String orderId = UUID.randomUUID().toString();
         mapper.insertOrderIgnore(orderId, enterpriseId, warehouseId, allocationId, attemptId, ownerId,
-                pendingAuth ? null : authorizationId,
-                pendingAuth ? STATUS_PENDING_AUTHORIZATION : STATUS_ALLOCATED, now);
+                null, STATUS_PENDING_AUTHORIZATION, now);
         Map<String, Object> order = mapper.lockOrderByAttempt(enterpriseId, warehouseId, allocationId, attemptId);
         if (order == null) {
             throw new OutboundException("VERSION_CONFLICT", "出库单创建竞争");
@@ -88,7 +87,7 @@ public final class OutboundOrderService {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
-        requireAuthorization(order);
+        requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
         BigDecimal remain = remainUnpicked(line);
         if (plannedQty == null || plannedQty.signum() <= 0 || plannedQty.compareTo(remain) > 0) {
@@ -116,7 +115,7 @@ public final class OutboundOrderService {
             throw new OutboundException("UNKNOWN_TASK", "拣货任务不存在");
         }
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, String.valueOf(task.get("document_id")));
-        requireAuthorization(order);
+        requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLine(mapper, enterpriseId, warehouseId, String.valueOf(task.get("document_line_id")));
         if (qty == null || qty.signum() <= 0) {
             throw new OutboundException("INVALID_QTY", "拣货数量必须为正");
@@ -153,7 +152,7 @@ public final class OutboundOrderService {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
-        requireAuthorization(order);
+        requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
         BigDecimal unpacked = decimal(line.get("picked_physical_qty")).subtract(decimal(line.get("packed_physical_qty")));
         if (qty == null || qty.signum() <= 0 || qty.compareTo(unpacked) > 0) {
@@ -179,7 +178,7 @@ public final class OutboundOrderService {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
-        requireAuthorization(order);
+        requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
         if (qty == null || qty.signum() <= 0) {
             throw new OutboundException("INVALID_QTY", "发运数量必须为正");
@@ -219,7 +218,7 @@ public final class OutboundOrderService {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
         Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
-        requireAuthorization(order);
+        requireAuthorization(enterpriseId, warehouseId, order);
         Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
         BigDecimal remain = remainUnpicked(line);
         if (remain.signum() <= 0) {
@@ -269,11 +268,8 @@ public final class OutboundOrderService {
         return line;
     }
 
-    private static void requireAuthorization(Map<String, Object> order) {
-        Object auth = order.get("execution_authorization_id");
-        if (auth == null || String.valueOf(auth).isBlank()) {
-            throw new OutboundException("AUTH_REQUIRED", "进入PICKING前必须有执行授权");
-        }
+    private void requireAuthorization(String enterpriseId, String warehouseId, Map<String, Object> order) {
+        new OutboundAuthorizationService(session, clock).requireExecutable(enterpriseId, warehouseId, order);
     }
 
     private void settleOrder(OutboundOrderMapper mapper, String enterpriseId, String warehouseId, String orderId,

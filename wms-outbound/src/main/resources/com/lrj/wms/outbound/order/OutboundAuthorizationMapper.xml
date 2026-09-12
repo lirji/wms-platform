@@ -20,7 +20,7 @@
     </insert>
 
     <select id="getAuthorizationByKey" resultType="map">
-        SELECT id, outbound_order_id, authorization_id, attempt_id, xid, state, version
+        SELECT id, outbound_order_id, authorization_id, attempt_id, xid, tc_terminal_evidence_ref, participant_set_hash, state, version
         FROM outbound_execution_authorization
         WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId}
           AND client_operation_id = #{clientOperationId}
@@ -33,6 +33,21 @@
             updated_at = #{now}
         WHERE enterprise_id = #{enterpriseId} AND warehouse_id = #{warehouseId} AND id = #{orderId}
           AND attempt_id IS NOT NULL
+          AND status = 'PENDING_AUTHORIZATION'
           AND (execution_authorization_id IS NULL OR execution_authorization_id = #{authorizationId})
     </update>
+    <select id="getAuthorizationById" resultType="map">
+        SELECT id, outbound_order_id, authorization_id, attempt_id, xid, tc_terminal_evidence_ref, participant_set_hash, state, version
+        FROM outbound_execution_authorization
+        WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND authorization_id=#{authorizationId}
+    </select>
+    <select id="verifiedAuthorization" resultType="string">
+        SELECT a.authorization_id FROM outbound_execution_authorization a
+        JOIN outbound_tcc_evidence e ON e.enterprise_id=a.enterprise_id AND e.warehouse_id=a.warehouse_id
+            AND e.attempt_id=a.attempt_id AND e.xid=a.xid AND e.tc_terminal_evidence_ref=a.tc_terminal_evidence_ref
+            AND e.participant_set_hash=a.participant_set_hash AND e.tc_observed_status='Committed'
+        WHERE a.enterprise_id=#{enterpriseId} AND a.warehouse_id=#{warehouseId} AND a.outbound_order_id=#{orderId}
+            AND a.attempt_id=#{attemptId} AND a.authorization_id=#{authorizationId} AND a.state='AUTHORIZED'
+        FOR SHARE
+    </select>
 </mapper>

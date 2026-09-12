@@ -97,10 +97,23 @@ class OutboundHttpIT {
         HttpResponse<String> list = get("/api/wms/v1/warehouses/WH-A/outbound-orders", token);
         assertEquals(200, list.statusCode());
         assertTrue(list.body().contains("ALLOC-1"));
+        assertTrue(created.body().contains("PENDING_AUTHORIZATION"));
+        HttpResponse<String> unverified = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/pick-tasks",
+                token, "BARE-AUTH", "{\"orderLineId\":\"OL-1\",\"sourceLocationId\":\"LOC-P\",\"stagingLocationId\":\"LOC-S\",\"qty\":\"3\"}");
+        assertEquals(409, unverified.statusCode());
+        assertTrue(unverified.body().contains("AUTH_REQUIRED"));
+        new JdbcTemplate(dataSource).update("INSERT INTO outbound_tcc_evidence (id,enterprise_id,warehouse_id,attempt_id,xid,tc_observed_status,tc_terminal_evidence_ref,participant_set_hash,created_at,updated_at) VALUES ('FIRST-EV','ENT-1','WH-A','ATT-1','first-xid','Committed','first-evidence',?,NOW(6),NOW(6))", "b".repeat(64));
+        String verifiedBody = "{\"attemptId\":\"ATT-1\",\"authorizationId\":\"AUTH-1\",\"xid\":\"first-xid\",\"tcTerminalEvidenceRef\":\"first-evidence\",\"participantSetHash\":\"" + "b".repeat(64) + "\"}";
+        String authPath = "/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/execution-authorizations";
+        assertEquals(200, post(authPath, token, "FIRST-AUTH", verifiedBody).statusCode());
+        assertEquals(409, post(authPath, token, "FIRST-AUTH", verifiedBody.replace("first-xid", "other-xid")).statusCode());
         HttpResponse<String> planned = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/pick-tasks",
                 token, "CMD-PLAN-1", "{\"orderLineId\":\"OL-1\",\"sourceLocationId\":\"LOC-P\","
                         + "\"stagingLocationId\":\"LOC-S\",\"qty\":\"3\"}");
         assertEquals(201, planned.statusCode());
+        HttpResponse<String> authReplayAfterPicking = post(authPath, token, "ANOTHER-AUTH-KEY", verifiedBody);
+        assertEquals(200, authReplayAfterPicking.statusCode());
+        assertTrue(authReplayAfterPicking.body().contains("PICKING"));
         String taskId = textBetween(planned.body(), "\"taskId\":\"", "\"");
         HttpResponse<String> tasks = get("/api/wms/v1/warehouses/WH-A/tasks?taskType=PICK", token);
         assertEquals(200, tasks.statusCode());
@@ -186,7 +199,7 @@ class OutboundHttpIT {
     }
 
     private static String token(List<String> warehouses) throws Exception {
-        return token(warehouses, List.of("outbound.create", "outbound.read", "task.read", "task.claim"));
+        return token(warehouses, List.of("fulfillment.execute", "outbound.read", "outbound.pick", "outbound.pack", "outbound.ship", "task.read", "task.claim"));
     }
 
     private static String token(List<String> warehouses, List<String> scopes) throws Exception {

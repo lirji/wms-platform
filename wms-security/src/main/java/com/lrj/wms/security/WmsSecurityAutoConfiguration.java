@@ -59,8 +59,9 @@ public class WmsSecurityAutoConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())
-                .addFilterAfter(new TenantAdmissionFilter(admissionGate),
+                .addFilterAfter(new OperationScopeFilter(),
                         org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new TenantAdmissionFilter(admissionGate), OperationScopeFilter.class)
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(jwtDecoder)
                         .jwtAuthenticationConverter(WmsJwtAuthorities.converter())))
                 .build();

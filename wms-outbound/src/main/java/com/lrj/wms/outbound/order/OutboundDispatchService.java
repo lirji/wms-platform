@@ -62,6 +62,8 @@ public final class OutboundDispatchService {
         if (blank(task.get("device_command_id"))) {
             throw new OutboundException("ACTION_IDENTITY_MISSING", "派发前必须固定动作身份");
         }
+        new OutboundAuthorizationService(session, clock).requireExecutable(enterpriseId, warehouseId,
+                mapper.lockOrder(enterpriseId, warehouseId, String.valueOf(task.get("document_id"))));
         BigDecimal qty = remain(task);
         Map<String, Object> permit = authorizations.startPermit(enterpriseId, warehouseId,
                 String.valueOf(task.get("device_command_id")), taskId, claimEpoch,

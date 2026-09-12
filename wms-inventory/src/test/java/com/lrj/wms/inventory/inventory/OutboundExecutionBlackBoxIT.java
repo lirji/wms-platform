@@ -131,6 +131,7 @@ class OutboundExecutionBlackBoxIT {
             Map<String, Object> created = orders.createFromAllocation("ENT-1", "WH-A", "ALLOC-BB", "ATT-BB", "OWNER-1",
                     "AUTH-BB", List.of(Map.of("orderLineId", "L-BB", "skuId", "SKU-BB", "qty", new BigDecimal("5"),
                             "baseUnit", "EA")));
+            authorizeForTest(outbound, "ENT-1", "WH-A", String.valueOf(created.get("id")), "ATT-BB", "AUTH-BB");
             orderId = String.valueOf(created.get("id"));
             Map<String, Object> planned = orders.planPickTask("ENT-1", "WH-A", orderId, "L-BB", "LOC-1", "LOC-2",
                     new BigDecimal("5"));
@@ -307,5 +308,21 @@ class OutboundExecutionBlackBoxIT {
             return sibling;
         }
         throw new IllegalStateException("找不到 " + module + " 迁移目录，cwd=" + cwd);
+    }
+
+    /** 仅本地测试的终态证据夹具；仍调用实际授权服务，不证明真实 TC 集成。 */
+    private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
+            String orderId, String attempt, String authorization) {
+        if (!session.getConfiguration().hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {
+            session.getConfiguration().addMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class);
+        }
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(new org.springframework.jdbc.datasource.SingleConnectionDataSource(session.getConnection(), true));
+        String xid = "fixture-xid-" + attempt;
+        String evidence = "fixture-committed/" + attempt;
+        String hash = "e".repeat(64);
+        jdbc.update("INSERT INTO outbound_tcc_evidence (id,enterprise_id,warehouse_id,attempt_id,xid,tc_observed_status,tc_terminal_evidence_ref,participant_set_hash,created_at,updated_at) VALUES (?,?,?,?,?,'Committed',?,?,NOW(6),NOW(6))",
+                java.util.UUID.randomUUID().toString(), enterprise, warehouse, attempt, xid, evidence, hash);
+        new com.lrj.wms.outbound.order.OutboundAuthorizationService(session, java.time.Clock.systemUTC()).authorize(
+                enterprise, warehouse, orderId, "AUTH-KEY-" + attempt, "TEST-ACTOR", attempt, authorization, xid, evidence, hash);
     }
 }

@@ -22,4 +22,10 @@ public interface OutboundAuthorizationMapper {
     int casBindAuthorization(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
             @Param("orderId") String orderId, @Param("authorizationId") String authorizationId,
             @Param("now") Timestamp now);
+    /** 执行时锁定并核对授权与可信证据，裸字符串不能授予库存作业能力。 */
+    String verifiedAuthorization(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId,
+            @Param("orderId") String orderId, @Param("attemptId") String attemptId, @Param("authorizationId") String authorizationId);
+
+    Map<String, Object> getAuthorizationById(@Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("authorizationId") String authorizationId);
 }

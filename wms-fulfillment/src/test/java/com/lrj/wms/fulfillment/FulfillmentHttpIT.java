@@ -114,7 +114,7 @@ class FulfillmentHttpIT {
                 "{\"transferId\":\"TR-HTTP-1\",\"lineId\":\"TL-1\",\"authorizationId\":\"" + authorizationId
                         + "\",\"tokenVersion\":" + tokenVersion + ",\"qty\":\"2\"}");
         assertEquals(202, received.statusCode());
-        String cancelToken = token(List.of("WH-A", "WH-B"), List.of("fulfillment.create", "fulfillment.cancel"));
+        String cancelToken = token(List.of("WH-A", "WH-B"), List.of("fulfillment.create", "fulfillment.cancel", "fulfillment.read"));
         HttpResponse<String> denied = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/cancellations", token,
                 "KEY-CXL-DENY", "{\"expectedVersion\":1}");
         assertEquals(403, denied.statusCode());
@@ -153,8 +153,40 @@ class FulfillmentHttpIT {
                 .POST(HttpRequest.BodyPublishers.ofString(json)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    /** 不传 warehouseId 也必须校验参与仓；SQL 先授权再分页，不能由第一页无权行挤掉可见结果。 */
+    @Test
+    void transferQueriesRequireAnAuthorizedLegEvenWithoutWarehouseParameter() throws Exception {
+        String admin = token(List.of("WH-A", "WH-B", "WH-C", "WH-D"));
+        for (String[] row : List.of(new String[]{"ACCESS-A", "WH-A", "WH-B"},
+                new String[]{"ACCESS-B", "WH-B", "WH-A"}, new String[]{"ACCESS-Z", "WH-C", "WH-D"})) {
+            String body = "{\"sourceWarehouseId\":\"" + row[1] + "\",\"targetWarehouseId\":\"" + row[2]
+                    + "\",\"lines\":[{\"lineId\":\"" + row[0] + "-L\",\"skuId\":\"SKU\",\"plannedQty\":\"1\"}]}";
+            assertEquals(201, post("/api/wms/v1/transfers", admin, row[0], body).statusCode());
+        }
+        String whA = token(List.of("WH-A"));
+        assertEquals(403, get("/api/wms/v1/transfers/ACCESS-Z", whA).statusCode());
+        assertEquals(200, get("/api/wms/v1/transfers/ACCESS-A", whA).statusCode());
+        assertEquals(200, get("/api/wms/v1/transfers/ACCESS-B", whA).statusCode());
+        assertEquals(403, get("/api/wms/v1/transfers/ACCESS-A?warehouseId=WH-C", admin).statusCode());
+        String cursor = null;
+        var seen = new java.util.HashSet<String>();
+        var json = tools.jackson.databind.json.JsonMapper.builder().build();
+        do {
+            var response = get("/api/wms/v1/transfers?limit=1" + (cursor == null ? "" : "&cursor=" + cursor), whA);
+            assertEquals(200, response.statusCode(), response.body());
+            var page = json.readTree(response.body());
+            for (var item : page.path("items")) assertTrue(seen.add(item.path("id").asString()));
+            cursor = page.path("nextCursor").isTextual() ? page.path("nextCursor").asString() : null;
+        } while (cursor != null);
+        assertTrue(seen.containsAll(List.of("ACCESS-A", "ACCESS-B")));
+        assertTrue(!seen.contains("ACCESS-Z"));
+        assertEquals(403, get("/api/wms/v1/transfers", token(List.of("WH-A"), List.of("fulfillment.read"))).statusCode());
+        var empty = json.readTree(get("/api/wms/v1/transfers", token(List.of())).body());
+        assertEquals(0, empty.path("items").size());
+    }
+
     private static String token(List<String> warehouses) throws Exception {
-        return token(warehouses, List.of("fulfillment.create"));
+        return token(warehouses, List.of("fulfillment.create", "fulfillment.read", "fulfillment.execute", "transfer.create", "transfer.read", "transfer.authorizeReceipt", "transfer.receive"));
     }
 
     private static String token(List<String> warehouses, List<String> scopes) throws Exception {

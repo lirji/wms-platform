@@ -35,15 +35,8 @@ public final class WmsJwtAuthorities {
             int slash = group.lastIndexOf('/');
             authorities.add(new SimpleGrantedAuthority(slash >= 0 ? group.substring(slash + 1) : group));
         }
-        for (String scope : stringValues(jwt, "scope")) {
-            for (String part : scope.split("[\\s,]+")) {
-                if (!part.isBlank()) {
-                    authorities.add(new SimpleGrantedAuthority(part));
-                }
-            }
-        }
-        for (String permission : stringValues(jwt, "permissions")) {
-            authorities.add(new SimpleGrantedAuthority(permission));
+        for (String scope : operationScopes(jwt)) {
+            authorities.add(new SimpleGrantedAuthority(scope));
         }
         String enterprise = firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
         if (enterprise != null) {
@@ -90,10 +83,21 @@ public final class WmsJwtAuthorities {
         if (scope == null || scope.isBlank()) {
             throw new IllegalArgumentException("权限范围不能为空");
         }
-        boolean allowed = authorities(jwt).stream().anyMatch(item -> scope.equals(item.getAuthority()));
+        boolean allowed = operationScopes(jwt).contains(scope);
         if (!allowed) {
             throw new ScopeForbiddenException(scope);
         }
+    }
+
+    /** 操作授权只接受 scope/permissions；组名碰撞不能代替作业权限。 */
+    public static Set<String> operationScopes(Jwt jwt) {
+        Set<String> values = new LinkedHashSet<>();
+        for (String claim : List.of("scope", "permissions")) {
+            for (String text : stringValues(jwt, claim)) {
+                for (String part : text.split("[\\s,]+")) if (!part.isBlank()) values.add(part);
+            }
+        }
+        return values;
     }
 
     private static List<String> stringValues(Jwt jwt, String claim) {
@@ -105,7 +109,7 @@ public final class WmsJwtAuthorities {
                     result.add(item.toString());
                 }
             }
-        } else if (value instanceof String text && !text.isBlank() && !"scope".equals(claim) && !"warehouses".equals(claim)) {
+        } else if (value instanceof String text && !text.isBlank() && !"warehouses".equals(claim)) {
             result.add(text);
         }
         return result;

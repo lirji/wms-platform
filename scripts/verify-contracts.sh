@@ -3,7 +3,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 python3 scripts/generate-openapi.py
-git diff --exit-code -- wms-contract/src/main/resources/openapi/wms-v1.yaml
+git diff --exit-code -- wms-contract/src/main/resources/openapi/wms-v1.yaml wms-security/src/main/resources/wms-operation-scopes.tsv
 python3 - <<'PY'
 from pathlib import Path
 text = Path("wms-contract/src/main/resources/openapi/wms-v1.yaml").read_text()

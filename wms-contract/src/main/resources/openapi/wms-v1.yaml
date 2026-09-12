@@ -64,6 +64,37 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+    get:
+      operationId: listFulfillments
+      tags: [fulfillment]
+      summary: 履约列表
+      security:
+        - oidc: [fulfillment.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/wms/v1/fulfillments/{fulfillmentId}:
     get:
       operationId: getFulfillment
@@ -588,6 +619,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createOutboundOrder
+      tags: [outbound]
+      summary: 登记待授权出库单
+      security:
+        - oidc: [fulfillment.execute]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutboundCreateRequest'
+      responses:
+        '201':
+          description: 已创建资源
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEnvelope'
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -1742,6 +1810,38 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+    get:
+      operationId: listActionEffects
+      tags: [idempotency]
+      summary: 效果列表
+      security:
+        - oidc: [task.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/wms/v1/warehouses/{warehouseId}/action-effects/{effectId}:
     get:
       operationId: getActionEffect
@@ -2489,6 +2589,423 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceEnvelope'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/fulfillments/{fulfillmentId}/attempts:
+    post:
+      operationId: prepareAttempt
+      tags: [fulfillment]
+      summary: 准备参与仓分配
+      security:
+        - oidc: [fulfillment.execute]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/FulfillmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareAttemptRequest'
+      responses:
+        '201':
+          description: 已创建资源
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEnvelope'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick-tasks:
+    post:
+      operationId: planPickTasks
+      tags: [outbound]
+      summary: 规划拣货任务
+      security:
+        - oidc: [outbound.pick]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/OutboundOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanPickRequest'
+      responses:
+        '201':
+          description: 已创建资源
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEnvelope'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/cancellations:
+    post:
+      operationId: cancelUnpicked
+      tags: [outbound]
+      summary: 取消未拣数量
+      security:
+        - oidc: [outbound.pick]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/OutboundOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelUnpickedRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedOperation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/reviews:
+    post:
+      operationId: reviewCount
+      tags: [count]
+      summary: 盘点作业
+      security:
+        - oidc: [count.record]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/CountPlanId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEnvelope'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/approvals:
+    post:
+      operationId: approveCount
+      tags: [count]
+      summary: 盘点作业
+      security:
+        - oidc: [adjustment.approve]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/CountPlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CountApproveRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEnvelope'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/applications:
+    post:
+      operationId: applyCount
+      tags: [count]
+      summary: 盘点作业
+      security:
+        - oidc: [adjustment.apply]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - $ref: '#/components/parameters/CountPlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CountApplyRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedOperation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/jobs:
+    get:
+      operationId: listJobs
+      tags: [job]
+      summary: 仓任务列表
+      security:
+        - oidc: [job.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: warehouseId
+          required: true
+          schema: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/reconciliation-cases:
+    get:
+      operationId: listReconciliationCasesByQuery
+      tags: [recon]
+      summary: 指定单仓差异单
+      security:
+        - oidc: [recon.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/WarehouseIdsQuery'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/reconciliation-cases/{id}/remediations:
+    post:
+      operationId: remediateReconciliationByQuery
+      tags: [recon]
+      summary: 差异单修复
+      security:
+        - oidc: [recon.remediate]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: warehouseId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediationRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedOperation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/transfers/{transferId}/issues:
+    post:
+      operationId: issueTransfer
+      tags: [transfer]
+      summary: 调拨数量作业
+      security:
+        - oidc: [transfer.create]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/TransferId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferPartRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedOperation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/transfers/{transferId}/losses:
+    post:
+      operationId: confirmTransferLoss
+      tags: [transfer]
+      summary: 调拨数量作业
+      security:
+        - oidc: [stock.move]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/TransferId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferPartRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedOperation'
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -3557,6 +4074,176 @@ components:
           type: "string"
           pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
           description: "精确十进制；必须大于0"
+    PrepareAttemptRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["lines"]
+      properties:
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        deadline:
+          type: "string"
+          maxLength: 64
+          format: "date-time"
+        warehouses:
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 64
+          maxItems: 200
+        lines:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AttemptLine"
+          minItems: 1
+          maxItems: 200
+    OutboundCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["allocationId","ownerId","lines"]
+      properties:
+        allocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        attemptId:
+          type: "string"
+          maxLength: 64
+        ownerId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        authorizationId:
+          type: "string"
+          maxLength: 64
+        lines:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OutboundLine"
+          minItems: 1
+          maxItems: 200
+    PlanPickRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","sourceLocationId","stagingLocationId","qty"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        sourceLocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        stagingLocationId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    CancelUnpickedRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    CountApproveRequest:
+      type: "object"
+      additionalProperties: false
+      properties:
+        approvalId:
+          type: "string"
+          maxLength: 64
+    CountApplyRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["lineId"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+    TransferPartRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["qty"]
+      properties:
+        lineId:
+          type: "string"
+          maxLength: 64
+        transferLineId:
+          type: "string"
+          maxLength: 64
+        clientOperationId:
+          type: "string"
+          maxLength: 64
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+    AttemptLine:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","skuId","warehouseId","qty","baseUnit"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+          description: "兼容旧字段名 sourceLineId"
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        warehouseId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        baseUnit:
+          type: "string"
+          maxLength: 32
+          minLength: 1
+          description: "兼容旧字段名 unit"
+    OutboundLine:
+      type: "object"
+      additionalProperties: false
+      required: ["orderLineId","skuId","qty"]
+      properties:
+        orderLineId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        skuId:
+          type: "string"
+          maxLength: 64
+          minLength: 1
+        qty:
+          type: "string"
+          pattern: "^[0-9]{1,14}([.][0-9]{1,6})?$"
+          description: "精确十进制；必须大于0"
+        baseUnit:
+          type: "string"
+          maxLength: 32
     StockCommandRequest:
       type: object
       additionalProperties: false

@@ -50,6 +50,8 @@ def main() -> int:
         report_dirs = [ROOT / "wms-test-support/target/failsafe-reports"]
     else:
         report_dirs = [
+            ROOT / "wms-security/target/surefire-reports",
+            ROOT / "wms-contract/target/surefire-reports",
             ROOT / "wms-runtime/target/surefire-reports",
             ROOT / "wms-runtime/target/failsafe-reports",
             ROOT / "wms-inbound/target/surefire-reports",
