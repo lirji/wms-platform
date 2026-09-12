@@ -1,38 +1,48 @@
 # 控制台前端架构
 
-依据 [BRIEF.md](BRIEF.md) 与已批准交接/契约。仓库只提供约束，不提供信息架构抄本。
+依据 [BRIEF.md](BRIEF.md) 与已批准交接/契约。仓库只提供约束，不提供信息架构抄本。F0–F6 已落地；本文是同一份架构的补全，不另起 IA。
 
 ## 1. 目标与非目标
 
 目标：一个可部署的作业台，按仓作业、按契约读数、按命令写，覆盖交接中的用户路径与页面状态。
 
-非目标：微前端、独立 PDA 工程、页面 Mock 库存、客户端浮点决定发运量、把健康检查当业务验收。
+非目标：微前端、独立 PDA 工程、页面 Mock 库存、客户端浮点决定发运量、把健康检查当业务验收、浏览器打印整壳、本地写库存队列。
 
 ## 2. 角色与路由树
 
+| 角色 | 主作业 | 主表面 |
+| --- | --- | --- |
+| 仓主管 / 内勤 | 选仓、看活队列与陈旧查询 | `/w/:warehouseId` |
+| 收货员 | 建单、收货、质检、上架 | 入库队列 / 单据；PDA 收货 |
+| 库存 / 资料员 | 主数据只读、余额与 asOf | catalog / stock |
+| 履约 / 出库员 | 全局单、仓子单、拣包装发 | fulfillment / outbound |
+| 调拨 / 盘点员 | 发出接收、冻结点数调整 | transfers / counts |
+| PDA 操作员 | 扫码收货，同应用第二壳 | `/pda/:warehouseId/receive` |
+| 对账 / 运维 | cutoff 差异与任务异常 | recon / jobs |
+
 ```text
-/login                         登录
+/login                         登录（一列一主按钮）
 /callback                      OIDC 回调
 /                              已登录 → 跳到 /w/:warehouseId
-/w/:warehouseId                工作台首页（待办入口，无写死数字）
+/w/:warehouseId                工作台首页（KPI + 活队列）
 /w/:warehouseId/catalog        商品 / 库位（只读）
-/w/:warehouseId/inbound                      入库列表 + 建单
-/w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架
+/w/:warehouseId/inbound                      入库列表 + 抽屉建单
+/w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架（命令抽屉）
 /w/:warehouseId/stock                        库存台账
 /w/:warehouseId/fulfillment                  履约列表 + 本仓出库列表
 /w/:warehouseId/fulfillment/:fulfillmentId   准备分配 / 生成本仓出库单
 /w/:warehouseId/outbound/:outboundOrderId    规划拣货 / 拣 / 包 / 部分发 / 取消回库
-/w/:warehouseId/transfers                    调拨列表 + 建单
+/w/:warehouseId/transfers                    调拨列表 + 抽屉建单
 /w/:warehouseId/transfers/:transferId        发出 / 接收授权 / 接收 / 损耗
-/w/:warehouseId/counts                       盘点列表 + 建计划
+/w/:warehouseId/counts                       盘点列表 + 抽屉建计划
 /w/:warehouseId/counts/:countPlanId          排空冻结 / 点数 / 复盘 / 审批 / 调整
 /w/:warehouseId/jobs                         任务列表
 /w/:warehouseId/jobs/:jobId                  回收租约 / 领取分片
-/w/:warehouseId/recon                        对账查询 + 审批修复
+/w/:warehouseId/recon                        对账查询 + 抽屉审批
 /pda/:warehouseId/receive                    PDA 收货（独立壳）
 ```
 
-范围外：OMS/ERP 门户、设备固件 UI、对账导出桌面工具。
+范围外：OMS/ERP 门户、设备固件 UI、对账导出桌面工具、SKU 标签套打。
 
 旧路径 `/inbound` 等重定向到带仓的新路径，避免书签断裂。
 
@@ -48,32 +58,34 @@
 
 ## 4. 前端栈
 
-仓库已锁定 React 19 + TypeScript + Vite 7 + `oidc-client-ts` + Vitest。2026-09-12 用户要求补上组件库：作业台使用 Ant Design 5（自定义青绿主题），不绑假数据。
+仓库已锁定 React 19 + TypeScript + Vite 7 + `oidc-client-ts` + Vitest。组件库以 Ant Design **6** 为唯一 owner。
 
 | 决策 | 选项 | 选择 | 拒绝原因 |
 | --- | --- | --- | --- |
 | 框架 | React / Vue | React | 现有锁文件、测试、Docker、OIDC 适配 |
 | 语言 | TypeScript / 无类型 | TypeScript | OpenAPI 与数量字符串契约 |
-| 样式 | tokens+CSS / Tailwind / Ant Design | Ant Design 6 + 少量布局 CSS | 已锁定 Ant 为唯一组件库；Material 与 Tailwind 不当第二套 Table/Form |
+| Owner kit | Ant Design / Material / Tailwind | Ant Design 6 | Material 会第二套 Table/Form；Tailwind 不当 Table/Form owner。布局可用少量 CSS，颜色必须读 Ant token |
 | 服务端数据 | fetch 包装 / 查询库 | fetch 包装 | 列表短、202 轮询有界，不需要第二缓存 |
 | 路由 | react-router | 框架默认 | 已用于登录与回调 |
-| 表格/表单 | 轻量 / 管理套件 | Ant Design Table / Form | 列来自契约字段，不预置业务行 |
+| 表格/表单 | 轻量 / 管理套件 | Ant `Table` / `Form` / `Drawer` / `Alert` | 列来自契约字段，不预置业务行 |
+
+BRIEF 曾假设「深青石板 + 琥珀」。落地以 Ant `colorPrimary=#0f766e` 为准，**不用琥珀当第二强调**，避免作业台变成营销金。`tokens.css` 里的 `--gold` / `--accent:#1d6b8a` 是过时平行色板，须并进 Ant theme，不再双轨。
 
 ## 5. 模块与目录（提议）
 
 ```text
 wms-console/src/
-  app/           路由与会话装配
-  auth/          OIDC 与 returnTo
+  app/           路由与会话装配（路由级按页拆分仍待落地）
+  auth/          OIDC、returnTo、令牌 claims
   api/           前缀路由、信封解析、幂等键
-  design/        色板、间距、字号 tokens
+  design/        只服务 Ant ConfigProvider，不另养一套页面色
   shell/         桌面壳、PDA 壳、仓选择（写 URL）
-  shared/ui      状态条、表、数量文本
+  shared/ui      状态条、表、数量文本、复制 id、错误码
   features/*     按作业：home catalog inbound stock fulfillment transfer count jobs recon pda
   pages/         仅登录/配置等无仓页
 ```
 
-壳与作业分离。作业页不得 import 另一作业的领域组件。路由级按页拆分。
+壳与作业分离。作业页不得 import 另一作业的领域组件。
 
 ## 6. 状态与数据流
 
@@ -81,13 +93,16 @@ wms-console/src/
 | --- | --- |
 | 当前仓 | URL `:warehouseId` |
 | 会话 | oidc-client-ts user |
+| 列表筛选 `q` / 对账 `cutoffId` | URL search，刷新可恢复 |
+| 列表游标 | URL `cursor`；没有下一页则不画假页码 |
 | 列表 / asOf | 每次进入页面向活 API 拉取，不进全局 store |
 | 幂等键 | sessionStorage，按「一次有意操作」复用 |
 | 扫码框焦点 | 组件局部 |
+| 列宽 | 不按用户身份持久化；本阶段不开放拖拽列宽 |
 
-客户端：`GET/POST /api/wms/v1/...` → `routeFor` 到四服务前缀。解析 `CursorPage.items` 与错误体。数量字段只当字符串渲染。
+客户端：`GET/POST /api/wms/v1/...` → `routeFor` 到四服务前缀。解析 `CursorPage.items` 与错误体。数量字段只当字符串渲染。演示行必须来自 seed 后的 API。
 
-演示行必须来自 seed 后的 API，测试 fixture 不得冒充演示数据。
+类型：新字段从 OpenAPI 生成或手写与契约同名的类型；禁止继续用 `Record<string, unknown>` 发明仪表盘 KPI 接口。
 
 ## 7. 屏幕状态矩阵
 
@@ -95,83 +110,194 @@ wms-console/src/
 
 | 状态 | 行为 |
 | --- | --- |
-| loading | 保留过滤条件，按钮禁用 |
-| empty | 写明当前仓与过滤，给出允许动作 |
-| error / 5xx | 服务不可用，不伪装无权限 |
-| 401 | 登录过期或尚未登录，提示重新登录；禁止写成「权限不足」 |
-| 403 | 仓范围或作业权限不足；展示令牌仓与 scope，不展示 access_token |
-| 202 accepted | 处理中 + operationId，禁止显示成功 |
+| loading | 保留过滤条件；表用 skeleton，不是整页转圈；提交按钮禁用 |
+| empty | `当前仓 {id} 没有{对象}。可新建或检查筛选。` |
+| 筛选空 | `当前筛选没有匹配。清除筛选后重试。` |
+| error / 5xx / 网络 | 服务不可用，不伪装无权限或空表 |
+| 401 | 登录过期；主动作重新登录；禁止写成「权限不足」 |
+| 403 | 仓范围或作业权限不足；展示 `code` + 仓 + scope；深链给拒绝页，不装空表 |
+| success | 仅契约终态；202 不是成功 |
+| 202 accepted | 处理中 + operationId；库存看 `stockSyncStatus` |
 | 409 | 最新记录 + 需重确认；不换幂等键 |
-| stale | asOf / lagSeconds 提示刷新 |
+| 422 | 字段错优先，停在表单 |
+| 429 | 过于频繁，主按钮暂时禁用 |
+| stale | asOf / lagSeconds + 刷新 |
 | TCC | 「库存已预留，等待全局完成」，无强制释放 |
-| PDA | 文字+tone，不能只靠颜色 |
+| PDA | 文字 + tone；BRIEF 声音反馈待接，不能只靠颜色 |
+| recovery | 抽屉脏表单用 Ant Modal 确认离开，不用 `window.confirm` |
 
-## 8. 视觉 tokens（假设品牌）
+## 8. 视觉与页面配方
 
-企业作业台：侧栏深蓝、内容浅灰、密表、KPI 行数来自接口。
+企业作业台：侧栏深蓝、内容浅灰、密表。品牌假设已收敛为青绿 Ant 主题。
 
-| token | 值 |
+| 技能 token | Ant / CSS |
 | --- | --- |
-| `--ink` | `#122033` |
-| `--aside` | `#10243c` |
-| `--paper` | `#e8edf3` |
-| `--card` | `#ffffff` |
-| `--line` | `#d5deea` |
-| `--accent` | `#0f766e`（Ant `colorPrimary`） |
-| `--ok` / `--warn` / `--err` | `#1a7a46` / `#9a6b12` / `#b42318` |
-| 半径 | 6–8px |
-| 字号 | 12 / 13 / 14 / 22 / 28（KPI） |
+| canvas / paper | `colorBgLayout=#f1f5f9` |
+| surface / card | `colorBgContainer=#ffffff` |
+| ink / muted | `colorText=#0f172a` / `colorTextSecondary=#475569` |
+| line | `colorBorder=#e2e8f0` |
+| accent | `colorPrimary=#0f766e` |
+| ok / warn / err | `colorSuccess` / `colorWarning` / `colorError` |
+| radius | `borderRadius=8` |
+| type-12/13/16/20 | `fontSize=13`，Title 用 `Typography` |
+| control-height-desktop | `controlHeight=32`（密表；现网 36 须改） |
+| control-height-touch | PDA `size=large` ≥44px |
+| focus-ring | Ant 默认 2px；禁止无替代 `outline: none` |
+| shadow-1 | 仅卡片轻阴影，登录不做第二套营销渐变墙 |
 
-### 页面配方（Ant Design 原语）
+### 层配方（Ant 原语）
+
+| Layer | 选择 | 用 |
+| --- | --- | --- |
+| Canvas | 平面浅灰，不加每页第二渐变 | `Layout` |
+| Chrome | 顶栏 92% 模糊 + 1px 线；选仓重于用户菜单 | `Layout.Header` `Sider` `Menu` `Select` |
+| Work | 表格吃满剩余宽 | `Layout.Content` |
+| Page head | 20px 标题 + 13px 副文 + **一个**主按钮 | `Typography` + `Button` |
+| Status | 头下一条 `Alert` | `StatusBanner` |
+| Table | sticky header、数量右齐 `tabular-nums`、状态 `Tag`+文字 | `Table` |
+| Form | 标签在上，主提交在最后，危险动作分开 | `Form` `size=small` |
+| Scan | 全宽 ≥48px，结果一个面板 | PDA `Input` `size=large` |
+| Empty | 与表同表面，无插画 | `Empty` simple |
 
 | 模板 | 构成 | 禁止 |
 | --- | --- | --- |
-| 队列 | `PageHead` 右侧一个主按钮 + `Table`。建单进 `Drawer`+`Form`，不占列表上方整页 | 列表页内嵌 6–8 个纵向表单项 |
-| 单据 | 头 + 单据事实 + 明细表；`提交命令` 打开 `Drawer`，命令用 `Tabs`/`Card` | 收货/质检/上架/拣发五张卡叠在表下面把页拉到超长 |
-| 首页 | KPI + 2–3 个活队列表（入库/出库/任务） | 再印一遍侧栏的入口卡片墙 |
-| 登录 | 与作业台同色板，一列一主按钮 | 两列营销清单当主路径 |
-| 状态 | 一条 `Alert`：401 是会话，403 是仓/权限 | 把 401/5xx 写成「权限不足」 |
+| 登录 / 配置 | 与作业台同色、**一列**、一句话、一主按钮。能力说明折到主按钮下方 | 两列功能清单、登录页第二渐变当主路径 |
+| 首页 | KPI 行（接口行数）+ 入库/出库/任务活队列 | 再印一遍侧栏卡片墙 |
+| 队列 | 头 + 一行筛选 + 表。建单进 `Drawer` | 列表内嵌长表单；履约页两张主表要分主次，出库表是次表面 |
+| 单据 | 头 + `Descriptions` 事实 + 明细表；命令进 `Drawer`+`Tabs` | 五张卡叠在表下；抽屉里再叠五张大卡 |
+| 扫描 | 输入 → 结果 → 历史；无侧栏 | 缩桌面壳当 PDA |
+| 状态 | 一条 `Alert`：401 会话，403 仓/权限 | 401/5xx 写成权限不足 |
 
-Casdoor 令牌必须带作业 `scope`（`inbound.*` `outbound.*` `fulfillment.*` 等）以及 `warehouses` / `enterprise_id`。顶栏展示当前仓范围与权限名，不展示 access_token。
+Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。顶栏展示仓与权限名，不展示 access_token。F6 已开通 42 项 scope，已登录会话须重新登录。
 
 ## 9. 视口策略
 
-交接已要求同应用 PDA 页，因此不单做桌面、也不另开移动产品。
+交接已要求同应用 PDA 页，因此不单做桌面、也不另开移动产品。不问出第三套移动 App。
 
 | 表面 | 宽度 | 行为 |
 | --- | --- | --- |
-| 桌面工作台 | ≥1280 | 左侧作业导航 + 顶栏选仓 + KPI / 密表 |
-| 窄桌面 | 768–1279 | 导航横滑，表横向滚动 |
-| PDA 路由 | ≥390 | 独立壳、大触控、扫码框 autofocus |
+| 桌面工作台 | ≥1280 | 左侧作业导航 + 顶栏选仓 + 密表 |
+| 窄桌面 | 768–1279 | Sider 折叠，表 `scroll.x` |
+| PDA 路由 | ≥390 | 独立壳、大触控、扫码框 autofocus；无字母快捷键 |
+
+不发明深色主题、第二字体、插画空态。
 
 ## 10. API / 认证 / 错误假设
 
 - 认证：OIDC 授权码 + PKCE；空 issuer 不回退免认证
-- 授权：令牌仓范围；UI 隐藏不可执行动作
-- 错误体：`code` / `message` / `retryable`
-- 写操作：`Idempotency-Key`；扫描 `scanSequence` 由后续切片接契约
+- 授权：令牌仓范围 + scope；**令牌不能尝试的命令隐藏**；深链仍由服务端 403
+- 错误体：`code` / `message` / `retryable`；对照见 §11，禁止堆栈或整段 JSON 当标题
+- 写操作：`Idempotency-Key`；`scanSequence` 仅在契约字段出现时递增，不本地伪造
 - 时区：展示可按仓，请求 UTC
-- TP99：本切片新增的写接口预算 unverified；前端不宣称达标
+- TP99：前端不宣称达标
+- 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要；未接该命令前不画「导出全部」
+- 离线：线上写。BRIEF「待同步意图」只能显示服务端 202/`stockSyncStatus`，禁止 `localStorage` 库存队列
 
-作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，对账 APPROVE/REJECT。跨仓 ALLOCATED 仍要求 TC Committed 证据，页面不伪造确认。OpenAPI `GET /warehouses/{id}/tasks` 仍未实现，出库任务挂在出库单详情。
+作业详情提交已落地命令：入库收货/质检/上架，出库拣包发与未拣取消，调拨发出/授权/接收/损耗，盘点冻结点数审批调整，任务回收/领取，对账 APPROVE/REJECT。跨仓 ALLOCATED 仍要求 TC Committed 证据。OpenAPI `GET /warehouses/{id}/tasks` 仍未实现，出库任务挂在出库单详情。
 
 ## 11. 落地细节
 
-| Topic | 本作业台 |
+| Topic | 本作业台 | 现网差距 |
+| --- | --- | --- |
+| Density | Table/Form/Button `small`；桌面 `controlHeight=32`；PDA `large` | 主题仍是 36 |
+| Scroll | 壳 sticky；**表体**滚；`scroll.x`；表头 sticky | 表头未 sticky |
+| Column | 标识 160、状态 112、数量 112 右齐；长 id 省略 + tooltip + 复制 | 列宽全 auto |
+| Row actions | 打开单据为链接；危险命令在抽屉且 `danger` | 出库取消仍是主色提交 |
+| Batch | 无契约批量则无复选框 | 已遵守 |
+| Filters | 一行；`?q=` `?cutoffId=` `?cursor=` | 筛选只在内存 |
+| Pagination | 契约 cursor；不把本页 12 条假装成分页权威 | `DataTable` 本地 pageSize=12 |
+| Open-in | 单据走路由；建单/命令走抽屉；Modal 只用于离开确认 | 单据命令抽屉里仍是叠卡，不是 Tabs |
+| Feedback | 字段→Form；契约→一条 Alert；瞬时→`message`（复制成功）；202 留状态条 | 409 把 `JSON.stringify(body)` 丢进详情 |
+| Loading | 表 skeleton；全页转圈只给首次进壳 | Table `loading` 转圈 |
+| Leave guard | 抽屉脏表单 Ant Modal | 无 |
+| Icons | 仅 `@ant-design/icons`；图标+文字；仅关闭/溢出可纯图标 | 已基本遵守 |
+| CJK | PingFang SC / Noto Sans SC；数量 `tabular-nums`；中文行高 ≥1.5 | 数量未 tabular / 未右齐 |
+| Locale | 时间按仓时区展示，请求 UTC | 顶栏墙钟是本机 UTC 文本，可保留 |
+| Permission UI | 无 scope 则隐藏命令；深链 403 | 只 `disabled={!token}`，有 token 就画出全部命令 |
+| Overlay | 同时一个抽屉；Popover 可叠在顶栏 | 已遵守 |
+| Motion | ≤200ms；`prefers-reduced-motion` 即时 | 未声明 |
+| Dark mode | 关 | 已遵守 |
+| 快捷键 | 见下表。不另做桌面 keymap | Esc 靠 kit；`r` 未接 |
+| 打印 | 不做 | 已遵守 |
+| Id 复制 | 单据 id / operationId 旁「复制」，toast「已复制 {kind}」不回显全文 | 未做 |
+| 离线条 | 不做本地待同步条 | 已遵守 |
+
+### 无障碍
+
+| Topic | 记录 |
 | --- | --- |
-| Density | Table/Form/Button 用 Ant `size="small"`；建单与作业命令进 `Drawer` |
-| Scroll | 表 `scroll.x=max-content`；抽屉内表单自己滚，列表页不再被长表单撑高 |
-| Column | 标识、状态、数量优先；其余横向滚 |
-| Open-in | 建单/作业命令用抽屉；单据详情走路由 |
-| Feedback | 字段错在 Form；契约错一条 `Alert`；202 留在状态条，不当成功 toast |
-| Permission UI | 顶栏 Popover 展示仓范围与 permissionNames；401≠403 |
-| Batch | 无契约批量命令，不画空复选框 |
-| 快捷键 | 不另做桌面 keymap；扫码页只保留 Enter |
+| Contrast | 正文与 chip ≥4.5:1；侧栏选中用青绿底+白字 |
+| Focus | 跳过链接 → 品牌 → 选仓 → 导航 → 主区；路由切换后焦点到 `h1` |
+| Focus visible | 保留 Ant 2px ring |
+| Focus trap | Drawer/Modal 用 kit 默认 |
+| Labels | 可见 label；占位符不是标签；表 `aria-labelledby` 页标题 |
+| Live | 状态条与扫码结果 `role=status` |
+| Keyboard | 导航用 Menu 箭头；表不发明 Excel 键；PDA 只 Enter |
+| Target | 桌面 ≥24；PDA ≥44；危险与主按钮不贴在一起 |
+| Semantics | 每路由一个 `h1`；`header`/`nav`/`main` |
+
+### 空态文案
+
+沿用技能句式：当前上下文 + 没有什么 + 下一步。不写营销、不怪用户、不发明行数。
+
+### 命令分组
+
+| Slot | 用法 |
+| --- | --- |
+| Primary | 每表面一个：登录、创建入库单、提交命令、回车提交、加载差异 |
+| Secondary | 返回、打开 PDA、重置筛选 |
+| Tertiary | 复制 id、打开列表 |
+| Destructive | 取消剩余 / REJECT，`danger`，与保存分开；确认用 Modal |
+| Batch | 无 |
+
+对账页「加载差异」是该页主按钮；「审批修复」改为次要，避免两个 primary。
+
+### 快捷键
+
+| 范围 | 键 | 动作 | 不要 |
+| --- | --- | --- | --- |
+| 队列 | kit Drawer Esc | 关抽屉 | Esc 离开路由 |
+| 表单 | Enter | 提交当前抽屉里那一个主命令 |  |
+| 扫描 | Enter | 只提交扫码框 | 全局 Enter、字母快捷键 |
+| 全局 | 无 `/` 或 `Ctrl+K` | BRIEF 无统一搜索 | 抢浏览器查找 |
+
+### 表格列宽
+
+| 列 | 宽 | 对齐 | 溢出 |
+| --- | --- | --- | --- |
+| 标识 / 单号 | 160–200 | 左 | 省略 + tooltip + 复制 |
+| 状态 | 88–120 | 左 | 不折行 |
+| 数量 | 88–128 | **右** `tabular-nums` | 不折行 |
+| SKU / 名称 | minmax(160, 1fr) | 左 | 一行省略 |
+| 行操作 | 无固定操作列；id 即链接 |  |  |
+
+先藏备注 → 名称 → 时间，永不藏 id/状态/数量。单响应默认 ≤50 行，不虚拟滚动。
+
+### 错误码对照
+
+| HTTP / code | 用户标题 | 详情 | 动作 |
+| --- | --- | --- | --- |
+| 401 | 登录已失效 | 请重新登录；不是仓权限不足 | 去登录 |
+| 403 / WAREHOUSE_FORBIDDEN | 没有权限访问该资源 | `code` + 仓 + scope | 回上一作业 |
+| 404 | 找不到该记录 | 当前仓 + id | 回队列 |
+| 409 | 版本冲突 | 需确认最新记录；不换幂等键 | 刷新后重确认 |
+| 422 | 填写有误 | 字段级优先 | 停在表单 |
+| 429 | 请求过于频繁 | 稍后重试 | 禁用主按钮 |
+| 5xx / 网络 | 对应服务不可达 | 服务角色 + `code` | 原键重试 |
+| 202 | 已受理 | operationId；禁止「成功」 | 按原命令查询 |
+| 未知 | 请求失败 | 截断的 `code` + `message` | 重试或返回 |
+
+禁止：原始异常字符串当页标题；`JSON.stringify` 整段 body；把 401/5xx 写成权限不足。
 
 ## 12. 未决
 
-- 设备 UNKNOWN 与真实硬件仍 blocked（S8-05）
+架构已定、实现未跟上的项见 F7，不再当作产品未决。
+
+仍 blocked / 不发明：
+
+- 设备 UNKNOWN 与真实硬件（S8-05）
 - 主数据写 API 未实现，catalog 保持只读
-- 履约整单确认依赖真实 TC，控制台不能写成 ALLOCATED
-- AC-26 现场已走查但仍 open；跨仓 ALLOCATED 需真实 TC
-- Casdoor 权限与令牌 `scope` 必须覆盖作业命令，不能只发 `masterdata.read/write`
+- 履约整单确认依赖真实 TC，不能写成 ALLOCATED
+- AC-26 仍 open
+- `GET /warehouses/{id}/tasks` 未实现
+- BRIEF 的 PDA 声音：未接系统提示音前，必须保留文字+tone

@@ -20,4 +20,4 @@
 
 ## 下一步
 
-已登录用户必须重新登录才能拿到带作业 scope 的新 JWT。S8-05 / S9-01 / AC-42 保持 blocked。本轮不推 main（避免再次触发 main verify）。不把 F6 写成 50 AC 或 AC-26 accepted。
+F7：按技能补齐已记录但仍未落地的项（登录一列、token 单轨、列宽/复制 id、URL 筛选与 cursor、按 scope 隐藏命令、错误码对照、单据 Tabs）。已登录用户仍须重新登录拿 42 项 scope。S8-05 / S9-01 / AC-42 保持 blocked。不推 main。不把复查写成 50 AC 或 AC-26 accepted。
