@@ -18,3 +18,7 @@ com.lrj.wms.inventory.compat.CompatibilityGateTest#observeFlagDoesNotChangeAccep
 com.lrj.wms.inventory.compat.CompatibilityMatrixIT#nMinusOneEventAndSnapshotRemainCompatible
 com.lrj.wms.inventory.compat.CompatibilityMatrixIT#storedDigestVersionReplayAndFactIdentityStayUnique
 com.lrj.wms.inventory.effect.EffectHttpIT#nMinusOneClientOmitsDigestVersionAndIgnoresUnknownFields
+# S9-02 / S9-04 本地两库迁移与隔离恢复
+com.lrj.wms.inventory.migrate.WarehouseMigrationIT#twoPhysicalDatabasesSwitchEpochAndRejectOldWrites
+com.lrj.wms.inventory.migrate.WarehouseMigrationIT#abortBeforeSwitchReopensSourceWrites
+com.lrj.wms.inventory.migrate.IsolatedRestoreIT#restoreSecondDatabaseAndMeasureLocalRtoRpo

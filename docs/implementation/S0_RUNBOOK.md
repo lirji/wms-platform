@@ -33,9 +33,11 @@ python3 scripts/check-required-its.py --suite failure
 ./scripts/verify-contracts.sh
 ./scripts/generate-sbom.sh
 ./scripts/seed-local.sh --profile isolated-wms
+./scripts/run-capacity.sh --scenario agreed-peak
+./scripts/run-restore-drill.sh
 ```
 
-前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路，以及官方 XXL admin 3.4.2 对隔离执行器的一次真实触发（`XxlAdminTriggerIT`，不是集群/分片）。tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。`check-required-its.py` 核对 AC-45..50 与 S9-03/S9-06 名单，缺测、跳过或失败即失败。`verify-contracts.sh` 核对已提交 OpenAPI 与 ActionEffectRequest 的 N/N-1 可选扩展。`generate-sbom.sh` 只在 `-Psbom` 下写候选 BOM/许可证/OSV 快照，不加入默认 verify，不是生产锁。容量脚本尚未实现。设备模拟与真实硬件证据必须分开记录。
+前两条构建并启动 inbound/outbound/inventory/fulfillment 独立进程检查健康和访问拒绝。warehouse-it验证真实MySQL/分片/原生Fence局部行为，Kafka/线程池/XXL 执行线程不把 TCC XID 带进非预占链路，以及官方 XXL admin 3.4.2 对隔离执行器的一次真实触发（`XxlAdminTriggerIT`，不是集群/分片）。tc-it包含原生TC终态查询限制、DB终态审计候选、HTTP网关Try，以及attempt/XID/epoch/参与者业务屏障探针，不是完整跨仓事务。failure-it只kill/start本测试登记的MySQL/TC，缺证据保持`RECOVERY_PENDING`且零Outbox，共享dev-infra快照不得变化；Docker不可用或0测试失败。三类集成profile分别执行，报告位于wms-test-support/target/failsafe-reports，失败或未发现测试均不能作为通过。`check-required-its.py` 核对 AC-45..50 与 S9-03/S9-06 名单，缺测、跳过或失败即失败。`verify-contracts.sh` 核对已提交 OpenAPI 与 ActionEffectRequest 的 N/N-1 可选扩展。`generate-sbom.sh` 只在 `-Psbom` 下写候选 BOM/许可证/OSV 快照，不加入默认 verify，不是生产锁。`run-capacity.sh --scenario agreed-peak` 无签署输入则失败，不跑文档合成峰值。`run-restore-drill.sh` 无外部库时只跑 `IsolatedRestoreIT`。设备模拟与真实硬件证据必须分开记录。
 
 `seed-local.sh` 只接受 `--profile isolated-wms`，且必须显式提供 Cell A/B 的 `WMS_INVENTORY_*_JDBC_URL` / 用户 / 口令；拒绝 43306 与 `dev-infra`。它会把 WH-A 写入 Cell A、WH-B 写入 Cell B，并把 5 类 SKU 种子写到两个库存库。这不是控制台，也不接生产库。
 
