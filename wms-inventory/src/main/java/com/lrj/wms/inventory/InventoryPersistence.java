@@ -55,6 +55,9 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.serial.LocalSerialMapper.class);
         config.addMapper(com.lrj.wms.inventory.count.CountMapper.class);
         config.addMapper(com.lrj.wms.inventory.inventory.infrastructure.FefoCandidateMapper.class);
+        config.addMapper(com.lrj.wms.inventory.jobs.JobRunMapper.class);
+        config.addMapper(com.lrj.wms.inventory.jobs.ExpiryEligibilityMapper.class);
+        config.addMapper(com.lrj.wms.inventory.query.ProjectionMapper.class);
         return new SqlSessionFactoryBuilder().build(config);
     }
 
