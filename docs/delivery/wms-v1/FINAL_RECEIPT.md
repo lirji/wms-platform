@@ -11,10 +11,10 @@
 | TRANSFER | `7659d34` | [34731081335](https://github.com/lirji/wms-platform/actions/runs/34731081335) |
 | TC | `a3b4c65` | [34732426303](https://github.com/lirji/wms-platform/actions/runs/34732426303) |
 | COMP | `f043117` | [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069) 成功 |
-| 控制台公开契约 | `a619d3f` | [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774) 推送后运行中 |
+| 控制台公开契约 | `a619d3f` | console 已通过；java 未完成时用户授权直接合入后续 PDA/轮询，不把 [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774) 当门禁 |
 
 COMP 不向已提交 TCC 伪发 Cancel。控制台未发明取消补偿查询入口。
 
 ## 仍在外部边界
 
-OQ-03、AC-26 现场、S8-05 授权设备、S9-01 签署容量、生产历史时间、归档删除。PDA 收/拣/发已在任务分支，待当前 main verify 结束后合入。`GET /operations/{id}` 仅库存实现。
+OQ-03、AC-26 现场、S8-05 授权设备、S9-01 签署容量、生产历史时间、归档删除。PDA 收/拣/发与库存-only 202 轮询已授权合 main。`GET /operations/{id}` 仅库存实现。

@@ -2,7 +2,7 @@
 
 ## 当前基线与授权
 
-远程main已发布COMP `f043117`（CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069)成功）和控制台公开契约 `a619d3f`。控制台 verify [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774)运行中。PDA 拣/发、FINAL 回执与库存-only 202 轮询在 feat/console-public-serial-ops，等该 CI 结束后再合 main。不是50 AC。
+远程main含COMP `f043117`（CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069)成功）。2026-09-13 用户授权不等待 [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774)，将 FINAL 回执、PDA 拣/发与库存-only 202 轮询快进 main。该推送会取消进行中的 verify。不是50 AC。
 更新时间：2026-09-13。前一阶段基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
 用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER/TC/COMP 已实现、验证并发布；FINAL 有限范围已发布，控制台 CI 运行中。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。不是 50 AC。
