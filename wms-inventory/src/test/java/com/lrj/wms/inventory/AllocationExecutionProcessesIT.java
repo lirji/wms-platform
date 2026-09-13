@@ -50,7 +50,7 @@ class AllocationExecutionProcessesIT {
             adminDb.execute("GRANT SELECT ON seata.terminal_evidence TO 'tc_audit'@'%'");
             var settings=new KafkaSettings(true,kafka.getBootstrapServers(),"wms.execution","PLAINTEXT","","");
             try(var admin=AdminClient.create(settings.connection())) {
-                admin.createTopics(List.of("tcc.terminals","transfer.commands","inventory.events","inbound.commands","inbound.results","outbound.commands","outbound.results","outbound.authorizations","fulfillment.results","fulfillment.events")
+                admin.createTopics(List.of("cancellation.results","tcc.terminals","transfer.commands","inventory.events","inbound.commands","inbound.results","outbound.commands","outbound.results","outbound.authorizations","fulfillment.results","fulfillment.events")
                         .stream().map(t->new NewTopic("wms.execution."+t,1,(short)1)).toList()).all().get(20,TimeUnit.SECONDS);
             }
             int tcPort=port();
@@ -78,7 +78,7 @@ class AllocationExecutionProcessesIT {
                 po=start(root,"outbound",out,kafka,portO,issuer,logs,"outbound",List.of());
                 await(()->healthy(portF)&&healthy(portO),75,"履约/出库启动失败，日志="+logs,pf,po);
                 var ffSql=new JdbcTemplate(source(ff));var outSql=new JdbcTemplate(source(out));var sqlA=new JdbcTemplate(source(a));var sqlB=new JdbcTemplate(source(b));
-                String operator=token(issuer,rsa,"operator",List.of("A","B"),List.of("fulfillment.create","fulfillment.execute","fulfillment.read"));
+                String operator=token(issuer,rsa,"operator",List.of("A","B"),List.of("fulfillment.create","fulfillment.execute","fulfillment.read","fulfillment.cancel"));
                 String order=created(post(portF,"/api/wms/v1/fulfillments",operator,"ORDER",Map.of("sourceSystem","OMS","sourceOrderNo","SO-EXECUTION","ownerId","OWNER","lines",List.of(Map.of("sourceLineId","L1","skuId","SKU","requestedQty","2","baseUnit","EA")))),201).path("id").asString();
                 String attempt=created(post(portF,"/api/wms/v1/fulfillments/"+order+"/attempts",operator,"ATTEMPT",Map.of("warehouses",List.of("A","B"),"lines",List.of(plan("A"),plan("B")))),201).path("id").asString();
                 var body=Map.of("warehouses",List.of(request("A",attempt),request("B",attempt)));
@@ -123,6 +123,33 @@ class AllocationExecutionProcessesIT {
                 var replay=created(post(portF,path,operator,"EXECUTE",body),202);assertEquals("COMPLETED",replay.path("state").asString());
                 var visible=http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+portF+"/api/wms/v1/fulfillments/"+order)).header("Authorization","Bearer "+operator).GET().build(),HttpResponse.BodyHandlers.ofString());
                 assertEquals(200,visible.statusCode());assertEquals("COMPLETED",RuntimeMessage.JSON.readTree(visible.body()).path("execution").path("state").asString());
+                // 原全局已提交之后取消：B最终凭证写失败不能提前释放，重启后仍按原取消决定补偿。
+                sqlB.execute("ALTER TABLE stock_posting ADD CONSTRAINT ck_test_cancel_receipt CHECK(action<>'CANCEL')");
+                String cancelPath="/api/wms/v1/fulfillments/"+order+"/cancellations";
+                created(post(portF,cancelPath,operator,"CANCEL-COMMITTED",Map.of("clientOperationId","CANCEL-COMMITTED","reason","客户取消")),202);
+                try { await(()->count(sqlA,"SELECT COUNT(*) FROM stock_posting WHERE action='CANCEL'")==1
+                        &&count(sqlB,"SELECT COUNT(*) FROM runtime_message_inbox WHERE claim_epoch>0 AND status='PENDING'")>0,
+                        40,"取消未形成原CANCEL或失败恢复事实",pa,pb,pf,po); }
+                catch(AssertionError failure) {
+                    throw new AssertionError("取消诊断：fulfillment="+ffSql.queryForList("SELECT event_type,status,error_code FROM fulfillment_outbox")
+                        +" outbound="+outSql.queryForList("SELECT state,error_code FROM outbound_cancellation")
+                        +" source="+outSql.queryForList("SELECT event_type,status,error_code FROM source_outbox")
+                        +" inventory="+sqlA.queryForList("SELECT status,error_code FROM runtime_message_inbox")
+                        +" outboundInbox="+outSql.queryForList("SELECT status,error_code FROM runtime_message_inbox"),failure);
+                }
+                assertEquals(1,sqlB.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
+                assertEquals("COMPENSATING",ffSql.queryForObject("SELECT state FROM fulfillment_cancellation",String.class));
+                stop(pb);pb=null;sqlB.execute("ALTER TABLE stock_posting DROP CHECK ck_test_cancel_receipt");
+                pb=start(root,"inventory",b,kafka,portB,issuer,logs,"B",argsB);
+                await(()->count(ffSql,"SELECT COUNT(*) FROM fulfillment_cancellation WHERE state='COMPLETED'")==1,
+                        60,"重启后原取消未完成逐仓回执",pa,pb,pf,po);
+                created(post(portF,cancelPath,operator,"CANCEL-COMMITTED",Map.of("clientOperationId","CANCEL-COMMITTED","reason","客户取消")),202);
+                assertEquals(1,count(sqlA,"SELECT COUNT(*) FROM stock_posting WHERE action='CANCEL'"));
+                assertEquals(1,count(sqlB,"SELECT COUNT(*) FROM stock_posting WHERE action='CANCEL'"));
+                assertEquals("Committed",ffSql.queryForObject("SELECT tc_observed_status FROM allocation_attempt WHERE id=?",String.class,attempt));
+                assertEquals(2,count(ffSql,"SELECT COUNT(*) FROM fulfillment_cancellation_result WHERE state='COMPLETED'"));
+                assertEquals(0,sqlA.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
+                assertEquals(0,sqlB.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
                 // 真实broker路由探针；命令正文为明确夹具，证明两个cell不再竞争同一库存消费组。
                 try(var publisher=new KafkaMessagePublisher(settings,"cell-routing-probe")) {
                     publisher.publish("wms.execution.inbound.commands","A",receipt("A","ROUTE-A").encode());
@@ -173,7 +200,7 @@ class AllocationExecutionProcessesIT {
                     try {
                         await(()->healthy(portB),60,"迁移后原生RM未恢复资源并就绪",pc);
                         assertEquals(1,count(targetSql,"SELECT COUNT(*) FROM inventory_tcc_terminal"));
-                        assertEquals(1,targetSql.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
+                        assertEquals(0,targetSql.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
                         // 再次启动同一目标，原分支与Fence仍保留；不能重新Try产生新预占。
                         stop(pc);pc=start(root,"inventory",migrated,kafka,portB,issuer,logs,"C",argsC);
                         await(()->healthy(portB),60,"迁移目标重启未恢复历史资源",pc);

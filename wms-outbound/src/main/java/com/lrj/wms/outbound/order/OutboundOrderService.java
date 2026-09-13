@@ -311,11 +311,22 @@ public final class OutboundOrderService {
     /** 指定本桶取消量，支持同订单行分布在多个批次/库位时分批释放；省略沿用整行剩余。 */
     public Map<String, Object> cancelUnpicked(String enterpriseId, String warehouseId, String orderId, String orderLineId,
             String commandId, String actorId, BigDecimal requestedQty) {
+        return cancelUnpickedInternal(enterpriseId,warehouseId,orderId,orderLineId,commandId,actorId,requestedQty,null);
+    }
+
+    /** 仅本包补偿器可按已落库取消身份释放；普通HTTP仍须执行授权。 */
+    Map<String,Object> cancelUnpickedInternal(String enterpriseId,String warehouseId,String orderId,String orderLineId,
+            String commandId,String actorId,BigDecimal requestedQty,String cancellationId) {
         Timestamp now = now();
         OutboundOrderMapper mapper = mapper();
-        Map<String, Object> order = requireOrder(mapper, enterpriseId, warehouseId, orderId);
-        requireAuthorization(enterpriseId, warehouseId, order);
-        Map<String, Object> line = requireLineByOrder(mapper, enterpriseId, warehouseId, orderId, orderLineId);
+        Map<String,Object> order=requireOrder(mapper,enterpriseId,warehouseId,orderId);
+        if(cancellationId==null) requireAuthorization(enterpriseId,warehouseId,order);
+        else {
+            var fence=mapper.cancellation(enterpriseId,warehouseId,orderId);
+            if(fence==null || !cancellationId.equals(fence.get("cancellation_id")))
+                throw new OutboundException("CANCELLATION_MISMATCH","补偿必须属于原取消决定");
+        }
+        Map<String,Object> line=requireLineByOrder(mapper,enterpriseId,warehouseId,orderId,orderLineId);
         var protocol = new SourceProtocolService(session, clock);
         String taskId = com.lrj.wms.runtime.command.CommandReplay.partId(orderId, commandId);
         Map<String, Object> replay = protocol.replayIfPresent(SourceProtocolService.ACTION_CANCEL, "SUB_ACTION",

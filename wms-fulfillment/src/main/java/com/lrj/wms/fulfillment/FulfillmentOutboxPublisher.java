@@ -63,7 +63,11 @@ public final class FulfillmentOutboxPublisher {
     private RuntimeMessage message(Map<String,Object> row) {
         String type=text(row,"event_type"), warehouse=text(row,"warehouse_id"), attempt=text(row,"attempt_id");
         tools.jackson.databind.JsonNode body;
-        if(com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)) {
+        if(com.lrj.wms.contract.messaging.CommittedCancellation.EVENT.equals(type)) {
+            body=RuntimeMessage.JSON.readTree(text(row,"payload"));
+            var value=RuntimeMessage.JSON.treeToValue(body,com.lrj.wms.contract.messaging.CommittedCancellation.class);
+            if(!attempt.equals(value.request().attemptId()) || !warehouse.equals(value.request().warehouseId())) throw new MessageRejectedException("CANCELLATION_SCOPE_MISMATCH");
+        } else if(com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)) {
             body=RuntimeMessage.JSON.readTree(text(row,"payload"));
             var notice=RuntimeMessage.JSON.treeToValue(body,com.lrj.wms.contract.messaging.TcTerminalNotice.class);
             if(!attempt.equals(notice.attemptId())) throw new MessageRejectedException("TC_NOTICE_SCOPE_MISMATCH");
@@ -82,7 +86,8 @@ public final class FulfillmentOutboxPublisher {
         var message=new RuntimeMessage(1,text(row,"event_id"),"wms-fulfillment",text(row,"enterprise_id"),warehouse,
                 type,attempt,1,instant(row.get("created_at")).toString(),null,body);
         if (!FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type) && !com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(type)
-                && !com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)) AllocationAuthorizationMessage.from(message);
+                && !com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)
+                && !com.lrj.wms.contract.messaging.CommittedCancellation.EVENT.equals(type)) AllocationAuthorizationMessage.from(message);
         return message;
     }
     private boolean finish(Map<String,Object> row,long epoch,String state,String error,Instant next) {

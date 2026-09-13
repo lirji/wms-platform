@@ -27,12 +27,12 @@ public class FulfillmentMessagingConfiguration {
     }
     @Bean
     RuntimeInbox fulfillmentRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
-        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix()+".fulfillment.results", "wms-inventory"), Clock.systemUTC());
+        return new RuntimeInbox(sessions, Map.of(settings.topicPrefix()+".fulfillment.results", "wms-inventory",settings.topicPrefix()+".cancellation.results","wms-outbound"), Clock.systemUTC());
     }
     @Bean
     KafkaInboxConsumer fulfillmentKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
         return new KafkaInboxConsumer(settings, settings.topicPrefix()+".fulfillment-results",
-                List.of(settings.topicPrefix()+".fulfillment.results"), inbox);
+                List.of(settings.topicPrefix()+".fulfillment.results",settings.topicPrefix()+".cancellation.results"), inbox);
     }
     @Bean
     MessageWorker fulfillmentInboxWorker(RuntimeInbox inbox) {
@@ -41,7 +41,8 @@ public class FulfillmentMessagingConfiguration {
             long deadline = System.nanoTime()+java.time.Duration.ofSeconds(20).toNanos();
             for (int i=0; i<32 && System.nanoTime()<deadline && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session,message)->{
-                    if(com.lrj.wms.contract.messaging.SerialTransferCommand.RESULT.equals(message.eventType())) new SerialTransferService(session,Clock.systemUTC()).complete(message);
+                    if(com.lrj.wms.contract.messaging.CommittedCancellation.RESULT.equals(message.eventType())) CommittedCancellationFlow.complete(session,message);
+                    else if(com.lrj.wms.contract.messaging.SerialTransferCommand.RESULT.equals(message.eventType())) new SerialTransferService(session,Clock.systemUTC()).complete(message);
                     else handler.apply(session,message);
                 })) break;
             }

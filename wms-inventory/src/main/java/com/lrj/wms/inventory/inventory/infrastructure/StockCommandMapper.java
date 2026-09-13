@@ -7,6 +7,12 @@ import org.apache.ibatis.annotations.Param;
 
 /** 库存命令、凭证与授权。调用方必须带企业/仓条件。 */
 public interface StockCommandMapper {
+    /** 同原出库单的取消和STARTED串行，拒绝网络迟到的新执行。 */
+    int ensureCancellationGuard(@Param("e") String e,@Param("w") String w,@Param("o") String o);
+    Map<String,Object> lockCancellationGuard(@Param("e") String e,@Param("w") String w,@Param("o") String o);
+    int stopCancellationGuard(@Param("e") String e,@Param("w") String w,@Param("o") String o,@Param("id") String id);
+    int unresolvedOutboundPermits(@Param("e") String e,@Param("w") String w,@Param("o") String o,@Param("line") String line);
+
     /** 可靠回执从已提交凭证恢复原始数量与执行身份，不按本次重投请求伪造凭证。 */
     Map<String, Object> postingByCommand(@Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("sourceService") String sourceService,

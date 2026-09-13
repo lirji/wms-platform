@@ -31,7 +31,10 @@ class TcAuditRecoveryIT {
 
     @BeforeAll
     static void prepare() {
-        business = new MySQLContainer("mysql:8.4.11").withDatabaseName("fulfillment")
+        business = new MySQLContainer("mysql:8.4.11")
+                // 宿主端口误连其他服务时必须有握手读取上限，启动重试重新分配隔离端口。
+                .withUrlParam("connectTimeout","3000").withUrlParam("socketTimeout","5000")
+                .withStartupAttempts(2).withStartupTimeout(java.time.Duration.ofSeconds(45)).withDatabaseName("fulfillment")
                 .withUsername("wms").withPassword(UUID.randomUUID().toString());
         business.start();
         var ds = source(business, "wms");
@@ -43,7 +46,10 @@ class TcAuditRecoveryIT {
 
     @Test
     void realTcAuditSurvivesTcStopAndReadOnlyAdapterReleasesOnlyCommittedAttempt() throws Exception {
-        try (var auditDb = new MySQLContainer("mysql:8.4.11").withDatabaseName("seata")
+        try (var auditDb = new MySQLContainer("mysql:8.4.11")
+                // 宿主端口误连其他服务时必须有握手读取上限，启动重试重新分配隔离端口。
+                .withUrlParam("connectTimeout","3000").withUrlParam("socketTimeout","5000")
+                .withStartupAttempts(2).withStartupTimeout(java.time.Duration.ofSeconds(45)).withDatabaseName("seata")
                 .withUsername("tc").withPassword(UUID.randomUUID().toString())) {
             auditDb.start();
             var adminSource = source(auditDb, "root");
@@ -57,7 +63,7 @@ class TcAuditRecoveryIT {
                     .update("DELETE FROM terminal_evidence WHERE xid='never'"));
             var auditSessions = factory(auditSource, TcEvidenceMapper.class);
             var env = new org.springframework.mock.env.MockEnvironment()
-                    .withProperty("wms.tc.audit.jdbc-url", auditDb.getJdbcUrl())
+                    .withProperty("wms.tc.audit.jdbc-url", auditDb.getJdbcUrl().split("\\?",2)[0])
                     .withProperty("wms.tc.audit.username", "tc_audit")
                     .withProperty("wms.tc.audit.password", auditDb.getPassword());
             try (var port = new TcEvidenceConfiguration().tcStatusPort(env, SCOPE)) {

@@ -21,6 +21,7 @@ final class TcTerminalNotifications {
         var notice=new TcTerminalNotice(1,attemptId,attemptId,(String)attempt.get("xid"),
                 scope.clusterId(),scope.applicationId(),scope.transactionGroup(),evidence.path("status").intValue());
         var mapper=session.getMapper(FulfillmentMapper.class);
+        CommittedCancellationFlow.enqueue(session,clock,enterprise,mapper.lockAttempt(enterprise,attemptId));
         for(var participant:mapper.lockParticipants(enterprise,attemptId)) {
             String warehouse=(String)participant.get("warehouse_id");
             String id=RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(java.util.List.of(TcTerminalNotice.EVENT,enterprise,attemptId,warehouse)));

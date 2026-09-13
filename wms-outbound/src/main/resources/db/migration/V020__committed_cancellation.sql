@@ -1,0 +1,20 @@
+CREATE TABLE outbound_cancellation (
+ enterprise_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原企业',
+ warehouse_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原参与仓',
+ attempt_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原已提交分配尝试',
+ cancellation_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '履约首个取消决定',
+ order_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原出库单及并发门禁',
+ payload JSON NOT NULL COMMENT '原Try及已提交证据与操作人',
+ payload_hash CHAR(64) COLLATE utf8mb4_bin NOT NULL COMMENT '原决定内容摘要',
+ state VARCHAR(32) COLLATE utf8mb4_bin NOT NULL COMMENT 'PROCESSING或COMPLETED或PARTIALLY_COMPENSATED',
+ error_code VARCHAR(64) COLLATE utf8mb4_bin NULL COMMENT '等待实物或原回执的原因',
+ next_at DATETIME(6) NOT NULL COMMENT '下次本地事实检查UTC时刻',
+ version BIGINT NOT NULL DEFAULT 0 COMMENT '恢复进度版本',
+ created_at DATETIME(6) NOT NULL COMMENT '首次阻断新执行UTC时刻',
+ updated_at DATETIME(6) NOT NULL COMMENT '最近检查UTC时刻',
+ PRIMARY KEY(enterprise_id,warehouse_id,attempt_id),
+ UNIQUE KEY uk_outbound_cancel_order(enterprise_id,warehouse_id,order_id),
+ KEY idx_outbound_cancel_due(state,next_at),
+ CONSTRAINT ck_outbound_cancel_state CHECK(state IN ('PROCESSING','COMPLETED','PARTIALLY_COMPENSATED')),
+ CONSTRAINT ck_outbound_cancel_version CHECK(version>=0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='已提交后的业务补偿门禁和可恢复进度，不修改原TCC';

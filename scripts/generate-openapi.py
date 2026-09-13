@@ -92,7 +92,7 @@ get("/api/wms/v1/warehouses/{warehouseId}/serial-stock", "listSelectableSerialSt
 post("/api/wms/v1/fulfillments", "createFulfillment", "fulfillment", "fulfillment.create",
      "FulfillmentCreateRequest", ("202",), "创建全局履约单，202表示受理而非已分配")
 get("/api/wms/v1/fulfillments/{fulfillmentId}", "getFulfillment", "fulfillment", "fulfillment.read",
-    ("200",), "查询履约单及仓分配", ["- $ref: '#/components/parameters/FulfillmentId'"])
+    ("200",), "查询履约单、仓分配及最近20条取消状态（COMPENSATING处理中，COMPLETED完成，PARTIALLY_COMPENSATED保留已执行部分）", ["- $ref: '#/components/parameters/FulfillmentId'"])
 post("/api/wms/v1/fulfillments/{fulfillmentId}/cancellations", "cancelFulfillment", "fulfillment",
      "fulfillment.cancel", "VersionedReasonRequest", ("202",), "取消履约",
      ["- $ref: '#/components/parameters/FulfillmentId'"])
@@ -1726,7 +1726,7 @@ components:
       required: [attemptId, state, completedWarehouses, retryCount, statusUrl, updatedAt]
       properties:
         attemptId: { type: string, minLength: 1, maxLength: 64 }
-        state: { type: string, enum: [READY, BEGIN_CALLING, BEGIN_UNKNOWN, TRYING, FINISH_REQUESTED, WAITING_TERMINAL, COMPLETED, ROLLED_BACK, ISOLATED] }
+        state: { type: string, enum: [READY, BEGIN_CALLING, BEGIN_UNKNOWN, TRYING, FINISH_REQUESTED, WAITING_TERMINAL, COMPLETED, ROLLED_BACK, ISOLATED, COMPENSATING, COMPENSATED] }
         xid: { type: [string, 'null'], maxLength: 128 }
         requestedAction: { type: [string, 'null'], enum: [COMMIT, ROLLBACK, null] }
         completedWarehouses: { type: integer, minimum: 0, maximum: 200 }

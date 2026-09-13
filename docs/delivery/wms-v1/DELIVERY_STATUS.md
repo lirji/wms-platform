@@ -2,10 +2,10 @@
 
 ## 当前基线与授权
 
-远程main已发布7659d34（公开序列调拨），新CI34731081335运行中。前一main 051a7eb的CI34729813580全部成功。当前feat/tcc-terminal-migration实施TC原资源迁移，未验证代码未发布。
+远程main已发布TC提交a3b4c65，祖先核验通过，新CI34732426303成功。TRANSFER7659d34的CI34731081335全部成功。当前feat/committed-cancellation-compensation完成取消补偿实现及全部本地必要门禁，尚未提交；待发布和远程CI。
 更新时间：2026-09-13。前一阶段基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
-用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER已实现、验证并发布；TC/COMP/FINAL仍待完成，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
+用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER/TC已实现、验证并发布；COMP本地组合验收通过，FINAL待发布/CI，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
 
 持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 
@@ -26,8 +26,8 @@
 
 | 项目 | 剩余范围 | 完成所需证据/边界 |
 | --- | --- | --- |
-| R13 | 可信来源/库存/回执水位；序列拣发已发布并通过CI | PICK/SHIP逐SN、原epoch/分配/订单行绑定及真实登记恢复已由dd22cd0/1dd3d18验证，见[证据](../../implementation/SERIAL_OUTBOUND_DESIGN.md)；调用者填三个水位字符串仍不算可信证明 |
-| R14 | 公开序列调拨接入、TC 终态通知及原资源/Fence 迁移、全局提交后的取消补偿 | 内部 `sealSource/stageDestination` 测试不等于公开入口；不能向已全局提交分支用 TCC Cancel 冒充业务补偿 |
+| R13 | 实现与阶段验证已完成，待FINAL组合结项 | PICK/SHIP逐SN、原epoch/分配/订单行绑定及真实登记恢复已由dd22cd0/1dd3d18验证，见[证据](../../implementation/SERIAL_OUTBOUND_DESIGN.md)；调用者填三个水位字符串仍不算可信证明 |
+| R14 | 公开序列调拨已发布；TC已发布；取消补偿及FINAL本地门禁通过，待发布/CI | 内部 `sealSource/stageDestination` 测试不等于公开入口；不能向已全局提交分支用 TCC Cancel 冒充业务补偿 |
 | R15 | 上述缺失链路的恢复接线与最终收敛；归档执行边界 | 归档目前只有候选计划；未确定保留期限，不执行删除或伪造导出完成 |
 | R22 | 剩余整改完成后的整体复验与结项 | 时间代码及已发布基线 CI 已通过；未核验或转换生产历史时间，不重复标为代码未实现 |
 | 验收外部输入 | OQ-03 数量/效期业务输入、真实 WCS、容量与 RTO/RPO、完整 50 AC 证据 | 不以模拟器、合成峰值、备份文件存在或单项成功替代签署 |
@@ -36,7 +36,7 @@
 
 ## 未发布开发与门禁
 
-- 序列拣发与历史门禁已发布并通过CI。水位采集器最新定向8项IT与5项协议单测通过，非空迁移清单56表，OpenAPI96路径110操作；最终全量回归在FINAL执行。
+- 序列拣发、水位和公开序列调拨已发布；TC提交a3b4c65已发布main。当前COMP代表链路通过，仓迁移扩展为59表，公开OpenAPI99路径113操作；最终默认组合、134必需、warehouse12/tc2/failure3及smoke通过。取消补偿证据见[专题](../../implementation/COMMITTED_CANCELLATION.md)。
 - AC-26现场黑盒仍open；默认不开启来源/采集器，旧写节点退出及受控服务凭据配置是启用条件，不自动部署。
 - 完整功能/非功能验收：**未完成**。历史 [AC_EVIDENCE](AC_EVIDENCE.md) 和 [DELIVERY_REPORT](DELIVERY_REPORT.md) 保留当时的证据缺口；其中“真实 TM/RM 未实现”等早期结论已由后续专题证据更新，但没有因此自动关闭全部 AC。
 - 生产安全与环境：版本锁、漏洞例外、生产凭据/ACL、容量和恢复目标未签署。[既有 OSV 快照](../../implementation/sbom/osv-findings.md)仍记录两个组件命中，本次未重新扫描。

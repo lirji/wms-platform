@@ -23,9 +23,9 @@
         FROM allocation_attempt a
         WHERE a.enterprise_id=#{enterpriseId} AND a.xid IS NOT NULL
         <if test="afterId != null">AND a.id &gt; #{afterId}</if>
-        AND (a.state IN ('TCC_TRYING','TCC_COMPLETING')
+        AND ((a.state IN ('TCC_TRYING','TCC_COMPLETING') AND a.compensation_cancellation_id IS NULL)
           OR (a.state='ALLOCATED' AND (SELECT COUNT(*) FROM fulfillment_outbox o
-              WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id AND o.event_type&lt;&gt;'TcTerminalNoticeV1')
+              WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id AND o.event_type IN ('AllocationCompleted','OutboundOrderRequested','ExecutionAuthorizationRequested'))
               &lt; 1+2*(SELECT COUNT(*) FROM allocation_participant p
               WHERE p.enterprise_id=a.enterprise_id AND p.attempt_id=a.id))
           OR (a.tc_terminal_evidence IS NOT NULL AND EXISTS(SELECT 1 FROM allocation_participant p

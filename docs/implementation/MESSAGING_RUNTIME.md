@@ -65,3 +65,7 @@ Python HTTP夹具2项已通过，覆盖健康/隔离/超龄/旧快照/鉴权失�
 Inbox在每次处理和人工重试时重新验证受信Topic、source、原事件身份与内容摘要；畸形、来源不可信或内容篡改的隔离记录拒绝恢复。来源Outbox缺少原始上下文、上下文不一致或尝试已安全关闭时不能用人工重试绕过核对。恢复接口不提供改写消息正文或回退业务状态的能力；重试后的业务效果仍由原业务幂等与权威数据库决定。
 
 滚动升级需先扩展数据库、部署所有理解retry_base_epoch的新worker，最后才启用人工恢复入口；旧worker忽略新预算基线会重新隔离，不能宣称新旧混跑支持人工恢复。当前尚无历史消息归档删除策略，审计及原事件均保留。运行时关闭恢复开关需重启，是明确的环境配置，不支持含糊的动态来源。该开关是滚动升级兼容措施，所有运行实例长期升级并完成兼容验证后再评估移除，不能提前删旧路径。
+
+## COMP 取消消息（本地实施中）
+
+`CommittedCancellationRequestedV1` 使用现有 outbound.authorizations（可信来源wms-fulfillment）。原CANCEL库存命令使用 outboundSchemaVersion=3，compensationId 与原桶上下文固定；库存先部署V3再接收。完成后出库通过已有来源Outbox发送 `CommittedCancellationResultV1` 到 cancellation.results，仅允许wms-outbound写、wms-fulfillment读。缺失任一仓回执仍补偿中。详见[补偿与恢复](COMMITTED_CANCELLATION.md)。

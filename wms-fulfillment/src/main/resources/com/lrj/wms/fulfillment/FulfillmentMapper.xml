@@ -280,9 +280,9 @@
         AND tc_observed_status='Committed'
         AND tc_terminal_evidence IS NOT NULL
         AND tc_terminal_evidence&lt;&gt;''
-        AND (state IN ('TCC_TRYING','TCC_COMPLETING')
+        AND ((state IN ('TCC_TRYING','TCC_COMPLETING') AND compensation_cancellation_id IS NULL)
           OR (state='ALLOCATED' AND (SELECT COUNT(*) FROM fulfillment_outbox o
-             WHERE o.enterprise_id=allocation_attempt.enterprise_id AND o.attempt_id=allocation_attempt.id AND o.event_type&lt;&gt;'TcTerminalNoticeV1')
+             WHERE o.enterprise_id=allocation_attempt.enterprise_id AND o.attempt_id=allocation_attempt.id AND o.event_type IN ('AllocationCompleted','OutboundOrderRequested','ExecutionAuthorizationRequested'))
              &lt; 1+2*(SELECT COUNT(*) FROM allocation_participant p
              WHERE p.enterprise_id=allocation_attempt.enterprise_id AND p.attempt_id=allocation_attempt.id)))
         ORDER BY id LIMIT 100 FOR UPDATE

@@ -336,6 +336,112 @@ class OutboundPickIT {
         assertEquals(0,new BigDecimal("2").compareTo(jdbc.queryForObject("SELECT shipped_posted_qty FROM outbound_line WHERE id=?",BigDecimal.class,line)));
     }
 
+    @Test
+    void committedCancellationFencesLateAuthorizationAndPreservesUnknownPhysical() {
+        Clock clock=Clock.fixed(NOW,ZoneOffset.UTC);
+        String order;
+        try(var session=sessions.openSession(false)) {
+            var cancellation=cancellation("CANCEL-EARLY",clock);
+            new CommittedCancellationService(session,clock).accept(cancellation);
+            order=session.getMapper(OutboundOrderMapper.class).lockOrderByAttempt("ENT-1","WH-A","CANCEL-EARLY","CANCEL-EARLY").get("id").toString();
+            String original=order;
+            assertEquals("AUTH_CONFLICT",assertThrows(OutboundException.class,()->authorizeForTest(session,"ENT-1","WH-A",original,"CANCEL-EARLY","LATE-AUTH")).code());
+            new CommittedCancellationService(session,clock).accept(cancellation);
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",order);
+            session.commit();
+        }
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.compensationId'))='CANCEL-EARLY'",Integer.class));
+        assertEquals(3,jdbc.queryForObject("SELECT JSON_EXTRACT(payload_json,'$.outboundSchemaVersion') FROM source_command WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.compensationId'))='CANCEL-EARLY'",Integer.class));
+        try(var session=sessions.openSession(false)) {
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",order);
+            var row=session.getMapper(OutboundOrderMapper.class).cancellation("ENT-1","WH-A",order);
+            assertEquals("PROCESSING",row.get("state"));assertEquals("CANCEL_POSTING_PENDING",row.get("error_code"));session.commit();
+        }
+        try(var session=sessions.openSession(false)) {
+            var service=new OutboundOrderService(session,clock);
+            var created=service.createFromAllocation("ENT-1","WH-A","CANCEL-UNKNOWN","CANCEL-UNKNOWN","OWNER-1",null,
+                    List.of(Map.of("orderLineId","L-CANCEL","skuId","SKU-1","qty",new BigDecimal("5"),"baseUnit","EA"),
+                            Map.of("orderLineId","L-SAFE","skuId","SKU-1","qty",new BigDecimal("2"),"baseUnit","EA")));
+            String id=created.get("id").toString();authorizeForTest(session,"ENT-1","WH-A",id,"CANCEL-UNKNOWN","UNKNOWN-AUTH");
+            String task=service.planPickTask("ENT-1","WH-A",id,"L-CANCEL","LOC-1","STG-1",new BigDecimal("5")).get("taskId").toString();
+            session.getMapper(OutboundOrderMapper.class).claimTask("ENT-1","WH-A",task,"worker",1,"original-action","original-device",java.sql.Timestamp.from(NOW));
+            new CommittedCancellationService(session,clock).accept(cancellation("CANCEL-UNKNOWN",clock));
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id);
+            assertEquals("PHYSICAL_OR_POSTING_UNKNOWN",session.getMapper(OutboundOrderMapper.class).cancellation("ENT-1","WH-A",id).get("error_code"));
+            assertEquals("CANCELLATION_IN_PROGRESS",assertThrows(OutboundException.class,()->service.pickPartial("ENT-1","WH-A",task,"late-pick","actor",BigDecimal.ONE)).code());
+            session.commit();
+        }
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.compensationId'))='CANCEL-UNKNOWN' AND JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.reservationOrderLineId'))='L-SAFE'",Integer.class));
+    }
+
+    @Test
+    void partialExecutionOnlyReleasesOriginalUnpickedRemainder() {
+        Clock clock=Clock.fixed(NOW,ZoneOffset.UTC);String id;
+        try(var session=sessions.openSession(false)) {
+            var service=new OutboundOrderService(session,clock);
+            id=service.createFromAllocation("ENT-1","WH-A","CANCEL-PARTIAL","CANCEL-PARTIAL","OWNER-1",null,
+                    List.of(Map.of("orderLineId","L-CANCEL","skuId","SKU-1","qty",new BigDecimal("5"),"baseUnit","EA"))).get("id").toString();
+            authorizeForTest(session,"ENT-1","WH-A",id,"CANCEL-PARTIAL","PARTIAL-AUTH");
+            String task=service.planPickTask("ENT-1","WH-A",id,"L-CANCEL","LOC-1","STG-1",new BigDecimal("5")).get("taskId").toString();
+            var pick=new OutboundPostingService(session,clock).pick("ENT-1","WH-A",task,"PARTIAL-PICK","actor",new BigDecimal("3"),"PART","NO_LOT");
+            service.consumePick("ENT-1","WH-A",pick.get("lineId").toString(),"PARTIAL-RECEIPT","PARTIAL-PICK","APPLIED","PARTIAL-POSTING",new BigDecimal("3"));
+            new CommittedCancellationService(session,clock).accept(cancellation("CANCEL-PARTIAL",clock));
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id);session.commit();
+        }
+        var command=jdbc.queryForMap("SELECT command_id,payload_json FROM source_command WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.compensationId'))='CANCEL-PARTIAL'");
+        assertEquals(0,new BigDecimal(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(command.get("payload_json").toString()).path("qty").asString()).compareTo(new BigDecimal("2")));
+        try(var session=sessions.openSession(false)) {
+            var line=session.getMapper(OutboundOrderMapper.class).lockLineByOrderLine("ENT-1","WH-A",id,"L-CANCEL");
+            var service=new OutboundOrderService(session,clock);
+            service.consumeCancel("ENT-1","WH-A",line.get("id").toString(),"CANCEL-PARTIAL-RESULT",command.get("command_id").toString(),"APPLIED","CANCEL-PARTIAL-POSTING",new BigDecimal("2"));
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id);
+            new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id);
+            assertEquals("PARTIALLY_COMPENSATED",session.getMapper(OutboundOrderMapper.class).cancellation("ENT-1","WH-A",id).get("state"));
+            session.commit();
+        }
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM source_outbox WHERE command_id='CANCEL-PARTIAL' AND event_type='CommittedCancellationResultV1'",Integer.class));
+    }
+
+    @Test
+    void concurrentRecoveryAndFailedFinalOutboxCannotDoubleCancel() throws Exception {
+        Clock clock=Clock.fixed(NOW,ZoneOffset.UTC);String id;
+        try(var session=sessions.openSession(false)) {
+            new CommittedCancellationService(session,clock).accept(cancellation("CANCEL-RACE",clock));
+            id=session.getMapper(OutboundOrderMapper.class).lockOrderByAttempt("ENT-1","WH-A","CANCEL-RACE","CANCEL-RACE").get("id").toString();session.commit();
+        }
+        String command=com.lrj.wms.runtime.messaging.RuntimeMessage.hash(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                List.of("cancel-compensation","ENT-1","WH-A","CANCEL-RACE","L-CANCEL","LOC-1","NO_LOT")));
+        jdbc.execute("ALTER TABLE source_outbox ADD CONSTRAINT ck_cancel_last_outbox CHECK(command_id<>'"+command+"')");
+        try(var session=sessions.openSession(false)) {
+            assertThrows(RuntimeException.class,()->new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id));session.rollback();
+            CommittedCancellationService.recoverOne(sessions,clock);
+            assertEquals("COMPENSATION_STEP_FAILED",jdbc.queryForObject("SELECT error_code FROM outbound_cancellation WHERE order_id=?",String.class,id));
+        } finally {jdbc.execute("ALTER TABLE source_outbox DROP CHECK ck_cancel_last_outbox");}
+        assertEquals(0,jdbc.queryForObject("SELECT cancelled_qty FROM outbound_line WHERE order_id=?",BigDecimal.class,id).signum());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id=?",Integer.class,command));
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(2);var start=new java.util.concurrent.CountDownLatch(1);
+        try {
+            var futures=java.util.stream.IntStream.range(0,2).mapToObj(i->executor.submit(()->{
+                start.await();try(var session=sessions.openSession(false)) {new CommittedCancellationService(session,clock).recover("ENT-1","WH-A",id);session.commit();}return true;
+            })).toList();start.countDown();for(var result:futures) assertTrue(result.get(20,java.util.concurrent.TimeUnit.SECONDS));
+        } finally {executor.shutdownNow();}
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM source_command WHERE command_id=?",Integer.class,command));
+        assertEquals(0,jdbc.queryForObject("SELECT cancelled_qty FROM outbound_line WHERE order_id=?",BigDecimal.class,id).compareTo(new BigDecimal("5")));
+    }
+
+    /** 明确的可信消息夹具，真实TC来源另由跨进程用例证明。 */
+    private static com.lrj.wms.runtime.messaging.RuntimeMessage cancellation(String id,Clock clock) {
+        var lines=new java.util.ArrayList<com.lrj.wms.contract.tcc.WarehouseTryRequest.Line>();
+        lines.add(new com.lrj.wms.contract.tcc.WarehouseTryRequest.Line("L-CANCEL","SKU-1","LOC-1","NO_LOT",new BigDecimal("5"),"EA",0));
+        if("CANCEL-UNKNOWN".equals(id)) lines.add(new com.lrj.wms.contract.tcc.WarehouseTryRequest.Line("L-SAFE","SKU-1","LOC-1","NO_LOT",new BigDecimal("2"),"EA",0));
+        var request=new com.lrj.wms.contract.tcc.WarehouseTryRequest(1,"ENT-1","WH-A","OWNER-1",id,id,"CELL",1,lines);
+        var value=new com.lrj.wms.contract.messaging.CommittedCancellation(1,id,"actor",request,
+                new com.lrj.wms.contract.messaging.TcTerminalNotice(1,id,id,"xid-"+id,"cluster","wms-fulfillment","group",9));
+        return new com.lrj.wms.runtime.messaging.RuntimeMessage(1,id,"wms-fulfillment","ENT-1","WH-A",
+                com.lrj.wms.contract.messaging.CommittedCancellation.EVENT,id,1,clock.instant().toString(),null,
+                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.valueToTree(value));
+    }
+
     private static void authorizeForTest(org.apache.ibatis.session.SqlSession session, String enterprise, String warehouse,
             String orderId, String attempt, String authorization) {
         if (!session.getConfiguration().hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {

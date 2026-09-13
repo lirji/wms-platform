@@ -100,12 +100,12 @@ public final class SourceCommandContextStore {
                     || reservationOrderLineId != null && (!reservationOrderLineId.equals(object.path("reservationOrderLineId").asString())
                         || !object.path("outboundSchemaVersion").isIntegralNumber()
                         || !object.path("outboundSchemaVersion").canConvertToInt()
-                        || object.path("outboundSchemaVersion").intValue() != (execution==null?1:2))) throw new CommandConflictException();
+                        || object.path("outboundSchemaVersion").intValue() != (object.hasNonNull("compensationId")?3:execution==null?1:2))) throw new CommandConflictException();
             return;
         }
         if (replayed) throw new MissingCommandContextException();
         if (reservationOrderLineId != null) {
-            object.put("reservationOrderLineId", reservationOrderLineId); object.put("outboundSchemaVersion", execution==null?1:2);
+            object.put("reservationOrderLineId", reservationOrderLineId); object.put("outboundSchemaVersion", object.hasNonNull("compensationId")?3:execution==null?1:2);
         }
         if (receiptCommandId != null) object.put("receiptCommandId", receiptCommandId);
         if (observation != null) object.set("serialObservation", RuntimeMessage.JSON.valueToTree(observation));

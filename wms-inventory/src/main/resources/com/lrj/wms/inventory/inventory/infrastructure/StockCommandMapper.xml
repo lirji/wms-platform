@@ -131,4 +131,21 @@
     <select id="lockHistoryGuard" resultType="map" timeout="3">
         SELECT id,closed_before FROM reconciliation_history_guard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} FOR SHARE
     </select>
+    <insert id="ensureCancellationGuard">
+        INSERT INTO outbound_cancellation_guard(id,enterprise_id,warehouse_id,document_id,created_at,updated_at)
+        VALUES(SHA2(JSON_ARRAY(#{e},#{w},#{o}),256),#{e},#{w},#{o},UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)) ON DUPLICATE KEY UPDATE document_id=document_id
+    </insert>
+    <select id="lockCancellationGuard" resultType="map">
+        SELECT document_id,cancellation_id FROM outbound_cancellation_guard WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_id=#{o} FOR UPDATE
+    </select>
+    <update id="stopCancellationGuard">
+        UPDATE outbound_cancellation_guard SET cancellation_id=#{id},version=version+1,updated_at=UTC_TIMESTAMP(6)
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_id=#{o} AND cancellation_id IS NULL
+    </update>
+    <select id="unresolvedOutboundPermits" resultType="int">
+        SELECT EXISTS(SELECT 1 FROM stock_effect f JOIN execution_permit p ON p.enterprise_id=f.enterprise_id
+          AND p.warehouse_id=f.warehouse_id AND p.business_effect_key=f.id
+          WHERE f.enterprise_id=#{e} AND f.warehouse_id=#{w} AND f.source_service='wms-outbound' AND f.fact_parent_id=#{o}
+          AND f.fact_line_id=#{line} AND f.action IN ('PICK','SHIP') AND f.fact_type IN ('SUB_ACTION','SHIPMENT_PART') AND p.state IN ('STARTED','UNKNOWN'))
+    </select>
 </mapper>

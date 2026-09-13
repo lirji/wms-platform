@@ -14,7 +14,7 @@
     </insert>
 
     <select id="getByKey" resultType="map">
-        SELECT id, fulfillment_id, attempt_id, reason, state, version
+        SELECT id, fulfillment_id, attempt_id, reason, actor_id, state, version
         FROM fulfillment_cancellation
         WHERE enterprise_id = #{enterpriseId} AND client_operation_id = #{clientOperationId}
     </select>
@@ -24,5 +24,47 @@
         UPDATE allocation_attempt
         SET cancel_requested = 1, version = version + 1, updated_at = #{now}
         WHERE enterprise_id = #{enterpriseId} AND id = #{attemptId} AND cancel_requested = 0
+    </update>
+    <select id="compensationSource" resultType="map">
+        SELECT c.id,c.actor_id,x.try_payload FROM fulfillment_cancellation c
+        JOIN allocation_execution x ON x.enterprise_id=c.enterprise_id AND x.attempt_id=c.attempt_id
+        JOIN allocation_attempt a ON a.enterprise_id=c.enterprise_id AND a.id=c.attempt_id
+        WHERE c.enterprise_id=#{e} AND c.attempt_id=#{a}
+          AND (a.compensation_cancellation_id IS NULL OR c.id=a.compensation_cancellation_id)
+        ORDER BY c.created_at,c.id LIMIT 1
+    </select>
+    <update id="startCompensation">
+        UPDATE fulfillment_cancellation SET state='COMPENSATING',version=version+1,updated_at=UTC_TIMESTAMP(6)
+        WHERE enterprise_id=#{e} AND attempt_id=#{a} AND state='CANCEL_REQUESTED'
+    </update>
+    <insert id="insertCompensationResult">
+        INSERT INTO fulfillment_cancellation_result(enterprise_id,attempt_id,warehouse_id,cancellation_id,state,payload,payload_hash,created_at)
+        VALUES(#{r.e},#{r.a},#{r.w},#{r.id},#{r.state},CAST(#{r.payload} AS JSON),#{r.hash},UTC_TIMESTAMP(6))
+        ON DUPLICATE KEY UPDATE attempt_id=attempt_id
+    </insert>
+    <select id="compensationResult" resultType="map">
+        SELECT payload_hash FROM fulfillment_cancellation_result WHERE enterprise_id=#{e} AND attempt_id=#{a} AND warehouse_id=#{w}
+    </select>
+    <update id="finishCompensation">
+        UPDATE fulfillment_cancellation SET state=CASE WHEN EXISTS(SELECT 1 FROM fulfillment_cancellation_result r
+          WHERE r.enterprise_id=#{e} AND r.attempt_id=#{a} AND r.state='PARTIALLY_COMPENSATED') THEN 'PARTIALLY_COMPENSATED' ELSE 'COMPLETED' END,
+          version=version+1,updated_at=UTC_TIMESTAMP(6)
+        WHERE enterprise_id=#{e} AND attempt_id=#{a} AND state='COMPENSATING'
+          AND NOT EXISTS(SELECT 1 FROM allocation_participant p WHERE p.enterprise_id=#{e} AND p.attempt_id=#{a}
+            AND NOT EXISTS(SELECT 1 FROM fulfillment_cancellation_result r WHERE r.enterprise_id=p.enterprise_id AND r.attempt_id=p.attempt_id AND r.warehouse_id=p.warehouse_id))
+    </update>
+    <select id="forOrder" resultType="map">
+        SELECT id,attempt_id,client_operation_id,state,reason,version,updated_at FROM fulfillment_cancellation
+        WHERE enterprise_id=#{e} AND fulfillment_id=#{o} ORDER BY created_at DESC,id DESC LIMIT 20
+    </select>
+    <update id="bindCanonical">
+        UPDATE allocation_attempt SET compensation_cancellation_id=#{id},version=version+1,updated_at=UTC_TIMESTAMP(6)
+        WHERE enterprise_id=#{e} AND id=#{a} AND compensation_cancellation_id IS NULL
+    </update>
+    <update id="finishExecution">
+        UPDATE allocation_execution SET state='COMPENSATED',error_code=NULL,updated_at=UTC_TIMESTAMP(6)
+        WHERE enterprise_id=#{e} AND attempt_id=#{a} AND state='COMPENSATING'
+          AND EXISTS(SELECT 1 FROM fulfillment_cancellation c WHERE c.enterprise_id=#{e} AND c.attempt_id=#{a}
+            AND c.state IN ('COMPLETED','PARTIALLY_COMPENSATED'))
     </update>
 </mapper>

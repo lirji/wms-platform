@@ -80,6 +80,7 @@ public final class FulfillmentService {
             body.put("cancelRequested", false);
             body.put("participants", List.of());
         }
+        body.put("cancellations",session.getMapper(FulfillmentCancelMapper.class).forOrder(enterpriseId,fulfillmentId));
         return body;
     }
 
@@ -94,16 +95,16 @@ public final class FulfillmentService {
         requireId(actorId, "INVALID_ACTOR", "操作人不能为空");
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         FulfillmentCancelMapper cancels = session.getMapper(FulfillmentCancelMapper.class);
+        // 同原单并发取消必须在锁内核对幂等正文，不能让INSERT IGNORE掩盖不同请求。
+        Map<String,Object> order=mapper.lockOrder(enterpriseId,fulfillmentId);
+        if(order==null) throw new FulfillmentException("RESOURCE_NOT_FOUND","履约单不存在");
         Map<String, Object> existing = cancels.getByKey(enterpriseId, clientOperationId);
         if (existing != null) {
-            if (!fulfillmentId.equals(String.valueOf(existing.get("fulfillment_id")))) {
+            if (!fulfillmentId.equals(String.valueOf(existing.get("fulfillment_id")))
+                    || !java.util.Objects.equals(reason,existing.get("reason")) || !actorId.equals(existing.get("actor_id"))) {
                 throw new FulfillmentException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键取消内容不一致");
             }
             return cancelView(existing, mapper.lockOrder(enterpriseId, fulfillmentId));
-        }
-        Map<String, Object> order = mapper.lockOrder(enterpriseId, fulfillmentId);
-        if (order == null) {
-            throw new FulfillmentException("RESOURCE_NOT_FOUND", "履约单不存在");
         }
         if (expectedVersion != null && expectedVersion.longValue() != ((Number) order.get("version")).longValue()) {
             throw new FulfillmentException("VERSION_CONFLICT", "履约单版本冲突");
@@ -114,6 +115,7 @@ public final class FulfillmentService {
                 reason, actorId, "CANCEL_REQUESTED", now);
         if (attemptId != null) {
             cancels.casCancelRequested(enterpriseId, attemptId, now);
+            CommittedCancellationFlow.enqueue(session,clock,enterpriseId,mapper.lockAttempt(enterpriseId,attemptId));
         }
         return cancelView(cancels.getByKey(enterpriseId, clientOperationId), mapper.lockOrder(enterpriseId, fulfillmentId));
     }
@@ -981,7 +983,7 @@ public final class FulfillmentService {
         return body;
     }
 
-    private static boolean cancelRequested(Object value) {
+    static boolean cancelRequested(Object value) {
         if (value instanceof Boolean flag) {
             return flag;
         }

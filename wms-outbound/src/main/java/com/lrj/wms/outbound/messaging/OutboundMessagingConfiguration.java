@@ -59,6 +59,9 @@ public class OutboundMessagingConfiguration {
             for (int i = 0; i < 32 && System.nanoTime() < deadline && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
                     if ("wms-fulfillment".equals(message.sourceService())) {
+                        if(com.lrj.wms.contract.messaging.CommittedCancellation.EVENT.equals(message.eventType())) {
+                            new com.lrj.wms.outbound.order.CommittedCancellationService(session,Clock.systemUTC()).accept(message);return;
+                        }
                         new AllocationAuthorizationHandler(Clock.systemUTC()).apply(session, message);
                         return;
                     }
@@ -94,10 +97,16 @@ public class OutboundMessagingConfiguration {
             }
         });
     }
+    /** 补偿只轮询本库已受理决定，发送和失败重放仍由既有队列负责。 */
+    @Bean
+    MessageWorker outboundCancellationWorker(SqlSessionFactory sessions) {
+        return new MessageWorker("outbound-cancellation",()->com.lrj.wms.outbound.order.CommittedCancellationService.recoverOne(sessions,Clock.systemUTC()));
+    }
     @Bean(destroyMethod = "close")
     KafkaDependencyHealth outboundMessagingHealth(KafkaSettings settings, KafkaInboxConsumer consumer,
             @org.springframework.beans.factory.annotation.Qualifier("outboundOutboxWorker") MessageWorker outbox,
-            @org.springframework.beans.factory.annotation.Qualifier("outboundInboxWorker") MessageWorker inbox) {
-        return new KafkaDependencyHealth(settings, () -> consumer.isReceiving() && outbox.lastPulseSucceeded() && inbox.lastPulseSucceeded());
+            @org.springframework.beans.factory.annotation.Qualifier("outboundInboxWorker") MessageWorker inbox,
+            @org.springframework.beans.factory.annotation.Qualifier("outboundCancellationWorker") MessageWorker cancellation) {
+        return new KafkaDependencyHealth(settings, () -> consumer.isReceiving() && outbox.lastPulseSucceeded() && inbox.lastPulseSucceeded() && cancellation.lastPulseSucceeded());
     }
 }

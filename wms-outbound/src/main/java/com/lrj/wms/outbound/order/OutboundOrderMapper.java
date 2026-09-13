@@ -8,6 +8,16 @@ import org.apache.ibatis.annotations.Param;
 
 /** 出库单/行/任务/包裹。必须带企业/仓条件。 */
 public interface OutboundOrderMapper {
+    /** 订单锁保护取消门禁；不能用旧授权绕过已受理取消。 */
+    Map<String,Object> cancellation(@Param("e") String e,@Param("w") String w,@Param("o") String o);
+    int insertCancellation(@Param("r") Map<String,Object> r);
+    Map<String,Object> dueCancellation(@Param("now") Timestamp now);
+    int advanceCancellation(@Param("r") Map<String,Object> r);
+    Map<String,Object> cancellationUsage(@Param("e") String e,@Param("w") String w,@Param("o") String o,
+            @Param("line") String line,@Param("location") String location,@Param("lot") String lot);
+    int cancellationUncertain(@Param("e") String e,@Param("w") String w,@Param("o") String o,@Param("line") String line);
+    int bindCompensation(@Param("e") String e,@Param("w") String w,@Param("c") String c,@Param("id") String id);
+
     /** insertOrderIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertOrderIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("allocationId") String allocationId,

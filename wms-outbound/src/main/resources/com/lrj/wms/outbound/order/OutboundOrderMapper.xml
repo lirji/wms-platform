@@ -250,4 +250,47 @@
                 AND cancelled_posted_qty=cancelled_qty THEN 'POSTED' ELSE 'PENDING' END
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
     </update>
+    <select id="cancellation" resultType="map">
+        SELECT * FROM outbound_cancellation WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND order_id=#{o}
+    </select>
+    <insert id="insertCancellation">
+        INSERT INTO outbound_cancellation(enterprise_id,warehouse_id,attempt_id,cancellation_id,order_id,payload,payload_hash,state,next_at,created_at,updated_at)
+        VALUES(#{r.e},#{r.w},#{r.a},#{r.id},#{r.o},CAST(#{r.payload} AS JSON),#{r.hash},'PROCESSING',#{r.now},#{r.now},#{r.now})
+        ON DUPLICATE KEY UPDATE attempt_id=attempt_id
+    </insert>
+    <!-- 先找候选，处理时先锁原订单；不引入compensation到order的反向锁序。 -->
+    <select id="dueCancellation" resultType="map">
+        SELECT enterprise_id,warehouse_id,order_id FROM outbound_cancellation
+        WHERE state='PROCESSING' AND next_at&lt;=#{now} ORDER BY next_at,enterprise_id,warehouse_id,attempt_id LIMIT 1
+    </select>
+    <update id="advanceCancellation">
+        UPDATE outbound_cancellation SET state=#{r.state},error_code=#{r.error,jdbcType=VARCHAR},next_at=#{r.next},version=version+1,updated_at=#{r.now}
+        WHERE enterprise_id=#{r.e} AND warehouse_id=#{r.w} AND order_id=#{r.o} AND state='PROCESSING'
+    </update>
+    <!-- 有设备身份但未完成的任务即使本地回滚成PLANNED也不能证明未派发。 -->
+    <select id="cancellationUncertain" resultType="int">
+        SELECT EXISTS(SELECT 1 FROM outbound_task WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_id=#{o} AND document_line_id=#{line}
+          AND device_command_id IS NOT NULL AND state&lt;&gt;'COMPLETED')
+          OR EXISTS(SELECT 1 FROM outbound_line WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND order_id=#{o} AND id=#{line}
+          AND (picked_physical_qty&lt;&gt;picked_posted_qty OR shipped_physical_qty&lt;&gt;shipped_posted_qty))
+          OR EXISTS(SELECT 1 FROM source_effect f JOIN source_command c ON c.enterprise_id=f.enterprise_id
+            AND c.warehouse_id=f.warehouse_id AND c.business_effect_key=f.id
+            WHERE f.enterprise_id=#{e} AND f.warehouse_id=#{w} AND f.fact_parent_id=#{o} AND f.fact_line_id=#{line}
+            AND f.source_service='wms-outbound' AND f.fact_type='SUB_ACTION' AND f.action IN ('PICK','CANCEL') AND NOT JSON_CONTAINS_PATH(c.payload_json,'one','$.postingContext'))
+    </select>
+    <select id="cancellationUsage" resultType="map">
+        SELECT COALESCE(SUM(x.physical_qty),0) AS used_qty,
+            COALESCE(SUM(CASE WHEN c.state&lt;&gt;'APPLIED' THEN 1 ELSE 0 END),0) AS pending
+        FROM source_effect f JOIN source_command c ON c.enterprise_id=f.enterprise_id AND c.warehouse_id=f.warehouse_id AND c.business_effect_key=f.id
+        JOIN source_execution x ON x.enterprise_id=c.enterprise_id AND x.warehouse_id=c.warehouse_id AND x.id=c.source_execution_id
+        WHERE f.enterprise_id=#{e} AND f.warehouse_id=#{w} AND f.fact_parent_id=#{o} AND f.fact_line_id=#{line}
+          AND f.source_service='wms-outbound' AND f.fact_type='SUB_ACTION' AND f.action IN ('PICK','CANCEL')
+          AND JSON_UNQUOTE(JSON_EXTRACT(c.payload_json,'$.postingContext.sourceLocationId'))=#{location}
+          AND JSON_UNQUOTE(JSON_EXTRACT(c.payload_json,'$.postingContext.lotId'))=#{lot}
+    </select>
+    <update id="bindCompensation">
+        UPDATE source_command SET payload_json=JSON_SET(payload_json,'$.compensationId',#{id})
+        WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND command_id=#{c} AND action='CANCEL'
+          AND state='PENDING' AND NOT JSON_CONTAINS_PATH(payload_json,'one','$.postingContext')
+    </update>
 </mapper>

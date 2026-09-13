@@ -64,6 +64,17 @@ class TcTerminalMigrationIT {
                 TcTerminalService.accept(session,notice(xid,"cluster",9),"cluster","group");
                 TcTerminalService.accept(session,notice(xid,"cluster",9),"cluster","group");session.commit();
             }
+            // 原TC证明存在仍不能取消UNKNOWN实物；该事务夹具回滚，不伪造设备结案。
+            try(var session=sourceSessions.openSession(false)) {
+                var commands=new com.lrj.wms.inventory.inventory.StockCommandService(session,clock);
+                commands.startPermit("ENT","A","wms-outbound","UNKNOWN-CMD","TASK",1,"ORIGINAL-OUT","PART","ORIGINAL-LINE",BigDecimal.ONE);
+                commands.markUnknown("ENT","A","wms-outbound","UNKNOWN-CMD");
+                assertEquals("PHYSICAL_RESULT_UNKNOWN",assertThrows(InventoryException.class,()->com.lrj.wms.inventory.inventory.OutboundCancellationGuard.stop(
+                        session,"ENT","A","ORIGINAL-OUT","ATT","ATT","CANCEL","ORIGINAL-LINE")).code());session.rollback();
+            }
+            try(var session=sourceSessions.openSession(false)) {
+                com.lrj.wms.inventory.inventory.OutboundCancellationGuard.stop(session,"ENT","A","ORIGINAL-OUT","ATT","ATT","CANCEL","ORIGINAL-LINE");session.commit();
+            }
             try(var session=sourceSessions.openSession(false)) {
                 var migration=new WarehouseMigrationService(session,new JdbcTemplate(source),new JdbcTemplate(target),clock);migration.copyFull("ENT","A");migration.quiesce("ENT","A");session.commit();
             }
@@ -86,6 +97,11 @@ class TcTerminalMigrationIT {
             assertEquals(1,targetSql.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE event_type='ReservationConfirmed'",Integer.class));
             assertEquals(BigDecimal.ONE.intValue(),targetSql.queryForObject("SELECT reserved_qty FROM stock_balance",BigDecimal.class).intValueExact());
             assertEquals("A",targetSql.queryForObject("SELECT cell_id FROM inventory_tcc_intent",String.class));
+            try(var session=InventoryPersistence.sessions(target,new JdbcTransactionFactory(),budget).openSession(false)) {
+                assertEquals("CANCELLATION_IN_PROGRESS",assertThrows(InventoryException.class,()->new com.lrj.wms.inventory.inventory.StockCommandService(session,clock)
+                    .startPermit("ENT","A","wms-outbound","LATE-CMD","LATE-TASK",1,"ORIGINAL-OUT","LATE-PART","ORIGINAL-LINE",BigDecimal.ONE)).code());session.rollback();
+            }
+            assertEquals(sql.queryForList("SELECT * FROM outbound_cancellation_guard"),targetSql.queryForList("SELECT * FROM outbound_cancellation_guard"));
             assertEquals(1,targetSql.queryForObject("SELECT route_epoch FROM inventory_tcc_intent",Integer.class));
             // 历史预占没有原RM意图时不能因意图表没查到它而放过；不猜测补造TC来源。
             targetSql.update("INSERT INTO reservation(id,enterprise_id,warehouse_id,allocation_id,attempt_id,request_digest,digest_version,state,xid,branch_id,action_name,route_epoch,version,created_at,updated_at) SELECT 'UNOWNED',enterprise_id,warehouse_id,'UNOWNED','UNOWNED',request_digest,digest_version,state,'unowned-xid',999,action_name,route_epoch,0,created_at,updated_at FROM reservation LIMIT 1");

@@ -29,7 +29,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             throw new MessageRejectedException("UNSUPPORTED_COMMAND_ACTION");
         // 序列出库使用独立V2：旧V1消费者会明确拒绝，不能在普通SKU上静默忽略新身份字段。
         if (outbound && (!payload.path("outboundSchemaVersion").isIntegralNumber()
-                || !payload.path("outboundSchemaVersion").canConvertToInt() || payload.path("outboundSchemaVersion").intValue() != (payload.hasNonNull("serialExecution")?2:1)))
+                || !payload.path("outboundSchemaVersion").canConvertToInt() || payload.path("outboundSchemaVersion").intValue() != (payload.hasNonNull("compensationId")?3:payload.hasNonNull("serialExecution")?2:1)))
             throw new MessageRejectedException("UNSUPPORTED_OUTBOUND_SCHEMA");
         StockPostingContext context;
         BigDecimal rawQty;
@@ -94,6 +94,12 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         var bucket = StockBucketKey.of(enterprise, warehouse, context.ownerId(), context.sourceLocationId(), context.skuId(), context.lotId(), context.qualityCode());
         Map<String, Object> command;
         if (outbound) {
+            if(payload.hasNonNull("compensationId")) {
+                String id=required(payload,"compensationId");
+                if(!"CANCEL".equals(action) || id.length()>64 || payload.hasNonNull("serialExecution")) throw new MessageRejectedException("INVALID_COMPENSATION");
+                com.lrj.wms.inventory.inventory.OutboundCancellationGuard.stop(session,enterprise,warehouse,context.documentId(),
+                        context.allocationId(),context.allocationAttemptId(),id,required(payload,"factLineId"));
+            }
             if ("PICK".equals(action)) {
                 var targetLocation = masterdata.getLocation(enterprise, warehouse, context.targetLocationId());
                 if (!active(targetLocation)) throw new MessageRejectedException("INVALID_PICK_LOCATION");

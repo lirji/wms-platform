@@ -253,6 +253,7 @@ public final class StockCommandService {
     public Map<String, Object> startPermit(String enterpriseId, String warehouseId, String sourceService, String commandId,
             String taskId, long taskEpoch, String parentId, String partId, String lineId, BigDecimal qty) {
         EffectCodes.requireAction(EffectCodes.ACTION_PICK);
+        if("wms-outbound".equals(sourceService)) OutboundCancellationGuard.requireOpen(session,enterpriseId,warehouseId,parentId);
         Timestamp now = Timestamp.from(clock.instant());
         EffectMapper effects = session.getMapper(EffectMapper.class);
         StockCommandMapper commands = session.getMapper(StockCommandMapper.class);
@@ -290,6 +291,7 @@ public final class StockCommandService {
             String commandId, String taskId, long taskEpoch, String parentId, String partId, String lineId,
             BigDecimal qty, StockBucketKey bucket) {
         EffectCodes.requireAction(EffectCodes.ACTION_SHIP);
+        if("wms-outbound".equals(sourceService)) OutboundCancellationGuard.requireOpen(session,enterpriseId,warehouseId,parentId);
         new InventoryApplicationService(session, clock).requireLiveLotForStart(enterpriseId, warehouseId, bucket);
         Timestamp now = Timestamp.from(clock.instant());
         EffectMapper effects = session.getMapper(EffectMapper.class);

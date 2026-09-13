@@ -20,8 +20,8 @@
 | AC-08 | local-pass | 序列号登记 IT | 两仓并发正式链 |
 | AC-09 | local-pass | 观察恢复 IT | 乱序确认现场 |
 | AC-10 | local-pass | TCC/XXL handler 本地 | 真实 TC 超时 + XXL 集群 |
-| AC-11 | local-pass | `SeataTccRecoveryIT` 范围 | TM 重启全链路 |
-| AC-12 | local-pass | 履约屏障本库 | 真实 TC 终态查询 |
+| AC-11 | local-pass | `AllocationExecutionProcessesIT`：真实TC/Kafka/TM重启，原XID/分支继续；见[执行](../../implementation/FULFILLMENT_EXECUTION.md) | 生产故障窗口与签署目标未验收 |
+| AC-12 | local-pass | 真实TC只读审计、可靠终态通知、原Fence及资源迁移；见[终态迁移](../../implementation/TC_RESOURCE_MIGRATION.md) | 非生产TC授权与运行验收 |
 | AC-13 | local-pass | 出库部分拣发 IT | HTTP/WCS/设备 |
 | AC-14 | local-pass | 取消回库协议 IT | 生产逆向链 |
 | AC-15 | local-pass | 效期重校验 IT | STARTED 授权现场 |
@@ -35,7 +35,7 @@
 | AC-23 | local-pass | `StockInternalReconcileIT` | 工作台审批现场 |
 | AC-24 | local-pass | WMS `SnapshotExportIT`/`SnapshotHttpIT`；recon `WmsExportContractTest` 消费 WMS JSONL | 仍缺跨仓库进程联调与金额回归现场 |
 | AC-25 | blocked | 出库 simulator / UNKNOWN sweep（仅模拟，单独列） | 无授权真实设备/协议环境（S8-05） |
-| AC-26 | open | 2026-09-12 Casdoor 活走查：收货/质检/上架/准备跨仓/拣/部分发/未拣回库；202 显示待同步；403/409 横幅；见 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md) | 跨仓 ALLOCATED 需真实 TC；收货同键非恢复；未做断网/对账修复/设备 |
+| AC-26 | open | 2026-09-12 Casdoor 活走查：收货/质检/上架/准备跨仓/拣/部分发/未拣回库；202 显示待同步；403/409 横幅；见 [AC26_LIVE_WALK.md](AC26_LIVE_WALK.md) | 真实TC跨仓链路现已有独立进程证据；本次现场记录未重做，仍缺完整断网/设备/UI验收 |
 | AC-27 | blocked | `run-capacity.sh --scenario agreed-peak` 无签署输入则退出 2 | 缺 OQ-05 签署峰值；correctness 只对应既有并发 IT |
 | AC-28 | local-pass | `WarehouseMigrationIT` 两 MySQL 全量/增量/切 epoch/旧写拒绝 | 无生产停写窗口（OQ-06） |
 | AC-29 | local-pass | `CompatibilityMatrixIT`/`CompatibilityGateTest`/`verify-contracts.sh` | 无生产滚动升级/开关演练现场 |
@@ -51,14 +51,14 @@
 | AC-39 | local-pass | 内部对账 watermark | 跨系统水位联调 |
 | AC-40 | open | Casdoor 收货/拣/发 202 横幅「货已执行，库存待同步」 | 库存仍 PENDING，无 UNKNOWN 设备恢复端到端 |
 | AC-41 | local-pass | Fence/空回滚 IT | 正式 TM 进程 |
-| AC-42 | blocked | TC 探针 | TM/TC 宕机保留现场 |
+| AC-42 | local-pass | 隔离真实TM重启、TC重启及原应用回调恢复；10:04:16代表链路通过，见[取消与迁移](../../implementation/COMMITTED_CANCELLATION.md) | 非生产故障演练或签署RTO/RPO；最终组合门禁进行中 |
 | AC-43 | local-pass | Fence 同连接 IT | 双分片 RM 重启现场 |
 | AC-44 | local-pass | `ContextIsolationIT` | 非正式 Outbox/HTTP Try |
 | AC-45 | local-pass | owner/XID CAS IT | 实际 RPC 换 branch |
 | AC-46 | local-pass | 启动绑定 IT | 独立 TM 崩溃 |
 | AC-47 | local-pass | 分批/换键 IT | HTTP-MQ 离线重报 |
 | AC-48 | local-pass | 安全关闭 IT | 旧回执并发现场 |
-| AC-49 | local-pass | UNKNOWN/STARTED 拒绝重做 | 设备核验入口 |
+| AC-49 | local-pass | UNKNOWN/STARTED拒绝重做；COMP原取消门禁不释放未知行，其他已知行可推进 | 真实设备核验入口未验收；不补造未执行证明 |
 | AC-50 | local-pass | 补偿一次入账 IT；`FailureDigestReplayIT` 旧摘要重放 | 版本共存生产现场 |
 
 未决：OQ-03 单位/效期默认不得编造。S8-05 无授权设备保持 blocked，模拟不得当作硬件通过。S9-01 缺签署容量输入。S9-02/S9-04 仅本地两库演练，不是生产停写窗口或签署 RTO/RPO。S9-03 本地矩阵已有；S9-06 已把 AC-45..50 列入 CI 必选名单。

@@ -1,6 +1,6 @@
 # 数据与接口索引
 
-核对已发布基线 `7659d34`及本地TC迁移切片（2026-09-13，TC尚待回调寻址验收和发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
+核对已发布基线 `7659d34`、已验证TC提交 `a3b4c65`及本地COMP实施（2026-09-13，TC已发布main且CI成功，COMP已定向验证、待最终组合及发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
 
 ## 数据所有权与迁移
 
@@ -8,15 +8,15 @@
 | --- | --- | --- | --- |
 | inbound | 入库单、分批收货观察、质检、上架、来源命令及回执 | `wms_inbound` | [inbound 迁移](../../wms-inbound/src/main/resources/db/migration)；V017 `source_reconciliation_window` |
 | outbound | 出库单、拣发任务、实物执行、取消、履约授权快照 | `wms_outbound` | [outbound 迁移](../../wms-outbound/src/main/resources/db/migration)；V019 `source_reconciliation_window` |
-| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V048 `tcc_terminal_proof`（本地待发布）；V047调拨与V045水位已发布 |
+| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V048 `tcc_terminal_proof`（已发布）；V047调拨与V045水位已发布 |
 | serial-registry | 企业 + SKU + SN 身份、归属和转移凭据 | `wms_registry` | [registry 迁移](../../wms-serial-registry/src/main/resources/db/migration/registry)；V005 `serial_shipment` |
-| fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox、原序列调拨命令及逐SN成员 | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V020 `serial_transfer_command`（本地待发布） |
+| fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox、原序列调拨命令及逐SN成员 | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V020 `serial_transfer_command`（已发布） |
 
 版本号是本次代码快照，不代表现场数据库已执行到该版本。跨服务通过契约协作，不共享事务管理器或直接写对方表。当前独立查询服务尚未创建，投影在 inventory 内；`wms-integration` 是适配库，没有独立 schema 或启动进程。
 
 新增表和字段必须写中文含义注释；通过追加迁移演进，不修改已执行文件伪造历史。唯一约束、条件更新、影响行数和事务边界共同维护完整性。变更前检查新旧应用共存、回填和回退条件；代码回退不自动撤销已提交业务数据。
 
-仓迁移显式复制 58 张企业/仓范围表（含本地新增序列调拨命令），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
+仓迁移显式复制 59 张企业/仓范围表（含TC原终态证明及本地COMP取消门禁），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
 
 ## HTTP 与鉴权
 
@@ -50,8 +50,12 @@ sequenceDiagram
 
 跨仓预占由 fulfillment 作为 TM 发起，TC 持有全局决定，inventory 作为 RM 维护本仓资源。只有原 TC 可靠终态与全部原分支确认满足屏障后才发送出库执行授权。SDK 返回、HTTP 超时和本地 `CONFIRMED` 文本都不能独立证明全局成功。Try 字段见[仓级契约](../../wms-contract/src/main/resources/contracts/warehouse-tcc-try-v1.schema.json)，实现入口见[自动履约](FULFILLMENT_EXECUTION.md)。
 
-序列号收货、质检、上架、源释放、逐身份盘点及PICK/分次SHIP已有持久恢复；发运全球确认与库存POSTED分开，详见[序列出库](SERIAL_OUTBOUND_DESIGN.md)。仍缺公开序列调拨接入、可信对账水位及TC迁移/晚取消补偿。不得用普通数量链路测试代替逐SN归属和epoch验证。归档当前仅生成候选计划，保留期限、删除与导出不由本文件补造。
+序列号收货、质检、上架、源释放、逐身份盘点及PICK/分次SHIP已有持久恢复；发运全球确认与库存POSTED分开，详见[序列出库](SERIAL_OUTBOUND_DESIGN.md)。公开序列调拨、可信对账水位已发布，TC原资源迁移已验证待发布；晚取消补偿仍在实施。不得用普通数量链路测试代替逐SN归属和epoch验证。归档当前仅生成候选计划，保留期限、删除与导出不由本文件补造。
 
 ## 验证入口
 
 数据库语义由真实 MySQL 集成测试验证，单纯 Mock 不证明事务或并发正确。默认必需 IT 名单在[required-its-default.txt](../../scripts/required-its-default.txt)（本基线 118 项）；构建/profile/smoke 的准确命令见[运行与验证](S0_RUNBOOK.md)。既有结果见[阶段组合证据](REMEDIATION_VERIFICATION_2026-09-13.md)，其提交和范围必须一起阅读，不能把旧计数当成当前代码重测结果。
+
+## COMP 本地变更（未发布）
+
+库存 V049 原单取消/STARTED 门禁将纳入59张仓表迁移；出库 V020 持久取消进度；履约 V021 逐仓结果。出库命令 V3 冻结 compensationId，旧消费者拒绝未知版本。履约详情增加 cancellations（最近20条）；沿用原取消202入口及权限。详见[取消补偿](COMMITTED_CANCELLATION.md)。

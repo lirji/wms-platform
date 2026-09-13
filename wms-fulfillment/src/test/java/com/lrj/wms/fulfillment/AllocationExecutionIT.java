@@ -45,10 +45,10 @@ class AllocationExecutionIT {
         f.step();assertEquals("FINISH_REQUESTED",f.state());assertEquals("COMMIT",f.value("requested_action"));
         f.commitUnknown=true;f.step();assertEquals("WAITING_TERMINAL",f.state());assertEquals("TC_COMMIT_UNKNOWN",f.value("error_code"));
         f.commitUnknown=false;f.step();assertEquals(2,f.commits.get());assertEquals(1,f.begins.get());assertEquals(f.xid,f.value("xid"));
-        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type IN ('AllocationCompleted','OutboundOrderRequested','ExecutionAuthorizationRequested')",Integer.class,f.e));
         f.confirm();f.proof=proof(f.xid,"Committed",9);f.step();
         assertEquals("COMPLETED",f.state());assertEquals("ALLOCATED",db.queryForObject("SELECT state FROM allocation_attempt WHERE id=?",String.class,f.attempt));
-        assertEquals(5,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
+        assertEquals(5,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type IN ('AllocationCompleted','OutboundOrderRequested','ExecutionAuthorizationRequested')",Integer.class,f.e));
         assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type='TcTerminalNoticeV1'",Integer.class,f.e));
         assertFalse(f.worker().executeOne(f.e));assertEquals(2,f.commits.get());
     }
@@ -75,8 +75,31 @@ class AllocationExecutionIT {
         try(var session=sessions.openSession(false)) {new FulfillmentService(session,CLOCK).requestCancel(f.e,f.order,"CANCEL","OMS",null,"operator");session.commit();}
         f.step();assertEquals(1,f.commits.get());assertEquals(0,f.rollbacks.get());
         f.confirm();f.proof=proof(f.xid,"Committed",9);f.step();
-        assertEquals("WAITING_TERMINAL",f.state());assertEquals("CANCEL_REQUIRES_COMPENSATION",f.value("error_code"));
-        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
+        assertEquals("COMPENSATING",f.state());assertEquals("CANCEL_REQUIRES_COMPENSATION",f.value("error_code"));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type IN ('AllocationCompleted','OutboundOrderRequested','ExecutionAuthorizationRequested')",Integer.class,f.e));
+        assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type='CommittedCancellationRequestedV1'",Integer.class,f.e));
+        String canonical=db.queryForObject("SELECT compensation_cancellation_id FROM allocation_attempt WHERE id=?",String.class,f.attempt);
+        try(var session=sessions.openSession(false)) {
+            new FulfillmentService(session,CLOCK).requestCancel(f.e,f.order,"SECOND-CANCEL","再次请求",null,"other-actor");
+            assertEquals("IDEMPOTENCY_PAYLOAD_MISMATCH",assertThrows(FulfillmentException.class,()->new FulfillmentService(session,CLOCK).requestCancel(f.e,f.order,"CANCEL","更改原因",null,"operator")).code());
+            session.commit();
+        }
+        assertEquals(canonical,db.queryForObject("SELECT compensation_cancellation_id FROM allocation_attempt WHERE id=?",String.class,f.attempt));
+        assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type='CommittedCancellationRequestedV1'",Integer.class,f.e));
+        assertFalse(f.worker().executeOne(f.e));
+        for(String warehouse:List.of("A","B")) {
+            try(var session=sessions.openSession(false)) {
+                var payload=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.valueToTree(Map.of("schemaVersion",1,"attemptId",f.attempt,
+                        "cancellationId",canonical,"state","COMPLETED","releasedQty",BigDecimal.ONE,"executedQty",BigDecimal.ZERO));
+                var result=new com.lrj.wms.runtime.messaging.RuntimeMessage(1,"RESULT-"+warehouse,"wms-outbound",f.e,warehouse,
+                        com.lrj.wms.contract.messaging.CommittedCancellation.RESULT,f.attempt,1,CLOCK.instant().toString(),null,payload);
+                CommittedCancellationFlow.complete(session,result);CommittedCancellationFlow.complete(session,result);session.commit();
+            }
+        }
+        assertEquals("COMPENSATED",f.state());
+        assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM fulfillment_cancellation WHERE enterprise_id=? AND state='COMPLETED'",Integer.class,f.e));
+        assertEquals(1,f.commits.get());assertEquals(0,f.rollbacks.get());
+
     }
 
     @Test void failedTryHasBoundedRetriesAndRollbackRequiresTcEvidence() {

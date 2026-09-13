@@ -184,7 +184,8 @@ public final class AllocationExecutionWorker {
                         current.put("state","COMPLETED");current.put("error_code",null);
                     } catch(FulfillmentException pending) {
                         if(!FulfillmentService.isRecoveryPending(pending)&&!"CANCEL_REQUIRES_COMPENSATION".equals(pending.code())) throw pending;
-                        current.put("state","WAITING_TERMINAL");current.put("error_code",pending.code());
+                        // 已提交取消已移交原Outbox业务补偿，不再轮询不可能变化的TC终态。
+                        current.put("state","CANCEL_REQUIRES_COMPENSATION".equals(pending.code())?"COMPENSATING":"WAITING_TERMINAL");current.put("error_code",pending.code());
                     }
                 } else {
                     var attempt=session.getMapper(FulfillmentMapper.class).lockAttempt(text(row,"enterprise_id"),text(row,"attempt_id"));

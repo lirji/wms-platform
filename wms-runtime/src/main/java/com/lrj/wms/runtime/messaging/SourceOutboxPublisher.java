@@ -18,12 +18,14 @@ public final class SourceOutboxPublisher {
     private final KafkaMessagePublisher publisher;
     private final String sourceService;
     private final String topic;
+    private final String cancellationTopic;
     private final Clock clock;
 
     public SourceOutboxPublisher(SqlSessionFactory sessions, KafkaMessagePublisher publisher,
             String sourceService, String topicPrefix, Clock clock) {
         if (!java.util.Set.of("wms-inbound", "wms-outbound").contains(sourceService)) throw new IllegalArgumentException("不支持的来源");
         this.sessions = sessions; this.publisher = publisher; this.sourceService = sourceService; this.clock = clock;
+        this.cancellationTopic=topicPrefix+".cancellation.results";
         this.topic = topicPrefix + "." + sourceService.substring(4) + ".commands";
     }
 
@@ -48,7 +50,7 @@ public final class SourceOutboxPublisher {
             try {
                 if (attempt > 8) throw new MessageRejectedException("RETRY_EXHAUSTED");
                 RuntimeMessage message = message(event);
-                publisher.publish(topic, RuntimeMessage.hash(message.enterpriseId() + "/" + message.warehouseId() + "/" + message.aggregateId()), message.encode());
+                publisher.publish(com.lrj.wms.contract.messaging.CommittedCancellation.RESULT.equals(message.eventType())?cancellationTopic:topic, RuntimeMessage.hash(message.enterpriseId() + "/" + message.warehouseId() + "/" + message.aggregateId()), message.encode());
                 if (finish(event, epoch, "PUBLISHED", null, clock.instant())) published++;
             } catch (MessageRejectedException invalid) {
                 finish(event, epoch, "ISOLATED", invalid.code(), clock.instant());
@@ -62,6 +64,14 @@ public final class SourceOutboxPublisher {
     }
 
     private RuntimeMessage message(Map<String, Object> event) {
+        if(com.lrj.wms.contract.messaging.CommittedCancellation.RESULT.equals(event.get("event_type"))) {
+            var payload=RuntimeMessage.JSON.readTree(text(event,"payload"));
+            if(!"wms-outbound".equals(sourceService) || !text(event,"command_id").equals(payload.path("attemptId").asString())
+                    || !java.util.Set.of("COMPLETED","PARTIALLY_COMPENSATED").contains(payload.path("state").asString()))
+                throw new MessageRejectedException("INVALID_CANCELLATION_RESULT");
+            return new RuntimeMessage(1,text(event,"event_id"),sourceService,text(event,"enterprise_id"),text(event,"warehouse_id"),
+                    com.lrj.wms.contract.messaging.CommittedCancellation.RESULT,text(event,"command_id"),1,instant(event.get("created_at")).toString(),null,payload);
+        }
         ObjectNode body;
         StockPostingContext context;
         try {

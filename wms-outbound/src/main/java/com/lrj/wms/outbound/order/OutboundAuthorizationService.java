@@ -36,6 +36,8 @@ public final class OutboundAuthorizationService {
         // 先锁单据再读幂等记录，避免同单并发授权使用不同快照并回退业务状态。
         Map<String, Object> order = session.getMapper(OutboundOrderMapper.class).lockOrder(enterpriseId, warehouseId, orderId);
         if (order == null) throw new OutboundException("UNKNOWN_ORDER", "出库单不存在");
+        if (session.getMapper(OutboundOrderMapper.class).cancellation(enterpriseId,warehouseId,orderId)!=null)
+            throw new OutboundException("AUTH_CONFLICT","原取消门禁禁止迟到授权");
         Map<String, Object> existing = auths.getAuthorizationByKey(enterpriseId, warehouseId, clientOperationId);
         if (existing == null) existing = auths.getAuthorizationById(enterpriseId, warehouseId, authorizationId);
         if (existing != null) {
@@ -89,6 +91,8 @@ public final class OutboundAuthorizationService {
 
     /** 人工作业与设备派工共用成功屏障；持有本地事务锁直到用例提交。 */
     public void requireExecutable(String enterpriseId, String warehouseId, Map<String, Object> order) {
+        if(order!=null && session.getMapper(OutboundOrderMapper.class).cancellation(enterpriseId,warehouseId,String.valueOf(order.get("id")))!=null)
+            throw new OutboundException("CANCELLATION_IN_PROGRESS","原取消已阻断新作业，原回执仍可恢复");
         Object authorization = order == null ? null : order.get("execution_authorization_id");
         if (authorization == null || String.valueOf(authorization).isBlank()
                 || session.getMapper(OutboundAuthorizationMapper.class).verifiedAuthorization(enterpriseId, warehouseId,
