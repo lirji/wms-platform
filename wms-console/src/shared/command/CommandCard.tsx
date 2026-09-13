@@ -18,6 +18,7 @@ export function CommandCard({
   embedded,
   requireScope,
   danger,
+  pollOperation,
   children,
   onRun,
   onDone
@@ -30,6 +31,8 @@ export function CommandCard({
   embedded?: boolean;
   requireScope?: string | string[];
   danger?: boolean;
+  /** 仅库存域 GET /operations/{id} 存在。入出库/履约 202 不要拿库存去猜。 */
+  pollOperation?: boolean;
   children: ReactNode;
   onRun: (idempotencyKey: string, values: Record<string, string>) => Promise<unknown>;
   onDone?: () => void;
@@ -45,7 +48,7 @@ export function CommandCard({
   const pollId = result && isSyncPending(result) ? field(result, "operationId", "commandId") : "";
 
   useEffect(() => {
-    if (!token || !pollId) {
+    if (!token || !pollId || !pollOperation) {
       return;
     }
     let cancelled = false;
@@ -72,8 +75,9 @@ export function CommandCard({
             delay = Math.min(delay * 2, 4000);
             tick();
           })
-          .catch(() => {
-            if (!cancelled) {
+          .catch((caught) => {
+            const status = (caught as { status?: number }).status;
+            if (!cancelled && status !== 404 && status !== 403) {
               delay = Math.min(delay * 2, 4000);
               tick();
             }
@@ -84,7 +88,7 @@ export function CommandCard({
     return () => {
       cancelled = true;
     };
-  }, [pollId, token]);
+  }, [pollId, pollOperation, token]);
 
   if (!hasScope(scopes, requireScope)) {
     return null;

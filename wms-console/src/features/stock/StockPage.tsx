@@ -29,6 +29,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="同仓移库" title="同仓移库" hint="202 表示单据已受理。跨仓请走调拨。" requireScope="stock.move" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="stock.move"
               title="同仓移库"
               hint="从源桶移到目标库位。返回 202。"
@@ -57,6 +58,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="库存限制" title="库存限制" hint="占用 reserved，不是盘点冻结。" triggerType="default" requireScope="stock.hold" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="stock.hold"
               title="库存限制"
               hint="必须指定库存桶与数量。"
@@ -81,6 +83,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="释放限制" title="释放限制" hint="只释放 stock-hold，不解冻盘点。" triggerType="default" requireScope="stock.releaseHold" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="stock.releaseHold"
               title="释放限制"
               hint="需要限制标识与 expectedVersion。"
@@ -101,6 +104,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="独立调整" title="独立调整" hint="与盘点按行调整不是同一张单。" triggerType="default" requireScope="adjustment.create" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="adjustment.create"
               title="创建调整"
               hint="创建后还要审批再应用。"
@@ -126,6 +130,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="审批调整" title="审批调整" hint="未审批不能过账。" triggerType="default" requireScope="adjustment.approve" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="adjustment.approve"
               title="审批调整"
               hint="结论只能是 APPROVED 或 REJECTED。"
@@ -152,6 +157,7 @@ export function StockPage() {
           <CommandDrawer triggerLabel="应用调整" title="应用调整" hint="202 表示已过账受理。" triggerType="default" requireScope="adjustment.apply" disabled={!ready}>
             <CommandCard
               embedded
+              pollOperation
               requireScope="adjustment.apply"
               title="应用调整"
               hint="必须先审批。"

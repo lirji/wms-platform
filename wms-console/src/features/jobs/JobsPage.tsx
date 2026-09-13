@@ -101,6 +101,7 @@ export function JobsPage() {
           >
             <CommandCard
               embedded
+              pollOperation
               requireScope="task.read"
               title="登记效果"
               hint="不要用新随机键重做旧实物。"
@@ -156,6 +157,7 @@ export function JobsPage() {
           >
             <CommandCard
               embedded
+              pollOperation
               requireScope="messaging.recover"
               title="重排恢复"
               hint="必须带当前 epoch 与原因。"
@@ -236,6 +238,7 @@ export function JobsPage() {
             >
               <CommandCard
                 embedded
+                pollOperation={service === "inventory"}
                 requireScope="messaging.recover"
                 title="重排消息"
                 hint="202 不是业务完成。"

@@ -46,6 +46,7 @@ export function JobDetailPage() {
           <CommandCol title="回收过期租约" requireScope="job.retry">
             <CommandCard
               embedded
+              pollOperation
               requireScope="job.retry"
               title="回收过期租约"
               hint="接管失联分片，不重新派发设备。"
@@ -64,6 +65,7 @@ export function JobDetailPage() {
           <CommandCol title="领取就绪分片" requireScope="task.claim">
             <CommandCard
               embedded
+              pollOperation
               requireScope="task.claim"
               title="领取就绪分片"
               hint="没有 READY 分片时 claimed=false。"

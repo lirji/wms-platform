@@ -78,6 +78,7 @@ export function ReconPage() {
           >
             <CommandCard
               embedded
+              pollOperation
               requireScope="recon.export"
               title="请求窗口"
               hint="202 表示已受理采集。不要手写水位。"
@@ -163,6 +164,7 @@ export function ReconPage() {
           >
             <CommandCard
               embedded
+              pollOperation
               requireScope="recon.export"
               title="导出快照"
               hint="填写关闭时刻与三方水位。若返回 EXPORTING，保持表单内容再次提交续跑，直到 COMPLETE。"

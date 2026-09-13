@@ -55,4 +55,70 @@ describe("CommandCard", () => {
     await waitFor(() => expect(keys.filter(Boolean).length).toBeGreaterThanOrEqual(2));
     expect(new Set(keys.filter(Boolean)).size).toBe(1);
   });
+
+  it("does not poll inventory operations for other-domain 202s", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <AppProviders>
+        <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["outbound.pick"] }}>
+          <CommandCard
+            title="拣货"
+            hint="202 不是成功"
+            operation="pick:WH-A:OB-1"
+            submitLabel="确认拣货"
+            requireScope="outbound.pick"
+            onRun={async () => ({
+              __httpStatus: 202,
+              operationId: "OP-OUT",
+              physicalStatus: "PICKED",
+              stockSyncStatus: "PENDING"
+            })}
+          >
+            <Form.Item label="数量" name="qty" initialValue="1"><Input /></Form.Item>
+          </CommandCard>
+        </WorkspaceProvider>
+      </AppProviders>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认拣货" }));
+    await waitFor(() => expect(screen.getByText("货已执行，库存待同步")).toBeTruthy());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("stops inventory operation poll when the query is missing", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/operations/")) {
+        return new Response(JSON.stringify({ code: "NOT_FOUND", message: "没有该作业" }), { status: 404 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <AppProviders>
+        <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["stock.move"] }}>
+          <CommandCard
+            title="移库"
+            hint="202 不是成功"
+            operation="move:WH-A"
+            submitLabel="提交移库"
+            requireScope="stock.move"
+            pollOperation
+            onRun={async () => ({
+              __httpStatus: 202,
+              operationId: "OP-1",
+              physicalStatus: "MOVED",
+              stockSyncStatus: "PENDING"
+            })}
+          >
+            <Form.Item label="数量" name="qty" initialValue="1"><Input /></Form.Item>
+          </CommandCard>
+        </WorkspaceProvider>
+      </AppProviders>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "提交移库" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const afterFirst = fetchMock.mock.calls.length;
+    await new Promise((resolve) => window.setTimeout(resolve, 1200));
+    expect(fetchMock.mock.calls.length).toBe(afterFirst);
+  });
 });

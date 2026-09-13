@@ -205,7 +205,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 - 打印/导出：不对整壳 `window.print`。对账文件只走已发布 `recon.export`，按钮次要，文案是「导出快照」不是「导出全部」
 - 离线：线上写。BRIEF「待同步意图」只能显示服务端 202/`stockSyncStatus`，禁止 `localStorage` 库存队列
 
-作业详情提交已落地命令：入库收货/质检/上架（可选序列号观察/选择），出库核验授权/拣包发与未拣取消（可选 `serialExecution`，身份来自 `serial-stock` / `shippable-serials`），调拨数量发出/授权/接收/损耗以及公开序列签发/签收/命令查询，盘点冻结点数审批调整（可选身份集合，空集合=全部未见），独立调整单审批应用，同仓移库与库存限制/释放，履约取消请求与 attempt 执行，任务回收/领取，仓任务领取，仓级 action-effects 列表/详情/安全重授权，序列号恢复/消息重排，主数据单位与门禁查询，对账窗口请求/重试/取消、快照分段读取、APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。出库单状态 ALLOCATED 不是履约 ALLOCATED。`GET/POST /warehouses/{id}/tasks` 按 `taskType` 分到 inbound（PUTAWAY）或 outbound（PICK/RESTOCK）。已提交取消补偿尚无公开查询入口，页面不发明。内部 `serial-registry` / `recon.evidence` 不接线到作业台。
+作业详情提交已落地命令：入库收货/质检/上架（可选序列号观察/选择），出库核验授权/拣包发与未拣取消（可选 `serialExecution`，身份来自 `serial-stock` / `shippable-serials`），调拨数量发出/授权/接收/损耗以及公开序列签发/签收/命令查询，盘点冻结点数审批调整（可选身份集合，空集合=全部未见），独立调整单审批应用，同仓移库与库存限制/释放，履约取消请求与 attempt 执行，任务回收/领取，仓任务领取，仓级 action-effects 列表/详情/安全重授权，序列号恢复/消息重排，主数据单位与门禁查询，对账窗口请求/重试/取消、快照分段读取、APPROVE/REJECT 与快照导出。跨仓 ALLOCATED 仍要求 TC Committed 证据。出库单状态 ALLOCATED 不是履约 ALLOCATED。`GET /operations/{id}` 只有库存实现；入出库/履约 202 只展示受理，不拿库存作业去猜。PDA 收/拣/发共用该壳。已提交取消补偿尚无公开查询入口，页面不发明。内部 `serial-registry` / `recon.evidence` 不接线到作业台。
 
 ## 11. 落地细节
 

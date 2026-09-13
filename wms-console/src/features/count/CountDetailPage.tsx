@@ -38,6 +38,7 @@ export function CountDetailPage() {
           <CommandCol title="排空 / 冻结" requireScope="count.freeze">
             <CommandCard
               embedded
+              pollOperation
               requireScope="count.freeze"
               title="排空 / 冻结"
               hint="第一次提交排空，第二次在无在途时冻结。在途未清零返回冲突，不会假冻结。"
@@ -56,6 +57,7 @@ export function CountDetailPage() {
           <CommandCol title="点数" requireScope="count.record">
             <CommandCard
               embedded
+              pollOperation
               requireScope="count.record"
               title="点数 / 复盘"
               hint="同 observation 重试。序列号行必须提交身份集合；空集合表示全部未见。普通行留空身份字段。"
@@ -90,6 +92,7 @@ export function CountDetailPage() {
           <CommandCol title="复盘" requireScope="count.record">
             <CommandCard
               embedded
+              pollOperation
               requireScope="count.record"
               title="提交复盘"
               hint="所有快照行都点数后才能进入 REVIEWING。"
@@ -108,6 +111,7 @@ export function CountDetailPage() {
           <CommandCol title="审批" requireScope="adjustment.approve">
             <CommandCard
               embedded
+              pollOperation
               requireScope="adjustment.approve"
               title="审批"
               hint="未复盘不能审批。同审批标识重放。"
@@ -127,6 +131,7 @@ export function CountDetailPage() {
           <CommandCol title="按行调整" requireScope="adjustment.apply">
             <CommandCard
               embedded
+              pollOperation
               requireScope="adjustment.apply"
               title="按行调整"
               hint="盘亏不足以覆盖预占时行进入 RESERVATION_CONFLICT，已提交行不回滚。"

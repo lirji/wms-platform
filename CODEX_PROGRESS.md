@@ -8,19 +8,19 @@
 
 - OUT `365a1eb`、WATERMARK `051a7eb`、TRANSFER `7659d34`、TC `a3b4c65`、COMP `f043117` 均在远程 main；COMP CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069) 成功。
 - 控制台 `a619d3f` 已在远程 main：桌面序列拣发/调拨、对账窗口、仓级 action-effects。
-- PDA 拣/发已在任务分支实现：`/pda/:warehouseId/pick|ship`，同一 `serialExecution`，扫码不默认 ownerEpoch。本地 31 文件 / 56 测、typecheck 通过。
-- FINAL 回执 `c07e9b0` 已在任务分支。
+- PDA 拣/发 `785c7a2` 与 FINAL 回执 `c07e9b0` 已在任务分支。
+- 202 轮询：只对库存域 `GET /operations/{id}` 轮询；入出库/履约 202 不再拿库存作业去猜。本地 31 文件 / 58 测、typecheck 通过。
 
 ## 未完成
 
-- 控制台 main CI [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774) 仍在跑。PDA 与 FINAL 回执尚未合入 main（避免 cancel-in-progress）。
-- 跨服务 202 轮询（`GET /operations/{id}` 只有库存实现）、取消补偿查询（无公开 GET）、库位门禁写（无公开写）。
+- 控制台 main CI [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774) 仍在跑。任务分支领先 main 的 PDA、FINAL 回执与 202 轮询尚未合入（避免 cancel-in-progress）。
+- 取消补偿查询（无公开 GET）、库位门禁写（无公开写）。
 - OQ-03 / AC-26 现场 / S8-05 / S9-01 / 50 AC。
 
 ## 下一步
 
-1. 等 `34736085774` 结束后，把 FINAL 回执与 PDA 拣发快进远程 main。
-2. 不发明跨服务 operations 轮询或补偿 GET。
+1. 等 `34736085774` 结束后，把任务分支快进远程 main。
+2. 不发明补偿 GET 或门禁写。
 3. 不把模拟器当设备，不把本机开关当签署容量。
 
 ## 当前工作树

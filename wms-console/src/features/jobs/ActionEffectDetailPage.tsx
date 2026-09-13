@@ -48,6 +48,7 @@ export function ActionEffectDetailPage() {
         <CommandCol title="安全重授权" requireScope="task.claim">
           <CommandCard
             embedded
+            pollOperation
             requireScope="task.claim"
             title="安全重授权"
             hint={retryBlocked
