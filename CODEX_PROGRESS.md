@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-09-13：控制台浅色作业台已发布远程 main `2c31c54`（任务提交 `df8c56f`，分支 `feat/console-shadcn-dialog`）。新 [main verify 34728530641](https://github.com/lirji/wms-platform/actions/runs/34728530641) queued，未核验。不是 50 AC / AC-26 accepted。根工作区仍停在任务分支，不要切后端工作树。
 - 2026-09-13：两份后台 UI 强约束融合为 `docs/design/console-frontend/ADMIN_UI_PROMPT.md`，架构文与 `console-admin-ui` 规则指向它。后续建页先套该提示词；`WARNING` 映射橙色等待，不增加第六种 Tag 色。契约没有的模板不发明。
 - 2026-09-13：按后台 UI 强约束改已有控制台：浅色侧栏、`#1677FF` 主色、Default 白底灰边、五色状态 Tag、列表查询区+表底右齐游标翻页。不编页码，不扩新作业能力。
 - 2026-09-13：商品/库位/批次补公开 GET 详情页；列表点标识进入。SKU 展示策略与单位，库位展示容量与只读门禁，批次展示货主/效期。不发明写门禁。
@@ -40,7 +41,7 @@
 
 ## 当前问题
 
-- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `main`（`4812941`）。不要切到 `.local/backend-remediation-integrate`。现场 `.env` 在根目录（gitignore），口令不进仓库。
+- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `feat/console-shadcn-dialog`（`df8c56f`）。远程 main 已含 `2c31c54`。不要切到 `.local/backend-remediation-integrate`。现场 `.env` 在根目录（gitignore），口令不进仓库。
 
 - 后端独立工作树 `/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate`，分支 `fix/serial-outbound-execution`。该树内旧进度可能落后实际 HEAD，恢复必须先核对 git status 与提交，不按旧记录重做盘点切片。
 - 本地 dd22cd0 的序列 PICK 已有阶段验证，不能计入 main 文档的已交付；SHIP 未提交工作包括 registry V005、outbound V018、inventory V042 与相关 service/mapper/controller，尚未编译/测试，不能发布。
