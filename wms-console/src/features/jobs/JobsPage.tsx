@@ -77,6 +77,62 @@ export function JobsPage() {
       </Card>
       <DocumentListPage
         secondary
+        title="仓级动作效果"
+        sub="按仓查看 effect。safeToRetry 只在详情由服务端给出，页面不自行判断。"
+        empty={`当前仓没有动作效果`}
+        cursorKey="ec"
+        queryKey="eq"
+        columns={[
+          { key: "id", label: "效果", keys: ["id", "effectId"], kind: "id", copyKind: "效果" },
+          { key: "status", label: "状态", keys: ["state", "status"], kind: "status" },
+          { key: "action", label: "动作", keys: ["action"] },
+          { key: "safe", label: "可重试", keys: ["safeToRetry"] }
+        ]}
+        paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/action-effects`] : []}
+        hrefFor={(row) => ready ? `/w/${warehouseId}/effects/${recordId(row, "effectId")}` : undefined}
+        actions={(
+          <CommandDrawer
+            triggerLabel="登记效果"
+            title="登记动作效果"
+            hint="按权威事实登记。换客户端键仍返回同一 effect。"
+            triggerType="default"
+            requireScope="task.read"
+            disabled={!ready}
+          >
+            <CommandCard
+              embedded
+              requireScope="task.read"
+              title="登记效果"
+              hint="不要用新随机键重做旧实物。"
+              operation={`effect-register:${warehouseId}`}
+              submitLabel="登记"
+              disabled={!token || !ready}
+              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/action-effects`, token, {
+                method: "POST",
+                idempotencyKey: key,
+                body: {
+                  factType: values.factType,
+                  factParentId: values.factParentId,
+                  factPartId: values.factPartId,
+                  factLineId: values.factLineId,
+                  action: values.action,
+                  digestVersion: values.digestVersion ? Number(values.digestVersion) : undefined,
+                  clientOperationId: key
+                }
+              })}
+            >
+              <Form.Item label="factType" name="factType" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="factParentId" name="factParentId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="factPartId" name="factPartId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="factLineId" name="factLineId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="action" name="action" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="digestVersion" name="digestVersion"><Input /></Form.Item>
+            </CommandCard>
+          </CommandDrawer>
+        )}
+      />
+      <DocumentListPage
+        secondary
         title="序列号恢复"
         sub="只看恢复元数据。重排保持原意图，不重置领取代际。"
         empty={`当前仓没有序列号恢复意图`}

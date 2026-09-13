@@ -18,6 +18,7 @@ describe("JobsPage", () => {
     );
     expect(screen.getByRole("heading", { name: "任务与设备" })).toBeTruthy();
     expect(screen.getByText("仓执行任务")).toBeTruthy();
+    expect(screen.getByText("仓级动作效果")).toBeTruthy();
     expect(screen.getByText("序列号恢复")).toBeTruthy();
     expect(screen.getByText("消息积压")).toBeTruthy();
     expect(screen.getByLabelText("任务类型")).toBeTruthy();

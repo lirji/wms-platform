@@ -2,7 +2,7 @@
 
 ## 当前基线与授权
 
-远程main已发布TC提交a3b4c65，祖先核验通过，新CI34732426303成功。TRANSFER7659d34的CI34731081335全部成功。当前feat/committed-cancellation-compensation完成取消补偿实现及全部本地必要门禁，尚未提交；待发布和远程CI。
+远程main已发布COMP提交f043117（祖先含TC a3b4c65）。COMP CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069)成功。控制台公开契约接线在feat/console-public-serial-ops，本地28文件/52测与typecheck通过，待合入远程main。
 更新时间：2026-09-13。前一阶段基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
 用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER/TC已实现、验证并发布；COMP本地组合验收通过，FINAL待发布/CI，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
@@ -13,7 +13,7 @@
 
 | 范围 | 当前结果 | 实现与证据 |
 | --- | --- | --- |
-| 应用与控制台 | 五个后端进程、React 作业台、OIDC/scope/企业及仓校验；新控制台接序列号观察、202 保留幂等键及有界轮询、双状态、恢复/消息重排、attempt执行、单位及门禁查询 | [架构](../../design/01-architecture.md)、[前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md)、[页面交接](CURSOR_HANDOFF.md) |
+| 应用与控制台 | 五个后端进程、React 作业台、OIDC/scope/企业及仓校验；作业台已接序列号观察、公开序列拣发/调拨查询与命令、对账窗口、仓级 action-effects、202 有界轮询。取消补偿无公开查询，未造 UI。不是 50 AC / AC-26 accepted | [架构](../../design/01-architecture.md)、[前端架构](../../design/console-frontend/FRONTEND_ARCHITECTURE.md)、[页面交接](CURSOR_HANDOFF.md) |
 | 普通库存消息 | RECEIVE、分批 QUALITY/PUTAWAY、普通 PICK/SHIP/CANCEL 的持久 Inbox/Outbox 与恢复；多 Cell 路由 | [消息运行](../../implementation/MESSAGING_RUNTIME.md)、[出库消息](../../implementation/OUTBOUND_MESSAGING.md)、[Cell 路由](../../implementation/INVENTORY_CELL_MESSAGING.md) |
 | 跨仓履约 | 真实 TM/TC/原生 RM、原 XID/branch 恢复、库存确认到出库授权 | [执行及真实进程证据](../../implementation/FULFILLMENT_EXECUTION.md)、[RM 边界](../../implementation/RUNTIME_TCC_RM.md) |
 | 序列号入库 | 按收货批次记录身份、身份质检、分次上架与源释放持久恢复 | [收货批次](../../implementation/SERIAL_RECEIPT_BATCH.md)、[上架](../../implementation/SERIAL_PUTAWAY.md)、[源释放](../../implementation/SERIAL_SOURCE_RELEASE.md) |

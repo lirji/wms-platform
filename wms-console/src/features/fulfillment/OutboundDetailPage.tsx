@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { Form, Input } from "antd";
+import { Form, Input, Space } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { field, nestedRecords } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
+import { SerialChoiceQuery } from "../../shared/serial/SerialChoiceQuery";
+import { SerialExecutionField } from "../../shared/serial/SerialExecutionField";
+import { countText, serialExecution } from "../../shared/serial/serialIds";
 import { DataTable } from "../../shared/ui/DataTable";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
@@ -39,16 +42,20 @@ export function OutboundDetailPage() {
         { key: "cancelled", label: "已取消", qty: true, keys: ["cancelled_qty"] }
       ]}
       extra={(
-        <DataTable
-          rows={tasks}
-          emptyText="还没有拣货或回库任务"
-          columns={[
-            { key: "id", label: "任务", keys: ["id", "taskId"] },
-            { key: "status", label: "状态", keys: ["state", "status"] },
-            { key: "type", label: "类型", keys: ["task_type", "taskType"] },
-            { key: "qty", label: "计划/完成", qty: true, keys: ["planned_qty", "completed_qty"] }
-          ]}
-        />
+        <Space orientation="vertical" size={16} style={{ display: "flex" }}>
+          <DataTable
+            rows={tasks}
+            emptyText="还没有拣货或回库任务"
+            columns={[
+              { key: "id", label: "任务", keys: ["id", "taskId"] },
+              { key: "status", label: "状态", keys: ["state", "status"] },
+              { key: "type", label: "类型", keys: ["task_type", "taskType"] },
+              { key: "qty", label: "计划/完成", qty: true, keys: ["planned_qty", "completed_qty"] }
+            ]}
+          />
+          <SerialChoiceQuery kind="selectable" warehouseId={warehouseId} />
+          <SerialChoiceQuery kind="shippable" warehouseId={warehouseId} outboundOrderId={outboundOrderId} />
+        </Space>
       )}
       commands={(
         <>
@@ -115,20 +122,29 @@ export function OutboundDetailPage() {
               embedded
               requireScope="outbound.pick"
               title="拣货"
-              hint="返回 202。超过任务或行剩余量会被拒绝。序列号拣货契约尚未公开，这里只提交数量。"
+              hint="返回 202。超过任务或行剩余量会被拒绝。序列号 SKU 提交 serialExecution，数量必须等于身份数。"
               operation={`pick:${outboundOrderId}`}
               submitLabel="确认拣货"
               disabled={!token || serialHold || syncPending}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${values.taskId}/picks`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { qty: values.qty, lotId: values.lotId, clientOperationId: key }
-              })}
+              onRun={(key, values) => {
+                const selection = serialExecution(values.serialExecution || "");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${values.taskId}/picks`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    qty: selection ? countText(selection.identities.map((item) => item.serialId)) : values.qty,
+                    lotId: values.lotId,
+                    clientOperationId: key,
+                    ...(selection ? { serialExecution: selection } : {})
+                  }
+                });
+              }}
             >
               <Form.Item label="任务" name="taskId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="批次" name="lotId" rules={[{ required: true }]} extra="不管理批次的商品填写 NO_LOT"><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="数量" name="qty" extra="填写身份时按身份个数提交。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <SerialExecutionField extra="先查本页可选序列号，抄入当前 ownerEpoch。普通 SKU 留空。" />
             </CommandCard>
           </CommandCol>
           <CommandCol title="包装" requireScope="outbound.pack">
@@ -156,21 +172,32 @@ export function OutboundDetailPage() {
               embedded
               requireScope="outbound.ship"
               title="部分发运"
-              hint="必须已有本集货位、批次的拣货过账回执，且不能超过已包装未发量。"
+              hint="必须已有本集货位、批次的拣货过账回执。序列发运须指定原已拣 SN/epoch，数量等于身份数。"
               operation={`ship:${outboundOrderId}`}
               submitLabel="确认发运"
               disabled={!token || serialHold || syncPending}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/shipments`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { orderLineId: values.orderLineId, qty: values.qty, stagingLocationId: values.stagingLocationId, lotId: values.lotId, clientOperationId: key }
-              })}
+              onRun={(key, values) => {
+                const selection = serialExecution(values.serialExecution || "");
+                return api(`/api/wms/v1/warehouses/${warehouseId}/outbound-orders/${outboundOrderId}/shipments`, token, {
+                  method: "POST",
+                  idempotencyKey: key,
+                  body: {
+                    orderLineId: values.orderLineId,
+                    qty: selection ? countText(selection.identities.map((item) => item.serialId)) : values.qty,
+                    stagingLocationId: values.stagingLocationId,
+                    lotId: values.lotId,
+                    clientOperationId: key,
+                    ...(selection ? { serialExecution: selection } : {})
+                  }
+                });
+              }}
             >
               <Form.Item label="集货位" name="stagingLocationId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="批次" name="lotId" rules={[{ required: true }]} extra="不管理批次的商品填写 NO_LOT"><Input /></Form.Item>
               <Form.Item label="出库行" name="orderLineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="数量" name="qty" extra="填写身份时按身份个数提交。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <SerialExecutionField extra="先查本页可发运序列号。库存 POSTED 不等于全球登记完成。" />
             </CommandCard>
           </CommandCol>
           <CommandCol title="取消未拣" requireScope="outbound.pick">

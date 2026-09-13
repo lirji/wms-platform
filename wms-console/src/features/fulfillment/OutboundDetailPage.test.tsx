@@ -24,11 +24,15 @@ describe("OutboundDetailPage", () => {
     expect(screen.getByRole("button", { name: "规划任务" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^拣货$/ }));
     expect(screen.getByRole("button", { name: "确认拣货" })).toBeTruthy();
+    expect(screen.getByText("出库身份")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^包装$/ }));
     expect(screen.getByRole("button", { name: "确认包装" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^部分发运$/ }));
     expect(screen.getByRole("button", { name: "确认发运" })).toBeTruthy();
+    expect(screen.getAllByText("出库身份").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("tab", { name: /^取消未拣$/ }));
     expect(screen.getByRole("button", { name: "取消剩余" })).toBeTruthy();
+    expect(screen.getByText("可选序列号")).toBeTruthy();
+    expect(screen.getByText("可发运序列号")).toBeTruthy();
   });
 });

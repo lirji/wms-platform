@@ -96,3 +96,63 @@ export function countObservation(text: string, allMissing: boolean):
   }
   return { schemaVersion: SERIAL_SCHEMA_VERSION, serialIds: allMissing ? [] : parsed.serialIds };
 }
+
+export type SerialIdentity = {
+  serialId: string;
+  ownerEpoch: number;
+};
+
+export type SerialExecution = {
+  schemaVersion: 1;
+  identities: SerialIdentity[];
+};
+
+export type SerialExecutionParse = {
+  identities: SerialIdentity[];
+  error?: string;
+};
+
+/** 与契约 SerialExecutionSelection 对齐：每行必须带当前 ownerEpoch，不能默认初值。 */
+export function parseSerialExecution(text: string): SerialExecutionParse {
+  const seen = new Set<string>();
+  const identities: SerialIdentity[] = [];
+  for (const raw of text.split(/\n|;/)) {
+    const line = raw.trim();
+    if (!line) {
+      continue;
+    }
+    const match = line.match(/^(\S+)(?:[:\s,]+)(\d+)$/);
+    if (!match) {
+      return { identities: [], error: `每行必须是「序列号 当前ownerEpoch」，不能默认代际：${line}` };
+    }
+    const serial = match[1].toLocaleUpperCase("en-US");
+    if (serial.length > 64) {
+      return { identities: [], error: `序列号超过 64 字符：${serial.slice(0, 16)}…` };
+    }
+    if (seen.has(serial)) {
+      return { identities: [], error: `序列号重复：${serial}` };
+    }
+    const epoch = Number(match[2]);
+    if (!Number.isSafeInteger(epoch) || epoch < 0) {
+      return { identities: [], error: `归属代际必须是非负整数：${serial}` };
+    }
+    seen.add(serial);
+    identities.push({ serialId: serial, ownerEpoch: epoch });
+  }
+  if (identities.length > SERIAL_MAX) {
+    return { identities: [], error: `一次最多 ${SERIAL_MAX} 个身份，当前 ${identities.length}` };
+  }
+  identities.sort((left, right) => left.serialId.localeCompare(right.serialId, "en"));
+  return { identities };
+}
+
+export function serialExecution(text: string): SerialExecution | undefined {
+  const parsed = parseSerialExecution(text);
+  if (parsed.error) {
+    throw new Error(parsed.error);
+  }
+  if (parsed.identities.length === 0) {
+    return undefined;
+  }
+  return { schemaVersion: SERIAL_SCHEMA_VERSION, identities: parsed.identities };
+}

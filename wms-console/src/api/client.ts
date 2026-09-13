@@ -57,7 +57,7 @@ export function routeFor(path: string): string {
     || taskType === "PICK" || taskType === "RESTOCK") {
     return PREFIX.outbound + cleaned;
   }
-  if (cleaned.includes("/transfer-receipts") || cleaned.includes("/receipt-authorizations")) {
+  if (cleaned.includes("/serial-transfer-receipts") || cleaned.includes("/transfer-receipts") || cleaned.includes("/receipt-authorizations")) {
     return PREFIX.fulfillment + cleaned;
   }
   if (cleaned.startsWith("/api/wms/v1/fulfillments") || cleaned.startsWith("/api/wms/v1/transfers")) {

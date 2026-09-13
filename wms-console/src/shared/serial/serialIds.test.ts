@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countObservation, countText, parseSerialIds, qualityObservation, receiptObservation } from "./serialIds";
+import { countObservation, countText, parseSerialIds, qualityObservation, receiptObservation, serialExecution } from "./serialIds";
 
 describe("parseSerialIds", () => {
   it("trims, uppercases and rejects duplicates", () => {
@@ -36,5 +36,21 @@ describe("countObservation", () => {
     expect(countObservation("", false)).toBeUndefined();
     expect(countObservation("", true)).toEqual({ schemaVersion: 1, serialIds: [] });
     expect(() => countObservation("SN-1", true)).toThrow(/全部未见/);
+  });
+});
+
+describe("serialExecution", () => {
+  it("requires current ownerEpoch and keeps schemaVersion 1", () => {
+    expect(serialExecution("")).toBeUndefined();
+    expect(serialExecution("sn-b 2\nsn-a:1")).toEqual({
+      schemaVersion: 1,
+      identities: [
+        { serialId: "SN-A", ownerEpoch: 1 },
+        { serialId: "SN-B", ownerEpoch: 2 }
+      ]
+    });
+    expect(() => serialExecution("SN-A")).toThrow(/ownerEpoch/);
+    expect(() => serialExecution("SN-A 1.5")).toThrow(/ownerEpoch/);
+    expect(() => serialExecution("SN-A 1\nsn-a:2")).toThrow(/重复/);
   });
 });

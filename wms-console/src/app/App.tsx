@@ -27,6 +27,7 @@ const CountDetailPage = lazy(() => import("../features/count/CountDetailPage").t
 const JobsPage = lazy(() => import("../features/jobs/JobsPage").then((module) => ({ default: module.JobsPage })));
 const JobDetailPage = lazy(() => import("../features/jobs/JobDetailPage").then((module) => ({ default: module.JobDetailPage })));
 const TaskDetailPage = lazy(() => import("../features/jobs/TaskDetailPage").then((module) => ({ default: module.TaskDetailPage })));
+const ActionEffectDetailPage = lazy(() => import("../features/jobs/ActionEffectDetailPage").then((module) => ({ default: module.ActionEffectDetailPage })));
 const StockLedgerPage = lazy(() => import("../features/stock/StockLedgerPage").then((module) => ({ default: module.StockLedgerPage })));
 const ReconPage = lazy(() => import("../features/recon/ReconPage").then((module) => ({ default: module.ReconPage })));
 const ReceivePage = lazy(() => import("../features/pda/ReceivePage").then((module) => ({ default: module.ReceivePage })));
@@ -92,6 +93,7 @@ export function App() {
                 <Route path="jobs" element={<JobsPage />} />
                 <Route path="jobs/:jobId" element={<JobDetailPage />} />
                 <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+                <Route path="effects/:effectId" element={<ActionEffectDetailPage />} />
                 <Route path="recon" element={<ReconPage />} />
               </Route>
               <Route path="/pda/:warehouseId/receive" element={<PdaShell user={user} token={token} />}>

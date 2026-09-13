@@ -18,6 +18,11 @@ describe("API routing", () => {
     expect(serviceFor("/api/wms/v1/warehouses/WH-A/tasks/T1/picks")).toBe("outbound");
     expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/cancellations")).toBe("outbound");
     expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/pick-tasks")).toBe("outbound");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/outbound-orders/O1/shippable-serials")).toBe("outbound");
+  });
+
+  it("keeps selectable serial stock on inventory", () => {
+    expect(serviceFor("/api/wms/v1/warehouses/WH-A/serial-stock?ownerId=OWNER&skuId=SKU&locationId=LOC")).toBe("inventory");
   });
 
   it("routes warehouse tasks by required taskType", () => {
@@ -30,8 +35,11 @@ describe("API routing", () => {
 
   it("sends transfer receipts to fulfillment", () => {
     expect(serviceFor("/api/wms/v1/warehouses/WH-B/transfer-receipts")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/warehouses/WH-B/serial-transfer-receipts")).toBe("fulfillment");
     expect(serviceFor("/api/wms/v1/transfers/TR-1/receipt-authorizations")).toBe("fulfillment");
     expect(serviceFor("/api/wms/v1/transfers/TR-1/issues")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/transfers/TR-1/serial-issues")).toBe("fulfillment");
+    expect(serviceFor("/api/wms/v1/transfers/TR-1/serial-commands/CMD-1")).toBe("fulfillment");
     expect(serviceFor("/api/wms/v1/fulfillments/F1/attempts")).toBe("fulfillment");
   });
 

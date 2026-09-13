@@ -2,37 +2,38 @@
 
 ## 任务目标
 
-完成已批准 R13/R14/R15/R22。唯一有限计划：docs/delivery/wms-v1/DELIVERY_PLAN.md 的 OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。不扩项、不操作共享或生产。
+完成已批准 WMS v1 到 S9 与 50 项 AC。当前连续交付：控制台把已公开契约接到作业台（出库序列拣发、序列调拨、对账窗口、仓级 action-effects）。不扩项、不发明内部 HTTP、不操作共享或生产。后端有限计划仍是 docs/delivery/wms-v1/DELIVERY_PLAN.md 的 OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。
 
 ## 已完成
 
-- OUT365a1eb、WATERMARK051a7eb、TRANSFER7659d34、TC a3b4c65均已发布main且CI成功。TC CI34732426303成功。
-- COMP实现及全部本地门禁通过：默认组合293用例、134必需、warehouse12/tc2/failure3及必需故障门禁、四进程smoke、Python4、契约99路径113操作、Compose与文档检查。
-- 默认组合使用已通过前缀、履约修复复验和剩余模块恢复，非一次连续成功。初次端口冲突及装配失败记录保留；最终日志和业务边界见docs/implementation/COMMITTED_CANCELLATION.md。
-
-## 已修改文件
-
-- feat/committed-cancellation-compensation基于a3b4c65；当前48个改动文件均属COMP，待提交。
-- 逐仓取消/回执、原单执行门禁、有界恢复及V3契约；库存V049、出库V020、履约V021；仓迁移59表；测试和文档同步。无新增依赖或前端改动。
+- OUT `365a1eb`、WATERMARK `051a7eb`、TRANSFER `7659d34`、TC `a3b4c65`、COMP `f043117` 均已在远程 main。COMP CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069) 成功。
+- 控制台公开契约接线（本工作树 `feat/console-public-serial-ops`，基线 `f043117`）：
+  - 出库：`GET serial-stock`、`GET shippable-serials`，拣/发提交 `serialExecution`（`serialId` + 当前 `ownerEpoch`）。
+  - 调拨：`POST serial-issues`、`POST serial-transfer-receipts`、`GET serial-commands/{commandId}`。
+  - 对账：窗口 GET/POST/重试/取消，快照分段 GET。
+  - 仓级 `action-effects` 列表/详情/`execution-attempts`。
+- 取消补偿无公开查询入口，未造页面。内部 `serial-registry` / `recon.evidence` 未接线。
 
 ## 未完成
 
-- 提交COMP、推任务分支、正常合入远程main并核验新CI；随后写最终发布回执，关闭有限范围R13/R14/R15/R22。
-- OQ-03/AC-26现场/WCS、容量/RTO/RPO及生产历史时间仍是外部边界；归档仅候选，不删除。
+- 本地 console：28 文件 / 52 测、typecheck 通过。待提交并合入远程 main。
+- COMP FINAL 发布回执尚未写。
+- PDA 拣/发、作业 202 跨服务轮询、库位门禁写、已提交取消补偿 UI。
+- OQ-03 / AC-26 现场 / S8-05 授权设备 / S9-01 签署容量 / 50 AC 全量证据。
 
-## 当前问题
+## 下一步
 
-- 工作目录/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；不动根用户工作树或其他任务。
-- 无活动Maven。默认尾部11186于10:58:13成功；独立profiles会话68193成功结束。
-- 干净发布树.local/watermark-main-publish当前a3b4c65。已授权正常Git发布，未授权生产部署。
-- 契约生成器和YAML已暂存并verify-contracts通过，其余本任务文件待核对暂存。不要用无范围git add吸收其他改动。
+1. 提交本任务文件，推 `feat/console-public-serial-ops` 并快进远程 main。
+2. 写 COMP FINAL 回执（CI 已成功）。
+3. 下一批前端：PDA 拣/发、跨服务 202 轮询、取消补偿（等公开 GET）。
+4. 不把模拟器当设备，不把本机开关当签署容量。
 
-## 下一步建议
+## 当前工作树
 
-1. 核对暂存差异并提交COMP，正常推任务分支和main。
-2. 等新提交远程CI完成；失败只处理本任务问题。运行中不得推同ref取消验证。
-3. 写发布与CI回执，有限验收清单全部满足后再收尾。
+- 本任务：`/Users/liruijun/personal/LLM/wms-platform/.local/console-public-serial-ops` @ `feat/console-public-serial-ops`
+- 根用户工作树有无关脏文件，未切换、未吸收
+- 后端 COMP 树：`.local/backend-remediation-integrate`，勿改
 
 ## 恢复 Prompt
 
-读取本文件及唯一计划，从发布开始继续。保护其他工作树，复用已通过证据，不重跑未变全套，不等逐片确认。main包含本批代码且必要CI完成后才关闭任务。
+读取本文件与 `docs/delivery/wms-v1/DELIVERY_STATUS.md`。从前端公开契约接线的验证/发布继续；COMP FINAL 等 main CI。不要重开架构，不要发明 OQ-03。
