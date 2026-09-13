@@ -98,6 +98,7 @@ class WarehouseMigrationIT {
     void twoPhysicalDatabasesSwitchEpochAndRejectOldWrites() {
         Clock clock = Clock.systemUTC();
         // 明确的迁移夹具：原批次JSON与稳定主键必须复制，不能因新增表没有id游标而漏数。
+        sourceJdbc.update("UPDATE reconciliation_history_guard SET closed_before='2026-01-01 00:00:00',version=4 WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'");
         String observation="{\"schemaVersion\":1,\"serialIds\":[\"SN-A\",\"SN-B\"]}";
         sourceJdbc.update("INSERT INTO serial_receipt_batch(id,enterprise_id,warehouse_id,receipt_command_id,context_hash,observation_json,identity_count,state,created_at,updated_at) VALUES('BATCH-MIGRATION','ENT-1','WH-A','RECEIPT-SERIAL',?,CAST(? AS JSON),2,'APPLIED',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",
                 "a".repeat(64),observation);
@@ -118,7 +119,7 @@ class WarehouseMigrationIT {
         }
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_receipt_batch WHERE id='BATCH-MIGRATION'"));
-        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent","serial_pick_fact","serial_shipment_intent"))
+        for(String table:java.util.List.of("count_adjustment_intent","count_serial_intent","serial_pick_fact","serial_shipment_intent","reconciliation_history_guard"))
             assertEquals(sourceJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"),targetJdbc.queryForList("SELECT * FROM "+table+" WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A'"));
         assertEquals(sourceJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"),
                 targetJdbc.queryForMap("SELECT * FROM serial_release_intent WHERE id='RELEASE-MIGRATION'"));

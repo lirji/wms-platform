@@ -2,11 +2,11 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。当前已发布代码基线为 `main c5c96e3`，含控制台切片 `b6f44ac`；最新 [main CI 34723887946](https://github.com/lirji/wms-platform/actions/runs/34723887946) 的 console 已成功、java 运行中。后端代码与依赖相对 `3e2c720` 未变，其 [CI 34721632607](https://github.com/lirji/wms-platform/actions/runs/34721632607) 已成功。项目整体仍为 **in-progress**，未完成全部 50 项 AC；不能将阶段提交或 CI 通过等同于产品验收。
+更新时间：2026-09-13。已发布基线为 `main 365a1eb`，包含序列拣发 dd22cd0/1dd3d18及控制台和文档整合。[main CI 34725376702](https://github.com/lirji/wms-platform/actions/runs/34725376702)的java与console均成功。旧CI34723887946曾因双执行器19/20次触发失败，保留失败证据，不将旧运行标成成功。
 
-用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。17份文档整理已由 c32cb54 / f0b2c81 发布远程 main，本次在此基础增量同步。序列拣发提交dd22cd0/1dd3d18已完成定向验证，正在整合发布；项目整体仍未完成。持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
+用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。当前WATERMARK进行中：来源提供端本地提交695e84f/5af8081，库存历史屏障和拒绝伪造水位门禁正在定向验证，尚未发布。可信库存采集器未完成；整体仍为 **in-progress**，不能以局部测试或CI通过代替全部整改及50项AC验收。
 
-CI补充：旧main运行34723887946已结束，console成功，java的warehouse-it中JobCatalogClusterIT只观察到19/20次触发而失败；本地SHIP相关12项集成测试已全部通过，不能替代该独立调度门禁。当前正在核查，不将旧运行标记成功。
+持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 
 ## 已发布能力
 
@@ -25,7 +25,7 @@ CI补充：旧main运行34723887946已结束，console成功，java的warehouse-
 
 | 项目 | 剩余范围 | 完成所需证据/边界 |
 | --- | --- | --- |
-| R13 | 可信来源/库存/回执水位；序列拣发切片发布收尾 | PICK/SHIP逐SN、原epoch/分配/订单行绑定及真实登记恢复已由dd22cd0/1dd3d18验证，见[证据](../../implementation/SERIAL_OUTBOUND_DESIGN.md)；调用者填三个水位字符串仍不算可信证明 |
+| R13 | 可信来源/库存/回执水位；序列拣发已发布并通过CI | PICK/SHIP逐SN、原epoch/分配/订单行绑定及真实登记恢复已由dd22cd0/1dd3d18验证，见[证据](../../implementation/SERIAL_OUTBOUND_DESIGN.md)；调用者填三个水位字符串仍不算可信证明 |
 | R14 | 公开序列调拨接入、TC 终态通知及原资源/Fence 迁移、全局提交后的取消补偿 | 内部 `sealSource/stageDestination` 测试不等于公开入口；不能向已全局提交分支用 TCC Cancel 冒充业务补偿 |
 | R15 | 上述缺失链路的恢复接线与最终收敛；归档执行边界 | 归档目前只有候选计划；未确定保留期限，不执行删除或伪造导出完成 |
 | R22 | 剩余整改完成后的整体复验与结项 | 时间代码及已发布基线 CI 已通过；未核验或转换生产历史时间，不重复标为代码未实现 |

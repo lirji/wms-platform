@@ -67,7 +67,7 @@
     </update>
 
     <!-- insertLedger：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertLedger">
+    <insert id="appendLedger">
         INSERT INTO stock_ledger (id, enterprise_id, warehouse_id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta, free_execution_claim_delta, on_hand_after, reserved_after, free_execution_claim_after, balance_version, reason_code, document_id, actor_id, occurred_at, created_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{operationId}, #{entryNo}, #{balanceId}, #{onHandDelta}, #{reservedDelta}, #{claimDelta}, #{onHandAfter}, #{reservedAfter}, #{claimAfter}, #{balanceVersion}, #{reasonCode}, #{documentId}, #{actorId}, #{occurredAt}, #{now})
     </insert>
@@ -255,4 +255,11 @@
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
           AND parent_line_id IS NULL AND picked_qty=0 AND inflight_qty=0 AND remaining_qty&gt;=#{qty}
     </update>
+    <insert id="ensureHistoryGuard">
+        INSERT INTO reconciliation_history_guard(id,enterprise_id,warehouse_id) VALUES(#{guardId},#{enterpriseId},#{warehouseId})
+        ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
+    </insert>
+    <select id="lockHistoryGuard" resultType="map" timeout="3">
+        SELECT id,closed_before FROM reconciliation_history_guard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} FOR SHARE
+    </select>
 </mapper>

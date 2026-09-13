@@ -102,6 +102,9 @@ class SnapshotExportIT {
             }
             session.commit();
         }
+        try(var session=sessions.openSession(false)) {
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-PAGES","C-PAGES",Timestamp.from(CUTOFF),"SRC","POST","RCV");session.commit();
+        }
         String snapshotId = null;
         for (int part = 1; part <= 3; part++) {
             try (SqlSession session = sessions.openSession(false)) {
@@ -143,6 +146,8 @@ class SnapshotExportIT {
             JobRunException incomplete = assertThrows(JobRunException.class,
                     () -> export.export("ENT-1", "WH-A", "C-SNAP", closed, null, "POST-1", "RCV-1"));
             assertEquals("SOURCE_INCOMPLETE", incomplete.code());
+            assertEquals("SOURCE_INCOMPLETE",assertThrows(JobRunException.class,() -> export.export("ENT-1","WH-A","C-SNAP",closed,"SRC-1","POST-1","RCV-1")).code());
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-A","C-SNAP",closed,"SRC-1","POST-1","RCV-1");
             Map<String, Object> first = export.export("ENT-1", "WH-A", "C-SNAP", closed, "SRC-1", "POST-1", "RCV-1");
             Map<String, Object> replay = export.export("ENT-1", "WH-A", "C-SNAP", closed, "SRC-1", "POST-1", "RCV-1");
             assertEquals(first.get("snapshotId"), replay.get("snapshotId"));
@@ -157,6 +162,11 @@ class SnapshotExportIT {
             assertFalse(payload.contains("currency"));
             assertFalse(payload.contains("amountMinor"));
             assertEquals(WarehouseQuantityFact.SCHEMA_VERSION, ((Number) first.get("schemaVersion")).intValue());
+            // 模拟旧版本留下的complete位；后续读取也必须检查服务端证明版本。
+            try(var statement=session.getConnection().prepareStatement("UPDATE reconciliation_cutoff SET evidence_version=0 WHERE enterprise_id='ENT-1' AND warehouse_id='WH-A' AND cutoff_id='C-SNAP'")) {
+                statement.executeUpdate();session.clearCache();
+            } catch(java.sql.SQLException failure) {throw new IllegalStateException(failure);}
+            assertEquals("SOURCE_INCOMPLETE",assertThrows(JobRunException.class,() -> export.get("ENT-1","WH-A",String.valueOf(first.get("snapshotId")))).code());
             session.rollback();
         }
     }

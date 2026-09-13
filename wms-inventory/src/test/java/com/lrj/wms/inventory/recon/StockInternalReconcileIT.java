@@ -106,6 +106,7 @@ class StockInternalReconcileIT {
             StockInternalReconcile recon = new StockInternalReconcile(session, clock);
             Timestamp closed = Timestamp.from(CUTOFF);
             recon.closeWindow("ENT-1", "WH-A", "C-INT", closed, "SRC-1", "POST-1", "RCV-1");
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-A","C-INT",closed,"SRC-1","POST-1","RCV-1");
             List<Map<String, Object>> before = recon.listCases("ENT-1", "WH-A", "C-INT");
             assertTrue(before.isEmpty());
             StockInternalReconcile.Report report = recon.execute("ENT-1", "WH-A", "C-INT");
@@ -144,7 +145,9 @@ class StockInternalReconcileIT {
         try (SqlSession session = sessions.openSession(false)) {
             StockInternalReconcile recon = new StockInternalReconcile(session, clock);
             Timestamp closed = Timestamp.from(CUTOFF);
-            recon.closeWindow("ENT-1", "WH-A", "C-WM", closed, null, "POST-1", "RCV-1");
+            assertEquals(false, recon.closeWindow("ENT-1", "WH-A", "C-WM", closed, "FORGED", "POST-1", "RCV-1").get("watermarksComplete"));
+            executeSql(session, "UPDATE reconciliation_cutoff SET watermarks_complete=1 WHERE cutoff_id='C-WM'");
+            session.clearCache();
             recon.ingestSourceFact("ENT-1", "WH-A", "wms-inbound", "CMD-OLD", "EFF-OLD", "PHYSICAL",
                     new BigDecimal("1"), Timestamp.from(POSTED), "SRC-MISSING");
             recon.execute("ENT-1", "WH-A", "C-WM");
@@ -154,6 +157,7 @@ class StockInternalReconcileIT {
             assertTrue(incomplete.stream().noneMatch(row -> StockInternalReconcile.MISSING_RIGHT
                     .equals(String.valueOf(row.get("discrepancy_code")))));
             recon.closeWindow("ENT-1", "WH-A", "C-FULL", closed, "SRC-1", "POST-1", "RCV-1");
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-A","C-FULL",closed,"SRC-1","POST-1","RCV-1");
             recon.ingestSourceFact("ENT-1", "WH-A", "wms-inbound", "CMD-LATE", "EFF-LATE", "PHYSICAL",
                     new BigDecimal("1"), Timestamp.from(Instant.parse("2026-09-12T07:50:00Z")), "SRC-1");
             recon.ingestSourceFact("ENT-1", "WH-A", "wms-inbound", "CMD-OLD2", "EFF-OLD2", "PHYSICAL",
@@ -186,6 +190,7 @@ class StockInternalReconcileIT {
         }
         try (var session = sessions.openSession(false)) {
             new StockInternalReconcile(session, clock).closeWindow("ENT-1", "WH-P", "C-PAGE", Timestamp.from(CUTOFF), "S", "P", "R");
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-P","C-PAGE",Timestamp.from(CUTOFF),"S","P","R");
             var mapper = session.getMapper(ReconciliationMapper.class);
             mapper.insertCaseIgnore("CASE-LAST", "ENT-1", "WH-P", "C-PAGE", "BALANCE_LEDGER", "QTY_MISMATCH", "BP-204", "SKU-Q", BigDecimal.ZERO, BigDecimal.ONE, "fixture", now);
             mapper.casCase("ENT-1", "WH-P", "CASE-LAST", "OPEN", "REMEDIATING", 0, "auditor", "repair-op", now);

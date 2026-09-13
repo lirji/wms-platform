@@ -1,6 +1,6 @@
 # 可信对账水位（实施中）
 
-本任务对应R13/R15，唯一验收见[实施计划](../delivery/wms-v1/DELIVERY_PLAN.md)的WATERMARK。当前先实现来源证明提供端；库存采集、截止前过账核对和导出门禁仍未接通，不能把本页或来源COMPLETE响应作为库存完整快照的交付证明。
+本任务对应R13/R15，唯一验收见[实施计划](../delivery/wms-v1/DELIVERY_PLAN.md)的WATERMARK。来源证明提供端已实现；库存历史屏障与证明版本门禁已实现并通过定向验证，库存采集仍未接通，不能把来源COMPLETE响应作为库存完整快照的交付证明。
 
 ## 权威与边界
 
@@ -24,9 +24,11 @@ inbound/outbound分别读取自己的source_command和source_execution，不读�
 
 库存必须通过受信服务连接取得两个来源的完整页，持久化原窗口、来源摘要/总数、游标、领取代际及核验进度。逐项匹配本库原command/action/sourceExecutionId、postingId、数量和截止前库存过账，最终检查完整计数和摘要。来源已确认但库存凭证晚于cutoff的窗口仍不完整，须使用更晚的新窗口，不回填历史快照。
 
-库存历史流水还须防止关窗之后补写旧时间或遗漏在途事务；来源关闭不等于本库历史快照已经固定。现有closeWindow及SnapshotExportService仍需改造，不能信任外部三个非空水位字符串，也不能给调用方一个任意设置COMPLETE的替代接口。
+库存V043新增历史屏障：ledger和posting的Mapper写入口先持有企业/仓共享锁，拒绝早于closed_before的时间；冻结取排他锁并等待在途写事务提交。范围表包含迁移时间水位，随仓复制。旧库存写节点全部退出前不得启用可信窗口。
 
-库存下一片采用以下有限实现方向（尚未落代码或验收）：
+V044为既有cutoff追加evidence_version，历史记录默认0，保留原数据。closeWindow不再因三个字符串非空而置完整；对账检查证明版本和历史冻结，快照创建与历史读取都核对版本1、冻结上界及原三方标识。采集器完成前没有生产路径可设置版本1，因此接口明确返回SOURCE_INCOMPLETE；测试专用VerifiedWindowFixture只为下游测试建立前置，不能作为采集器完成证据。
+
+库存采集下一片采用以下有限实现方向（采集器尚未落代码或验收）：
 
 1. 本库持久化窗口及两个来源的采集检查点；每个来源依次执行关窗、读取并匹配事实、反向扫描本库截止前posting、完成。网络在事务外，领取代际防旧结果覆盖，分页和失败恢复有界。每个仓只允许一个活动采集窗口，取消只停止采集，不撤销已发生业务。
 2. 接收每条来源事实时匹配本库不可变posting的ID、command、action、执行ID和数量，并检查posting时间严格早于cutoff。保存来源链式摘要及有序command成员摘要；再分页扫描本库同来源posting计算成员摘要与数量，防止来源漏项。无须每个窗口复制一份完整历史事实；已有source_execution_fact只保存每命令一次，重复时核对原内容而非静默吞冲突。
@@ -42,3 +44,5 @@ inbound/outbound分别读取自己的source_command和source_execution，不读�
 `.local/source-window-application-guard-it.log`于2026-09-13 07:33:41 BUILD SUCCESS：真实MySQL的SourceWindowIT2，覆盖201项分页、缺T3、最后写失败、重启后摘要一致、在途T1阻塞关窗及拒绝旧时刻新命令。T3状态是明确数据库夹具。
 
 `.local/source-window-http-it.log`入库回归5项通过；新增HTTP越权断言发现500映射错误，已补显式403处理；`.local/source-window-http-fixed-it.log`出库HTTP3于07:36:18通过。补充未完成窗口409、UTC映射与减小SQL读取正文后，`.local/source-window-final-it.log`于07:38:34 BUILD SUCCESS（来源HTTP3、SourceWindowIT2、契约5），随后固定数组摘要的跨语言向量于07:39:23通过。尚无库存侧或完整跨服务水位验收。
+
+库存屏障 `.local/inventory-history-guard-it.log` 的StockCommandIT3通过，覆盖在途提交/旧流水/旧posting/原成功重放。`.local/inventory-evidence-gate-it.log` 的对账4、导出2、HTTP1通过；迁移最初缺时间列，补列后发现既有元数据过滤误排DEFAULT_GENERATED普通列，已改为只排除真实生成列。`.local/inventory-evidence-gate-fixed-it.log` 对账4通过；`.local/inventory-history-migration-fixed-it.log` 于08:10:45 BUILD SUCCESS，WarehouseMigrationIT6通过，覆盖55表清单和非空历史屏障复制。两次失败均保留，不算通过。下游通过仍不代表库存可信采集器已完成。

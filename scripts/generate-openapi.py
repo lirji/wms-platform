@@ -213,9 +213,9 @@ post("/api/wms/v1/jobs/{jobId}/retries", "retryJob", "job", "job.retry",
      "JobRetryRequest", ("202",), "失败分片恢复同一业务任务",
      ["- $ref: '#/components/parameters/JobId'"])
 post("/api/wms/v1/reconciliation-snapshots", "createReconciliationSnapshot", "recon",
-     "recon.export", "ReconciliationSnapshotRequest", ("202",), "每次导出最多100行，以相同请求续跑直至COMPLETE")
+     "recon.export", "ReconciliationSnapshotRequest", ("202",), "须匹配服务端核验的原三方水位与冻结截止；缺证明返回SOURCE_INCOMPLETE。每次最多100行，原请求续跑")
 get("/api/wms/v1/reconciliation-snapshots/{snapshotId}", "getReconciliationSnapshot", "recon",
-    "recon.read", ("200",), "读取快照manifest及一个分段，nextPartNo作为下次afterPart",
+    "recon.read", ("200",), "核对服务端证明后读取manifest及一个分段；旧快照缺证明返回SOURCE_INCOMPLETE，nextPartNo作为下次afterPart",
     ["- $ref: '#/components/parameters/SnapshotId'", "- $ref: '#/components/parameters/AfterPart'"])
 get("/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases", "listReconciliationCases",
     "recon", "recon.read", ("200",), "对账差异列表", wh + cursor)

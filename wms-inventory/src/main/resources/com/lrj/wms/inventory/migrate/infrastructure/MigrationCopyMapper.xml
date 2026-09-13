@@ -4,7 +4,8 @@
     <!-- 标识符来自固定允许列表或校验过的数据库元数据；业务值全部参数绑定。 -->
     <select id="columns" resultType="map">
         SELECT COLUMN_NAME AS column_name, DATA_TYPE AS data_type FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=#{table} AND EXTRA NOT LIKE '%GENERATED%'
+        <!-- DEFAULT_GENERATED仍是可复制的普通列；只排除实际计算生成列。 -->
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=#{table} AND GENERATION_EXPRESSION=''
         ORDER BY ORDINAL_POSITION
     </select>
     <select id="page" resultType="map">

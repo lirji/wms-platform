@@ -61,6 +61,7 @@ class SnapshotHttpIT {
     private static final Instant RECEIVED = Instant.parse("2026-09-10T13:00:00Z");
     private static final MySQLContainer MYSQL;
     private static final KeyPair KEYS;
+    private static org.apache.ibatis.session.SqlSessionFactory sessions;
 
     static {
         try {
@@ -79,7 +80,8 @@ class SnapshotHttpIT {
             config.addMapper(InventoryMapper.class);
             config.addMapper(OutboxMapper.class);
             config.addMapper(CommandDedupMapper.class);
-            try (SqlSession session = new SqlSessionFactoryBuilder().build(config).openSession(false)) {
+            sessions = new SqlSessionFactoryBuilder().build(config);
+            try (SqlSession session = sessions.openSession(false)) {
                 new InventoryApplicationService(session, clock).receive(SeedCatalog.ENTERPRISE, SeedCatalog.WAREHOUSE_A,
                         "OP-HTTP-SNAP", "DOC", "ACTOR",
                         StockBucketKey.of(SeedCatalog.ENTERPRISE, SeedCatalog.WAREHOUSE_A, SeedCatalog.OWNER,
@@ -125,6 +127,16 @@ class SnapshotHttpIT {
     @Test
     void exportAndReadQuantitySnapshotThenRejectCrossWarehouse() throws Exception {
         assertEquals(401, post("/api/wms/v1/reconciliation-snapshots", null, "{}").statusCode());
+        HttpResponse<String> incomplete = post("/api/wms/v1/reconciliation-snapshots", token(List.of("WH-A")),
+                "{\"warehouseIds\":[\"WH-A\"],\"cutoffId\":\"C-HTTP\",\"cutoff\":\"2026-09-12T10:00:00Z\","
+                        + "\"sourceWatermark\":\"SRC-1\",\"postingWatermark\":\"POST-1\",\"receiptWatermark\":\"RCV-1\"}");
+        assertTrue(incomplete.body().contains("SOURCE_INCOMPLETE"), incomplete.body());
+        assertFalse(incomplete.body().contains("\"state\":\"COMPLETE\""), incomplete.body());
+        try (SqlSession session = sessions.openSession(false)) {
+            VerifiedWindowFixture.seed(session,SeedCatalog.ENTERPRISE,"WH-A","C-HTTP",
+                    java.sql.Timestamp.from(Instant.parse("2026-09-12T10:00:00Z")),"SRC-1","POST-1","RCV-1");
+            session.commit();
+        }
         HttpResponse<String> created = post("/api/wms/v1/reconciliation-snapshots", token(List.of("WH-A")),
                 "{\"warehouseIds\":[\"WH-A\"],\"cutoffId\":\"C-HTTP\",\"cutoff\":\"2026-09-12T10:00:00Z\","
                         + "\"sourceWatermark\":\"SRC-1\",\"postingWatermark\":\"POST-1\",\"receiptWatermark\":\"RCV-1\"}");

@@ -16,7 +16,7 @@
 
 新增表和字段必须写中文含义注释；通过追加迁移演进，不修改已执行文件伪造历史。唯一约束、条件更新、影响行数和事务边界共同维护完整性。变更前检查新旧应用共存、回填和回退条件；代码回退不自动撤销已提交业务数据。
 
-仓迁移显式复制 54 张企业/仓范围表，列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
+仓迁移显式复制 55 张企业/仓范围表，列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
 
 ## HTTP 与鉴权
 

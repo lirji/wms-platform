@@ -69,7 +69,7 @@
     </update>
 
     <!-- insertPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertPosting">
+    <insert id="appendPosting">
         INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, #{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, CAST(#{manifest} AS JSON), 1, NULL, 0, 0, #{now}, #{now})
     </insert>
@@ -123,5 +123,12 @@
         SELECT id, quantity, source_execution_id, source_document_id, action, created_at
         FROM stock_posting WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
           AND source_service=#{sourceService} AND command_id=#{commandId}
+    </select>
+    <insert id="ensureHistoryGuard">
+        INSERT INTO reconciliation_history_guard(id,enterprise_id,warehouse_id) VALUES(#{guardId},#{enterpriseId},#{warehouseId})
+        ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
+    </insert>
+    <select id="lockHistoryGuard" resultType="map" timeout="3">
+        SELECT id,closed_before FROM reconciliation_history_guard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} FOR SHARE
     </select>
 </mapper>

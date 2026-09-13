@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.recon.SnapshotMapper">
+    <select id="verifiedWindow" resultType="map">
+        SELECT c.closed_at,c.source_watermark,c.posting_watermark,c.receipt_watermark
+        FROM reconciliation_cutoff c JOIN reconciliation_history_guard g
+          ON g.enterprise_id=c.enterprise_id AND g.warehouse_id=c.warehouse_id
+        WHERE c.enterprise_id=#{enterpriseId} AND c.warehouse_id=#{warehouseId} AND c.cutoff_id=#{cutoffId}
+          AND c.evidence_version=1 AND c.watermarks_complete=1 AND g.closed_before &gt;= c.closed_at
+    </select>
 
     <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <insert id="insertIgnore">

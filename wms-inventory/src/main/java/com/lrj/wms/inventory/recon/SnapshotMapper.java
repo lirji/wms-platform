@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Param;
 
 /** 数量快照读写。完成后禁止改 payload/manifest。 */
 public interface SnapshotMapper {
+    /** 只读取服务端已核验窗口；历史complete位和调用方水位不具有证明效力。 */
+    Map<String,Object> verifiedWindow(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId,@Param("cutoffId") String cutoffId);
     /** insertIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertIgnore(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("scenario") String scenario,

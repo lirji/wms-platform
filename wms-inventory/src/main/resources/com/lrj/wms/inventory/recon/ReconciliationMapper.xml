@@ -11,11 +11,13 @@
 
     <!-- lockCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockCutoff" resultType="map">
-        SELECT *
-        FROM reconciliation_cutoff
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
-        AND cutoff_id=#{cutoffId} FOR UPDATE
+        SELECT c.*, EXISTS(SELECT 1 FROM reconciliation_history_guard g
+            WHERE g.enterprise_id=c.enterprise_id AND g.warehouse_id=c.warehouse_id
+              AND g.closed_before >= c.closed_at) AS history_frozen
+        FROM reconciliation_cutoff c
+        WHERE c.enterprise_id=#{enterpriseId}
+        AND c.warehouse_id=#{warehouseId}
+        AND c.cutoff_id=#{cutoffId} FOR UPDATE
     </select>
 
     <!-- insertFactIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->

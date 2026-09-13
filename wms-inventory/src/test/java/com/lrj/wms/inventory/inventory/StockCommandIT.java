@@ -104,6 +104,48 @@ class StockCommandIT {
     }
 
     @Test
+    void historyFreezeWaitsForCommitAndRejectsBothLateLedgerAndPosting() throws Exception {
+        String warehouse="WH-HISTORY";
+        var bucket=StockBucketKey.of("ENT-1",warehouse,"OWNER-1","LOC-HISTORY","SKU-HISTORY",MasterdataCodes.NO_LOT,InventoryCodes.QUALITY_GOOD);
+        Clock original=Clock.fixed(NOW,ZoneOffset.UTC),later=Clock.fixed(NOW.plusSeconds(2),ZoneOffset.UTC);
+        try(var session=sessions.openSession(false)) {
+            var masterdata=new MasterdataService(session,original);
+            masterdata.createWarehouse(warehouse,"ENT-1",warehouse,warehouse,"UTC");
+            masterdata.createLocation("LOC-HISTORY","GATE-HISTORY","ENT-1",warehouse,"H-01","A","STORAGE",new BigDecimal("100"),"EA");session.commit();
+        }
+        var pool=java.util.concurrent.Executors.newSingleThreadExecutor();
+        try(var writer=sessions.openSession(false)) {
+            new StockCommandService(writer,original).applyReceive("ENT-1",warehouse,StockCommandCodes.SOURCE_INBOUND,"HISTORY-FIRST",
+                    "PARENT","FIRST","LINE","DOC","ACTOR","EXEC-FIRST",bucket,Quantity.parse("1",0));
+            var started=new java.util.concurrent.CountDownLatch(1);
+            var freeze=pool.submit(() -> {started.countDown();return jdbc.update("UPDATE reconciliation_history_guard SET closed_before=?,version=version+1 WHERE enterprise_id='ENT-1' AND warehouse_id=?",
+                    java.sql.Timestamp.from(NOW.plusSeconds(1)),warehouse);});
+            assertTrue(started.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            assertThrows(java.util.concurrent.TimeoutException.class,() -> freeze.get(200,java.util.concurrent.TimeUnit.MILLISECONDS));
+            writer.commit();assertEquals(1,freeze.get(5,java.util.concurrent.TimeUnit.SECONDS));
+        } finally {pool.shutdownNow();pool.awaitTermination(5,java.util.concurrent.TimeUnit.SECONDS);}
+        try(var session=sessions.openSession(false)) {
+            var rejected=assertThrows(InventoryException.class,() -> new StockCommandService(session,original).applyReceive("ENT-1",warehouse,StockCommandCodes.SOURCE_INBOUND,"HISTORY-OLD",
+                    "PARENT","OLD","LINE","DOC","ACTOR","EXEC-OLD",bucket,Quantity.parse("1",0)));
+            assertEquals("HISTORY_WINDOW_CLOSED",rejected.code());session.rollback();
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM stock_command WHERE command_id='HISTORY-OLD'",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE warehouse_id=?",BigDecimal.class,warehouse).compareTo(BigDecimal.ONE));
+        // 单独覆盖posting入口，避免只有流水受保护而原时间凭证仍能迟提交。
+        try(var session=sessions.openSession(false)) {
+            var rejected=assertThrows(InventoryException.class,() -> session.getMapper(StockCommandMapper.class).insertPosting("HISTORY-FAKE","ENT-1",warehouse,
+                    StockCommandCodes.SOURCE_INBOUND,"HISTORY-FAKE","EFFECT-FAKE","RECEIVE","ATTEMPT","RECEIVE",BigDecimal.ONE,"EXEC","DOC","[]",java.sql.Timestamp.from(NOW)));
+            assertEquals("HISTORY_WINDOW_CLOSED",rejected.code());session.rollback();
+            var replay=new StockCommandService(session,original).applyReceive("ENT-1",warehouse,StockCommandCodes.SOURCE_INBOUND,"HISTORY-FIRST",
+                    "PARENT","FIRST","LINE","DOC","ACTOR","EXEC-FIRST",bucket,Quantity.parse("1",0));assertEquals("APPLIED",replay.get("state"));session.commit();
+            new StockCommandService(session,later).applyReceive("ENT-1",warehouse,StockCommandCodes.SOURCE_INBOUND,"HISTORY-NEW",
+                    "PARENT","NEW","LINE","DOC","ACTOR","EXEC-NEW",bucket,Quantity.parse("1",0));session.commit();
+        }
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM stock_posting WHERE warehouse_id=?",Integer.class,warehouse));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE warehouse_id=? AND created_at<?",Integer.class,warehouse,java.sql.Timestamp.from(NOW.plusSeconds(1))));
+    }
+
+    @Test
     void applyReplayCancelTombstoneAndRejectLateApply() {
         StockBucketKey bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", "SKU-CMD", MasterdataCodes.NO_LOT,
                 InventoryCodes.QUALITY_GOOD);

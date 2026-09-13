@@ -45,6 +45,7 @@ public final class SnapshotExportService {
         if (blank(sourceWatermark) || blank(postingWatermark) || blank(receiptWatermark)) {
             throw new JobRunException("SOURCE_INCOMPLETE", "三方水位不齐不能发布快照");
         }
+        requireEvidence(enterpriseId,warehouseId,cutoffId,closedAt,sourceWatermark,postingWatermark,receiptWatermark);
         Timestamp now = Timestamp.from(clock.instant());
         String scopeJson = JSON.writeValueAsString(Map.of("warehouseIds", List.of(warehouseId)));
         String digest = sha256(JSON.writeValueAsString(List.of(enterpriseId, warehouseId, SCENARIO, cutoffId)));
@@ -126,6 +127,11 @@ public final class SnapshotExportService {
         if (snapshot == null) {
             throw new JobRunException("SNAPSHOT_MISSING", "快照不存在");
         }
+        // 已生成的历史分段也不能绕过证明校验，不能只限制新建入口。
+        var watermarks=JSON.readTree(String.valueOf(snapshot.get("source_watermarks")));
+        requireEvidence(enterpriseId,warehouseId,String.valueOf(snapshot.get("cutoff_id")),
+                Timestamp.from(com.lrj.wms.runtime.db.DatabaseInstants.require(snapshot.get("closed_at"))),
+                watermarks.path("source").asString(),watermarks.path("posting").asString(),watermarks.path("receipt").asString());
         List<Map<String, Object>> parts = mapper.listParts(enterpriseId, warehouseId, snapshotId, afterPart);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("snapshotId", snapshot.get("id"));
@@ -144,6 +150,15 @@ public final class SnapshotExportService {
             return item;
         }).toList());
         return body;
+    }
+
+    private void requireEvidence(String e,String w,String cutoffId,Timestamp closedAt,String source,String posting,String receipt) {
+        var proof=session.getMapper(SnapshotMapper.class).verifiedWindow(e,w,cutoffId);
+        if(proof==null || !closedAt.toInstant().equals(com.lrj.wms.runtime.db.DatabaseInstants.require(proof.get("closed_at")))
+                || !java.util.Objects.equals(source,proof.get("source_watermark"))
+                || !java.util.Objects.equals(posting,proof.get("posting_watermark"))
+                || !java.util.Objects.equals(receipt,proof.get("receipt_watermark")))
+            throw new JobRunException("SOURCE_INCOMPLETE","来源、库存、回执与历史冻结尚未取得匹配证明");
     }
 
     private static void require(String enterpriseId, String warehouseId, String id) {

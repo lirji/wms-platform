@@ -27,7 +27,7 @@ public final class WarehouseMigrationStore {
             "expiry_notice", "projection_inbox", "inventory_view", "projection_checkpoint",
             "reconciliation_cutoff", "reconciliation_case", "source_execution_fact", "reconciliation_snapshot", "snapshot_part",
             "runtime_message_inbox", "message_recovery_audit", "stock_receipt_quality", "reconciliation_scan",
-            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit", "inventory_tcc_intent", "serial_receipt_batch", "serial_release_intent", "count_adjustment_intent", "count_serial_intent", "serial_pick_fact", "serial_shipment_intent");
+            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit", "inventory_tcc_intent", "serial_receipt_batch", "serial_release_intent", "count_adjustment_intent", "count_serial_intent", "serial_pick_fact", "serial_shipment_intent", "reconciliation_history_guard");
 
     private final SqlSessionFactory source;
     private final SqlSessionFactory target;
@@ -94,7 +94,7 @@ public final class WarehouseMigrationStore {
         }
         String watermark = columns.stream().anyMatch(c -> c.name().equals("updated_at")) ? "updated_at" : "created_at";
         if (columns.stream().noneMatch(c -> c.name().equals(watermark))) {
-            throw new InventoryException("MIGRATION_MISMATCH", "迁移表缺少水位列");
+            throw new InventoryException("MIGRATION_MISMATCH", "迁移表缺少水位列：" + table);
         }
         String key = table.equals("outbox_event") ? "event_id" : "id";
         String cursor = null;

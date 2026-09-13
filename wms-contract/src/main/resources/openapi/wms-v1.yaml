@@ -1739,7 +1739,7 @@ paths:
     post:
       operationId: createReconciliationSnapshot
       tags: [recon]
-      summary: 每次导出最多100行，以相同请求续跑直至COMPLETE
+      summary: 须匹配服务端核验的原三方水位与冻结截止；缺证明返回SOURCE_INCOMPLETE。每次最多100行，原请求续跑
       security:
         - oidc: [recon.export]
       parameters:
@@ -1776,7 +1776,7 @@ paths:
     get:
       operationId: getReconciliationSnapshot
       tags: [recon]
-      summary: 读取快照manifest及一个分段，nextPartNo作为下次afterPart
+      summary: 核对服务端证明后读取manifest及一个分段；旧快照缺证明返回SOURCE_INCOMPLETE，nextPartNo作为下次afterPart
       security:
         - oidc: [recon.read]
       parameters:

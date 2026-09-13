@@ -47,8 +47,28 @@ public interface InventoryMapper {
             @Param("now") Timestamp now);
 
     /** 写入不可变流水。 */
-    /** insertLedger：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
-    int insertLedger(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+    /** 写入前持有历史范围共享锁，旧时间事实不能在关窗完成后迟提交。 */
+    default int insertLedger(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
+            @Param("warehouseId") String warehouseId, @Param("operationId") String operationId, @Param("entryNo") int entryNo,
+            @Param("balanceId") String balanceId, @Param("onHandDelta") BigDecimal onHandDelta,
+            @Param("reservedDelta") BigDecimal reservedDelta, @Param("claimDelta") BigDecimal claimDelta,
+            @Param("onHandAfter") BigDecimal onHandAfter, @Param("reservedAfter") BigDecimal reservedAfter,
+            @Param("claimAfter") BigDecimal claimAfter, @Param("balanceVersion") long balanceVersion,
+            @Param("reasonCode") String reasonCode, @Param("documentId") String documentId, @Param("actorId") String actorId,
+            @Param("occurredAt") Timestamp occurredAt, @Param("now") Timestamp now) {
+        var guard=lockHistoryGuard(enterpriseId,warehouseId);
+        if(guard==null) {
+            ensureHistoryGuard(java.util.UUID.randomUUID().toString(),enterpriseId,warehouseId);
+            guard=lockHistoryGuard(enterpriseId,warehouseId);
+        }
+        if(guard==null) throw new IllegalStateException("HISTORY_GUARD_MISSING");
+        if(guard.get("closed_before")!=null && now.toInstant().isBefore(com.lrj.wms.runtime.db.DatabaseInstants.require(guard.get("closed_before"))))
+            throw new com.lrj.wms.inventory.inventory.InventoryException("HISTORY_WINDOW_CLOSED", "旧时间事实不能写入已冻结历史窗口");
+        return appendLedger(id,enterpriseId,warehouseId,operationId,entryNo,balanceId,onHandDelta,reservedDelta,claimDelta,onHandAfter,reservedAfter,claimAfter,balanceVersion,reasonCode,documentId,actorId,occurredAt,now);
+    }
+
+    /** 仅供上方受控写入口调用，SQL集中在XML，业务不能绕过历史屏障。 */
+    int appendLedger(@Param("id") String id, @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId, @Param("operationId") String operationId, @Param("entryNo") int entryNo,
             @Param("balanceId") String balanceId, @Param("onHandDelta") BigDecimal onHandDelta,
             @Param("reservedDelta") BigDecimal reservedDelta, @Param("claimDelta") BigDecimal claimDelta,
@@ -56,6 +76,11 @@ public interface InventoryMapper {
             @Param("claimAfter") BigDecimal claimAfter, @Param("balanceVersion") long balanceVersion,
             @Param("reasonCode") String reasonCode, @Param("documentId") String documentId, @Param("actorId") String actorId,
             @Param("occurredAt") Timestamp occurredAt, @Param("now") Timestamp now);
+    /** 首次建范围行允许唯一约束解决竞争，已有范围直接走共享锁。 */
+    int ensureHistoryGuard(@Param("guardId") String guardId,@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId);
+    /** 与关窗排他锁互斥，同一仓的普通写事务之间仍可并发。 */
+    Map<String,Object> lockHistoryGuard(@Param("enterpriseId") String enterpriseId,@Param("warehouseId") String warehouseId);
+
 
     /** 插入仓级预占头；同 attempt 或同 XID 所有者冲突由唯一键拒绝。 */
     /** insertReservation：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */

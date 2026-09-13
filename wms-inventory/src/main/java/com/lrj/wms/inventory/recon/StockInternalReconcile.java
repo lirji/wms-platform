@@ -49,7 +49,8 @@ public final class StockInternalReconcile {
         if (closedAt == null) {
             throw new JobRunException("INVALID_CUTOFF", "对账必须提供稳定关闭时刻");
         }
-        int complete = blank(sourceWatermark) || blank(postingWatermark) || blank(receiptWatermark) ? 0 : 1;
+        // 传入的字符串只是窗口引用，不能替代服务端三方证明；新窗口默认未验证。
+        int complete = 0;
         Timestamp now = Timestamp.from(clock.instant());
         session.getMapper(ReconciliationMapper.class).upsertCutoff(UUID.randomUUID().toString(), enterpriseId,
                 warehouseId, cutoffId, closedAt, blankToNull(sourceWatermark), blankToNull(postingWatermark),
@@ -63,7 +64,7 @@ public final class StockInternalReconcile {
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("cutoffId", cutoffId);
-        body.put("watermarksComplete", complete == 1);
+        body.put("watermarksComplete", asInt(existing.get("history_frozen")) == 1 && asInt(existing.get("evidence_version")) == 1 && asInt(existing.get("watermarks_complete")) == 1);
         return body;
     }
 
@@ -99,7 +100,7 @@ public final class StockInternalReconcile {
         Set<String> checked = new HashSet<>();
         checked.add(WATERMARK + "/" + cutoffId);
         int opened = 0;
-        boolean completeWatermarks = asInt(cutoff.get("watermarks_complete")) == 1;
+        boolean completeWatermarks = asInt(cutoff.get("history_frozen")) == 1 && asInt(cutoff.get("evidence_version")) == 1 && asInt(cutoff.get("watermarks_complete")) == 1;
         if (!completeWatermarks) opened += open(mapper, enterpriseId, warehouseId, cutoffId, WATERMARK, SOURCE_INCOMPLETE,
                 cutoffId, null, BigDecimal.ONE, BigDecimal.ZERO, "source/posting/receipt watermark incomplete", now, openKeys);
         List<Map<String, Object>> balances = asInt(scan.get("balance_done")) == 1 ? List.of()
