@@ -168,6 +168,15 @@ post("/api/wms/v1/transfers/{transferId}/receipt-authorizations", "authorizeTran
      "目的仓接收额度授权", ["- $ref: '#/components/parameters/TransferId'"])
 post("/api/wms/v1/warehouses/{warehouseId}/transfer-receipts", "receiveTransfer", "inbound",
      "transfer.receive", "TransferReceiptRequest", ("202",), "调拨接收", wh)
+post("/api/wms/v1/transfers/{transferId}/serial-issues", "issueSerialTransfer", "fulfillment", "transfer.create",
+     "SerialTransferIssueRequest", ("200", "202"), "按原SN和epoch请求调拨发出；处理中不累计已发出数量",
+     ["- $ref: '#/components/parameters/TransferId'"], success_schema="SerialTransferCommandState")
+post("/api/wms/v1/warehouses/{warehouseId}/serial-transfer-receipts", "receiveSerialTransfer", "fulfillment", "transfer.receive",
+     "SerialTransferReceiptRequest", ("200", "202"), "按已发出的原身份分批接收，额度与SN只能绑定一个原命令", wh,
+     success_schema="SerialTransferCommandState")
+get("/api/wms/v1/transfers/{transferId}/serial-commands/{commandId}", "getSerialTransferCommand", "fulfillment", "transfer.read",
+    ("200",), "查询原命令和登记完成状态，两参与仓可读；Outbox已发送不等于完成",
+    ["- $ref: '#/components/parameters/TransferId'", "- $ref: '#/components/parameters/CommandId'"], success_schema="SerialTransferCommandState")
 post("/api/wms/v1/warehouses/{warehouseId}/count-plans", "createCountPlan", "inventory",
      "count.create", "CountPlanCreateRequest", ("201",), "创建盘点计划", wh)
 get("/api/wms/v1/warehouses/{warehouseId}/count-plans", "listCountPlans", "inventory",
@@ -328,7 +337,7 @@ for suffix, operation, schema in [
     ("destination-confirmations", "confirmSerialDestination", "SerialTransferConfirmCommand")]:
     post("/internal/wms/v1/serial-identities/"+suffix, operation, "internal-registry", "serial.registry.write",
          schema, ("200",), "受信服务主体提交原始事实引用；转移准备检查双方仓范围，释放仅源仓，接收仅目的仓",
-         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"] + (["- in: header\n  name: X-Wms-Serial-Release-Proof\n  required: false\n  description: 显式请求原始源释放凭证，旧请求保持原身份响应\n  schema: { type: string, enum: ['1'] }"] if suffix == "source-releases" else []), success_schema="SerialIdentity")
+         ["- $ref: '#/components/parameters/SerialEnterpriseHeader'"] + (["- in: header\n  name: X-Wms-Serial-Release-Proof\n  required: false\n  description: 显式请求原始源释放凭证，旧请求保持原身份响应\n  schema: { type: string, enum: ['1'] }"] if suffix == "source-releases" else []) + (["- in: header\n  name: X-Wms-Serial-Prepare-Proof\n  required: false\n  schema: {type: string, enum: ['1']}"] if suffix == "transfer-preparations" else []), success_schema="SerialIdentity")
 get("/internal/wms/v1/serial-identities/transfers/{transferId}", "getSerialTransfer", "internal-registry", "serial.registry.read", ("200",),
     "检查转移源或目的仓范围并查询原始释放/接收引用",
     ["- $ref: '#/components/parameters/SerialEnterpriseHeader'", "- $ref: '#/components/parameters/TransferId'",
@@ -1003,6 +1012,68 @@ components:
         clientOperationId:
           type: "string"
           maxLength: 64
+    SerialTransferPostingContext:
+      type: object
+      additionalProperties: false
+      required: [documentId, ownerId, skuId, baseUnit, sourceLocationId, lotId, qualityCode]
+      properties:
+        documentId: {type: string, minLength: 1, maxLength: 64, description: 必须等于原transferId}
+        ownerId: {type: string, minLength: 1, maxLength: 64}
+        skuId: {type: string, minLength: 1, maxLength: 64}
+        baseUnit: {type: string, minLength: 1, maxLength: 32}
+        sourceLocationId: {type: string, minLength: 1, maxLength: 64, description: 本次源发出或目的接收库位}
+        lotId: {type: string, minLength: 1, maxLength: 64}
+        qualityCode: {type: string, enum: [GOOD, HOLD, REJECTED], description: 目的接收必须HOLD}
+        targetLocationId: {type: 'null'}
+        allocationId: {type: 'null'}
+        allocationAttemptId: {type: 'null'}
+    SerialTransferIssueRequest:
+      type: object
+      additionalProperties: false
+      required: [lineId, postingContext, selection, qty]
+      properties:
+        lineId: {type: string, minLength: 1, maxLength: 64}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        qty: {type: number, minimum: 1, maximum: 200, description: 必须等于身份集合大小}
+    SerialTransferReceiptRequest:
+      type: object
+      additionalProperties: false
+      required: [transferId, lineId, postingContext, selection, qty, authorizationId, tokenVersion]
+      properties:
+        transferId: {type: string, minLength: 1, maxLength: 64}
+        lineId: {type: string, minLength: 1, maxLength: 64}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        qty: {type: number, minimum: 1, maximum: 200, description: 必须等于原额度及身份集合大小}
+        authorizationId: {type: string, minLength: 1, maxLength: 64}
+        tokenVersion: {type: integer, format: int64, minimum: 0}
+    SerialTransferStockCommand:
+      type: object
+      required: [schemaVersion, commandId, action, transferId, lineId, sourceWarehouseId, targetWarehouseId, businessLotKey, postingContext, selection, actorId]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        commandId: {type: string, maxLength: 64}
+        action: {type: string, enum: [ISSUE, RECEIVE]}
+        transferId: {type: string, maxLength: 64}
+        lineId: {type: string, maxLength: 64}
+        sourceWarehouseId: {type: string, maxLength: 64}
+        targetWarehouseId: {type: string, maxLength: 64}
+        businessLotKey: {type: string, minLength: 1, maxLength: 64, description: 原调拨行跨仓批次键，两仓各自批次须匹配}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        actorId: {type: string, maxLength: 64}
+    SerialTransferCommandState:
+      type: object
+      required: [commandId, state, warehouseId, transferId, lineId, quantity, command]
+      properties:
+        commandId: {type: string, maxLength: 64}
+        state: {type: string, enum: [PENDING, COMPLETE]}
+        warehouseId: {type: string, maxLength: 64}
+        transferId: {type: string, maxLength: 64}
+        lineId: {type: string, maxLength: 64}
+        quantity: {type: integer, minimum: 1, maximum: 200}
+        command: {$ref: '#/components/schemas/SerialTransferStockCommand'}
     SerialExecutionSelection:
       type: object
       additionalProperties: false
@@ -2060,6 +2131,21 @@ components:
         toEpoch: { type: [integer, 'null'], format: int64 }
         sourceReleaseRef: { type: [string, 'null'] }
         targetReceiptRef: { type: [string, 'null'] }
+    SerialTransferPreparationProof:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, enterpriseId, skuId, normalizedSerial, transferId, sourceWarehouseId, targetWarehouseId, prepareOperationId, fromEpoch]
+      description: 不可变原准备事实；不代表当前身份授权，后续在途或新转移不使其失效。
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        enterpriseId: {$ref: '#/components/schemas/Id'}
+        skuId: {$ref: '#/components/schemas/Id'}
+        normalizedSerial: {type: string, minLength: 1, maxLength: 128}
+        transferId: {$ref: '#/components/schemas/Id'}
+        sourceWarehouseId: {$ref: '#/components/schemas/Id'}
+        targetWarehouseId: {$ref: '#/components/schemas/Id'}
+        prepareOperationId: {$ref: '#/components/schemas/Id'}
+        fromEpoch: {type: integer, format: int64, minimum: 0}
     SerialSourceReleaseProof:
       type: object
       additionalProperties: false
@@ -2078,6 +2164,7 @@ components:
       required: [id, state, normalizedSerial, ownerWarehouseId, ownerEpoch, claimOperationId, routeBucket, version]
       properties:
         sourceRelease: { $ref: '#/components/schemas/SerialSourceReleaseProof' }
+        transferPreparation: {$ref: '#/components/schemas/SerialTransferPreparationProof'}
         id: { $ref: '#/components/schemas/Id' }
         state: { type: string }
         normalizedSerial: { type: string }

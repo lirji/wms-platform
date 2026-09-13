@@ -77,6 +77,7 @@ public final class TransferService {
     /** 源仓发出。同操作键重放原事实，不二次加 issued。 */
     public Map<String, Object> issue(String enterpriseId, String transferId, String lineId, String operationId,
             BigDecimal qty) {
+        requireQuantityMode(enterpriseId,transferId,lineId);
         return applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_ISSUE);
     }
 
@@ -111,6 +112,13 @@ public final class TransferService {
     /** 目的仓凭 token 接收。同操作键重放原事实；消费与行锁同事务。 */
     public Map<String, Object> receive(String enterpriseId, String transferId, String lineId, String operationId,
             String authorizationId, long tokenVersion, BigDecimal qty, String targetLotId) {
+        requireQuantityMode(enterpriseId,transferId,lineId);
+        return receiveVerified(enterpriseId,transferId,lineId,operationId,authorizationId,tokenVersion,qty,targetLotId);
+    }
+
+    /** 仅由原库存完成回执调用；公开数量入口必须先经过模式门禁。 */
+    Map<String,Object> receiveVerified(String enterpriseId,String transferId,String lineId,String operationId,
+            String authorizationId,long tokenVersion,BigDecimal qty,String targetLotId) {
         require(authorizationId, "INVALID_AUTHORIZATION", "接收授权不能为空");
         TransferMapper mapper = mapper();
         requireOrder(mapper, enterpriseId, transferId);
@@ -119,6 +127,7 @@ public final class TransferService {
         if (auth == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "接收授权不存在");
         }
+        if(!transferId.equals(auth.get("transfer_id"))) throw new TransferException("TOKEN_MISMATCH","额度不属于原调拨单");
         if (!lineId.equals(String.valueOf(auth.get("transfer_line_id")))
                 || qty.compareTo(decimal(auth.get("quantity"))) != 0
                 || tokenVersion != ((Number) auth.get("token_version")).longValue()) {
@@ -155,6 +164,10 @@ public final class TransferService {
         if (auth == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "接收授权不存在");
         }
+        if(!transferId.equals(auth.get("transfer_id"))) throw new TransferException("TOKEN_MISMATCH","额度不属于原调拨单");
+        var originalLine=requireLine(mapper,enterpriseId,transferId,(String)auth.get("transfer_line_id"));
+        if(SerialTransferService.serial(originalLine) && session.getMapper(SerialTransferMapper.class).authorizationCommand(enterpriseId,authorizationId)!=null)
+            throw new TransferException("RECEIPT_IN_PROGRESS","额度已绑定实物收货命令，不能按未执行取消");
         if (AUTH_CONSUMED.equals(String.valueOf(auth.get("state")))) {
             return authView(auth, true);
         }
@@ -176,6 +189,7 @@ public final class TransferService {
     /** 确认损耗，与接收额度竞争同一行锁。 */
     public Map<String, Object> confirmLoss(String enterpriseId, String transferId, String lineId, String operationId,
             BigDecimal qty) {
+        requireQuantityMode(enterpriseId,transferId,lineId);
         TransferMapper mapper = mapper();
         requireOrder(mapper, enterpriseId, transferId);
         Map<String, Object> line = requireLine(mapper, enterpriseId, transferId, lineId);
@@ -205,7 +219,7 @@ public final class TransferService {
         return mapper().listOrders(enterpriseId, limit);
     }
 
-    private Map<String, Object> applyFact(String enterpriseId, String transferId, String lineId, String operationId,
+    Map<String, Object> applyFact(String enterpriseId, String transferId, String lineId, String operationId,
             BigDecimal qty, String action) {
         require(operationId, "INVALID_OPERATION", "操作键不能为空");
         requireQty(qty);
@@ -282,6 +296,12 @@ public final class TransferService {
         body.put("quantity", fact.get("quantity"));
         body.put("replayed", replayed);
         return body;
+    }
+
+    /** 序列执行一旦固定，旧数量接口不得绕过真实身份完成回执。 */
+    private void requireQuantityMode(String e,String transfer,String line) {
+        var mapper=mapper();requireOrder(mapper,e,transfer);
+        if(SerialTransferService.serial(requireLine(mapper,e,transfer,line))) throw new TransferException("SERIAL_COMMAND_REQUIRED","序列调拨须使用原身份命令，数量接口不能代替实物证明");
     }
 
     private Map<String, Object> requireOrder(TransferMapper mapper, String enterpriseId, String transferId) {

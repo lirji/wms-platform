@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.fulfillment.SerialTransferMapper">
+ <select id="get" resultType="map">SELECT * FROM transfer_serial_command WHERE enterprise_id=#{e} AND id=#{id}</select>
+ <select id="lock" resultType="map">SELECT * FROM transfer_serial_command WHERE enterprise_id=#{e} AND id=#{id} FOR UPDATE</select>
+ <select id="authorizationCommand" resultType="map">SELECT * FROM transfer_serial_command WHERE enterprise_id=#{e} AND authorization_id=#{authorization} FOR UPDATE</select>
+ <insert id="insert">
+  INSERT INTO transfer_serial_command(id,enterprise_id,warehouse_id,transfer_id,line_id,action,quantity,context_hash,payload,authorization_id,authorization_version,created_at,updated_at)
+  VALUES(#{row.id},#{row.e},#{row.w},#{row.transfer},#{row.line},#{row.action},#{row.quantity},#{row.hash},CAST(#{row.payload} AS JSON),#{row.authorization},#{row.tokenVersion},#{row.now},#{row.now})
+ </insert>
+ <update id="enable">
+  UPDATE transfer_line SET serial_execution=1,version=version+1 WHERE enterprise_id=#{e} AND transfer_id=#{transfer} AND id=#{line}
+  AND serial_execution=0 AND issued_qty=0 AND received_qty=0 AND active_receipt_quota=0 AND loss_confirmed_qty=0
+ </update>
+ <select id="pendingIssue" resultType="long">
+  SELECT COALESCE(SUM(quantity),0) FROM transfer_serial_command WHERE enterprise_id=#{e} AND transfer_id=#{transfer} AND line_id=#{line} AND action='ISSUE' AND state='PENDING'
+ </select>
+ <insert id="members">
+  INSERT INTO transfer_serial_member(enterprise_id,transfer_id,serial_id,line_id,owner_epoch,source_command_id,created_at)
+  VALUES <foreach collection="identities" item="i" separator=",">(#{e},#{transfer},#{i.serialId},#{line},#{i.ownerEpoch,javaType=java.lang.Long,jdbcType=BIGINT},#{id},#{now})</foreach>
+ </insert>
+ <select id="lockMembers" resultType="map" timeout="3">
+  SELECT m.*,c.state AS source_state,c.payload AS source_payload FROM transfer_serial_member m JOIN transfer_serial_command c ON c.id=m.source_command_id AND c.enterprise_id=m.enterprise_id
+  WHERE m.enterprise_id=#{e} AND m.transfer_id=#{transfer} AND m.serial_id IN <foreach collection="serials" item="sn" open="(" close=")" separator=",">#{sn}</foreach>
+  ORDER BY m.serial_id FOR UPDATE
+ </select>
+ <update id="assign">
+  UPDATE transfer_serial_member SET receipt_command_id=#{id} WHERE enterprise_id=#{e} AND transfer_id=#{transfer} AND receipt_command_id IS NULL
+  AND serial_id IN <foreach collection="serials" item="sn" open="(" close=")" separator=",">#{sn}</foreach>
+ </update>
+ <update id="complete">UPDATE transfer_serial_command SET state='COMPLETE',updated_at=#{now} WHERE enterprise_id=#{e} AND id=#{id} AND state='PENDING'</update>
+</mapper>

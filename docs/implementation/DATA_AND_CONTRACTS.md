@@ -1,6 +1,6 @@
 # 数据与接口索引
 
-核对已发布基线 `e22f0b2`及本地可信水位采集切片（2026-09-13，采集器尚待进程验收和发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
+核对已发布基线 `051a7eb`及本地公开序列调拨切片（2026-09-13，调拨尚待完整验收和发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
 
 ## 数据所有权与迁移
 
@@ -8,19 +8,19 @@
 | --- | --- | --- | --- |
 | inbound | 入库单、分批收货观察、质检、上架、来源命令及回执 | `wms_inbound` | [inbound 迁移](../../wms-inbound/src/main/resources/db/migration)；V017 `source_reconciliation_window` |
 | outbound | 出库单、拣发任务、实物执行、取消、履约授权快照 | `wms_outbound` | [outbound 迁移](../../wms-outbound/src/main/resources/db/migration)；V019 `source_reconciliation_window` |
-| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V045 `reconciliation_collection`（本地待发布） |
+| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V047 `serial_transfer_command`（本地待发布），V045水位已发布 |
 | serial-registry | 企业 + SKU + SN 身份、归属和转移凭据 | `wms_registry` | [registry 迁移](../../wms-serial-registry/src/main/resources/db/migration/registry)；V005 `serial_shipment` |
-| fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V019 `empty_launch_terminal_evidence` |
+| fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox、原序列调拨命令及逐SN成员 | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V020 `serial_transfer_command`（本地待发布） |
 
 版本号是本次代码快照，不代表现场数据库已执行到该版本。跨服务通过契约协作，不共享事务管理器或直接写对方表。当前独立查询服务尚未创建，投影在 inventory 内；`wms-integration` 是适配库，没有独立 schema 或启动进程。
 
 新增表和字段必须写中文含义注释；通过追加迁移演进，不修改已执行文件伪造历史。唯一约束、条件更新、影响行数和事务边界共同维护完整性。变更前检查新旧应用共存、回填和回退条件；代码回退不自动撤销已提交业务数据。
 
-仓迁移显式复制 56 张企业/仓范围表（含本地新增采集审计），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
+仓迁移显式复制 57 张企业/仓范围表（含本地新增序列调拨命令），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
 
 ## HTTP 与鉴权
 
-- [OpenAPI](../../wms-contract/src/main/resources/openapi/wms-v1.yaml)：本地切片96个path、110个operation，包含可信窗口请求/查询/重排/取消；统计不代表对应场景全部验收。
+- [OpenAPI](../../wms-contract/src/main/resources/openapi/wms-v1.yaml)：本地切片99个path、113个operation，包含可信窗口及公开序列调拨；统计不代表对应场景全部验收。
 - [权限映射](../../wms-security/src/main/resources/wms-operation-scopes.tsv)：服务端按操作校验 scope、企业及仓授权。序列号登记另外校验受信服务主体；内部 TCC 路径仍有专门的隔离与身份要求。
 - [契约生成器](../../scripts/generate-openapi.py)与[契约校验](../../scripts/verify-contracts.sh)：修改 API 时同步生成器、OpenAPI、权限与真实 HTTP 测试，不能只改页面权限显示。
 - 写命令按接口要求传 `Idempotency-Key`，重试保持原业务身份和正文；HTTP 202 表示受理或处理中，不代表库存过账、TC 全局成功或实物完成。
@@ -28,7 +28,7 @@
 
 前端代理路径见[连接清单](../operations/INFRASTRUCTURE.md)。业务路径认证默认拒绝；liveness、readiness 和业务成功是三种不同证据。
 
-来源关窗证明提供端已增加内部受信入口，默认关闭；全部旧来源写节点退出后才可启用。来源窗口COMPLETE不代表库存核验或快照完整，库存采集尚在实施，见[可信水位](RECONCILIATION_WATERMARK.md)。
+来源关窗证明提供端已有内部受信入口，默认关闭；全部旧来源写节点退出后才可启用。来源窗口COMPLETE不代表库存核验或快照完整，已发布采集器继续核验库存及原回执，见[可信水位](RECONCILIATION_WATERMARK.md)。新序列调拨开关和消息兼容边界见[公开序列调拨](SERIAL_PUBLIC_TRANSFER.md)。
 
 ## 事件、一致性与恢复
 

@@ -2,44 +2,44 @@
 
 ## 任务目标
 
-完成已批准 R13/R14/R15/R22，唯一有限验收在 docs/delivery/wms-v1/DELIVERY_PLAN.md：OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。连续执行，正常 Git 发布已授权；不扩项、不操作共享/生产、不使用子 Agent。
+完成已批准R13/R14/R15/R22。唯一有限验收：docs/delivery/wms-v1/DELIVERY_PLAN.md，OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。连续执行、正常Git发布已授权，不扩项、不操作共享或生产、不使用子Agent。
 
 ## 已完成
 
-- 控制台独立任务 df8c56f（浅色作业台、主数据详情、ADMIN_UI_PROMPT）已经 2c31c54 合入远程 main；本地运行重建和旧库时区记录 41d6bc6 同步保留。当前仅合并进度文档冲突，不覆盖其代码和根工作树。
-- OUT 已经 365a1eb 发布 main，原 PICK/SHIP 身份、独立证明、真实进程重启及非空迁移通过，main CI 34725376702 成功。
-- WATERMARK 来源与库存历史门禁 e22f0b2 已发布，main CI 34727355968 全部成功。
-- 本地可信采集器已完成：两个来源原凭证正反核验、持久检查点/领取代际、有界重试隔离、公开请求/查询/审计控制、服务 JWT、XXL 接线，全部核验后原子生成证明。
-- V045 检查点/审计非空迁移清单 56 表；历史空桶快照边界验证通过。
-- 最新 .local/reconciliation-fresh-artifacts-it.log 于 2026-09-13 08:48:03 BUILD SUCCESS：真实三 JAR/三 MySQL/Kafka/XXL 进程 1、采集器 MySQL 4、公开 HTTP 3，单测协议/摘要 5。来源 T3 缺失拒绝导出，库存重启后恢复原检查点并导出实际数量。
-- .local/reconciliation-migration-snapshot-it.log：迁移 6、快照 3、HTTP 2、契约 5 通过；最新 HTTP 已扩至 3 项。OIDC/XXL admin 明确是协议夹具。
+- OUT已发布main 365a1eb，CI34725376702成功。
+- WATERMARK已发布main 051a7eb（包含2e7451c及控制台2c31c54），此前main CI34728530641成功，新CI34729813580仍运行。真实三服务水位、缺T3拒绝导出、库存重启检查点和非空迁移通过，证据见RECONCILIATION_WATERMARK.md。
+- TRANSFER实现并定向验证完成，尚未提交发布。09:21:01 .local/public-serial-transfer-preparation-proof-it.log BUILD SUCCESS：真实履约/库存/登记JAR、三MySQL、Kafka、XXL，公开发出、权限拒绝、源登记成功后本地恢复写失败、库存重启、目的两批收货及重复不重复扣增。登记1及HTTP客户端5项同批通过。
+- 09:23:31 .local/public-serial-transfer-migration-it.log BUILD SUCCESS：57表非空迁移6、两库核心事务1、真实登记进程恢复1；必需IT清单129项、文档结构检查通过。不是全仓最新回归。
 
 ## 已修改文件
 
-- git diff 为准：inventory/recon 采集器/HTTP/配置/Mapper，V045，InventoryCatalogJobs、迁移清单与快照查询；真实进程/集成/协议测试。
-- 根 pom 的 jar forceCreation 与 inventory 测试依赖 inbound，保证跨模块运行库更新后重新封装可执行 JAR；测试启动前核验三包嵌入库哈希。
-- .env.example、compose.yaml、OpenAPI/安全映射、必需 IT 清单 127、专题与交付文档。
+- 当前git diff为TRANSFER：共享SerialTransferCommand；履约V020原命令/SN成员/序列模式及3个公开入口；库存V046目的仓、V047原命令、原恢复完成回执；既有Kafka Inbox/Outbox与XXL接线。
+- 登记准备协议可选X-Wms-Serial-Prepare-Proof: 1，提供不可变历史准备凭证；库存重试不依赖当前身份仍是TRANSFER_PREPARED。源流水同时写查询投影Outbox。
+- 公开接口默认关闭；OpenAPI99路径113操作、迁移清单57、必需IT129；相关测试、配置和文档随本批提交。
+- TC_RESOURCE_MIGRATION.md是下一切片设计草稿，尚未实施，不混入TRANSFER提交。
 
 ## 未完成
 
-- WATERMARK 本批文档/差异检查、提交和远程 main 发布。
-- TRANSFER 公开序列调拨；TC 原资源/XID/branch/Fence 迁移和终态通知；COMP 全局提交后补偿；FINAL 组合门禁、默认 verify/profiles/smoke、R22 结项。
-- OQ-03、AC-26 现场/WCS、容量/RTO/RPO、生产历史时间保持外部边界。
+- 提交TRANSFER，等待main正在运行的CI完成后正常发布，不能推同ref取消旧verify。
+- TC：可靠终态通知、原资源/XID/branch/Fence迁移、未终结拒绝切流与真实回调恢复。
+- COMP：全局提交后业务补偿、已知未执行额度仅一次、实物未知保留处理中与持久审计。
+- FINAL：组合/default verify、profiles、smoke、文档、main/CI、R22结项。
+- OQ-03/AC-26现场/WCS、容量/RTO/RPO及生产历史时间是外部边界，不能补造通过。
 
 ## 当前问题
 
-- 工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支 fix/reconciliation-watermark，采集器提交 2e7451c；正在整合 origin/main 2c31c54。main CI 34728530641 运行中，不推同 ref 取消它。根控制台工作树 feat/console-shadcn-dialog 保持不动。
-- 所有 Maven 已结束；最新会话 68930 exit 0。构建中不得编辑源码。
-- 真实进程初次健康探针错误主动中止 exit130；随后 fixed/diagnostic 两次失败定位到入库 fat JAR 嵌入旧运行库，实际来源 Page 缺 resultState。补 reactor 测试依赖及 forceCreation，三包哈希一致后最新运行通过。中间 current-jars 单测失败是故障用例自身超过单租户 8 RPS，改为独立客户端后通过。保留失败日志，不将其记为成功。
-- 默认不开启来源/采集器。所有旧来源和库存写节点退出后才能启用历史屏障；凭据目录需外部受控挂载，不写真实凭据。
-- 仅核验当前切片，不把历史报告混合当作新的全量回归。源码/测试已完成本批定向验证。
+- 工作目录 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；分支feat/public-serial-transfer，HEAD051a7eb。根用户工作树feat/console-shadcn-dialog及其他工作树不动。
+- Maven74674已BUILD SUCCESS，未再启动构建；源码/测试与Maven不可重叠修改。
+- 首次公开进程测试因prepare返回当前IN_TRANSIT状态而恢复失败，已改核验历史原凭证并真实重启通过。此前测试夹具路径、MyBatis Number绑定、RSAKey导入失败均保留日志，不计为成功。
+- 现有TC迁移对任何inventory_tcc_intent阻断；Fence无企业/仓列，未复制。现有履约审计读取有来源绑定，但未可靠通知库存。下一片先完成这些具体边界，不能仅删除门禁。
+- 发布工作树 .local/watermark-main-publish 保持干净可复用；无生产部署授权。
 
 ## 下一步建议
 
-1. 完成本批文档和静态检查，审核暂存差异并提交，正常推分支及 main；跟踪 CI，不推同 ref 取消运行中的验证。
-2. 基于最新 main 建 TRANSFER 任务分支，阅读现有公开调拨、内部序列 transfer 与恢复路径，按唯一计划补缺口。
-3. 继续 TC、COMP、FINAL，不重新规划全部任务，不等待逐片确认。
+1. 检查暂存差异并提交TRANSFER，核验生成契约一致；main CI完成后发布，不重跑已通过的定向测试。
+2. 按TC_RESOURCE_MIGRATION设计恢复TC切片，再COMP，最后统一组合验证。
+3. 持续更新本文件及唯一交付状态；不把完成一片当作整体完成。
 
 ## 恢复 Prompt
 
-读取本文件与唯一计划，从首个未完成步骤继续。核对工作树/HEAD/活动 Maven，沿用有效证据，不重做 OUT 或重复全量测试；只有必要业务信息、危险操作、权限或真实环境阻塞才暂停。
+读取CODEX_PROGRESS.md与唯一计划，从首个未完成步骤继续。核对Git、工作树、活动Maven和最新日志，复用有效证据，不重复OUT/WATERMARK，不等待逐片确认。只在必要业务信息、危险操作、权限或真实环境阻塞时暂停。

@@ -2,21 +2,21 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.serial.SerialReleaseMapper">
   <select id="location" resultType="map">
-    SELECT s.balance_id,b.location_id FROM local_serial s JOIN stock_balance b
+    SELECT s.balance_id,b.location_id,b.owner_id,b.sku_id,b.lot_id,b.quality_code FROM local_serial s JOIN stock_balance b
       ON b.enterprise_id=s.enterprise_id AND b.warehouse_id=s.warehouse_id AND b.id=s.balance_id
     WHERE s.enterprise_id=#{e} AND s.warehouse_id=#{w} AND s.serial_id=#{serial}
   </select>
   <insert id="insert">
-    INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,context_hash,next_attempt_at,created_at,updated_at)
-    VALUES(#{row.id},#{row.e},#{row.w},#{row.serial},#{row.sku},#{row.transfer},#{row.ref},#{row.epoch},#{row.hash},#{row.now},#{row.now},#{row.now})
+    INSERT INTO serial_release_intent(id,enterprise_id,warehouse_id,serial_id,sku_id,transfer_id,release_ref,from_epoch,target_warehouse_id,context_hash,next_attempt_at,created_at,updated_at)
+    VALUES(#{row.id},#{row.e},#{row.w},#{row.serial},#{row.sku},#{row.transfer},#{row.ref},#{row.epoch},#{row.target},#{row.hash},#{row.now},#{row.now},#{row.now})
     ON DUPLICATE KEY UPDATE id=id
   </insert>
   <select id="lock" resultType="map">
-    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,context_hash,state,claim_epoch,attempts
+    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,target_warehouse_id,context_hash,state,claim_epoch,attempts
     FROM serial_release_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} FOR UPDATE
   </select>
   <select id="next" resultType="map" timeout="3">
-    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,context_hash,state,claim_epoch,attempts
+    SELECT id,serial_id,sku_id,release_ref,transfer_id,from_epoch,target_warehouse_id,context_hash,state,claim_epoch,attempts
     FROM serial_release_intent WHERE enterprise_id=#{e} AND warehouse_id=#{w}
     AND state IN ('PENDING','RUNNING') AND next_attempt_at &lt;= #{now}
     ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED

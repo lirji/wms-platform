@@ -35,6 +35,14 @@ public final class SerialTransferLocalService {
     /** 源仓封闭本地授权。同转移同释放引用重放；旧 epoch 拒绝。 */
     public Map<String, Object> sealSource(String enterpriseId, String warehouseId, String serial, String transferId,
             long expectedEpoch, String releaseRef) {
+        return sealSource(enterpriseId,warehouseId,serial,transferId,expectedEpoch,releaseRef,null);
+    }
+
+    /** 公开调拨把目的仓与本地封闭同事务固定；后台先准备登记再传播源释放，网络不占用库存事务。 */
+    public Map<String,Object> sealSource(String enterpriseId,String warehouseId,String serial,String transferId,
+            long expectedEpoch,String releaseRef,String targetWarehouseId) {
+        if(targetWarehouseId!=null && (targetWarehouseId.isBlank() || targetWarehouseId.length()>64 || targetWarehouseId.equals(warehouseId)))
+            throw new InventoryException("INVALID_WAREHOUSE","调拨目的仓必须与源仓不同");
         SerialRecoveryService.requireWritable(session,enterpriseId,warehouseId);
         if(expectedEpoch<0) throw new InventoryException("STALE_EPOCH","归属代际不能为负");
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
@@ -60,7 +68,7 @@ public final class SerialTransferLocalService {
             if (transferId.equals(String.valueOf(row.get("transfer_id")))
                     && releaseRef.equals(String.valueOf(row.get("source_release_ref")))
                     && expectedEpoch==asLong(row.get("owner_epoch"))) {
-                SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,true);
+                SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,targetWarehouseId,true);
                 return view(row);
             }
             throw new InventoryException("SERIAL_OPERATION_MISMATCH", "源仓封闭引用与已记录不一致");
@@ -90,16 +98,16 @@ public final class SerialTransferLocalService {
                 throw new InventoryException("RESERVATION_CONFLICT", "源仓封闭后不足覆盖预占");
             }
             Map<String, Object> after = inventory.lockBalanceById(enterpriseId, warehouseId, balanceId);
-            inventory.insertLedger(UUID.randomUUID().toString(), enterpriseId, warehouseId, releaseRef, 1, balanceId,
-                    new BigDecimal("-1"), BigDecimal.ZERO, BigDecimal.ZERO, decimal(after.get("on_hand_qty")),
+            com.lrj.wms.inventory.inventory.InventoryLedgerWriter.record(session,inventory,enterpriseId,warehouseId,releaseRef,1,balanceId,
+                    new BigDecimal("-1"), BigDecimal.ZERO, decimal(after.get("on_hand_qty")),
                     decimal(after.get("reserved_qty")), decimal(after.get("free_execution_claim_qty")),
-                    asLong(after.get("version")), "TRANSFER_ISSUE", transferId, "TRANSFER", now, now);
+                    asLong(after.get("version")), "TRANSFER_ISSUE", transferId, "TRANSFER", now);
         }
         if (locals.casSeal(enterpriseId, warehouseId, normalized, SerialReceiptService.STATE_AUTHORIZED, STATE_SEALED,
                 transferId, releaseRef, "TRANSFER_PREPARED", expectedEpoch, now) != 1) {
             throw new InventoryException("VERSION_CONFLICT", "源仓封闭竞争");
         }
-        SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,false);
+        SerialReleaseRecoveryService.stage(session,clock,enterpriseId,warehouseId,row,transferId,expectedEpoch,releaseRef,targetWarehouseId,false);
         return view(locals.lock(enterpriseId, warehouseId, normalized));
     }
 

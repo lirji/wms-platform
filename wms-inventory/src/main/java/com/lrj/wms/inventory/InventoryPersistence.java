@@ -70,6 +70,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.serial.SerialReceiptBatchMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialRecoveryMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialReleaseMapper.class);
+        config.addMapper(com.lrj.wms.inventory.serial.SerialTransferCommandMapper.class);
         config.addMapper(com.lrj.wms.inventory.count.CountMapper.class);
         config.addMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);
         config.addMapper(com.lrj.wms.inventory.serial.SerialOutboundMapper.class);

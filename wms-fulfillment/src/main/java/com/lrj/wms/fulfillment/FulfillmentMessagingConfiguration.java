@@ -40,7 +40,10 @@ public class FulfillmentMessagingConfiguration {
         return new MessageWorker("fulfillment-inbox", () -> {
             long deadline = System.nanoTime()+java.time.Duration.ofSeconds(20).toNanos();
             for (int i=0; i<32 && System.nanoTime()<deadline && !Thread.currentThread().isInterrupted(); i++) {
-                if (!inbox.processNext(handler)) break;
+                if (!inbox.processNext((session,message)->{
+                    if(com.lrj.wms.contract.messaging.SerialTransferCommand.RESULT.equals(message.eventType())) new SerialTransferService(session,Clock.systemUTC()).complete(message);
+                    else handler.apply(session,message);
+                })) break;
             }
         });
     }

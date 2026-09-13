@@ -1205,6 +1205,126 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /api/wms/v1/transfers/{transferId}/serial-issues:
+    post:
+      operationId: issueSerialTransfer
+      tags: [fulfillment]
+      summary: 按原SN和epoch请求调拨发出；处理中不累计已发出数量
+      security:
+        - oidc: [transfer.create]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/TransferId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferIssueRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransferCommandState'
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransferCommandState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/serial-transfer-receipts:
+    post:
+      operationId: receiveSerialTransfer
+      tags: [fulfillment]
+      summary: 按已发出的原身份分批接收，额度与SN只能绑定一个原命令
+      security:
+        - oidc: [transfer.receive]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerialTransferReceiptRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransferCommandState'
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransferCommandState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/transfers/{transferId}/serial-commands/{commandId}:
+    get:
+      operationId: getSerialTransferCommand
+      tags: [fulfillment]
+      summary: 查询原命令和登记完成状态，两参与仓可读；Outbox已发送不等于完成
+      security:
+        - oidc: [transfer.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/TransferId'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialTransferCommandState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/wms/v1/warehouses/{warehouseId}/count-plans:
     post:
       operationId: createCountPlan
@@ -3545,6 +3665,10 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/XRequestId'
         - $ref: '#/components/parameters/SerialEnterpriseHeader'
+        - in: header
+          name: X-Wms-Serial-Prepare-Proof
+          required: false
+          schema: {type: string, enum: ['1']}
       requestBody:
         required: true
         content:
@@ -4669,6 +4793,68 @@ components:
         clientOperationId:
           type: "string"
           maxLength: 64
+    SerialTransferPostingContext:
+      type: object
+      additionalProperties: false
+      required: [documentId, ownerId, skuId, baseUnit, sourceLocationId, lotId, qualityCode]
+      properties:
+        documentId: {type: string, minLength: 1, maxLength: 64, description: 必须等于原transferId}
+        ownerId: {type: string, minLength: 1, maxLength: 64}
+        skuId: {type: string, minLength: 1, maxLength: 64}
+        baseUnit: {type: string, minLength: 1, maxLength: 32}
+        sourceLocationId: {type: string, minLength: 1, maxLength: 64, description: 本次源发出或目的接收库位}
+        lotId: {type: string, minLength: 1, maxLength: 64}
+        qualityCode: {type: string, enum: [GOOD, HOLD, REJECTED], description: 目的接收必须HOLD}
+        targetLocationId: {type: 'null'}
+        allocationId: {type: 'null'}
+        allocationAttemptId: {type: 'null'}
+    SerialTransferIssueRequest:
+      type: object
+      additionalProperties: false
+      required: [lineId, postingContext, selection, qty]
+      properties:
+        lineId: {type: string, minLength: 1, maxLength: 64}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        qty: {type: number, minimum: 1, maximum: 200, description: 必须等于身份集合大小}
+    SerialTransferReceiptRequest:
+      type: object
+      additionalProperties: false
+      required: [transferId, lineId, postingContext, selection, qty, authorizationId, tokenVersion]
+      properties:
+        transferId: {type: string, minLength: 1, maxLength: 64}
+        lineId: {type: string, minLength: 1, maxLength: 64}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        qty: {type: number, minimum: 1, maximum: 200, description: 必须等于原额度及身份集合大小}
+        authorizationId: {type: string, minLength: 1, maxLength: 64}
+        tokenVersion: {type: integer, format: int64, minimum: 0}
+    SerialTransferStockCommand:
+      type: object
+      required: [schemaVersion, commandId, action, transferId, lineId, sourceWarehouseId, targetWarehouseId, businessLotKey, postingContext, selection, actorId]
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        commandId: {type: string, maxLength: 64}
+        action: {type: string, enum: [ISSUE, RECEIVE]}
+        transferId: {type: string, maxLength: 64}
+        lineId: {type: string, maxLength: 64}
+        sourceWarehouseId: {type: string, maxLength: 64}
+        targetWarehouseId: {type: string, maxLength: 64}
+        businessLotKey: {type: string, minLength: 1, maxLength: 64, description: 原调拨行跨仓批次键，两仓各自批次须匹配}
+        postingContext: {$ref: '#/components/schemas/SerialTransferPostingContext'}
+        selection: {$ref: '#/components/schemas/SerialExecutionSelection'}
+        actorId: {type: string, maxLength: 64}
+    SerialTransferCommandState:
+      type: object
+      required: [commandId, state, warehouseId, transferId, lineId, quantity, command]
+      properties:
+        commandId: {type: string, maxLength: 64}
+        state: {type: string, enum: [PENDING, COMPLETE]}
+        warehouseId: {type: string, maxLength: 64}
+        transferId: {type: string, maxLength: 64}
+        lineId: {type: string, maxLength: 64}
+        quantity: {type: integer, minimum: 1, maximum: 200}
+        command: {$ref: '#/components/schemas/SerialTransferStockCommand'}
     SerialExecutionSelection:
       type: object
       additionalProperties: false
@@ -5726,6 +5912,21 @@ components:
         toEpoch: { type: [integer, 'null'], format: int64 }
         sourceReleaseRef: { type: [string, 'null'] }
         targetReceiptRef: { type: [string, 'null'] }
+    SerialTransferPreparationProof:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, enterpriseId, skuId, normalizedSerial, transferId, sourceWarehouseId, targetWarehouseId, prepareOperationId, fromEpoch]
+      description: 不可变原准备事实；不代表当前身份授权，后续在途或新转移不使其失效。
+      properties:
+        schemaVersion: {type: integer, const: 1}
+        enterpriseId: {$ref: '#/components/schemas/Id'}
+        skuId: {$ref: '#/components/schemas/Id'}
+        normalizedSerial: {type: string, minLength: 1, maxLength: 128}
+        transferId: {$ref: '#/components/schemas/Id'}
+        sourceWarehouseId: {$ref: '#/components/schemas/Id'}
+        targetWarehouseId: {$ref: '#/components/schemas/Id'}
+        prepareOperationId: {$ref: '#/components/schemas/Id'}
+        fromEpoch: {type: integer, format: int64, minimum: 0}
     SerialSourceReleaseProof:
       type: object
       additionalProperties: false
@@ -5744,6 +5945,7 @@ components:
       required: [id, state, normalizedSerial, ownerWarehouseId, ownerEpoch, claimOperationId, routeBucket, version]
       properties:
         sourceRelease: { $ref: '#/components/schemas/SerialSourceReleaseProof' }
+        transferPreparation: {$ref: '#/components/schemas/SerialTransferPreparationProof'}
         id: { $ref: '#/components/schemas/Id' }
         state: { type: string }
         normalizedSerial: { type: string }

@@ -209,6 +209,7 @@ class SerialRegistryProcessesIT {
                 }
                 assertEquals("PUT-STORAGE",jdbc.queryForObject("SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.warehouse_id='A' AND s.serial_id='BATCH-1'",String.class));
                 countRecoveryScenario(sessions,jdbc,registrySql,actual,now);
+                preparationRecoveryScenario(sessions,jdbc,registrySql,actual,now);
                 // 迁移停写后的旧进程不能领取或更新恢复状态，远端也不再被调用。
                 jdbc.update("INSERT INTO warehouse_route(id,enterprise_id,warehouse_id,cell_id,target_cell_id,route_epoch,state,version,created_at,updated_at) VALUES('ROUTE-A','ENT','A','CELL-A','CELL-B',1,'QUIESCING',0,?,?)",java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
                 var stopped=assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,() -> new SerialRecoveryService(sessions,at(now,420),actual,actual).execute("ENT","A"));
@@ -218,6 +219,39 @@ class SerialRegistryProcessesIT {
         } finally { if(process!=null) { process.destroy(); if(!process.waitFor(10,TimeUnit.SECONDS)) { process.destroyForcibly(); process.waitFor(5,TimeUnit.SECONDS); } } jwks.stop(0); }
     }
     @SuppressWarnings("unchecked")
+    /** 源仓封闭后准备回执丢失，重建恢复器仍使用原目的仓/epoch；不需要人工预先操作登记。 */
+    private static void preparationRecoveryScenario(SqlSessionFactory sessions,JdbcTemplate jdbc,JdbcTemplate registrySql,SerialRegistryHttpClient actual,Instant now) throws Exception {
+        Clock clock=at(now,500);
+        try(var session=sessions.openSession(false)) {
+            new SerialReceiptService(session,clock,actual).receiveHold("ENT","B","PREP-RECEIPT","PREP-DOC","actor","PREP-SN",bucket("B"));
+            session.commit();
+        }
+        long epoch=jdbc.queryForObject("SELECT owner_epoch FROM local_serial WHERE warehouse_id='B' AND serial_id='PREP-SN'",Long.class);
+        try(var session=sessions.openSession(false)) {
+            new SerialTransferLocalService(session,clock,actual).sealSource("ENT","B","PREP-SN","PREP-TRANSFER",epoch,"PREP-RELEASE","C");session.commit();
+        }
+        var dropped=new AtomicBoolean(true);
+        SerialReleaseRegistryPort losePrepare=new SerialReleaseRegistryPort() {
+            public Map<String,Object> prepare(String e,String sku,String sn,String transfer,String source,String target,String op,long originalEpoch) {
+                var response=actual.prepare(e,sku,sn,transfer,source,target,op,originalEpoch);
+                if(dropped.getAndSet(false)) throw new SerialRegistryUnavailableException("注入：准备已登记但回执丢失");return response;
+            }
+            public Map<String,Object> release(String e,String sku,String sn,String transfer,String source,String ref,long originalEpoch) {
+                return actual.release(e,sku,sn,transfer,source,ref,originalEpoch);
+            }
+        };
+        assertEquals(1,new SerialReleaseRecoveryService(sessions,clock,losePrepare).execute("ENT","B").failed());
+        assertEquals("TRANSFER_PREPARED",registrySql.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='PREP-SN'",String.class));
+        try(var session=sessions.openSession(false)) {
+            assertThrows(com.lrj.wms.inventory.inventory.InventoryException.class,()->new SerialTransferLocalService(session,clock,actual)
+                    .sealSource("ENT","B","PREP-SN","PREP-TRANSFER",epoch,"PREP-RELEASE","A"));session.rollback();
+        }
+        assertEquals(1,new SerialReleaseRecoveryService(sessions,at(now,510),actual).execute("ENT","B").completed());
+        assertEquals("IN_TRANSIT",registrySql.queryForObject("SELECT state FROM serial_registry WHERE normalized_serial='PREP-SN'",String.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='PREP-RELEASE'",Integer.class));
+        assertEquals("C",jdbc.queryForObject("SELECT target_warehouse_id FROM serial_release_intent WHERE serial_id='PREP-SN'",String.class));
+    }
+
     private static void countRecoveryScenario(SqlSessionFactory sessions,JdbcTemplate jdbc,JdbcTemplate registrySql,SerialRegistryHttpClient actual,Instant now) throws Exception {
         Thread.sleep(1100);
         // 明确的历史MISSING登记夹具：C3曾有本地缺失记录，C4没有本地记录，两个盘盈都必须写真实新epoch=2。

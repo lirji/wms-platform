@@ -4,7 +4,7 @@
 
 此前fixed/diagnostic进程验证失败，定位到入库可执行JAR嵌入旧运行库，来源Page缺resultState。库存测试加入入库模块依赖，jar打包启用forceCreation，启动前比较三包嵌入运行库SHA256，防止增量构建复用旧依赖。中间current-jars测试因故障用例自身超过8 RPS预算失败，独立客户端隔离后通过；失败日志保留。最新已通过全部相关定向用例，未将旧报告混合宣称为新全量回归。
 
-本任务对应R13/R15，唯一验收见[实施计划](../delivery/wms-v1/DELIVERY_PLAN.md)的WATERMARK。来源提供端及库存历史屏障/门禁已发布main e22f0b2；库存采集、公开入口和XXL接线已本地实现并通过定向验证，真实三服务进程验收已通过，尚未发布采集器。来源COMPLETE响应本身不是库存完整快照证明。
+本任务对应R13/R15，唯一验收见[实施计划](../delivery/wms-v1/DELIVERY_PLAN.md)的WATERMARK。来源提供端及库存历史屏障/门禁已发布main e22f0b2；库存采集、公开入口和XXL接线经真实三服务进程验收后，由2e7451c/051a7eb发布main。来源COMPLETE响应本身不是库存完整快照证明。
 
 ## 权威与边界
 

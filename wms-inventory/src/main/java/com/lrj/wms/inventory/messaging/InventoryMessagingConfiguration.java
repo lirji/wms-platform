@@ -44,7 +44,8 @@ public class InventoryMessagingConfiguration {
     @Bean
     RuntimeInbox inventoryRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
         return new RuntimeInbox(sessions, Map.of(settings.topicPrefix() + ".inventory.events", "wms-inventory",
-                settings.topicPrefix() + ".inbound.commands", "wms-inbound", settings.topicPrefix() + ".outbound.commands", "wms-outbound"), Clock.systemUTC());
+                settings.topicPrefix() + ".inbound.commands", "wms-inbound", settings.topicPrefix() + ".outbound.commands", "wms-outbound",
+                settings.topicPrefix()+".transfer.commands","wms-fulfillment"), Clock.systemUTC());
     }
 
     /** RM按cell部署时不能继续共享无路由的消费组；明确配置在启动边界校验。 */
@@ -60,7 +61,7 @@ public class InventoryMessagingConfiguration {
     @Bean
     KafkaInboxConsumer inventoryKafkaInbox(KafkaSettings settings, RuntimeInbox inbox, InventoryCellRouting routing) {
         return new KafkaInboxConsumer(settings, routing.group(settings.topicPrefix()),
-                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands", settings.topicPrefix() + ".outbound.commands"), routing.receiver(inbox));
+                List.of(settings.topicPrefix() + ".inventory.events", settings.topicPrefix() + ".inbound.commands", settings.topicPrefix() + ".outbound.commands",settings.topicPrefix()+".transfer.commands"), routing.receiver(inbox));
     }
 
     @Bean
@@ -77,6 +78,9 @@ public class InventoryMessagingConfiguration {
             for (int i = 0; i < 32 && !Thread.currentThread().isInterrupted(); i++) {
                 if (!inbox.processNext((session, message) -> {
                     routing.requireLocal(session,message);
+                    if("wms-fulfillment".equals(message.sourceService())) {
+                        new com.lrj.wms.inventory.serial.SerialTransferCommandService(session,Clock.systemUTC()).accept(message);return;
+                    }
                     if (java.util.Set.of("wms-inbound", "wms-outbound").contains(message.sourceService())) {
                         new StockCommandMessageHandler(Clock.systemUTC()).apply(session, message);
                         return;

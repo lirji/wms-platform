@@ -45,6 +45,7 @@ public final class FulfillmentOutboxPublisher {
                     throw new MessageRejectedException("MESSAGE_TOO_LARGE");
                 String topic=prefix+(FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(message.eventType())
                         ? ".fulfillment.events" : ".outbound.authorizations");
+                if(com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(message.eventType())) topic=prefix+".transfer.commands";
                 publisher.publish(topic,RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(
                         java.util.List.of(message.enterpriseId(),message.warehouseId(),message.aggregateId()))),encoded);
                 if (finish(row,epoch,"PUBLISHED",null,clock.instant())) published++;
@@ -61,7 +62,11 @@ public final class FulfillmentOutboxPublisher {
     private RuntimeMessage message(Map<String,Object> row) {
         String type=text(row,"event_type"), warehouse=text(row,"warehouse_id"), attempt=text(row,"attempt_id");
         tools.jackson.databind.JsonNode body;
-        if (FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type)) {
+        if(com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(type)) {
+            body=RuntimeMessage.JSON.readTree(text(row,"payload"));
+            var command=RuntimeMessage.JSON.treeToValue(body,com.lrj.wms.contract.messaging.SerialTransferCommand.class);
+            if(!attempt.equals(command.commandId()) || !warehouse.equals(command.warehouseId())) throw new MessageRejectedException("TRANSFER_COMMAND_SCOPE_MISMATCH");
+        } else if (FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type)) {
             if (!FulfillmentService.NO_WAREHOUSE.equals(warehouse)) throw new MessageRejectedException("INVALID_ALLOCATION_AUDIT_SCOPE");
             body=RuntimeMessage.JSON.readTree(text(row,"payload"));
             if (!attempt.equals(body.path("attemptId").asString())) throw new MessageRejectedException("ALLOCATION_AUDIT_MISMATCH");
@@ -71,7 +76,7 @@ public final class FulfillmentOutboxPublisher {
         }
         var message=new RuntimeMessage(1,text(row,"event_id"),"wms-fulfillment",text(row,"enterprise_id"),warehouse,
                 type,attempt,1,instant(row.get("created_at")).toString(),null,body);
-        if (!FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type)) AllocationAuthorizationMessage.from(message);
+        if (!FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type) && !com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(type)) AllocationAuthorizationMessage.from(message);
         return message;
     }
     private boolean finish(Map<String,Object> row,long epoch,String state,String error,Instant next) {

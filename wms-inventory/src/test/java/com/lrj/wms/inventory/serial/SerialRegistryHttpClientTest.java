@@ -103,5 +103,22 @@ class SerialRegistryHttpClientTest {
             assertEquals(1,new HashSet<>(keys).size());
         } finally {server.stop(0);}
     }
+    /** 当前身份已变化也只接受原准备凭证；缺凭证、换目的仓或小数代际不能冒充成功。 */
+    @Test void preparationRequiresImmutableScopedProofAfterIdentityMoves() throws Exception {
+        var mode=new AtomicInteger();var headers=new CopyOnWriteArrayList<String>();
+        var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/",exchange->{
+            headers.add(exchange.getRequestHeaders().getFirst("X-Wms-Serial-Prepare-Proof"));
+            var result=new HashMap<String,Object>(Map.of("state","ACTIVE","ownerWarehouseId","OTHER","ownerEpoch",9));
+            if(mode.get()!=1) result.put("transferPreparation",Map.of("schemaVersion",1,"enterpriseId","ENT","skuId","SKU","normalizedSerial","SN","transferId","TR",
+                    "sourceWarehouseId","WH","targetWarehouseId",mode.get()==2?"OTHER":"DEST","prepareOperationId","PREP","fromEpoch",mode.get()==3?(Object)3.5:3L));
+            byte[] body=RuntimeMessage.JSON.writeValueAsBytes(result);exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,body.length);try(var output=exchange.getResponseBody()){output.write(body);}
+        });server.start();
+        try(var client=new SerialRegistryHttpClient(url(server),e->"service.jwt.token",Duration.ofMillis(1500))) {
+            assertEquals("OTHER",client.prepare("ENT","SKU","SN","TR","WH","DEST","PREP",3).get("ownerWarehouseId"));
+            for(int i=1;i<4;i++){mode.set(i);assertThrows(SerialRegistryUnavailableException.class,()->client.prepare("ENT","SKU","SN","TR","WH","DEST","PREP",3));}
+            assertEquals(List.of("1","1","1","1"),headers);
+        } finally {server.stop(0);}
+    }
     private static URI url(HttpServer server) { return URI.create("http://127.0.0.1:"+server.getAddress().getPort()); }
 }

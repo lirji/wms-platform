@@ -30,7 +30,7 @@
 
     <!-- lockLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="lockLine" resultType="map">
-        SELECT id, sku_id, business_lot_key, source_lot_id, target_lot_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota, version
+        SELECT id, serial_execution, sku_id, business_lot_key, source_lot_id, target_lot_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota, version
         FROM transfer_line
         WHERE enterprise_id=#{enterpriseId}
         AND transfer_id=#{transferId}
@@ -39,7 +39,7 @@
 
     <!-- listLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
     <select id="listLines" resultType="map">
-        SELECT id, sku_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota
+        SELECT id, serial_execution, sku_id, planned_qty, issued_qty, received_qty, loss_confirmed_qty, active_receipt_quota
         FROM transfer_line
         WHERE enterprise_id=#{enterpriseId}
         AND transfer_id=#{transferId}

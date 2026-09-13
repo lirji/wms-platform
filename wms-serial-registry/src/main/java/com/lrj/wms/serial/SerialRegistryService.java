@@ -135,6 +135,29 @@ public final class SerialRegistryService {
      * 源仓准备转移。校验归属代际后进入 TRANSFER_PREPARED，固定 transfer 与目的仓。
      * 同操作重放；旧 epoch 或进行中的其他转移拒绝。
      */
+    /** 新客户端恢复核对不可变准备事实；当前已在途、到达或开始下一转移均不使旧准备事实失效。 */
+    public Map<String,Object> prepareTransferWithProof(String enterpriseId,String skuId,String serial,String sourceWarehouseId,
+            String targetWarehouseId,String transferId,long expectedEpoch,String operationId) {
+        requireId(transferId,"INVALID_TRANSFER","转移标识不能为空");requireId(operationId,"INVALID_OPERATION","准备操作不能为空");
+        requireId(sourceWarehouseId,"INVALID_WAREHOUSE","源仓不能为空");requireId(targetWarehouseId,"INVALID_WAREHOUSE","目的仓不能为空");
+        String normalized=normalize(serial);
+        var identities=session.getMapper(SerialRegistryMapper.class);var transfers=session.getMapper(SerialTransferMapper.class);
+        var identity=requireIdentity(identities,enterpriseId,skuId,normalized);
+        var original=transfers.lock(enterpriseId,skuId,normalized,transferId);
+        if(original==null) {
+            prepareTransfer(enterpriseId,skuId,normalized,sourceWarehouseId,targetWarehouseId,transferId,expectedEpoch,operationId);
+            original=transfers.lock(enterpriseId,skuId,normalized,transferId);identity=identities.lockIdentity(enterpriseId,skuId,normalized);
+        }
+        if(original==null || !operationId.equals(original.get("prepare_operation_id")) || !sourceWarehouseId.equals(original.get("source_warehouse_id"))
+                || !targetWarehouseId.equals(original.get("target_warehouse_id")) || expectedEpoch!=asLong(original.get("from_epoch")))
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","原准备事实的引用、两仓或代际不一致");
+        var result=view(identity);
+        result.put("transferPreparation",Map.of("schemaVersion",1,"enterpriseId",enterpriseId,"skuId",skuId,"normalizedSerial",normalized,
+                "transferId",transferId,"sourceWarehouseId",sourceWarehouseId,"targetWarehouseId",targetWarehouseId,"prepareOperationId",operationId,"fromEpoch",expectedEpoch));
+        return result;
+    }
+
+    /** 旧客户端沿用当前身份状态校验，不把历史准备响应当作新的库存授权。 */
     public Map<String, Object> prepareTransfer(String enterpriseId, String skuId, String serial, String sourceWarehouseId,
             String targetWarehouseId, String transferId, long expectedEpoch, String operationId) {
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");

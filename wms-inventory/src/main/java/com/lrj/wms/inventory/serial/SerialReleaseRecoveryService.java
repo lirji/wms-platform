@@ -20,14 +20,16 @@ public final class SerialReleaseRecoveryService {
     }
 
     /** 必须与SEALED及源流水同事务调用；重复封闭只能核对已存在的原事实，不能猜测历史回填。 */
-    static void stage(SqlSession session,Clock clock,String e,String w,Map<String,Object> local,String transfer,long epoch,String ref,boolean replay) {
+    static void stage(SqlSession session,Clock clock,String e,String w,Map<String,Object> local,String transfer,long epoch,String ref,String target,boolean replay) {
         String serial=String.valueOf(local.get("serial_id"));
         String id=SerialRegistryHttpClient.digest(RuntimeMessage.JSON.writeValueAsString(List.of("SOURCE_RELEASE",e,w,serial,transfer)));
         String hash=SerialRegistryHttpClient.digest(RuntimeMessage.JSON.writeValueAsString(List.of(e,w,serial,local.get("sku_id"),local.get("balance_id"),transfer,epoch,ref)));
+        // 旧意图摘要保持不变；只有新公开调拨扩展目的仓，禁止给旧封闭猜测补齐目的。
+        if(target!=null) hash=SerialRegistryHttpClient.digest(RuntimeMessage.JSON.writeValueAsString(List.of(hash,target)));
         var mapper=session.getMapper(SerialReleaseMapper.class);
         if(!replay) {
             var row=new HashMap<String,Object>(Map.of("id",id,"e",e,"w",w,"serial",serial,"sku",local.get("sku_id"),"transfer",transfer,"ref",ref,"epoch",epoch,"hash",hash));
-            row.put("now",Timestamp.from(clock.instant()));mapper.insert(row);
+            row.put("target",target);row.put("now",Timestamp.from(clock.instant()));mapper.insert(row);
         }
         var original=mapper.lock(e,w,id);
         if(original==null) throw new InventoryException("SERIAL_RELEASE_CONTEXT_REQUIRED","历史封闭缺少持久释放事实，需要人工核实，禁止推测补发");
@@ -42,6 +44,8 @@ public final class SerialReleaseRecoveryService {
             var intent=claim(e,w);if(intent==null) break;
             try {
                 String sku=(String)intent.get("sku_id"),serial=(String)intent.get("serial_id"),transfer=(String)intent.get("transfer_id"),ref=(String)intent.get("release_ref");
+                if(intent.get("target_warehouse_id")!=null)
+                    registry.prepare(e,sku,serial,transfer,w,(String)intent.get("target_warehouse_id"),(String)intent.get("id"),number(intent,"from_epoch"));
                 // 原释放即使目的仓已激活或开始下一轮转移仍有效，不能拿当前local_serial重构或否定历史。
                 var result=registry.release(e,sku,serial,transfer,w,ref,number(intent,"from_epoch"));
                 requireProof(result,e,w,sku,serial,transfer,ref,number(intent,"from_epoch"));

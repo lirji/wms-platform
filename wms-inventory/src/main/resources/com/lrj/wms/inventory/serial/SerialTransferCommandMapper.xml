@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.serial.SerialTransferCommandMapper">
+ <insert id="insert">
+  INSERT INTO serial_transfer_command(id,enterprise_id,warehouse_id,context_hash,payload,next_check_at,created_at,updated_at)
+  VALUES(#{id},#{e},#{w},#{hash},CAST(#{payload} AS JSON),#{now},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
+ </insert>
+ <select id="lock" resultType="map">
+  SELECT * FROM serial_transfer_command WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} FOR UPDATE
+ </select>
+ <select id="next" resultType="map" timeout="3">
+  SELECT * FROM serial_transfer_command WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND state='PENDING' AND next_check_at &lt;=#{now}
+  ORDER BY next_check_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+ </select>
+ <select id="proofs" resultType="map" timeout="3">
+  <choose><when test="source">
+   SELECT serial_id,sku_id,release_ref AS operation_id,from_epoch,state,target_warehouse_id FROM serial_release_intent
+   WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND transfer_id=#{transfer}
+  </when><otherwise>
+   SELECT serial_id,sku_id,operation_id,from_epoch,state FROM serial_recovery_intent
+   WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND transfer_id=#{transfer} AND kind='TRANSFER'
+  </otherwise></choose>
+  AND serial_id IN <foreach collection="serials" item="sn" open="(" close=")" separator=",">#{sn}</foreach>
+ </select>
+ <update id="checked">
+  UPDATE serial_transfer_command SET state=IF(#{complete},'COMPLETE','PENDING'),next_check_at=#{next},version=version+1,updated_at=#{now}
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND id=#{id} AND version=#{version} AND state='PENDING'
+ </update>
+</mapper>

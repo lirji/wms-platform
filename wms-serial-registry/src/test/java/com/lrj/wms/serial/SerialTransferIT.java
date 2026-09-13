@@ -131,6 +131,11 @@ class SerialTransferIT {
             assertEquals("STALE_EPOCH", staleAfter.code());
             assertEquals("WH-B", service.get("ENT-1", "SKU-S", "sn-tr").get("ownerWarehouseId"));
             assertEquals("COMPLETED", service.getTransfer("ENT-1", "SKU-S", "sn-tr", "TR-1").get("state"));
+            service.prepareTransfer("ENT-1","SKU-S","sn-tr","WH-B","WH-C","TR-2",2,"OP-PREP-2");
+            var historical=service.prepareTransferWithProof("ENT-1","SKU-S","sn-tr","WH-A","WH-B","TR-1",1,"OP-PREP");
+            assertEquals("TR-2",historical.get("transferId"));
+            var proof=(Map<?,?>)historical.get("transferPreparation");assertEquals("TR-1",proof.get("transferId"));assertEquals(1L,proof.get("fromEpoch"));
+            assertThrows(SerialRegistryException.class,()->service.prepareTransferWithProof("ENT-1","SKU-S","sn-tr","WH-A","WH-C","TR-1",1,"OP-PREP"));
             session.commit();
         }
     }

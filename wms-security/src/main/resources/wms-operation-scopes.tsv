@@ -12,6 +12,7 @@ GET	/api/wms/v1/skus/{skuId}	masterdata.read
 GET	/api/wms/v1/skus/{skuId}/units	masterdata.read
 GET	/api/wms/v1/transfers	transfer.read
 GET	/api/wms/v1/transfers/{transferId}	transfer.read
+GET	/api/wms/v1/transfers/{transferId}/serial-commands/{commandId}	transfer.read
 GET	/api/wms/v1/warehouses	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}	masterdata.read
 GET	/api/wms/v1/warehouses/{warehouseId}/action-effects	task.read
@@ -54,6 +55,7 @@ POST	/api/wms/v1/transfers	transfer.create
 POST	/api/wms/v1/transfers/{transferId}/issues	transfer.create
 POST	/api/wms/v1/transfers/{transferId}/losses	stock.move
 POST	/api/wms/v1/transfers/{transferId}/receipt-authorizations	transfer.authorizeReceipt
+POST	/api/wms/v1/transfers/{transferId}/serial-issues	transfer.create
 POST	/api/wms/v1/warehouses	masterdata.write
 POST	/api/wms/v1/warehouses/{warehouseId}/action-effects	task.read
 POST	/api/wms/v1/warehouses/{warehouseId}/action-effects/{effectId}/execution-attempts	task.claim
@@ -84,6 +86,7 @@ POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}	reco
 POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/cancellations	recon.remediate
 POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/retries	recon.remediate
 POST	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries	messaging.recover
+POST	/api/wms/v1/warehouses/{warehouseId}/serial-transfer-receipts	transfer.receive
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds	stock.hold
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds/{holdId}/releases	stock.releaseHold
 POST	/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/claims	task.claim

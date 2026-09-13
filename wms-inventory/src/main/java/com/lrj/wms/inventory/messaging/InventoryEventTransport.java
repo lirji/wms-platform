@@ -36,6 +36,7 @@ public final class InventoryEventTransport implements OutboxTransport {
         var message = new RuntimeMessage(1, record.eventId(), "wms-inventory", record.enterpriseId(), record.warehouseId(),
                 record.eventType(), record.aggregateId(), record.aggregateVersion(), record.occurredAt().toString(), requestId, payload);
         String topic = topicPrefix + ".inventory.events";
+        if(com.lrj.wms.contract.messaging.SerialTransferCommand.RESULT.equals(record.eventType())) topic=topicPrefix+".fulfillment.results";
         if (InventoryCodes.EVENT_RESERVATION_CONFIRMED.equals(record.eventType()) && payload.has("confirmationSchemaVersion")) {
             if (!payload.path("confirmationSchemaVersion").isIntegralNumber()
                     || !payload.path("confirmationSchemaVersion").canConvertToInt()

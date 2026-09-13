@@ -97,12 +97,14 @@ public final class SerialRegistryController {
     /** 准备转移需要源目的两仓权限；实际释放仍只能由源仓主体确认。 */
     @PostMapping("/transfer-preparations")
     public Map<String,Object> prepareTransfer(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,
-            @RequestHeader("X-Wms-Enterprise-Id") String enterprise, @Valid @RequestBody PrepareTransferCommand body) {
+            @RequestHeader("X-Wms-Enterprise-Id") String enterprise,
+            @RequestHeader(value="X-Wms-Serial-Prepare-Proof",required=false) String proofVersion,@Valid @RequestBody PrepareTransferCommand body) {
         require(jwt,"serial.registry.write",body.warehouseId(),enterprise);
         WmsJwtAuthorities.requireWarehouse(jwt,body.targetWarehouseId());
+        if(proofVersion!=null && !"1".equals(proofVersion)) throw new SerialRegistryException("INVALID_PROOF_VERSION","不支持的准备事实版本");
         return commands.execute(enterprise,body.warehouseId(),command,jwt.getSubject(),"TRANSFER_PREPARE",body,
-                service -> service.prepareTransfer(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.targetWarehouseId(),
-                        body.transferId(),body.expectedEpoch(),body.operationId()));
+                service -> proofVersion==null?service.prepareTransfer(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.targetWarehouseId(),body.transferId(),body.expectedEpoch(),body.operationId())
+                        :service.prepareTransferWithProof(enterprise,body.skuId(),body.serial(),body.warehouseId(),body.targetWarehouseId(),body.transferId(),body.expectedEpoch(),body.operationId()));
     }
     @PostMapping("/source-releases")
     public Map<String,Object> sourceRelease(@AuthenticationPrincipal Jwt jwt, @RequestHeader("Idempotency-Key") String command,

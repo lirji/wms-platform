@@ -70,6 +70,18 @@ public final class SerialRegistryHttpClient implements SerialRegistryPort, Seria
         validate(result,serial,Set.of("CLAIMED","ACTIVE","MISSING","FOUND_CLAIMED","TRANSFER_PREPARED","IN_TRANSIT","RECEIVING","SHIPPED"));
         return result;
     }
+    /** 原准备命令回执可重放，固定源目的仓、转移及epoch，不从后来归属重建意图。 */
+    @Override public Map<String,Object> prepare(String e,String sku,String serial,String transfer,String wh,String target,String operation,long epoch) {
+        var result=send("transfer-preparations",e,Map.of("warehouseId",wh,"targetWarehouseId",target,"skuId",sku,
+                "serial",normalize(serial),"transferId",transfer,"operationId",operation,"expectedEpoch",epoch));
+        // 准备是历史事实，不要求当前身份仍停留在TRANSFER_PREPARED，也不由此授予当前可用库存。
+        if(!(result.get("transferPreparation") instanceof Map<?,?> proof) || !e.equals(proof.get("enterpriseId")) || !sku.equals(proof.get("skuId"))
+                || !normalize(serial).equals(proof.get("normalizedSerial")) || !transfer.equals(proof.get("transferId")) || !wh.equals(proof.get("sourceWarehouseId"))
+                || !target.equals(proof.get("targetWarehouseId")) || !operation.equals(proof.get("prepareOperationId"))
+                || !(proof.get("schemaVersion") instanceof Number version) || !(version instanceof Integer || version instanceof Long) || version.longValue()!=1
+                || !(proof.get("fromEpoch") instanceof Number from) || !(from instanceof Integer || from instanceof Long) || from.longValue()!=epoch) throw unavailable();
+        return result;
+    }
     /** 源仓事实以稳定命令键重放，核对历史凭证而非当前授权状态。 */
     @Override public Map<String,Object> release(String e,String sku,String serial,String transfer,String wh,String ref,long epoch) {
         var result=send("source-releases",e,Map.of("warehouseId",wh,"skuId",sku,"serial",normalize(serial),"transferId",transfer,"factRef",ref,"expectedEpoch",epoch));
@@ -114,6 +126,7 @@ public final class SerialRegistryHttpClient implements SerialRegistryPort, Seria
                     .header("X-Wms-Enterprise-Id",enterprise).header("Accept","application/json")
                     .header("X-Request-Id",UUID.randomUUID().toString());
             if(uri.getPath().equals(base.getPath()+"/source-releases")) request.header("X-Wms-Serial-Release-Proof","1");
+            if(uri.getPath().equals(base.getPath()+"/transfer-preparations")) request.header("X-Wms-Serial-Prepare-Proof","1");
             if(json==null) request.GET(); else request.header("Idempotency-Key",key).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json));
             var future=http.sendAsync(request.build(),info -> new LimitedBody());
             HttpResponse<byte[]> response;

@@ -27,6 +27,9 @@ management:
       probes:
         enabled: true
 wms:
+  transfer:
+    serial:
+      enabled: ${WMS_SERIAL_TRANSFER_ENABLED:false}
   oidc:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
