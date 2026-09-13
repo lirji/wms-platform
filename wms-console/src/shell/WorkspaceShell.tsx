@@ -19,7 +19,7 @@ function hrefFor(warehouseId: string, to: string, pda?: boolean) {
     return "/";
   }
   if (pda) {
-    return `/pda/${encodeURIComponent(warehouseId)}/receive`;
+    return `/pda/${encodeURIComponent(warehouseId)}/${to || "receive"}`;
   }
   return `/w/${encodeURIComponent(warehouseId)}${to ? `/${to}` : ""}`;
 }

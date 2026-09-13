@@ -31,6 +31,8 @@ const ActionEffectDetailPage = lazy(() => import("../features/jobs/ActionEffectD
 const StockLedgerPage = lazy(() => import("../features/stock/StockLedgerPage").then((module) => ({ default: module.StockLedgerPage })));
 const ReconPage = lazy(() => import("../features/recon/ReconPage").then((module) => ({ default: module.ReconPage })));
 const ReceivePage = lazy(() => import("../features/pda/ReceivePage").then((module) => ({ default: module.ReceivePage })));
+const PickPage = lazy(() => import("../features/pda/PickPage").then((module) => ({ default: module.PickPage })));
+const ShipPage = lazy(() => import("../features/pda/ShipPage").then((module) => ({ default: module.ShipPage })));
 
 function PageFallback() {
   return <StatusBanner kind="loading" title="正在打开作业页" />;
@@ -96,8 +98,11 @@ export function App() {
                 <Route path="effects/:effectId" element={<ActionEffectDetailPage />} />
                 <Route path="recon" element={<ReconPage />} />
               </Route>
-              <Route path="/pda/:warehouseId/receive" element={<PdaShell user={user} token={token} />}>
-                <Route index element={<ReceivePage />} />
+              <Route path="/pda/:warehouseId" element={<PdaShell user={user} token={token} />}>
+                <Route path="receive" element={<ReceivePage />} />
+                <Route path="pick" element={<PickPage />} />
+                <Route path="ship" element={<ShipPage />} />
+                <Route index element={<Navigate to="receive" replace />} />
               </Route>
               <Route path="/masterdata" element={<LegacyRedirect leaf="catalog" />} />
               <Route path="/inbound" element={<LegacyRedirect leaf="inbound" />} />

@@ -10,7 +10,7 @@
 | 商品/库位资料 | 商品/库位/批次分表；点标识进详情（单位/门禁/效期）；单位追加；门禁只读 | GET/POST `/api/wms/v1/warehouses`、`/skus`、`/skus/{id}`、`/skus/{id}/units`、`/warehouses/{id}/locations`、`/locations/{id}`、`/locations/{id}/gate`、`/lots`、`/lots/{id}` | AC-02 |
 | 入库工作台 | 单据详情→收货扫描→质检→上架；序列号观察可选 | inbound、quality、tasks、serialObservation | AC-07/09 |
 | 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水；同仓移库/限制/独立调整 | inventory/ledger/moves/stock-holds/adjustments | AC-03/08/15 |
-| 履约与出库 | 全局单/仓子单、准备/执行受理、取消请求、核验授权、拣货、包装、发运；序列号拣/发走 `serialExecution` | fulfillments、attempts/executions、cancellations、execution-authorizations、tasks、shipments、serial-stock、shippable-serials | AC-10..14 |
+| 履约与出库 | 全局单/仓子单、准备/执行受理、取消请求、核验授权、拣货、包装、发运；序列号拣/发走 `serialExecution`；PDA 收/拣/发 | fulfillments、attempts/executions、cancellations、execution-authorizations、tasks、shipments、serial-stock、shippable-serials | AC-10..14 |
 | 调拨 | 源仓发出、在途、目的接收、差异；公开序列签发/签收/命令查询 | transfers、transfer-receipts、serial-issues、serial-transfer-receipts、serial-commands | AC-16/17 |
 | 盘点 | 冻结准备、数量或身份点数、复盘、审批、分片调整 | count-plans、observations、serialObservation | AC-18/19 |
 | 任务与设备异常 | job/shard进度、仓级动作效果、序列号恢复、消息重排；UNKNOWN 仍 blocked | jobs、action-effects、execution-attempts、serial-recoveries、message-queues | AC-20/25/47..50 |

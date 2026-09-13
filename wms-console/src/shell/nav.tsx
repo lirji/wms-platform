@@ -44,7 +44,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "transfers", label: "调拨", icon: <SwapOutlined /> },
       { to: "counts", label: "盘点", icon: <AuditOutlined /> },
-      { to: "receive", label: "PDA 收货", pda: true, icon: <MobileOutlined /> }
+      { to: "receive", label: "PDA 收货", pda: true, icon: <MobileOutlined /> },
+      { to: "pick", label: "PDA 拣货", pda: true, icon: <MobileOutlined /> },
+      { to: "ship", label: "PDA 发运", pda: true, icon: <MobileOutlined /> }
     ]
   },
   {

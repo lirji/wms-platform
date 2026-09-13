@@ -19,7 +19,7 @@
 | 库存 / 资料员 | 主数据读写、余额与 asOf、桶流水 | catalog / stock |
 | 履约 / 出库员 | 全局单、仓子单、拣包装发 | fulfillment / outbound |
 | 调拨 / 盘点员 | 发出接收、冻结点数调整 | transfers / counts |
-| PDA 操作员 | 扫码收货，同应用第二壳 | `/pda/:warehouseId/receive` |
+| PDA 操作员 | 扫码收货 / 拣货 / 发运，同应用第二壳 | `/pda/:warehouseId/{receive,pick,ship}` |
 | 对账 / 运维 | cutoff 差异与任务异常 | recon / jobs |
 
 ```text
@@ -47,7 +47,9 @@
 /w/:warehouseId/tasks/:taskId                领取仓任务（?taskType= 分域）
 /w/:warehouseId/effects/:effectId            仓级动作效果 / 安全重授权
 /w/:warehouseId/recon                        对账窗口 + 差异 + 快照分段 + 弹层审批
-/pda/:warehouseId/receive                    PDA 收货（独立壳）
+/pda/:warehouseId/receive                    PDA 收货
+/pda/:warehouseId/pick                       PDA 拣货（serialExecution，epoch 不默认）
+/pda/:warehouseId/ship                       PDA 发运
 ```
 
 范围外：OMS/ERP 门户、设备固件 UI、对账导出桌面工具、SKU 标签套打。
@@ -223,7 +225,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 | Icons | 仅 `@ant-design/icons`；图标+文字；仅关闭/溢出可纯图标 | 已基本遵守 |
 | CJK | PingFang SC / Noto Sans SC；数量 `tabular-nums`；中文行高 ≥1.5 | 数量右齐 + tabular |
 | Locale | 时间按仓时区展示，请求 UTC | 顶栏墙钟是本机 UTC 文本，可保留 |
-| Permission UI | 无 scope 则隐藏命令；深链 403 | `hasScope`；PDA 无 `inbound.receive` 不提交 |
+| Permission UI | 无 scope 则隐藏命令；深链 403 | `hasScope`；PDA 无对应 receive/pick/ship scope 不提交 |
 | Overlay | 同时一个命令弹层；Popover 可叠在顶栏 | 已遵守 |
 | Motion | ≤200ms；`prefers-reduced-motion` 即时 | `styles.css` 已声明 |
 | Dark mode | 关 | 已遵守 |
