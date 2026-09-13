@@ -16,3 +16,7 @@
 | F9 | 补齐缺领域公开路径 | F8 | no | 同仓移库、stock-holds/releases、独立 adjustments、履约 cancellations、出库 execution-authorizations；库存台账与履约/出库详情命令 | 移库/限制/调整写库存域；202 取消≠TC 回滚；授权缺 Committed 证据 409；不发明履约 ALLOCATED | done 2026-09-12 | DomainHttpIT / FulfillmentHttpIT / OutboundHttpIT；console 33；列表调整无 L1+L2；TP99 unverified |
 
 2026-09-12 技能复查：F0–F9 仍有效，不另起 IA。S8-05 / S9-01 保持 blocked。
+
+2026-09-13：F-catalog 补 GET 详情页（sku / location+gate / lot），列表点标识进入；不发明写门禁或批次改写。
+2026-09-13：已有页面按后台 UI 强约束换肤（浅栏、#1677FF、五色 Tag、查询区）；不扩新作业能力，游标分页不改编页码。
+2026-09-13：两份 UI 强约束融合为 `docs/design/console-frontend/ADMIN_UI_PROMPT.md`，供后续创建后台页；`.cursor/rules/console-admin-ui.mdc` 指向该稿。

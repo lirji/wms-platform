@@ -1,6 +1,6 @@
 # wms-console
 
-管理端与 PDA 适配页。React 19 + Ant Design 6。数据只来自后端 API，禁止页面写死仓库、SKU 或库存。列表页建单和单据命令在抽屉里，不占整页。
+管理端与 PDA 适配页。React 19 + Ant Design 6。数据只来自后端 API，禁止页面写死仓库、SKU 或库存。列表页建单和单据命令在居中弹层，不占整页。新建或改后台页先套 [ADMIN_UI_PROMPT.md](../docs/design/console-frontend/ADMIN_UI_PROMPT.md)。
 
 ## 命令
 

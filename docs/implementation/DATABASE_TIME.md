@@ -6,6 +6,7 @@
 
 - 新建空库默认 `wms.runtime.db.time.storage-zone=UTC`，迁移后登记 `fresh-schema` 来源。
 - 已有业务表但没有规则记录时，在迁移前拒绝启动。核实旧写入端的 JDBC 配置、JVM 时区和已知业务时刻，再设置 `storage-zone` 与 `legacy-evidence` 审计引用。代码不推断历史偏移、不更新旧行。
+- 2026-09-13 本机隔离卷 `wms-local`（非生产、未删卷）：inbound/outbound/fulfillment/inventory 已有业务表但无 `database_time_policy`。核对历史 Compose JDBC 带 `serverTimezone=UTC`；`AC26-20260912-164238-ASN.created_at=2026-09-12 08:42:38` 对应单号内 16:42:38 CST；`warehouse WH-A created_at=2026-09-12 07:13:33`。四库按 UTC 写入 `legacy-evidence` 后启动。MySQL `@@system_time_zone=CST`，Flyway `installed_on` 是会话墙钟，不能当瞬时依据。未改写旧行。新登记库 `wms_registry` 为空库，登记 `fresh-schema`。
 - 固定偏移的旧库可沿用例如 `+08:00`：旧值原样保存，新写入使用相同偏移，读取转换为 UTC。规则持久化后，后续启动必须匹配；更换环境变量不能覆盖数据库记录。
 - 含夏令时、混合写入时区或来源不明的历史不能用单个固定偏移解释。本实现拒绝区域时区作为存储策略，须先制定独立的数据转换与歧义处理方案，不能把这类数据标为已兼容。
 

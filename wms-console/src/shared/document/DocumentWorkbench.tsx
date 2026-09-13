@@ -9,6 +9,7 @@ import { DataTable, type Column } from "../ui/DataTable";
 import { errorBanner } from "../ui/errorBanner";
 import { PageHead } from "../ui/PageHead";
 import { StatusBanner } from "../ui/StatusBanner";
+import { StatusChip } from "../ui/StatusChip";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
 const LINE_COLUMNS: Column[] = [
@@ -71,10 +72,10 @@ function CommandTabs({ items }: { items: CommandTab[] }) {
               alignItems: "center",
               height: 24,
               padding: "0 8px",
-              border: item.key === current.key ? "1px solid #0f766e" : "1px solid #e2e8f0",
+              border: item.key === current.key ? "1px solid #1677FF" : "1px solid #91CAFF",
               borderRadius: 6,
-              background: item.key === current.key ? "#0f766e" : "#fff",
-              color: item.key === current.key ? "#fff" : "#0f172a",
+              background: item.key === current.key ? "#1677FF" : "#E6F4FF",
+              color: item.key === current.key ? "#fff" : "#1677FF",
               cursor: "pointer"
             }}
             onClick={() => setActive(item.key)}
@@ -131,7 +132,9 @@ export function DocumentWorkbench({
   return (
     <Space orientation="vertical" size={16} style={{ display: "flex" }}>
       <PageHead
+        breadcrumb={[{ label: backLabel, to: backTo }, { label: title }]}
         title={title}
+        status={field(record, "status", "state")}
         sub={sub}
         extra={(
           <Space>
@@ -140,7 +143,7 @@ export function DocumentWorkbench({
                 triggerLabel="提交命令"
                 title="作业命令"
                 hint="一次只提交一个命令。202 不是成功。"
-                width={480}
+                width={560}
                 onSubmitted={() => setTick((current) => current + 1)}
               >
                 <CommandTabs items={tabs} />
@@ -168,9 +171,9 @@ export function DocumentWorkbench({
           size="small"
           column={2}
           items={[
-            { key: "status", label: "状态", children: field(record, "status", "state") || "—" },
-            { key: "physical", label: "实物", children: field(record, "physicalStatus") || "—" },
-            { key: "sync", label: "库存同步", children: field(record, "stockSyncStatus") || "—" },
+            { key: "status", label: "状态", children: field(record, "status", "state") ? <StatusChip value={field(record, "status", "state")} /> : "—" },
+            { key: "physical", label: "实物", children: field(record, "physicalStatus") ? <StatusChip value={field(record, "physicalStatus")} /> : "—" },
+            { key: "sync", label: "库存同步", children: field(record, "stockSyncStatus") ? <StatusChip value={field(record, "stockSyncStatus")} /> : "—" },
             { key: "version", label: "版本", children: field(record, "version") || "—" },
             { key: "id", label: "标识", children: identifier ? <CopyId value={identifier} kind="单据" /> : "—" }
           ]}

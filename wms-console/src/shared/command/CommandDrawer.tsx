@@ -1,15 +1,16 @@
 import { ReactNode, useState } from "react";
-import { Button, Drawer, Modal } from "antd";
+import { Button, Modal } from "antd";
 import { hasScope } from "../../auth/can";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 import { DirtyFormContext } from "./dirtyForm";
 
+/** 命令入口仍叫 Drawer，实际是居中弹层，避免右侧挤占密表。 */
 export function CommandDrawer({
   triggerLabel,
   title,
   hint,
   disabled,
-  width = 440,
+  width = 560,
   requireScope,
   triggerType = "primary",
   onSubmitted,
@@ -39,9 +40,10 @@ export function CommandDrawer({
     }
     Modal.confirm({
       title: "放弃未提交的内容？",
-      content: "抽屉里的表单已改，关闭后不会保存。幂等键不会更换。",
+      content: "弹层里的表单已改，关闭后不会保存。幂等键不会更换。",
       okText: "放弃",
       cancelText: "继续编辑",
+      centered: true,
       onOk: () => {
         setDirty(false);
         setOpen(false);
@@ -51,17 +53,20 @@ export function CommandDrawer({
 
   return (
     <>
-      <Button type={triggerType} disabled={disabled} onClick={() => setOpen(true)}>
+      <Button className="list-action" type={triggerType} disabled={disabled} onClick={() => setOpen(true)}>
         {triggerLabel}
       </Button>
-      <Drawer
+      <Modal
         title={title}
-        size={width}
         open={open}
-        onClose={requestClose}
+        onCancel={requestClose}
+        footer={null}
+        centered
+        width={width}
         destroyOnHidden={false}
+        styles={{ body: { maxHeight: "70vh", overflow: "auto" } }}
       >
-        {hint ? <p style={{ color: "rgba(0,0,0,0.45)", marginTop: 0 }}>{hint}</p> : null}
+        {hint ? <p className="command-dialog-hint">{hint}</p> : null}
         <DirtyFormContext.Provider value={setDirty}>
           <div
             onSubmitCapture={() => {
@@ -72,7 +77,7 @@ export function CommandDrawer({
             {children}
           </div>
         </DirtyFormContext.Provider>
-      </Drawer>
+      </Modal>
     </>
   );
 }

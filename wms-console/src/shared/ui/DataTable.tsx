@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
-import { Button, Skeleton, Space, Table, Tag } from "antd";
+import { Skeleton, Table } from "antd";
 import { field, qtyField, recordId, type ItemRecord } from "../../api/envelope";
 import { CopyId } from "./CopyId";
+import { EmptyState } from "./EmptyState";
+import { ListPager } from "./ListPager";
+import { StatusChip } from "./StatusChip";
 
 export type Column = {
   key: string;
@@ -28,23 +31,10 @@ function kindOf(column: Column): NonNullable<Column["kind"]> {
   return "name";
 }
 
-function chipColor(value: string): string {
-  const upper = value.toUpperCase();
-  if (/(ACTIVE|OK|DONE|SUCCESS|CONFIRMED|APPLIED|AVAILABLE)/.test(upper)) {
-    return "success";
-  }
-  if (/(FAIL|ERROR|REJECT|EXPIRED|HOLD|FORBIDDEN)/.test(upper)) {
-    return "error";
-  }
-  if (/(PEND|WAIT|TRY|STALE|UNKNOWN|RESERVED)/.test(upper)) {
-    return "warning";
-  }
-  return "processing";
-}
 
 const WIDTH: Record<ReturnType<typeof kindOf>, number> = {
   id: 180,
-  status: 112,
+  status: 128,
   qty: 112,
   name: 168,
   text: 200
@@ -86,7 +76,7 @@ export function DataTable({
         pagination={false}
         rowKey={(row) => recordId(row) || field(row, "skuId", "lineId") || JSON.stringify(row)}
         dataSource={skeletonRows}
-        locale={{ emptyText: emptyText || "当前筛选没有行" }}
+        locale={{ emptyText: <EmptyState title={emptyText || "暂无数据"} /> }}
         aria-label={caption}
         columns={columns.map((column) => {
           const kind = kindOf(column);
@@ -118,7 +108,7 @@ export function DataTable({
                 return <CopyId value={value} kind={column.copyKind || column.label} />;
               }
               if ((kind === "status") && value) {
-                return <Tag color={chipColor(value)}>{value}</Tag>;
+                return <StatusChip value={value} />;
               }
               if (kind === "qty") {
                 return <span style={{ fontVariantNumeric: "tabular-nums" }}>{value || "—"}</span>;
@@ -129,10 +119,13 @@ export function DataTable({
         })}
       />
       {onFirstPage || onNextPage ? (
-        <Space style={{ marginTop: 12 }}>
-          <Button size="small" disabled={!hasCursor} onClick={onFirstPage}>首页</Button>
-          <Button size="small" disabled={!nextCursor} onClick={onNextPage}>下一页</Button>
-        </Space>
+        <ListPager
+          countLabel={`本页 ${rows.length} 条`}
+          prevDisabled={!hasCursor}
+          nextDisabled={!nextCursor}
+          onPrev={onFirstPage}
+          onNext={onNextPage}
+        />
       ) : null}
     </>
   );

@@ -1,50 +1,100 @@
 import type { ThemeConfig } from "antd";
+import { wmsTokens } from "./tokens";
 
+/** 浅色作业台 + 文档规定的蓝/状态色。灰只给文字、线和 Default 边框。 */
 export const wmsTheme: ThemeConfig = {
   token: {
-    colorPrimary: "#0f766e",
-    colorInfo: "#0f766e",
-    colorSuccess: "#15803d",
-    colorWarning: "#c2410c",
-    colorError: "#b91c1c",
-    colorText: "#0f172a",
-    colorTextSecondary: "#475569",
-    colorBorder: "#e2e8f0",
-    colorBgLayout: "#f1f5f9",
-    colorBgContainer: "#ffffff",
-    borderRadius: 8,
+    colorPrimary: wmsTokens.colorPrimary,
+    colorInfo: wmsTokens.colorPrimary,
+    colorSuccess: wmsTokens.colorSuccess,
+    colorWarning: wmsTokens.colorWarning,
+    colorError: wmsTokens.colorError,
+    colorText: wmsTokens.colorText,
+    colorTextSecondary: wmsTokens.colorTextSecondary,
+    colorTextTertiary: wmsTokens.colorTextTertiary,
+    colorTextDisabled: wmsTokens.colorTextDisabled,
+    colorBorder: wmsTokens.colorBorder,
+    colorBorderSecondary: wmsTokens.colorSplit,
+    colorBgLayout: wmsTokens.colorBgLayout,
+    colorBgContainer: wmsTokens.colorBgContainer,
+    borderRadius: wmsTokens.borderRadius,
+    borderRadiusLG: wmsTokens.borderRadiusLG,
     fontFamily: '"PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif',
-    fontSize: 13,
-    controlHeight: 32,
-    boxShadowSecondary: "0 10px 30px -18px rgba(15, 23, 42, 0.28)"
+    fontSize: 14,
+    controlHeight: wmsTokens.controlHeight,
+    boxShadow: "none",
+    boxShadowSecondary: "none"
   },
   components: {
     Layout: {
-      siderBg: "#07111f",
-      headerBg: "rgba(255,255,255,0.86)",
-      headerHeight: 56,
+      siderBg: wmsTokens.colorBgContainer,
+      headerBg: wmsTokens.colorBgContainer,
+      headerHeight: wmsTokens.headerHeight,
       headerPadding: "0 20px",
-      bodyBg: "#f1f5f9"
+      bodyBg: wmsTokens.colorBgLayout
     },
     Menu: {
-      darkItemBg: "#07111f",
-      darkSubMenuItemBg: "#07111f",
-      darkItemSelectedBg: "#0f766e",
-      darkItemHoverBg: "rgba(255,255,255,0.06)",
-      darkGroupTitleColor: "#64748b",
-      itemBorderRadius: 8,
-      itemMarginInline: 8
+      itemBg: wmsTokens.colorBgContainer,
+      subMenuItemBg: wmsTokens.colorBgContainer,
+      itemSelectedBg: wmsTokens.colorPrimaryBg,
+      itemSelectedColor: wmsTokens.colorPrimary,
+      itemHoverBg: wmsTokens.colorSplit,
+      itemColor: wmsTokens.colorTextSecondary,
+      groupTitleColor: wmsTokens.colorTextTertiary,
+      itemBorderRadius: 6,
+      itemMarginInline: 8,
+      itemHeight: 40
     },
     Table: {
-      headerBg: "#f8fafc",
-      headerColor: "#64748b",
-      rowHoverBg: "#f0fdfa"
+      headerBg: "#FAFAFA",
+      headerColor: wmsTokens.colorTextSecondary,
+      headerSplitColor: wmsTokens.colorBorder,
+      rowHoverBg: "#F5F9FF",
+      rowSelectedBg: wmsTokens.colorPrimaryBg,
+      borderColor: wmsTokens.colorSplit,
+      cellPaddingBlock: 12
     },
     Card: {
-      borderRadiusLG: 14
+      borderRadiusLG: wmsTokens.borderRadiusLG
     },
     Button: {
-      primaryShadow: "0 8px 18px -10px rgba(15, 118, 110, 0.7)"
+      primaryShadow: "none",
+      defaultShadow: "none",
+      fontWeight: 500,
+      paddingInline: 16,
+      defaultColor: wmsTokens.colorText,
+      defaultBg: wmsTokens.colorBgContainer,
+      defaultBorderColor: wmsTokens.colorBorderSecondary,
+      defaultHoverColor: wmsTokens.colorPrimary,
+      defaultHoverBg: wmsTokens.colorBgContainer,
+      defaultHoverBorderColor: wmsTokens.colorPrimary,
+      defaultActiveColor: wmsTokens.colorPrimaryActive,
+      defaultActiveBg: wmsTokens.colorBgContainer,
+      defaultActiveBorderColor: wmsTokens.colorPrimaryActive,
+      borderColorDisabled: wmsTokens.colorBorderSecondary,
+      colorBgContainerDisabled: "#F5F5F5",
+      colorTextDisabled: "#BFBFBF"
+    },
+    Input: {
+      hoverBorderColor: wmsTokens.colorPrimary,
+      activeBorderColor: wmsTokens.colorPrimary
+    },
+    Tag: {
+      defaultBg: "#FAFAFA",
+      defaultColor: "#595959",
+      borderRadiusSM: 4
+    },
+    Modal: {
+      headerBg: wmsTokens.colorBgContainer,
+      borderRadiusLG: wmsTokens.borderRadiusLG,
+      titleFontSize: 16
+    },
+    Alert: {
+      borderRadiusLG: wmsTokens.borderRadiusLG
+    },
+    Descriptions: {
+      labelColor: wmsTokens.colorTextTertiary,
+      contentColor: wmsTokens.colorText
     }
   }
 };

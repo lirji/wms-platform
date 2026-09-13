@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-09-13：控制台浅色作业台、主数据 GET 详情、`ADMIN_UI_PROMPT.md` 已在 `feat/console-shadcn-dialog`（`df8c56f`）。合入时保留远程 main 对账水位基线，不覆盖 OUT/WATERMARK 进度。
 - OUT已发布main365a1eb：PICK dd22cd0、SHIP 1dd3d18，含原订单行/桶/epoch、分批身份、独立SHIPPED证明、丢回执重启及审计恢复。main CI34725376702的java和console均success；证据见docs/implementation/SERIAL_OUTBOUND_DESIGN.md。
 - 文档17份和控制台已整合入上述main，根控制台工作树不动。
 - WATERMARK来源端本地提交695e84f/5af8081：来源原T1屏障、持久200项分页、APPLIED/REJECTED/CANCELLED实际T3、固定数组摘要、受信主体scope和默认关闭开关。尚未发布；详情RECONCILIATION_WATERMARK.md。
@@ -26,7 +27,8 @@
 
 ## 当前问题
 
-- 后端工作树：/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/reconciliation-watermark，HEAD5af8081，远程main365a1eb。695e84f/5af8081仅本地，库存改动未提交。根feat/console-serial-jobs及文档工作树保持不动。
+- 根用户工作区 `/Users/liruijun/personal/LLM/wms-platform` 当前为 `feat/console-shadcn-dialog`（`df8c56f`）。不要切到 `.local/backend-remediation-integrate`。
+- 后端工作树：/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/reconciliation-watermark，HEAD5af8081，远程main365a1eb。695e84f/5af8081仅本地，库存改动未提交。文档工作树保持不动。
 - 来源数据库触发器曾因binlog/SUPER失败，已移除，不再尝试提权。所有旧来源/库存写节点退出后才能启用可信关窗；默认不开启。Compose只用.env.example解析，不读真实凭据。
 - 验证：.local/inventory-history-guard-it.log StockCommandIT3通过；.local/inventory-evidence-gate-it.log 对账4/导出2/HTTP1通过，迁移失败。补时间列后因DEFAULT_GENERATED过滤再次失败，已定位修正；.local/inventory-evidence-gate-fixed-it.log 对账4通过；.local/inventory-history-migration-fixed-it.log 08:10:45 BUILD SUCCESS，迁移6通过。不可把失败日志写成成功。
 - 契约检查.local/inventory-evidence-contract.log于08:11:00 BUILD SUCCESS；文档检查55篇244链接通过。所有Maven已退出。源码修改与Maven不得同时进行，测试输出写.local，只读关键结果；同类失败两次先诊断再复验。

@@ -2,7 +2,7 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。已发布基线为 `main 365a1eb`，包含序列拣发 dd22cd0/1dd3d18及控制台和文档整合。[main CI 34725376702](https://github.com/lirji/wms-platform/actions/runs/34725376702)的java与console均成功。旧CI34723887946曾因双执行器19/20次触发失败，保留失败证据，不将旧运行标成成功。
+更新时间：2026-09-13。已发布基线为 `main 365a1eb`，包含序列拣发 dd22cd0/1dd3d18及控制台和文档整合。[main CI 34725376702](https://github.com/lirji/wms-platform/actions/runs/34725376702)的java与console均成功。旧CI34723887946曾因双执行器19/20次触发失败，保留失败证据，不将旧运行标成成功。控制台浅色作业台与主数据详情在 `feat/console-shadcn-dialog` `df8c56f`，合入时不覆盖该基线。
 
 用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。当前WATERMARK进行中：来源提供端本地提交695e84f/5af8081，库存历史屏障和拒绝伪造水位门禁正在定向验证，尚未发布。可信库存采集器未完成；整体仍为 **in-progress**，不能以局部测试或CI通过代替全部整改及50项AC验收。
 
