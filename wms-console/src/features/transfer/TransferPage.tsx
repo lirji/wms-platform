@@ -18,7 +18,7 @@ export function TransferPage() {
       createLabel="创建调拨单"
       createTitle="创建调拨单"
       createScope="transfer.create"
-      createHint="表单在抽屉里。源仓与目的仓不能相同。"
+      createHint="表单在居中弹层。源仓与目的仓不能相同。"
       create={(
         <CommandCard
           embedded

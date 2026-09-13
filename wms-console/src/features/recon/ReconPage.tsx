@@ -46,7 +46,7 @@ export function ReconPage() {
         sub="按仓与 cutoff 查询服务端差异。审批修复只写 APPROVE/REJECT，不在页面改余额。"
       />
       <Card>
-        <Form layout="inline" onSubmitCapture={load}>
+        <Form layout="inline" className="list-toolbar" onSubmitCapture={load} style={{ justifyContent: "flex-start" }}>
           <Form.Item label="cutoffId" required>
             <Input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="由对账任务返回，不在页面写死" />
           </Form.Item>

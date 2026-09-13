@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WMS 作业台样式方向</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2b;
+      --ink: #e8edf5;
+      --muted: #93a0b5;
+      --line: #243049;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1200px 500px at 10% -10%, #16324a 0%, transparent 50%), var(--bg);
+    }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 24px 64px; }
+    h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.03em; }
+    .lead { color: var(--muted); max-width: 760px; margin: 0 0 24px; }
+    .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+    .note {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .note strong { display: block; margin-bottom: 6px; }
+    .note span { color: var(--muted); font-size: 13px; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 16px; }
+    .tabs button {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .tabs button[aria-selected="true"] { background: #e8edf5; color: #0b1220; }
+    .shot {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0a1020;
+      margin-bottom: 28px;
+    }
+    .shot img { width: 100%; display: block; }
+    .shot figcaption { padding: 10px 14px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+
+    /* live preview */
+    .stage {
+      --canvas: #f1f5f9;
+      --card: #fff;
+      --text: #0f172a;
+      --dim: #475569;
+      --hair: #e2e8f0;
+      --brand: #0f766e;
+      --brand-ink: #fff;
+      --ok: #15803d;
+      --warn: #c2410c;
+      --err: #b91c1c;
+      --sider: #07111f;
+      --sider-ink: #e2e8f0;
+      --row-h: 40px;
+      --ctrl: 32px;
+      --radius: 8px;
+      --shadow: 0 10px 24px -18px rgba(15, 23, 42, .28);
+      --font: 13px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 620px;
+      background: var(--canvas);
+      color: var(--text);
+      font-size: var(--font);
+    }
+    .stage[data-theme="now"] {}
+    .stage[data-theme="fiori"] {
+      --canvas: #f7f7f7;
+      --card: #fff;
+      --text: #1d2d3e;
+      --dim: #556b82;
+      --hair: #d5dadd;
+      --brand: #0070f2;
+      --sider: #fff;
+      --sider-ink: #1d2d3e;
+      --row-h: 28px;
+      --ctrl: 26px;
+      --radius: 4px;
+      --shadow: none;
+      --font: 12px;
+    }
+    .stage[data-theme="ops"] {
+      --canvas: #f6f7f8;
+      --card: #fff;
+      --text: #111827;
+      --dim: #6b7280;
+      --hair: #e5e7eb;
+      --brand: #111827;
+      --sider: #0b1220;
+      --row-h: 32px;
+      --ctrl: 30px;
+      --radius: 8px;
+      --shadow: none;
+      --font: 13px;
+    }
+    .stage[data-theme="industrial"] {
+      --canvas: #eef1f4;
+      --card: #fff;
+      --text: #0b1220;
+      --dim: #445066;
+      --hair: #d3dae3;
+      --brand: #0f3d3a;
+      --sider: #07111f;
+      --row-h: 32px;
+      --ctrl: 32px;
+      --radius: 6px;
+      --shadow: 0 1px 0 rgba(15,23,42,.06);
+      --font: 13px;
+    }
+    .stage[data-theme="pro"] {
+      --canvas: #f5f5f5;
+      --card: #fff;
+      --text: #000000e0;
+      --dim: #00000073;
+      --hair: #f0f0f0;
+      --brand: #1677ff;
+      --sider: #001529;
+      --row-h: 38px;
+      --ctrl: 32px;
+      --radius: 6px;
+      --shadow: 0 1px 2px rgba(0,0,0,.03);
+      --font: 14px;
+    }
+    .stage[data-theme="shadcn"] {
+      --canvas: #fafafa;
+      --card: #fff;
+      --text: #09090b;
+      --dim: #71717a;
+      --hair: #e4e4e7;
+      --brand: #18181b;
+      --sider: #09090b;
+      --row-h: 36px;
+      --ctrl: 36px;
+      --radius: 8px;
+      --shadow: none;
+      --font: 14px;
+    }
+    .stage[data-theme="vben"] {
+      --canvas: #f0f2f5;
+      --card: #fff;
+      --text: #1f2937;
+      --dim: #6b7280;
+      --hair: #e5e7eb;
+      --brand: #3b82f6;
+      --sider: #111827;
+      --row-h: 36px;
+      --ctrl: 32px;
+      --radius: 8px;
+      --shadow: 0 1px 4px rgba(15,23,42,.06);
+      --font: 13px;
+    }
+    .stage[data-theme="copper"] {
+      --canvas: #14110f;
+      --card: #1c1816;
+      --text: #f4efe8;
+      --dim: #b7a89a;
+      --hair: #3a2f28;
+      --brand: #8e2716;
+      --sider: #0d0b0a;
+      --row-h: 34px;
+      --ctrl: 32px;
+      --radius: 6px;
+      --shadow: none;
+      --font: 13px;
+    }
+    .sources { width: 100%; border-collapse: collapse; margin: 8px 0 24px; font-size: 13px; }
+    .sources th, .sources td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+    .sources a { color: #9ec5ff; }
+    .desk { display: grid; grid-template-columns: 220px 1fr; min-height: 620px; }
+    .rail { background: var(--sider); color: var(--sider-ink); padding: 16px 12px; }
+    .mark { display: flex; gap: 10px; align-items: center; margin: 4px 8px 18px; }
+    .logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--brand); color: var(--brand-ink);
+      display: grid; place-items: center; font-weight: 700;
+    }
+    .nav { display: grid; gap: 4px; }
+    .nav b { font-size: 10px; letter-spacing: .12em; color: #7b8798; margin: 10px 8px 4px; display: block; }
+    .nav a {
+      display: block; padding: 8px 10px; border-radius: 6px; color: inherit; text-decoration: none;
+    }
+    .nav a.active { background: var(--brand); color: var(--brand-ink); }
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .top {
+      height: 52px; background: color-mix(in srgb, var(--card) 92%, transparent);
+      border-bottom: 1px solid var(--hair);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+    }
+    .wh {
+      border: 1px solid var(--hair); background: var(--card); height: var(--ctrl);
+      border-radius: var(--radius); padding: 0 10px; min-width: 240px; color: var(--text);
+    }
+    .body { padding: 18px 20px; display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    h2 { margin: 0 0 4px; font-size: 20px; }
+    .sub { color: var(--dim); margin: 0 0 14px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); box-shadow: var(--shadow); }
+    th, td { border-bottom: 1px solid var(--hair); padding: 0 12px; height: var(--row-h); text-align: left; white-space: nowrap; }
+    th { color: var(--dim); font-weight: 600; background: color-mix(in srgb, var(--card) 88%, var(--canvas)); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .chip {
+      display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; color: #fff;
+    }
+    .ok { background: var(--ok); } .warn { background: var(--warn); } .err { background: var(--err); }
+    .panel {
+      background: var(--card); border: 1px solid var(--hair); border-radius: var(--radius);
+      padding: 14px; box-shadow: var(--shadow);
+    }
+    label { display: block; color: var(--dim); margin: 10px 0 4px; }
+    input, textarea {
+      width: 100%; border: 1px solid var(--hair); border-radius: var(--radius);
+      height: var(--ctrl); padding: 0 10px; font: inherit;
+    }
+    textarea { height: 88px; padding: 8px 10px; resize: none; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      height: var(--ctrl); border-radius: var(--radius); border: 1px solid var(--hair);
+      background: var(--card); color: var(--text); padding: 0 12px; cursor: pointer; font: inherit;
+    }
+    .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+    .btn.danger { background: var(--err); color: #fff; border-color: var(--err); }
+    .ghost { opacity: .55; }
+    .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .kpi div { background: var(--card); border: 1px solid var(--hair); border-radius: var(--radius); padding: 10px 12px; }
+    .kpi small { color: var(--dim); display: block; }
+    .kpi b { font-size: 18px; }
+    @media (max-width: 960px) {
+      .notes, .body, .desk { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>企业级作业台：GitHub 上还能抄的样子</h1>
+    <p class="lead">
+      上一轮是 Fiori / 曼哈顿 / 现代运维台。这一轮只看 GitHub 上星多、而且能直接对照壳层的开源后台。
+      仍不换信息架构，也不把 Ant 换成 shadcn / Element。只借 token：主色、侧栏、行高、按钮重量。
+    </p>
+    <div class="notes">
+      <div class="note">
+        <strong>现在为什么不高级</strong>
+        <span>青绿选中块 + 按钮投影 + 14px 圆角卡片 + KPI 六宫格，更像后台模板而不是执行席。顶栏按钮过多，主操作被「打开 PDA / 退出」稀释。</span>
+      </div>
+      <div class="note">
+        <strong>企业级作品在做什么</strong>
+        <span>Fiori：压缩行高、对象页、工具条里只有一个实心主按钮。曼哈顿系：状态实心、数量等宽、命令贴单据。现代运维台：少阴影、细线、主按钮用墨色而不是第二品牌色。</span>
+      </div>
+      <div class="note">
+        <strong>建议先做哪套</strong>
+        <span>「现代作业台」打底（去投影、表铺满、一颗主按钮），状态色跟「工业高对比」。Fiori 的 26px 控件只给桌面密表，不给 PDA。</span>
+      </div>
+    </div>
+
+    <table class="sources">
+      <thead>
+        <tr><th>来源</th><th>星数</th><th>能借什么</th><th>不要借什么</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="https://github.com/ant-design/ant-design-pro">ant-design/ant-design-pro</a></td>
+          <td>38.7k</td>
+          <td>深蓝 sider、#1677ff 主按钮、面包屑、卡片里的表</td>
+          <td>驾驶舱图表墙、再印一遍导航的首页</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/vbenjs/vue-vben-admin">vbenjs/vue-vben-admin</a> / <a href="https://github.com/pure-admin/vue-pure-admin">vue-pure-admin</a></td>
+          <td>33k / 20k</td>
+          <td>国内中后台最常见的「深栏 + 电蓝」</td>
+          <td>多主题皮肤商店、玻璃拟态</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/satnaing/shadcn-admin">satnaing/shadcn-admin</a></td>
+          <td>14.2k</td>
+          <td>zinc 细线、墨色主按钮、表不包卡片</td>
+          <td>换 Radix/Tailwind 组件库</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/tabler/tabler">tabler/tabler</a></td>
+          <td>41.7k</td>
+          <td>浅顶栏、轻卡片、控件高度克制</td>
+          <td>营销仪表盘小部件堆叠</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/hightower-systems/sentry-wms">hightower-systems/sentry-wms</a></td>
+          <td>22</td>
+          <td>少见的开源 WMS 管理端：深色 + 铜锈强调、顶栏切仓</td>
+          <td>星少、自绘 CSS，不能当组件规范</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/arco-design/arco-design">arco-design</a> / <a href="https://github.com/DouyinFE/semi-design">semi-design</a></td>
+          <td>5.7k / 10.4k</td>
+          <td>字节系冷灰蓝、更干净的间距</td>
+          <td>第二套 Table/Form</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tabs" role="tablist">
+      <button type="button" aria-selected="true" data-theme="now">现在</button>
+      <button type="button" data-theme="pro">Ant Design Pro</button>
+      <button type="button" data-theme="shadcn">shadcn-admin</button>
+      <button type="button" data-theme="vben">Vben / Pure</button>
+      <button type="button" data-theme="copper">Sentry 铜锈</button>
+      <button type="button" data-theme="fiori">Fiori 密表</button>
+      <button type="button" data-theme="ops">现代作业台</button>
+      <button type="button" data-theme="industrial">工业高对比</button>
+    </div>
+
+    <div class="stage" data-theme="now" id="stage">
+      <div class="desk">
+        <aside class="rail">
+          <div class="mark"><span class="logo">仓</span><div><b>WMS 作业台</b><div>仓储执行</div></div></div>
+          <nav class="nav">
+            <b>作业</b>
+            <a class="active" href="#">入库队列</a>
+            <a href="#">出库</a>
+            <a href="#">盘点</a>
+            <b>库存</b>
+            <a href="#">余额</a>
+            <a href="#">主数据</a>
+          </nav>
+        </aside>
+        <section class="main">
+          <header class="top">
+            <select class="wh" aria-label="作业仓">
+              <option>上海仓 · WH-A</option>
+              <option>北京仓 · WH-B</option>
+            </select>
+            <div>
+              <button class="btn">权限 12</button>
+              <button class="btn">打开 PDA</button>
+              <button class="btn">退出</button>
+            </div>
+          </header>
+          <div class="body">
+            <div>
+              <h2>入库队列</h2>
+              <p class="sub">先核对仓与同步状态。数量按字符串展示，202 只表示已受理。</p>
+              <div class="kpi">
+                <div><small>待收</small><b>3</b></div>
+                <div><small>同步中</small><b>1</b></div>
+                <div><small>HOLD</small><b>1</b></div>
+                <div><small>今日已上架</small><b>12</b></div>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>单号</th><th>货主</th><th>实物</th><th>库存同步</th><th class="num">件数</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>INB-240913-018</td><td>ENT-DEMO</td>
+                    <td><span class="chip ok">已收</span></td>
+                    <td><span class="chip warn">PENDING</span></td>
+                    <td class="num">24</td>
+                  </tr>
+                  <tr>
+                    <td>AC26-20260912-164238-ASN</td><td>ENT-DEMO</td>
+                    <td><span class="chip ok">已收</span></td>
+                    <td><span class="chip ok">APPLIED</span></td>
+                    <td class="num">8</td>
+                  </tr>
+                  <tr>
+                    <td>INB-DEMO-OPEN-A</td><td>ENT-DEMO</td>
+                    <td><span class="chip err">HOLD</span></td>
+                    <td><span class="chip warn">RETRY</span></td>
+                    <td class="num">2</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <aside class="panel">
+              <strong>收货</strong>
+              <p class="sub" style="margin-top:6px">有序列号时数量等于身份条数。受理中不换幂等键。</p>
+              <label>收货批次</label>
+              <input value="RCPT-018-1" />
+              <label>序列号（每行一个）</label>
+              <textarea>SN-10021
+SN-10022</textarea>
+              <div class="actions">
+                <button class="btn primary" id="go">提交收货</button>
+                <button class="btn ghost" type="button">取消</button>
+                <button class="btn danger" type="button">关闭剩余</button>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <h2 style="margin:28px 0 10px">GitHub 方向成图</h2>
+    <figure class="shot">
+      <img src="style-previews/wms-style-antd-pro.png" alt="Ant Design Pro 风格入库队列" />
+      <figcaption>ant-design-pro：#001529 侧栏 + #1677ff。最容易用现有 Ant token 落地，也最容易看起来像「又一个中后台」。</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="style-previews/wms-style-shadcn.png" alt="shadcn-admin 风格入库队列" />
+      <figcaption>satnaing/shadcn-admin：zinc、墨色主按钮、表铺满。高级感来自克制，不要把组件库换掉。</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="style-previews/wms-style-vben.png" alt="Vben Admin 风格入库队列" />
+      <figcaption>vue-vben-admin / vue-pure-admin：国内开源后台默认脸。熟悉，但电蓝容易和作业状态抢戏。</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="style-previews/wms-style-sentry-copper.png" alt="Sentry WMS 铜锈深色风格" />
+      <figcaption>sentry-wms：深色 + 铜锈，顶栏切仓。仓储味最重；深色主题架构里原先明确不做，只作备选。</figcaption>
+    </figure>
+    <h2 style="margin:28px 0 10px">上一轮市场成图</h2>
+    <figure class="shot">
+      <img src="style-previews/wms-style-fiori.png" alt="Fiori Horizon 风格入库对象页" />
+      <figcaption>Fiori / SAP EWM：对象页 + 压缩表 + 工具条一颗主按钮。适合单据详情，不适合 PDA。</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="style-previews/wms-style-modern-ops.png" alt="现代运维台风格入库队列" />
+      <figcaption>现代作业台：表铺满、细线、墨色主按钮。最接近「高级」且仍用 Ant token 就能做。</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="style-previews/wms-style-industrial.png" alt="工业仓储执行台风格" />
+      <figcaption>工业高对比：实心状态、命令贴单据、主色压深。适合 HOLD / 202 / 同步中必须一眼可分。</figcaption>
+    </figure>
+  </div>
+  <script>
+    const stage = document.getElementById("stage");
+    document.querySelectorAll(".tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", "false"));
+        btn.setAttribute("aria-selected", "true");
+        stage.dataset.theme = btn.dataset.theme;
+      });
+    });
+    document.getElementById("go").addEventListener("click", (event) => {
+      event.currentTarget.textContent = "已受理 202";
+    });
+  </script>
+</body>
+</html>

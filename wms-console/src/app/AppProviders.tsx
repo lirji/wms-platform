@@ -5,7 +5,7 @@ import { wmsTheme } from "../design/theme";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <ConfigProvider locale={zhCN} theme={wmsTheme} wave={{ disabled: false }}>
+    <ConfigProvider locale={zhCN} theme={wmsTheme} wave={{ disabled: true }} button={{ autoInsertSpace: false }}>
       <AntApp>{children}</AntApp>
     </ConfigProvider>
   );

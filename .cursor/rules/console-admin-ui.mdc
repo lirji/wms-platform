@@ -1,0 +1,13 @@
+---
+description: 创建或改 wms-console 管理后台页面时，先套融合后的 UI 提示词
+globs: wms-console/src/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# 控制台后台 UI
+
+改 `wms-console` 页面、表格、按钮、状态、查询区或壳层时：先读 `docs/design/console-frontend/ADMIN_UI_PROMPT.md`，按该提示词实现。
+
+- 不另起视觉语言。Token 只走 `wms-console/src/design/tokens.ts`。
+- 不发明公开契约没有的筛选、页码、批量写、异常中心、报表或策略页。
+- 列表分页保持游标（首页 / 下一页），不要编 `1 2 3`。

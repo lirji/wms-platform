@@ -7,7 +7,7 @@
 | 页面 | 主要内容/操作 | 后端契约 | AC |
 | --- | --- | --- | --- |
 | 仓库选择与首页 | 可访问仓、待办、异常、数据时间 | 权限仓列表、查询汇总 | AC-01/26 |
-| 商品/库位资料 | 商品/库位/批次分表；单位追加；门禁只读查询 | GET/POST `/api/wms/v1/warehouses`、`/skus`、`/skus/{id}/units`、`/warehouses/{id}/locations`、`/locations/{id}/gate` | AC-02 |
+| 商品/库位资料 | 商品/库位/批次分表；点标识进详情（单位/门禁/效期）；单位追加；门禁只读 | GET/POST `/api/wms/v1/warehouses`、`/skus`、`/skus/{id}`、`/skus/{id}/units`、`/warehouses/{id}/locations`、`/locations/{id}`、`/locations/{id}/gate`、`/lots`、`/lots/{id}` | AC-02 |
 | 入库工作台 | 单据详情→收货扫描→质检→上架；序列号观察可选 | inbound、quality、tasks、serialObservation | AC-07/09 |
 | 库存台账 | 仓/SKU/批次/效期过滤，余额、预占、流水；同仓移库/限制/独立调整 | inventory/ledger/moves/stock-holds/adjustments | AC-03/08/15 |
 | 履约与出库 | 全局单/仓子单、准备/执行受理、取消请求、核验授权、拣货、包装、发运 | fulfillments、attempts/executions、cancellations、execution-authorizations、tasks、shipments | AC-10..14 |
@@ -21,7 +21,7 @@
 - Loading 保留上下文且禁止重复提交；空态显示当前过滤条件和允许动作。
 - 202 显示处理中及 operationId，轮询退避并可恢复；不能显示业务已成功。
 - 409 版本冲突显示最新记录及需要重新确认的操作；不自动换幂等键。
-- 401 是会话过期，提示重新登录，不写成权限不足。403 展示令牌仓范围与 scope；服务端仍为最终权限权威。建单与作业命令在抽屉，不占列表整页。
+- 401 是会话过期，提示重新登录，不写成权限不足。403 展示令牌仓范围与 scope；服务端仍为最终权限权威。建单与作业命令在居中弹层，不占列表整页。
 - TCC TRIED等待恢复展示“库存已预留，等待Seata全局事务完成”，禁止提供任意强制释放按钮。
 - serial待登记/待转移确认显示隔离状态，禁止拣货或发运。
 - 查询显示asOf与延迟；陈旧时提示刷新/等待，按钮写入由服务端重校验。

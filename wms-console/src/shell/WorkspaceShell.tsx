@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { User } from "oidc-client-ts";
-import { Avatar, Button, Flex, Layout, Menu, Popover, Select, Space, Tag, Typography } from "antd";
+import { Avatar, Button, Flex, Layout, Menu, Popover, Select, Space, Tag, Tooltip, Typography } from "antd";
 import { LogoutOutlined, MobileOutlined, SafetyCertificateOutlined, ShopOutlined } from "@ant-design/icons";
 import { api } from "../api/client";
 import { field, pageItems } from "../api/envelope";
@@ -9,6 +9,7 @@ import { createUserManager } from "../auth/oidc";
 import { tokenClaims } from "../auth/tokenClaims";
 import { NAV_GROUPS } from "./nav";
 import { rememberWarehouse } from "./warehouseSession";
+import { wmsTokens } from "../design/tokens";
 import { WorkspaceProvider } from "./WorkspaceContext";
 
 type Warehouse = { id: string; name: string };
@@ -101,7 +102,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
     }}>
       <Layout className="app-shell">
         <a className="skip-link" href="#main">跳到主内容</a>
-        <Layout.Sider width={232} theme="dark" className="app-sider" breakpoint="lg" collapsedWidth={72}>
+        <Layout.Sider width={220} theme="light" className="app-sider" breakpoint="lg" collapsedWidth={64}>
           <Link className="brand" to={warehouseId ? `/w/${warehouseId}` : "/"} aria-label="WMS 工作台首页">
             <span className="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 32 32"><path d="M4 13 16 5l12 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM12 27v-8h8v8M6 13h20" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
@@ -112,7 +113,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
             </span>
           </Link>
           <Menu
-            theme="dark"
+            theme="light"
             mode="inline"
             selectedKeys={selected}
             items={NAV_GROUPS.map((group) => ({
@@ -164,11 +165,13 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
                     {claims.scopes.length ? `${claims.scopes.length} 项权限` : "权限未声明"}
                   </Button>
                 </Popover>
-                <Avatar style={{ background: "#0f766e" }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
+                <Avatar style={{ background: wmsTokens.colorPrimary }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
                 <Typography.Text strong>{displayName}</Typography.Text>
-                <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
-                  打开 PDA
-                </Button>
+                <Tooltip title="打开 PDA">
+                  <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
+                    打开 PDA
+                  </Button>
+                </Tooltip>
                 <Button icon={<LogoutOutlined />} onClick={() => void createUserManager().signoutRedirect()}>
                   退出
                 </Button>
