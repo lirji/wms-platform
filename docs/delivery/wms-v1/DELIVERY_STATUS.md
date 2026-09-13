@@ -2,10 +2,10 @@
 
 ## 当前基线与授权
 
-远程main已发布COMP提交f043117（祖先含TC a3b4c65）。COMP CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069)成功。控制台公开契约接线在feat/console-public-serial-ops，本地28文件/52测与typecheck通过，待合入远程main。
+远程main已发布COMP `f043117`（CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069)成功）和控制台公开契约 `a619d3f`。控制台 verify [34736085774](https://github.com/lirji/wms-platform/actions/runs/34736085774)运行中。有限范围回执见[FINAL_RECEIPT](FINAL_RECEIPT.md)，待该CI结束后再推回执文档。不是50 AC。
 更新时间：2026-09-13。前一阶段基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
-用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER/TC已实现、验证并发布；COMP本地组合验收通过，FINAL待发布/CI，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
+用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER/TC/COMP 已实现、验证并发布；FINAL 有限范围已发布，控制台 CI 运行中。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。不是 50 AC。
 
 持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 

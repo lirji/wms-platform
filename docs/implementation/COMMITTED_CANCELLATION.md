@@ -1,6 +1,6 @@
 # 已提交分配的取消补偿
 
-COMP 实现、代表链路及 FINAL 本地门禁均已通过，待 Git 发布及远程 CI。唯一范围来自 [交付计划](../delivery/wms-v1/DELIVERY_PLAN.md)。TC 已提交不改变原 XID、分支和 Fence，不执行 TCC Cancel。
+COMP 已发布远程 main `f043117`，CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069) 成功。唯一范围来自 [交付计划](../delivery/wms-v1/DELIVERY_PLAN.md)。TC 已提交不改变原 XID、分支和 Fence，不执行 TCC Cancel。不是 50 AC。
 
 ## 数据权威与路径
 
