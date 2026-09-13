@@ -2,6 +2,7 @@
 
 ## 当前基线与授权
 
+远程main新增2c31c54，整合控制台df8c56f的浅色作业台、主数据详情与ADMIN_UI_PROMPT；CI34728530641运行中。本地水位提交2e7451c已通过定向验证，整合只涉及进度文档冲突，等待上述CI结束再发布main。
 更新时间：2026-09-13。已发布基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
 用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。WATERMARK采集器本地实现及真实进程验收通过，待本批Git发布；TRANSFER/TC/COMP/FINAL仍待完成，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。

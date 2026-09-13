@@ -11,6 +11,9 @@ import { StatusBanner } from "../shared/ui/StatusBanner";
 
 const HomePage = lazy(() => import("../features/home/HomePage").then((module) => ({ default: module.HomePage })));
 const CatalogPage = lazy(() => import("../features/catalog/CatalogPage").then((module) => ({ default: module.CatalogPage })));
+const SkuDetailPage = lazy(() => import("../features/catalog/CatalogDetailPage").then((module) => ({ default: module.SkuDetailPage })));
+const LocationDetailPage = lazy(() => import("../features/catalog/CatalogDetailPage").then((module) => ({ default: module.LocationDetailPage })));
+const LotDetailPage = lazy(() => import("../features/catalog/CatalogDetailPage").then((module) => ({ default: module.LotDetailPage })));
 const InboundPage = lazy(() => import("../features/inbound/InboundPage").then((module) => ({ default: module.InboundPage })));
 const InboundDetailPage = lazy(() => import("../features/inbound/InboundDetailPage").then((module) => ({ default: module.InboundDetailPage })));
 const StockPage = lazy(() => import("../features/stock/StockPage").then((module) => ({ default: module.StockPage })));
@@ -72,6 +75,9 @@ export function App() {
               <Route path="/w/:warehouseId" element={<WorkspaceShell user={user} token={token} />}>
                 <Route index element={<HomePage />} />
                 <Route path="catalog" element={<CatalogPage />} />
+                <Route path="catalog/skus/:skuId" element={<SkuDetailPage />} />
+                <Route path="catalog/locations/:locationId" element={<LocationDetailPage />} />
+                <Route path="catalog/lots/:lotId" element={<LotDetailPage />} />
                 <Route path="inbound" element={<InboundPage />} />
                 <Route path="inbound/:inboundOrderId" element={<InboundDetailPage />} />
                 <Route path="stock" element={<StockPage />} />

@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 控制台独立任务 df8c56f（浅色作业台、主数据详情、ADMIN_UI_PROMPT）已经 2c31c54 合入远程 main；本地运行重建和旧库时区记录 41d6bc6 同步保留。当前仅合并进度文档冲突，不覆盖其代码和根工作树。
 - OUT 已经 365a1eb 发布 main，原 PICK/SHIP 身份、独立证明、真实进程重启及非空迁移通过，main CI 34725376702 成功。
 - WATERMARK 来源与库存历史门禁 e22f0b2 已发布，main CI 34727355968 全部成功。
 - 本地可信采集器已完成：两个来源原凭证正反核验、持久检查点/领取代际、有界重试隔离、公开请求/查询/审计控制、服务 JWT、XXL 接线，全部核验后原子生成证明。
@@ -27,7 +28,7 @@
 
 ## 当前问题
 
-- 工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支 fix/reconciliation-watermark，HEAD e22f0b2；采集器尚未提交。根控制台工作树保持不动。
+- 工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支 fix/reconciliation-watermark，采集器提交 2e7451c；正在整合 origin/main 2c31c54。main CI 34728530641 运行中，不推同 ref 取消它。根控制台工作树 feat/console-shadcn-dialog 保持不动。
 - 所有 Maven 已结束；最新会话 68930 exit 0。构建中不得编辑源码。
 - 真实进程初次健康探针错误主动中止 exit130；随后 fixed/diagnostic 两次失败定位到入库 fat JAR 嵌入旧运行库，实际来源 Page 缺 resultState。补 reactor 测试依赖及 forceCreation，三包哈希一致后最新运行通过。中间 current-jars 单测失败是故障用例自身超过单租户 8 RPS，改为独立客户端后通过。保留失败日志，不将其记为成功。
 - 默认不开启来源/采集器。所有旧来源和库存写节点退出后才能启用历史屏障；凭据目录需外部受控挂载，不写真实凭据。

@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Button, Card, Flex, Input, Space } from "antd";
+import { Button, Card, Space, Tooltip } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import { asOfMeta, nextCursorOf, withQuery } from "../../api/envelope";
 import { CommandDrawer } from "../../shared/command/CommandDrawer";
 import { DataTable, type Column } from "../../shared/ui/DataTable";
@@ -8,6 +9,8 @@ import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
 import { QueryMeta } from "../../shared/ui/QueryMeta";
 import { StatusBanner } from "../../shared/ui/StatusBanner";
+import { WmsSearchForm } from "../../shared/ui/WmsSearchForm";
+import { WmsToolbar } from "../../shared/ui/WmsToolbar";
 import { useResource } from "../../shared/useResource";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
@@ -58,10 +61,14 @@ export function DocumentListPage({
   const { token, warehouseId, warehouseName } = useWorkspace();
   const [search, setSearch] = useSearchParams();
   const query = search.get(queryKey) ?? "";
+  const [draft, setDraft] = useState(query);
   const cursor = search.get(cursorKey) ?? "";
+  useEffect(() => {
+    setDraft(query);
+  }, [query]);
   const resolved = (warehouseId ? paths : []).filter(Boolean).map((path) => withQuery(path, {
     cursor: cursor || undefined,
-    limit: "50"
+    limit: "20"
   }));
   const [tick, setTick] = useState(0);
   const { rows, payloads, error, loading } = useResource(token, resolved, tick);
@@ -89,20 +96,17 @@ export function DocumentListPage({
 
   const list = (
     <Card
-      size={secondary ? "small" : "default"}
-      title={secondary ? title : "业务列表"}
-      extra={(
-        <Space>
-          {secondary ? actions : null}
-          {query ? <Button type="link" onClick={() => patch({ [queryKey]: undefined })}>清除筛选</Button> : null}
-          <Input.Search
-            allowClear
-            style={{ width: 280 }}
-            placeholder="筛选已返回字段，写入地址栏"
-            value={query}
-            onChange={(event) => patch({ [queryKey]: event.target.value || undefined, [cursorKey]: undefined })}
-          />
-        </Space>
+      size={secondary ? "small" : "middle"}
+      title={(
+        <WmsToolbar
+          title={secondary ? title : "业务列表"}
+          count={loading ? undefined : String(visible.length)}
+          extra={secondary ? actions : (
+            <Tooltip title="刷新">
+              <Button icon={<ReloadOutlined />} aria-label="刷新" onClick={() => setTick((current) => current + 1)} />
+            </Tooltip>
+          )}
+        />
       )}
     >
       <DataTable
@@ -136,15 +140,7 @@ export function DocumentListPage({
         title={title}
         sub={warehouseId ? `${sub} · 当前仓 ${warehouseId}` : "尚未选仓，不会猜测仓库。"}
         extra={(
-          <Flex align="center" gap={12} wrap="wrap">
-            <QueryMeta
-              warehouseId={warehouseId}
-              warehouseName={warehouseName}
-              asOf={meta?.asOf}
-              lagSeconds={meta?.lagSeconds}
-              stale={meta?.stale}
-              rowCount={loading ? "读取中" : String(rows.length)}
-            />
+          <div className="list-toolbar">
             {create && createLabel ? (
               <CommandDrawer
                 triggerLabel={createLabel}
@@ -161,13 +157,31 @@ export function DocumentListPage({
               </CommandDrawer>
             ) : null}
             {actions}
-          </Flex>
+          </div>
         )}
+      />
+      <QueryMeta
+        warehouseId={warehouseId}
+        warehouseName={warehouseName}
+        asOf={meta?.asOf}
+        lagSeconds={meta?.lagSeconds}
+        stale={meta?.stale}
+        rowCount={loading ? "读取中" : String(rows.length)}
       />
       {extra === "tcc" ? (
         <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
       ) : null}
       {error ? errorBanner(error) : null}
+      <WmsSearchForm
+        value={draft}
+        onChange={setDraft}
+        onSearch={() => patch({ [queryKey]: draft.trim() || undefined, [cursorKey]: undefined })}
+        onReset={() => {
+          setDraft("");
+          patch({ [queryKey]: undefined, [cursorKey]: undefined });
+        }}
+        placeholder="筛选已返回字段，查询后写入地址栏"
+      />
       {list}
     </Space>
   );

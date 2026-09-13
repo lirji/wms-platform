@@ -20,7 +20,7 @@ export function FulfillmentPage() {
         createLabel="创建履约单"
         createTitle="创建履约单"
         createScope="fulfillment.create"
-        createHint="表单在抽屉里。同源单号摘要冲突由服务端拒绝。"
+        createHint="表单在居中弹层。同源单号摘要冲突由服务端拒绝。"
         create={(
           <CommandCard
             embedded

@@ -2,6 +2,8 @@
 
 依据 [BRIEF.md](BRIEF.md) 与已批准交接/契约。仓库只提供约束，不提供信息架构抄本。F0–F6 已落地；本文是同一份架构的补全，不另起 IA。
 
+新建或改管理后台页面时，先套 [ADMIN_UI_PROMPT.md](ADMIN_UI_PROMPT.md)（两份 UI 强约束的融合稿）。视觉与模板以该提示词为准；契约没有的能力不要按模板发明。
+
 ## 1. 目标与非目标
 
 目标：一个可部署的作业台，按仓作业、按契约读数、按命令写，覆盖交接中的用户路径与页面状态。
@@ -26,21 +28,24 @@
 /                              已登录 → 跳到 /w/:warehouseId
 /w/:warehouseId                工作台首页（KPI + 活队列）
 /w/:warehouseId/catalog        商品 / 库位 / 批次（有 masterdata.write 才建档）
-/w/:warehouseId/inbound                      入库列表 + 抽屉建单
-/w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架（命令抽屉）
+/w/:warehouseId/catalog/skus/:skuId          商品策略、单位换算
+/w/:warehouseId/catalog/locations/:locationId 库位容量、只读门禁
+/w/:warehouseId/catalog/lots/:lotId          批次货主与效期
+/w/:warehouseId/inbound                      入库列表 + 弹层建单
+/w/:warehouseId/inbound/:inboundOrderId      收货 / 质检 / 上架（命令弹层）
 /w/:warehouseId/stock                        库存台账
 /w/:warehouseId/stock/:balanceId             库存流水
 /w/:warehouseId/fulfillment                  履约列表 + 本仓出库列表
 /w/:warehouseId/fulfillment/:fulfillmentId   准备分配 / 生成本仓出库单
 /w/:warehouseId/outbound/:outboundOrderId    规划拣货 / 拣 / 包 / 部分发 / 取消回库
-/w/:warehouseId/transfers                    调拨列表 + 抽屉建单
+/w/:warehouseId/transfers                    调拨列表 + 弹层建单
 /w/:warehouseId/transfers/:transferId        发出 / 接收授权 / 接收 / 损耗
-/w/:warehouseId/counts                       盘点列表 + 抽屉建计划
+/w/:warehouseId/counts                       盘点列表 + 弹层建计划
 /w/:warehouseId/counts/:countPlanId          排空冻结 / 点数 / 复盘 / 审批 / 调整
 /w/:warehouseId/jobs                         任务运行 + 仓执行任务（?taskType=）
 /w/:warehouseId/jobs/:jobId                  回收租约 / 领取分片
 /w/:warehouseId/tasks/:taskId                领取仓任务（?taskType= 分域）
-/w/:warehouseId/recon                        对账查询 + 抽屉审批 / 次要导出快照
+/w/:warehouseId/recon                        对账查询 + 弹层审批 / 次要导出快照
 /pda/:warehouseId/receive                    PDA 收货（独立壳）
 ```
 
@@ -69,9 +74,9 @@
 | Owner kit | Ant Design / Material / Tailwind | Ant Design 6 | Material 会第二套 Table/Form；Tailwind 不当 Table/Form owner。布局可用少量 CSS，颜色必须读 Ant token |
 | 服务端数据 | fetch 包装 / 查询库 | fetch 包装 | 列表短、202 轮询有界，不需要第二缓存 |
 | 路由 | react-router | 框架默认 | 已用于登录与回调 |
-| 表格/表单 | 轻量 / 管理套件 | Ant `Table` / `Form` / `Drawer` / `Alert` | 列来自契约字段，不预置业务行 |
+| 表格/表单 | 轻量 / 管理套件 | Ant `Table` / `Form` / `Modal` / `Alert` | 列来自契约字段，不预置业务行 |
 
-BRIEF 曾假设「深青石板 + 琥珀」。落地以 Ant `colorPrimary=#0f766e` 为准，**不用琥珀当第二强调**，避免作业台变成营销金。F7 已把 `tokens.css` 并进同一青绿轨，不再使用 `--gold` / `#1d6b8a`。
+BRIEF 曾假设「深青石板 + 琥珀」。现按后台强约束：浅色侧栏、作业按钮主色 `#1677FF`，状态五类 Tag。灰只给正文和分割线。命令层是居中 `Modal`。两字按钮关闭 Ant 自动插空。
 
 ## 5. 模块与目录（提议）
 
@@ -82,7 +87,7 @@ wms-console/src/
   api/           前缀路由、信封解析、幂等键
   design/        只服务 Ant ConfigProvider，不另养一套页面色
   shell/         桌面壳、PDA 壳、仓选择（写 URL）
-  shared/ui      状态条、表、数量文本、复制 id、错误码
+  shared/ui      状态条、表、游标翻页、数量文本、复制 id、错误码
   features/*     按作业：home catalog inbound stock fulfillment transfer count jobs recon pda
   pages/         仅登录/配置等无仓页
 ```
@@ -126,37 +131,39 @@ wms-console/src/
 | stale | asOf / lagSeconds + 刷新 |
 | TCC | 「库存已预留，等待全局完成」，无强制释放 |
 | PDA | 文字 + tone；BRIEF 声音反馈待接，不能只靠颜色 |
-| recovery | 抽屉脏表单用 Ant Modal 确认离开，不用 `window.confirm` |
+| recovery | 弹层脏表单用 Ant Modal 确认离开，不用 `window.confirm` |
 
 ## 8. 视觉与页面配方
 
-企业作业台：侧栏深蓝、内容浅灰、密表。品牌假设已收敛为青绿 Ant 主题。
+企业作业台：浅色侧栏、`#F5F7FA` 画布、密表。主色 `#1677FF`。状态只用五类 Tag（成功/处理中/等待/异常/终止）。命令仍居中弹层。对照用户强约束稿，不另起视觉语言。
 
 | 技能 token | Ant / CSS |
 | --- | --- |
-| canvas / paper | `colorBgLayout=#f1f5f9` |
-| surface / card | `colorBgContainer=#ffffff` |
-| ink / muted | `colorText=#0f172a` / `colorTextSecondary=#475569` |
-| line | `colorBorder=#e2e8f0` |
-| accent | `colorPrimary=#0f766e` |
-| ok / warn / err | `colorSuccess` / `colorWarning` / `colorError` |
-| radius | `borderRadius=8` |
-| type-12/13/16/20 | `fontSize=13`，Title 用 `Typography` |
-| control-height-desktop | `controlHeight=32`（密表；现网 36 须改） |
+| canvas / paper | `colorBgLayout=#F5F7FA` |
+| surface / card | `colorBgContainer=#FFFFFF` |
+| ink / muted | `colorText=#1D2129` / `#4E5969` / `#86909C` |
+| line | `colorBorder=#E5E6EB` |
+| accent | `colorPrimary=#1677FF` |
+| ok / warn / err | `#52C41A` / `#FAAD14` / `#FF4D4F`；状态 Tag 用浅底+描边 |
+| radius | 控件 6，卡片/弹层 8，Tag 4 |
+| type-12/13/16/20 | `fontSize=14`，Title 20/600 |
+| control-height-desktop | `controlHeight=32` |
 | control-height-touch | PDA `size=large` ≥44px |
 | focus-ring | Ant 默认 2px；禁止无替代 `outline: none` |
-| shadow-1 | 仅卡片轻阴影，登录不做第二套营销渐变墙 |
+| shadow-1 | 无按钮/卡片投影；登录不做第二套营销渐变墙 |
 
 ### 层配方（Ant 原语）
 
 | Layer | 选择 | 用 |
 | --- | --- | --- |
 | Canvas | 平面浅灰，不加每页第二渐变 | `Layout` |
-| Chrome | 顶栏 92% 模糊 + 1px 线；选仓重于用户菜单 | `Layout.Header` `Sider` `Menu` `Select` |
+| Chrome | 浅色 220 侧栏 + 56 顶栏；选仓重于用户菜单 | `Layout.Header` `Sider` `Menu` `Select` |
 | Work | 表格吃满剩余宽 | `Layout.Content` |
-| Page head | 20px 标题 + 13px 副文 + **一个**主按钮 | `Typography` + `Button` |
-| Status | 头下一条 `Alert` | `StatusBanner` |
-| Table | sticky header、数量右齐 `tabular-nums`、状态 `Tag`+文字 | `Table` |
+| Page head | 20px 标题 + 状态 Tag + 工具条最多一颗 Primary | `PageHead` + `.list-toolbar` |
+| Search | 列表白卡片：已有筛选项 + 查询 Primary / 重置 Default | `WmsSearchForm` |
+| Status | 头下一条 `Alert`；业务状态五色 Tag | `StatusBanner` `StatusChip` |
+| Table | sticky header、行高 46、数量右齐、状态 Tag | `Table` `WmsToolbar` |
+| Pager | 表底右侧游标「首页 Default / 下一页 Primary」；不编页码 | `ListPager` |
 | Form | 标签在上，主提交在最后，危险动作分开 | `Form` `size=small` |
 | Scan | 全宽 ≥48px，结果一个面板 | PDA `Input` `size=large` |
 | Empty | 与表同表面，无插画 | `Empty` simple |
@@ -165,8 +172,8 @@ wms-console/src/
 | --- | --- | --- |
 | 登录 / 配置 | 与作业台同色、**一列**、一句话、一主按钮。能力说明折到主按钮下方 | 两列功能清单、登录页第二渐变当主路径 |
 | 首页 | KPI 行（接口行数）+ 入库/出库/任务活队列 | 再印一遍侧栏卡片墙 |
-| 队列 | 头 + 一行筛选 + 表。建单进 `Drawer` | 列表内嵌长表单；履约页两张主表要分主次，出库表是次表面 |
-| 单据 | 头 + `Descriptions` 事实 + 明细表；命令进 `Drawer`+`Tabs` | 五张卡叠在表下；抽屉里再叠五张大卡 |
+| 队列 | 头 + 一行筛选 + 表。建单进居中 `Modal` | 列表内嵌长表单；履约页两张主表要分主次，出库表是次表面 |
+| 单据 | 头 + `Descriptions` 事实 + 明细表；命令进居中 `Modal`+`Tabs` | 五张卡叠在表下；弹层里再叠五张大卡 |
 | 扫描 | 输入 → 结果 → 历史；无侧栏 | 缩桌面壳当 PDA |
 | 状态 | 一条 `Alert`：401 会话，403 仓/权限 | 401/5xx 写成权限不足 |
 
@@ -204,19 +211,19 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 | Density | Table/Form/Button `small`；桌面 `controlHeight=32`；PDA `large` | `theme.ts` `controlHeight=32` |
 | Scroll | 壳 sticky；**表体**滚；`scroll.x`；表头 sticky | `Table sticky` |
 | Column | 标识 180、状态 112、数量 112 右齐；长 id 省略 + tooltip + 复制 | `DataTable` 固定列宽 |
-| Row actions | 打开单据为链接；危险命令在抽屉且 `danger` | 取消剩余 / 在途损耗 `danger` |
+| Row actions | 打开单据为链接；危险命令在弹层且 `danger` | 取消剩余 / 在途损耗 `danger` |
 | Batch | 无契约批量则无复选框 | 已遵守 |
 | Filters | 一行；`?q=` `?cutoffId=` `?cursor=` | 列表与对账写入 URL；履约出库用 `oq`/`oc` |
-| Pagination | 契约 cursor；不把本页 12 条假装成分页权威 | 首页 / 下一页，无本地 pageSize |
-| Open-in | 单据走路由；建单/命令走抽屉；Modal 只用于离开确认 | 抽屉内按 `CommandCol` 分页签，一次一个命令 |
+| Pagination | 契约 cursor；不把本页 12 条假装成分页权威 | `ListPager` 首页 / 下一页，无本地 pageSize |
+| Open-in | 单据走路由；建单/命令走居中弹层；离开确认仍用 `Modal.confirm` | 弹层内按 `CommandCol` 分页签，一次一个命令 |
 | Feedback | 字段→Form；契约→一条 Alert；瞬时→`message`（复制成功）；202 留状态条 | 409 只展示 code/message，不 dump JSON |
 | Loading | 表 skeleton；全页转圈只给首次进壳 | 空表 loading 用 skeleton 行 |
-| Leave guard | 抽屉脏表单 Ant Modal | `Modal.confirm` |
+| Leave guard | 弹层脏表单 Ant Modal | `Modal.confirm` |
 | Icons | 仅 `@ant-design/icons`；图标+文字；仅关闭/溢出可纯图标 | 已基本遵守 |
 | CJK | PingFang SC / Noto Sans SC；数量 `tabular-nums`；中文行高 ≥1.5 | 数量右齐 + tabular |
 | Locale | 时间按仓时区展示，请求 UTC | 顶栏墙钟是本机 UTC 文本，可保留 |
 | Permission UI | 无 scope 则隐藏命令；深链 403 | `hasScope`；PDA 无 `inbound.receive` 不提交 |
-| Overlay | 同时一个抽屉；Popover 可叠在顶栏 | 已遵守 |
+| Overlay | 同时一个命令弹层；Popover 可叠在顶栏 | 已遵守 |
 | Motion | ≤200ms；`prefers-reduced-motion` 即时 | `styles.css` 已声明 |
 | Dark mode | 关 | 已遵守 |
 | 快捷键 | 见下表。不另做桌面 keymap | Esc 靠 kit；不抢浏览器查找 |
@@ -231,7 +238,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 | Contrast | 正文与 chip ≥4.5:1；侧栏选中用青绿底+白字 |
 | Focus | 跳过链接 → 品牌 → 选仓 → 导航 → 主区；路由切换后焦点到 `h1` |
 | Focus visible | 保留 Ant 2px ring |
-| Focus trap | Drawer/Modal 用 kit 默认 |
+| Focus trap | Modal 用 kit 默认 |
 | Labels | 可见 label；占位符不是标签；表 `aria-labelledby` 页标题 |
 | Live | 状态条与扫码结果 `role=status` |
 | Keyboard | 导航用 Menu 箭头；表不发明 Excel 键；PDA 只 Enter |
@@ -258,8 +265,8 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 | 范围 | 键 | 动作 | 不要 |
 | --- | --- | --- | --- |
-| 队列 | kit Drawer Esc | 关抽屉 | Esc 离开路由 |
-| 表单 | Enter | 提交当前抽屉里那一个主命令 |  |
+| 队列 | kit Modal Esc | 关弹层 | Esc 离开路由 |
+| 表单 | Enter | 提交当前弹层里那一个主命令 |  |
 | 扫描 | Enter | 只提交扫码框 | 全局 Enter、字母快捷键 |
 | 全局 | 无 `/` 或 `Ctrl+K` | BRIEF 无统一搜索 | 抢浏览器查找 |
 
@@ -293,7 +300,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 ## 12. 未决
 
-F7 已落地。F-serial / F-202 / F-recovery / F-catalog 已接到现有抽屉与任务页，不另起 IA。
+F7 已落地。F-serial / F-202 / F-recovery / F-catalog 已接到现有命令弹层与任务页，不另起 IA。商品/库位/批次可点进公开 GET 详情。
 
 仍 blocked / 不发明：
 

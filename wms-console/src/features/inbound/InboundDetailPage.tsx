@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Button, Card, Form, Input, Select, Space, Table } from "antd";
+import { Button, Card, Form, Input, Select, Table } from "antd";
 import { useParams } from "react-router-dom";
 import { field, nextCursorOf, withQuery, type ItemRecord } from "../../api/envelope";
 import { useResource } from "../../shared/useResource";
 import { errorBanner } from "../../shared/ui/errorBanner";
+import { ListPager } from "../../shared/ui/ListPager";
 import { api } from "../../api/client";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
@@ -160,10 +161,13 @@ export function InboundDetailPage() {
         { title: "已上架", dataIndex: "putawayQty" },
         { title: "质检同步", render: (_, row) => field(row, "qualityState") === "APPLIED" ? "已同步" : field(row, "qualityState") === "PENDING" ? "同步中" : "未质检" }
       ]} />
-      <Space style={{ marginTop: 12 }}>
-        <Button disabled={batches.loading || cursors.length === 1} onClick={() => setCursors((prev) => prev.slice(0, -1))}>上一页</Button>
-        <Button disabled={batches.loading || !nextCursor} onClick={() => setCursors((prev) => [...prev, nextCursor])}>下一页</Button>
-      </Space>
+      <ListPager
+        prevLabel="上一页"
+        prevDisabled={batches.loading || cursors.length === 1}
+        nextDisabled={batches.loading || !nextCursor}
+        onPrev={() => setCursors((prev) => prev.slice(0, -1))}
+        onNext={() => setCursors((prev) => [...prev, nextCursor])}
+      />
     </Card>
     </>
   );

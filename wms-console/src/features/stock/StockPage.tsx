@@ -54,7 +54,7 @@ export function StockPage() {
               <Form.Item label="原因" name="reason" rules={[{ required: true }]}><Input /></Form.Item>
             </CommandCard>
           </CommandDrawer>
-          <CommandDrawer triggerLabel="库存限制" title="库存限制" hint="占用 reserved，不是盘点冻结。" requireScope="stock.hold" disabled={!ready}>
+          <CommandDrawer triggerLabel="库存限制" title="库存限制" hint="占用 reserved，不是盘点冻结。" triggerType="default" requireScope="stock.hold" disabled={!ready}>
             <CommandCard
               embedded
               requireScope="stock.hold"
@@ -78,7 +78,7 @@ export function StockPage() {
               <Form.Item label="原因" name="reason" rules={[{ required: true }]}><Input /></Form.Item>
             </CommandCard>
           </CommandDrawer>
-          <CommandDrawer triggerLabel="释放限制" title="释放限制" hint="只释放 stock-hold，不解冻盘点。" requireScope="stock.releaseHold" disabled={!ready}>
+          <CommandDrawer triggerLabel="释放限制" title="释放限制" hint="只释放 stock-hold，不解冻盘点。" triggerType="default" requireScope="stock.releaseHold" disabled={!ready}>
             <CommandCard
               embedded
               requireScope="stock.releaseHold"
@@ -98,7 +98,7 @@ export function StockPage() {
               <Form.Item label="原因" name="reason"><Input /></Form.Item>
             </CommandCard>
           </CommandDrawer>
-          <CommandDrawer triggerLabel="独立调整" title="独立调整" hint="与盘点按行调整不是同一张单。" requireScope="adjustment.create" disabled={!ready}>
+          <CommandDrawer triggerLabel="独立调整" title="独立调整" hint="与盘点按行调整不是同一张单。" triggerType="default" requireScope="adjustment.create" disabled={!ready}>
             <CommandCard
               embedded
               requireScope="adjustment.create"
@@ -123,7 +123,7 @@ export function StockPage() {
               <Form.Item label="原因" name="reason" rules={[{ required: true }]}><Input /></Form.Item>
             </CommandCard>
           </CommandDrawer>
-          <CommandDrawer triggerLabel="审批调整" title="审批调整" hint="未审批不能过账。" requireScope="adjustment.approve" disabled={!ready}>
+          <CommandDrawer triggerLabel="审批调整" title="审批调整" hint="未审批不能过账。" triggerType="default" requireScope="adjustment.approve" disabled={!ready}>
             <CommandCard
               embedded
               requireScope="adjustment.approve"
@@ -149,7 +149,7 @@ export function StockPage() {
               <Form.Item label="意见" name="reason"><Input /></Form.Item>
             </CommandCard>
           </CommandDrawer>
-          <CommandDrawer triggerLabel="应用调整" title="应用调整" hint="202 表示已过账受理。" requireScope="adjustment.apply" disabled={!ready}>
+          <CommandDrawer triggerLabel="应用调整" title="应用调整" hint="202 表示已过账受理。" triggerType="default" requireScope="adjustment.apply" disabled={!ready}>
             <CommandCard
               embedded
               requireScope="adjustment.apply"

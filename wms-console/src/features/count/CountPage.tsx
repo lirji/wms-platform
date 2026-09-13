@@ -18,7 +18,7 @@ export function CountPage() {
       createLabel="创建计划"
       createTitle="创建盘点计划"
       createScope="count.create"
-      createHint="表单在抽屉里。库位必须已有门禁。"
+      createHint="表单在居中弹层。库位必须已有门禁。"
       create={(
         <CommandCard
           embedded

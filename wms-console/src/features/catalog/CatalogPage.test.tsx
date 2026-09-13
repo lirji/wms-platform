@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AppProviders } from "../../app/AppProviders";
@@ -20,6 +20,7 @@ describe("CatalogPage", () => {
     expect(screen.getByRole("button", { name: "创建商品" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "创建库位" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "登记批次" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "更多" }));
     expect(screen.getByRole("button", { name: "创建仓库" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "追加单位" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "查看门禁" })).toBeTruthy();

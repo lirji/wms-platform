@@ -27,7 +27,7 @@ export function PdaShell({ user, token }: { user: User; token?: string }) {
         <Layout.Header className="app-header">
           <Flex align="center" justify="space-between">
             <Link to={warehouseId ? `/w/${warehouseId}/inbound` : "/"}>
-              <Typography.Title level={4} style={{ margin: 0, color: "#0f172a" }}>PDA 收货</Typography.Title>
+              <Typography.Title level={4} style={{ margin: 0, color: "#1D2129" }}>PDA 收货</Typography.Title>
               <Typography.Text type="secondary">{warehouseId || "未选仓"} · {displayName}</Typography.Text>
             </Link>
             <Link to={warehouseId ? `/w/${warehouseId}` : "/"}><Button>返回工作台</Button></Link>

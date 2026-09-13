@@ -6,7 +6,8 @@ html, body, #root {
 
 body {
   margin: 0;
-  background: #f1f5f9;
+  color: var(--ink);
+  background: var(--paper);
 }
 
 .app-shell {
@@ -18,48 +19,55 @@ body {
   top: 0;
   height: 100dvh;
   overflow: auto;
+  background: var(--card) !important;
+  border-inline-end: 1px solid var(--line);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 18px 16px 12px;
-  color: #f8fafc;
+  gap: 12px;
+  margin: 16px;
+  color: var(--ink);
   text-decoration: none;
 }
 
 .brand-mark {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  background: #0f766e;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #fff;
 }
 
 .brand-mark svg { width: 18px; height: 18px; }
 .brand strong, .brand small { display: block; }
-.brand strong { color: #fff; font-size: 15px; }
-.brand small { color: #94a3b8; font-size: 11px; }
+.brand strong { color: var(--ink); font-size: 15px; font-weight: 600; }
+.brand small { color: var(--assist); font-size: 12px; }
 
 .side-foot {
   display: block;
   margin: 16px;
-  color: #64748b !important;
-  font-size: 11px;
+  color: var(--assist) !important;
+  font-size: 12px;
+}
+
+.app-sider .ant-menu-item-selected {
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .app-header {
   position: sticky;
   top: 0;
   z-index: 8;
-  border-bottom: 1px solid #e2e8f0;
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
 }
 
 .app-content {
-  padding: 20px 24px 32px;
+  padding: 20px 24px 24px;
 }
 
 .skip-link {
@@ -68,7 +76,7 @@ body {
   top: -48px;
   z-index: 30;
   padding: 8px 12px;
-  background: #0f766e;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -90,7 +98,150 @@ body {
 
 .query-meta {
   min-width: min(520px, 100%);
-  background: #fff;
+  background: var(--card);
 }
 
-a { color: inherit; }
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+
+.command-dialog-hint {
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+.list-toolbar,
+.list-card-tools,
+.wms-toolbar-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wms-search-form {
+  border: 1px solid var(--line);
+}
+
+.wms-search-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.wms-search-form-actions {
+  justify-content: flex-end;
+}
+
+.wms-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.wms-toolbar-start {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wms-toolbar-title {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wms-toolbar-count,
+.list-pager-count {
+  color: var(--assist);
+  font-size: 13px;
+}
+
+.list-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.wms-status-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.wms-status-tag--success {
+  color: #389e0d;
+  background: #f6ffed;
+  border-color: #b7eb8f;
+}
+
+.wms-status-tag--processing {
+  color: #1677ff;
+  background: #e6f4ff;
+  border-color: #91caff;
+}
+
+.wms-status-tag--waiting {
+  color: #d48806;
+  background: #fffbe6;
+  border-color: #ffe58f;
+}
+
+.wms-status-tag--error {
+  color: #cf1322;
+  background: #fff1f0;
+  border-color: #ffa39e;
+}
+
+.wms-status-tag--closed {
+  color: #595959;
+  background: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.ant-table-tbody > tr > td {
+  height: var(--table-row);
+}
+
+.page-head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wms-breadcrumb {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--assist);
+}
+
+.wms-breadcrumb a {
+  color: var(--muted);
+}
+
+.wms-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+  padding: 8px;
+}
+
+@media (max-width: 1280px) {
+  .wms-search-form-row {
+    grid-template-columns: 1fr;
+  }
+}

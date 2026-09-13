@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Card, Form, Input, Select, Space } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Dropdown, Form, Input, Select, Space, Tooltip } from "antd";
 import { api } from "../../api/client";
-import { asOfMeta, pageItems, withQuery } from "../../api/envelope";
+import { asOfMeta, pageItems, recordId, withQuery } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandDrawer } from "../../shared/command/CommandDrawer";
 import { DataTable } from "../../shared/ui/DataTable";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { PageHead } from "../../shared/ui/PageHead";
 import { QueryMeta } from "../../shared/ui/QueryMeta";
+import { WmsToolbar } from "../../shared/ui/WmsToolbar";
 import { useResource } from "../../shared/useResource";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
@@ -19,7 +21,7 @@ export function CatalogPage() {
     "/api/wms/v1/skus",
     ready ? `/api/wms/v1/warehouses/${warehouseId}/locations` : "",
     ready ? `/api/wms/v1/warehouses/${warehouseId}/lots` : ""
-  ].filter(Boolean).map((path) => withQuery(path, { limit: "50" }));
+  ].filter(Boolean).map((path) => withQuery(path, { limit: "20" }));
   const { payloads, error, loading } = useResource(token, paths, tick);
   const meta = payloads[0] ? asOfMeta(payloads[0]) : null;
   const skus = payloads[0] ? pageItems(payloads[0]) : [];
@@ -32,17 +34,9 @@ export function CatalogPage() {
       <PageHead
         eyebrow={warehouseName || warehouseId || "未选仓"}
         title="商品 / 库位"
-        sub="主数据来自库存服务。新建仓库不会自动进入当前令牌，须更新身份后才能选仓。"
+        sub="主数据来自库存服务。点标识打开详情。新建仓库不会自动进入当前令牌，须更新身份后才能选仓。"
         extra={(
-          <Space wrap>
-            <QueryMeta
-              warehouseId={warehouseId}
-              warehouseName={warehouseName}
-              asOf={meta?.asOf}
-              lagSeconds={meta?.lagSeconds}
-              stale={meta?.stale}
-              rowCount={loading ? "读取中" : String(skus.length + locations.length + lots.length)}
-            />
+          <div className="list-toolbar">
             <CommandDrawer
               triggerLabel="创建商品"
               title="创建商品"
@@ -167,6 +161,10 @@ export function CatalogPage() {
                 <Form.Item label="失效时刻 UTC" name="expiresAt"><Input placeholder="可选 ISO-8601" /></Form.Item>
               </CommandCard>
             </CommandDrawer>
+            <Dropdown
+              trigger={["click"]}
+              popupRender={() => (
+                <div className="wms-more-menu ant-dropdown-menu">
             <CommandDrawer
               triggerLabel="追加单位"
               title="追加单位"
@@ -257,51 +255,84 @@ export function CatalogPage() {
                 <Form.Item label="时区" name="timezone" initialValue="Asia/Shanghai"><Input /></Form.Item>
               </CommandCard>
             </CommandDrawer>
-          </Space>
+                </div>
+              )}
+            >
+              <Button>更多</Button>
+            </Dropdown>
+            <Tooltip title="刷新">
+              <Button icon={<ReloadOutlined />} aria-label="刷新" onClick={reload} />
+            </Tooltip>
+          </div>
         )}
       />
+      <QueryMeta
+        warehouseId={warehouseId}
+        warehouseName={warehouseName}
+        asOf={meta?.asOf}
+        lagSeconds={meta?.lagSeconds}
+        stale={meta?.stale}
+        rowCount={loading ? "读取中" : String(skus.length + locations.length + lots.length)}
+      />
       {error ? errorBanner(error) : null}
-      <Card title="商品" size="small">
+      <Card title={<WmsToolbar title="商品" count={loading ? undefined : String(skus.length)} />} size="small">
         <DataTable
           caption="商品"
           rows={skus}
           loading={loading}
           emptyText="当前没有商品"
+          hrefFor={(row) => {
+            const id = recordId(row);
+            return id ? `/w/${warehouseId}/catalog/skus/${encodeURIComponent(id)}` : undefined;
+          }}
           columns={[
             { key: "id", label: "SKU", keys: ["id", "skuId"], kind: "id", copyKind: "SKU" },
             { key: "name", label: "名称", keys: ["name"] },
             { key: "code", label: "编码", keys: ["code"] },
             { key: "serial", label: "序列号", keys: ["serialEnabled", "serial_enabled"] },
             { key: "lot", label: "批次", keys: ["lotEnabled", "lot_enabled"] },
-            { key: "unit", label: "基础单位", keys: ["baseUnit", "base_unit"] }
+            { key: "expiry", label: "效期", keys: ["expiryEnabled", "expiry_enabled"] },
+            { key: "scale", label: "精度", keys: ["quantityScale", "quantity_scale"] },
+            { key: "unit", label: "基础单位", keys: ["baseUnit", "base_unit"] },
+            { key: "status", label: "状态", keys: ["state", "status"], kind: "status" }
           ]}
         />
       </Card>
-      <Card title="库位" size="small">
+      <Card title={<WmsToolbar title="库位" count={loading ? undefined : String(locations.length)} />} size="small">
         <DataTable
           caption="库位"
           rows={locations}
           loading={loading}
           emptyText={ready ? `当前仓 ${warehouseId} 没有库位` : "尚未选仓"}
+          hrefFor={(row) => {
+            const id = recordId(row);
+            return id ? `/w/${warehouseId}/catalog/locations/${encodeURIComponent(id)}` : undefined;
+          }}
           columns={[
             { key: "id", label: "库位", keys: ["id", "locationId"], kind: "id", copyKind: "库位" },
             { key: "code", label: "编码", keys: ["code"] },
+            { key: "zone", label: "库区", keys: ["zoneCode", "zone_code"] },
             { key: "type", label: "类型", keys: ["locationType", "location_type"] },
             { key: "status", label: "状态", keys: ["state", "status"], kind: "status" }
           ]}
         />
       </Card>
-      <Card title="批次" size="small">
+      <Card title={<WmsToolbar title="批次" count={loading ? undefined : String(lots.length)} />} size="small">
         <DataTable
           caption="批次"
           rows={lots}
           loading={loading}
           emptyText={ready ? `当前仓 ${warehouseId} 没有批次` : "尚未选仓"}
+          hrefFor={(row) => {
+            const id = recordId(row);
+            return id ? `/w/${warehouseId}/catalog/lots/${encodeURIComponent(id)}` : undefined;
+          }}
           columns={[
             { key: "id", label: "批次", keys: ["id", "lotId"], kind: "id", copyKind: "批次" },
             { key: "code", label: "编码", keys: ["code", "lotCode", "lot_code"] },
             { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-            { key: "status", label: "状态", keys: ["state", "status"], kind: "status" }
+            { key: "produced", label: "生产", keys: ["producedAt", "produced_at"] },
+            { key: "expires", label: "失效", keys: ["expiresAt", "expires_at"] }
           ]}
         />
       </Card>
