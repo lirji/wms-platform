@@ -77,6 +77,11 @@
               AND h.balance_id=b.id AND h.created_at &lt; #{cutoff})
         WHERE b.enterprise_id=#{enterpriseId} AND b.warehouse_id=#{warehouseId}
           AND b.created_at &lt; #{cutoff}
+          <!-- 截止后才从零发生第一笔流水的预建桶在历史窗口没有库存事实；缺失历史的非零桶仍返回NULL并拒绝完整导出。 -->
+          AND (l.id IS NOT NULL OR NOT EXISTS (
+            SELECT 1 FROM stock_ledger first_entry WHERE first_entry.enterprise_id=b.enterprise_id AND first_entry.warehouse_id=b.warehouse_id
+              AND first_entry.balance_id=b.id AND first_entry.balance_version=1 AND first_entry.created_at &gt;= #{cutoff}
+              AND first_entry.on_hand_after=first_entry.on_hand_delta))
         <if test="afterId != null">AND b.id &gt; #{afterId}</if>
         ORDER BY b.id LIMIT #{limit}
     </select>

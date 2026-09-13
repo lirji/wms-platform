@@ -342,6 +342,15 @@ post("/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries"
     wh+["- in: path\n  name: intentId\n  required: true\n  schema: { type: string, maxLength: 64 }"], success_schema="SerialRecoveryAccepted")
 
 window_params = wh + ["- in: path\n  name: cutoffId\n  required: true\n  schema: { type: string, minLength: 1, maxLength: 64 }"]
+post("/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}", "requestReconciliationWindow", "recon", "recon.export",
+     "SourceWindowRequest", ("202",), "只请求原历史窗口，服务器在后台核验三方证明；调用者不能设置水位或完成状态",
+     window_params, success_schema="ReconciliationWindowState")
+get("/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}", "getReconciliationWindow", "recon", "recon.read",
+    ("200",), "读取有界持久进度，只有COMPLETE返回可用于快照的服务器原三方标识", window_params, success_schema="ReconciliationWindowState")
+post("/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/retries", "retryReconciliationWindow", "recon", "recon.remediate",
+     "ReconciliationWindowControl", ("200",), "隔离后按原领取代际审计重排，保留检查点；旧代际返回409", window_params, success_schema="ReconciliationWindowState")
+post("/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/cancellations", "cancelReconciliationWindow", "recon", "recon.remediate",
+     "ReconciliationWindowControl", ("200",), "停止采集并释放活动名额；历史冻结和已提交业务效果保留", window_params, success_schema="ReconciliationWindowState")
 post("/internal/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}", "collectSourceWindow", "recon", "recon.evidence",
      "SourceWindowRequest", ("200", "202"), "受信服务调用来源节点，每次核对200项；旧来源写节点全部退出后才可启用。缺T3返回202，原窗口与时刻不可替换",
      window_params, success_schema="SourceWindowProof")
@@ -1923,6 +1932,26 @@ components:
       required: [cutoff]
       properties:
         cutoff: { type: string, format: date-time, maxLength: 64, description: 过去的UTC排他上界，最大微秒精度 }
+    ReconciliationWindowControl:
+      type: object
+      required: [expectedClaimEpoch, reason]
+      properties:
+        expectedClaimEpoch: { type: integer, format: int64, minimum: 0 }
+        reason: { type: string, minLength: 1, maxLength: 512 }
+    ReconciliationWindowState:
+      type: object
+      required: [cutoffId, cutoff, state, claimEpoch, attempts, watermarksComplete]
+      properties:
+        cutoffId: { $ref: '#/components/schemas/Id' }
+        cutoff: { type: string, format: date-time }
+        state: { type: string, enum: [UNREQUESTED, PENDING, RUNNING, ISOLATED, COMPLETE, CANCELLED] }
+        claimEpoch: { type: integer, format: int64, minimum: 0 }
+        attempts: { type: integer, minimum: 0, maximum: 12 }
+        errorCode: { type: [string, 'null'], maxLength: 64 }
+        watermarksComplete: { type: boolean }
+        sourceWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
+        postingWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
+        receiptWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
     SourceWindowProof:
       type: object
       required: [schemaVersion, sourceService, enterpriseId, warehouseId, cutoffId, cutoff, state, factCount, digest]

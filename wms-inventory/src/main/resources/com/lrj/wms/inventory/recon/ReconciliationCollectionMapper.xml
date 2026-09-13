@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lrj.wms.inventory.recon.ReconciliationCollectionMapper">
+ <select id="active" resultType="string">
+  SELECT COALESCE(g.active_cutoff_id,(SELECT c.cutoff_id FROM reconciliation_cutoff c
+   WHERE c.enterprise_id=#{e} AND c.warehouse_id=#{w} AND c.collection_state='COMPLETE'
+   ORDER BY c.closed_at DESC,c.cutoff_id DESC LIMIT 1))
+  FROM reconciliation_history_guard g WHERE g.enterprise_id=#{e} AND g.warehouse_id=#{w}
+ </select>
+ <select id="guard" resultType="map">
+  SELECT * FROM reconciliation_history_guard WHERE enterprise_id=#{e} AND warehouse_id=#{w} FOR UPDATE
+ </select>
+ <update id="activate">
+  UPDATE reconciliation_history_guard SET active_cutoff_id=#{id},
+   closed_before=GREATEST(COALESCE(closed_before,#{cutoff}),#{cutoff}),version=version+1
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND (active_cutoff_id IS NULL OR active_cutoff_id=#{id})
+ </update>
+ <update id="release">
+  UPDATE reconciliation_history_guard SET active_cutoff_id=NULL,version=version+1
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND active_cutoff_id=#{id}
+ </update>
+ <select id="lock" resultType="map">
+  SELECT * FROM reconciliation_cutoff WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} FOR UPDATE
+ </select>
+ <update id="start">
+  UPDATE reconciliation_cutoff SET collection_state='PENDING',collection_progress=CAST(#{progress} AS JSON),
+   next_attempt_at=#{now},collection_error=NULL,version=version+1,updated_at=#{now}
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} AND collection_state='UNREQUESTED' AND evidence_version=0
+ </update>
+ <update id="claim">
+  UPDATE reconciliation_cutoff SET collection_state='RUNNING',claim_epoch=claim_epoch+1,collection_attempts=collection_attempts+1,
+   next_attempt_at=#{until},updated_at=#{now},version=version+1
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} AND claim_epoch=#{epoch}
+   AND collection_state IN ('PENDING','RUNNING') AND next_attempt_at &lt;= #{now} AND collection_attempts &lt; 12
+ </update>
+ <update id="checkpoint">
+  UPDATE reconciliation_cutoff SET collection_state=#{state},collection_progress=CAST(#{progress} AS JSON),
+   collection_attempts=IF(#{advanced},0,collection_attempts),collection_error=#{error},next_attempt_at=#{next},updated_at=#{now},version=version+1
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} AND claim_epoch=#{epoch} AND collection_state='RUNNING'
+ </update>
+ <update id="control">
+  UPDATE reconciliation_cutoff SET collection_state=#{state},claim_epoch=claim_epoch+1,
+   collection_attempts=0,collection_error=NULL,next_attempt_at=#{now},updated_at=#{now},version=version+1
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND cutoff_id=#{id} AND claim_epoch=#{epoch} AND collection_state IN ('PENDING','RUNNING','ISOLATED')
+ </update>
+ <insert id="audit">
+  INSERT INTO reconciliation_collection_audit(id,enterprise_id,warehouse_id,cutoff_id,action,actor_id,reason,claim_epoch,created_at)
+  VALUES(#{auditId},#{e},#{w},#{id},#{action},#{actor},#{reason},#{epoch},#{now})
+ </insert>
+ <select id="originals" resultType="map" timeout="3">
+  SELECT c.command_id,c.action,c.state,c.business_effect_key,p.id AS posting_id,p.action AS posting_action,p.quantity,p.source_execution_id,p.created_at AS posted_at
+  FROM stock_command c LEFT JOIN stock_posting p ON p.enterprise_id=c.enterprise_id AND p.warehouse_id=c.warehouse_id
+   AND p.source_service=c.source_service AND p.command_id=c.command_id
+  WHERE c.enterprise_id=#{e} AND c.warehouse_id=#{w} AND c.source_service=#{source}
+   AND c.command_id IN <foreach collection="commands" item="command" open="(" separator="," close=")">#{command}</foreach>
+ </select>
+ <select id="postingPage" resultType="map" timeout="3">
+  SELECT command_id FROM stock_posting WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND source_service=#{source}
+   AND created_at &lt; #{cutoff}<if test="after != null"> AND command_id &gt; #{after}</if>
+  ORDER BY command_id LIMIT 201
+ </select>
+ <insert id="insertFacts" timeout="3">
+  INSERT INTO source_execution_fact(id,enterprise_id,warehouse_id,source_service,command_id,business_effect_key,fact_kind,quantity,occurred_at,watermark_token,version,created_at,updated_at)
+  VALUES <foreach collection="facts" item="f" separator=",">(#{f.id},#{e},#{w},#{source},#{f.commandId},#{f.effectId},'PHYSICAL',#{f.quantity},#{f.occurredAt},#{f.watermark},0,#{now},#{now})</foreach>
+  ON DUPLICATE KEY UPDATE id=id
+ </insert>
+ <select id="facts" resultType="map" timeout="3">
+  SELECT command_id,business_effect_key,quantity,occurred_at FROM source_execution_fact
+  WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND source_service=#{source} AND fact_kind='PHYSICAL'
+   AND command_id IN <foreach collection="commands" item="command" open="(" separator="," close=")">#{command}</foreach>
+ </select>
+ <update id="complete">
+  UPDATE reconciliation_cutoff c JOIN reconciliation_history_guard g ON g.enterprise_id=c.enterprise_id AND g.warehouse_id=c.warehouse_id
+  SET c.collection_state='COMPLETE',c.collection_progress=CAST(#{progress} AS JSON),c.evidence_version=1,c.watermarks_complete=1,
+   c.source_watermark=#{source},c.posting_watermark=#{posting},c.receipt_watermark=#{receipt},c.collection_error=NULL,
+   c.collection_attempts=0,c.version=c.version+1,c.updated_at=#{now}
+  WHERE c.enterprise_id=#{e} AND c.warehouse_id=#{w} AND c.cutoff_id=#{id} AND c.claim_epoch=#{epoch}
+   AND c.collection_state='RUNNING' AND g.active_cutoff_id=#{id} AND g.closed_before &gt;= c.closed_at
+ </update>
+</mapper>

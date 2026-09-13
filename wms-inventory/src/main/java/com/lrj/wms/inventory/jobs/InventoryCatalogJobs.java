@@ -20,6 +20,10 @@ public class InventoryCatalogJobs {
     private com.lrj.wms.inventory.serial.SerialRegistryHttpClient registry;
     @org.springframework.beans.factory.annotation.Autowired
     public void registry(ObjectProvider<com.lrj.wms.inventory.serial.SerialRegistryHttpClient> clients) { this.registry=clients.getIfAvailable(); }
+    private com.lrj.wms.inventory.recon.ReconciliationCollector reconciliationCollector;
+    /** 可选采集器默认关闭；开启后沿用原对账任务调度，不增加后台无限循环。 */
+    @org.springframework.beans.factory.annotation.Autowired
+    public void reconciliationCollector(ObjectProvider<com.lrj.wms.inventory.recon.ReconciliationCollector> collectors) {this.reconciliationCollector=collectors.getIfAvailable();}
 
     public InventoryCatalogJobs(ObjectProvider<TccReservationWatch> watches,
             ObjectProvider<org.apache.ibatis.session.SqlSessionFactory> sessions) {
@@ -62,10 +66,17 @@ public class InventoryCatalogJobs {
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
     public void stockInternalReconcile() {
         clearSchedulerContext();
-        String[] scope = requireScope(3);
+        String[] scope = requireScope(2,3);
+        String cutoffId=scope.length==3?scope[2]:null;
+        if(cutoffId==null) {
+            if(reconciliationCollector==null) throw new IllegalStateException("仓级自动采集尚未启用");
+            cutoffId=reconciliationCollector.scheduledWindow(scope[0],scope[1]);
+            if(cutoffId==null) return;
+        }
+        if(reconciliationCollector!=null) reconciliationCollector.advance(scope[0],scope[1],cutoffId);
         try (var session = requireSessions().openSession(org.apache.ibatis.session.TransactionIsolationLevel.REPEATABLE_READ)) {
             var result = new com.lrj.wms.inventory.recon.StockInternalReconcile(session, java.time.Clock.systemUTC())
-                    .execute(scope[0], scope[1], scope[2]);
+                    .execute(scope[0], scope[1], cutoffId);
             session.commit();
             XxlJobHelper.log("recon scanned={}, opened={}, closed={}, cycleCompleted={}, watermarksComplete={}",
                     result.scanned(), result.opened(), result.closed(), result.cycleCompleted(), result.watermarksComplete());
@@ -135,13 +146,13 @@ public class InventoryCatalogJobs {
         return sessions;
     }
 
-    private static String[] requireScope(int parts) {
+    private static String[] requireScope(int... parts) {
         String param = XxlJobHelper.getJobParam();
         if (param == null || param.isBlank()) {
             throw new IllegalArgumentException("任务参数必须带企业/范围");
         }
         String[] split = param.split(",");
-        if (split.length != parts || java.util.Arrays.stream(split).anyMatch(String::isBlank)) {
+        if (java.util.Arrays.stream(parts).noneMatch(count -> count==split.length) || java.util.Arrays.stream(split).anyMatch(String::isBlank)) {
             throw new IllegalArgumentException("任务参数不足");
         }
         return split;

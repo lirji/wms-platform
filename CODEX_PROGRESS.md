@@ -2,44 +2,43 @@
 
 ## 任务目标
 
-完成已批准后端R13/R14/R15/R22，唯一有限验收为docs/delivery/wms-v1/DELIVERY_PLAN.md“剩余整改有限验收”：OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。连续执行，不逐片问继续；不扩项、不操作共享/生产、不使用子Agent。正常Git提交/main推送持续获授权。
+完成已批准 R13/R14/R15/R22，唯一有限验收在 docs/delivery/wms-v1/DELIVERY_PLAN.md：OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。连续执行，正常 Git 发布已授权；不扩项、不操作共享/生产、不使用子 Agent。
 
 ## 已完成
 
-- OUT已发布main365a1eb：PICK dd22cd0、SHIP 1dd3d18，含原订单行/桶/epoch、分批身份、独立SHIPPED证明、丢回执重启及审计恢复。main CI34725376702的java和console均success；证据见docs/implementation/SERIAL_OUTBOUND_DESIGN.md。
-- 文档17份和控制台已整合入上述main，根控制台工作树不动。
-- WATERMARK来源端本地提交695e84f/5af8081：来源原T1屏障、持久200项分页、APPLIED/REJECTED/CANCELLED实际T3、固定数组摘要、受信主体scope和默认关闭开关。尚未发布；详情RECONCILIATION_WATERMARK.md。
-- 库存侧已补V043历史屏障和V044证明版本：ledger/posting写入口共享锁防旧时间迟提交；对账、快照创建/历史读取不再相信三个字符串或旧complete位，核验版本1和冻结边界。当前没有生产路径可设置版本1，可信采集器仍未完成。
-- 新表随仓迁移，清单55表。发现迁移元数据错误排除DEFAULT_GENERATED普通时间列，已改为仅排除真实计算生成列。双库非空复制测试通过。
+- OUT 已经 365a1eb 发布 main，原 PICK/SHIP 身份、独立证明、真实进程重启及非空迁移通过，main CI 34725376702 成功。
+- WATERMARK 来源与库存历史门禁 e22f0b2 已发布，main CI 34727355968 全部成功。
+- 本地可信采集器已完成：两个来源原凭证正反核验、持久检查点/领取代际、有界重试隔离、公开请求/查询/审计控制、服务 JWT、XXL 接线，全部核验后原子生成证明。
+- V045 检查点/审计非空迁移清单 56 表；历史空桶快照边界验证通过。
+- 最新 .local/reconciliation-fresh-artifacts-it.log 于 2026-09-13 08:48:03 BUILD SUCCESS：真实三 JAR/三 MySQL/Kafka/XXL 进程 1、采集器 MySQL 4、公开 HTTP 3，单测协议/摘要 5。来源 T3 缺失拒绝导出，库存重启后恢复原检查点并导出实际数量。
+- .local/reconciliation-migration-snapshot-it.log：迁移 6、快照 3、HTTP 2、契约 5 通过；最新 HTTP 已扩至 3 项。OIDC/XXL admin 明确是协议夹具。
 
 ## 已修改文件
 
-- 以git diff为准：inventory的InventoryMapper/StockCommandMapper、ReconciliationMapper/StockInternalReconcile、SnapshotMapper/SnapshotExportService及对应XML；WarehouseMigrationStore/MigrationCopyMapper、V043/V044。
-- StockCommandIT、StockInternalReconcileIT、SnapshotExportIT、SnapshotHttpIT、WarehouseMigrationIT及仅限下游测试的VerifiedWindowFixture。
-- OpenAPI生成描述、required-its-default（119项）、计划/状态/水位/迁移文档及本文件。
+- git diff 为准：inventory/recon 采集器/HTTP/配置/Mapper，V045，InventoryCatalogJobs、迁移清单与快照查询；真实进程/集成/协议测试。
+- 根 pom 的 jar forceCreation 与 inventory 测试依赖 inbound，保证跨模块运行库更新后重新封装可执行 JAR；测试启动前核验三包嵌入库哈希。
+- .env.example、compose.yaml、OpenAPI/安全映射、必需 IT 清单 127、专题与交付文档。
 
 ## 未完成
 
-- WATERMARK可信HTTP采集器：持久页进度/领取代际、两个来源原command/action/执行ID/posting/数量/截止匹配、正反向集合与摘要核验、可靠恢复及公开请求状态/审计入口，全部核验后才能设置证明版本1。
-- TRANSFER公开序列调拨、TC原资源/XID/branch/Fence迁移和终态通知、COMP全局提交后业务补偿、FINAL组合验收及R22结项。
-- 外部OQ-03、AC-26现场/WCS、容量/RTO/RPO、生产历史时间不能用夹具或推测代替。
+- WATERMARK 本批文档/差异检查、提交和远程 main 发布。
+- TRANSFER 公开序列调拨；TC 原资源/XID/branch/Fence 迁移和终态通知；COMP 全局提交后补偿；FINAL 组合门禁、默认 verify/profiles/smoke、R22 结项。
+- OQ-03、AC-26 现场/WCS、容量/RTO/RPO、生产历史时间保持外部边界。
 
 ## 当前问题
 
-- 后端工作树：/Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支fix/reconciliation-watermark，HEAD5af8081，远程main365a1eb。695e84f/5af8081仅本地，库存改动未提交。根feat/console-serial-jobs及文档工作树保持不动。
-- 来源数据库触发器曾因binlog/SUPER失败，已移除，不再尝试提权。所有旧来源/库存写节点退出后才能启用可信关窗；默认不开启。Compose只用.env.example解析，不读真实凭据。
-- 验证：.local/inventory-history-guard-it.log StockCommandIT3通过；.local/inventory-evidence-gate-it.log 对账4/导出2/HTTP1通过，迁移失败。补时间列后因DEFAULT_GENERATED过滤再次失败，已定位修正；.local/inventory-evidence-gate-fixed-it.log 对账4通过；.local/inventory-history-migration-fixed-it.log 08:10:45 BUILD SUCCESS，迁移6通过。不可把失败日志写成成功。
-- 契约检查.local/inventory-evidence-contract.log于08:11:00 BUILD SUCCESS；文档检查55篇244链接通过。所有Maven已退出。源码修改与Maven不得同时进行，测试输出写.local，只读关键结果；同类失败两次先诊断再复验。
-- 来源证据：.local/source-window-terminal-fixed-it.log（SourceWindowIT3/向量1/契约5）和.local/source-window-t1-regression.log（InboundProtocol2/OutboundProtocol2/OutboundPick7）通过。更早OUT及来源详细证据在正式文档，不重跑无关切片。
-- 旧main CI34723887946曾JobCatalogClusterIT 19/20触发失败，日志.local/previous-main-ci-failed.log保留；后续main34725376702已全通过，不重跑碰运气。
+- 工作树 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate，分支 fix/reconciliation-watermark，HEAD e22f0b2；采集器尚未提交。根控制台工作树保持不动。
+- 所有 Maven 已结束；最新会话 68930 exit 0。构建中不得编辑源码。
+- 真实进程初次健康探针错误主动中止 exit130；随后 fixed/diagnostic 两次失败定位到入库 fat JAR 嵌入旧运行库，实际来源 Page 缺 resultState。补 reactor 测试依赖及 forceCreation，三包哈希一致后最新运行通过。中间 current-jars 单测失败是故障用例自身超过单租户 8 RPS，改为独立客户端后通过。保留失败日志，不将其记为成功。
+- 默认不开启来源/采集器。所有旧来源和库存写节点退出后才能启用历史屏障；凭据目录需外部受控挂载，不写真实凭据。
+- 仅核验当前切片，不把历史报告混合当作新的全量回归。源码/测试已完成本批定向验证。
 
 ## 下一步建议
 
-1. 核对契约检查和git diff，文档结构检查后按完整库存屏障/门禁逻辑单元提交并完成正常分支/main发布，跟踪CI；不称整个WATERMARK完成。
-2. 从RECONCILIATION_WATERMARK.md的既定库存采集设计继续：原来源凭证分阶段核对、网络事务外、历史先冻结、领取代际阻止旧回执、12次连续失败后审计重排；缺来源/迟posting保持不完整。每仓活动采集有界，不复制整个历史到每个窗口。
-3. 接线前不提供任意置complete的API，不把VerifiedWindowFixture当作真实采集验收。补真实HTTP/JAR、重启/缺失/迟到/重复和非空迁移验证。
-4. WATERMARK后继续TRANSFER/TC/COMP/FINAL。总范围不扩大，门禁未通过不能声称整体完成。
+1. 完成本批文档和静态检查，审核暂存差异并提交，正常推分支及 main；跟踪 CI，不推同 ref 取消运行中的验证。
+2. 基于最新 main 建 TRANSFER 任务分支，阅读现有公开调拨、内部序列 transfer 与恢复路径，按唯一计划补缺口。
+3. 继续 TC、COMP、FINAL，不重新规划全部任务，不等待逐片确认。
 
 ## 恢复 Prompt
 
-读取本文件及唯一计划，从WATERMARK未完成部分继续。核对工作树/HEAD/正在运行的Maven，不重做OUT或已发布文档，不等待逐片“继续”。当前技能与授权已读取，沿用有效证据；只在业务信息、危险操作、权限或真实环境阻塞时暂停。
+读取本文件与唯一计划，从首个未完成步骤继续。核对工作树/HEAD/活动 Maven，沿用有效证据，不重做 OUT 或重复全量测试；只有必要业务信息、危险操作、权限或真实环境阻塞才暂停。

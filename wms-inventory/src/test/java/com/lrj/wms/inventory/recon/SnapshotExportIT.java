@@ -170,4 +170,26 @@ class SnapshotExportIT {
             session.rollback();
         }
     }
+
+    /** 预建空桶的首笔真实入库晚于截止时刻可排除，历史正库存缺流水则必须失败。 */
+    @Test void excludesOnlyProvablyEmptyBucketBeforeFirstLateLedger() throws Exception {
+        try(var session=sessions.openSession(false)) {
+            var before=Clock.fixed(POSTED,ZoneOffset.UTC);var after=Clock.fixed(CUTOFF.plusSeconds(60),ZoneOffset.UTC);
+            var masterdata=new MasterdataService(session,before);
+            masterdata.createWarehouse("WH-FIRST","ENT-1","FIRST","晚入库仓","UTC");
+            masterdata.createLocation("LOC-FIRST","GATE-FIRST","ENT-1","WH-FIRST","FIRST","FIRST","STORAGE",new BigDecimal("100"),"EA");
+            var mapper=session.getMapper(InventoryMapper.class);
+            mapper.insertBalance("B-FIRST","ENT-1","WH-FIRST","OWNER-1","LOC-FIRST","SKU-Q",MasterdataCodes.NO_LOT,InventoryCodes.QUALITY_GOOD,Timestamp.from(POSTED));
+            new InventoryApplicationService(session,after).receive("ENT-1","WH-FIRST","FIRST-OP","DOC","ACTOR",
+                    StockBucketKey.of("ENT-1","WH-FIRST","OWNER-1","LOC-FIRST","SKU-Q",MasterdataCodes.NO_LOT,InventoryCodes.QUALITY_GOOD),Quantity.parse("5",0));
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-FIRST","C-FIRST",Timestamp.from(CUTOFF),"SRC","POST","RCV");
+            var exported=new SnapshotExportService(session,after).export("ENT-1","WH-FIRST","C-FIRST",Timestamp.from(CUTOFF),"SRC","POST","RCV");
+            assertEquals("COMPLETE",exported.get("state"));assertEquals(0,((Number)exported.get("rowCount")).intValue());
+            mapper.insertBalance("B-DIRTY","ENT-1","WH-FIRST","OWNER-DIRTY","LOC-FIRST","SKU-Q",MasterdataCodes.NO_LOT,InventoryCodes.QUALITY_GOOD,Timestamp.from(POSTED));
+            try(var sql=session.getConnection().createStatement()) {sql.executeUpdate("UPDATE stock_balance SET on_hand_qty=7 WHERE id='B-DIRTY'");session.clearCache();}
+            VerifiedWindowFixture.seed(session,"ENT-1","WH-FIRST","C-DIRTY",Timestamp.from(CUTOFF),"SRC","POST","RCV");
+            assertEquals("SOURCE_INCOMPLETE",assertThrows(JobRunException.class,() -> new SnapshotExportService(session,after)
+                    .export("ENT-1","WH-FIRST","C-DIRTY",Timestamp.from(CUTOFF),"SRC","POST","RCV")).code());
+        }
+    }
 }

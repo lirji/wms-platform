@@ -35,6 +35,7 @@ GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}	outbo
 GET	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shippable-serials	outbound.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}	recon.read
+GET	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}	recon.read
 GET	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries	messaging.read
 GET	/api/wms/v1/warehouses/{warehouseId}/serial-stock	inventory.read
 GET	/api/wms/v1/warehouses/{warehouseId}/tasks	task.read
@@ -79,6 +80,9 @@ POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick
 POST	/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shipments	outbound.ship
 POST	/api/wms/v1/warehouses/{warehouseId}/quality-inspections/{inspectionId}/results	quality.inspect
 POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}/remediations	recon.remediate
+POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}	recon.export
+POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/cancellations	recon.remediate
+POST	/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/retries	recon.remediate
 POST	/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries	messaging.recover
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds	stock.hold
 POST	/api/wms/v1/warehouses/{warehouseId}/stock-holds/{holdId}/releases	stock.releaseHold

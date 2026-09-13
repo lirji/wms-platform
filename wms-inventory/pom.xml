@@ -8,6 +8,8 @@
   </parent>
   <artifactId>wms-inventory</artifactId>
   <dependencies>
+    <!-- 收货和可信水位进程验收必须使用当前源码的入库Jar，不能复用target里的旧协议包。 -->
+    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-inbound</artifactId><version>${project.version}</version><scope>test</scope></dependency>
     <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-outbound</artifactId><version>${project.version}</version><scope>test</scope></dependency>
     <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-fulfillment</artifactId><version>${project.version}</version><scope>test</scope></dependency>
     <!-- 真实登记进程测试需要本次构建的可执行Jar；声明依赖确保干净reactor也按正确顺序打包。 -->

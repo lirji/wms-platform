@@ -42,6 +42,13 @@ wms:
       base-url: ${WMS_SERIAL_CLIENT_BASE_URL:}
       token-directory: ${WMS_SERIAL_CLIENT_TOKEN_DIRECTORY:}
       allow-http: ${WMS_SERIAL_CLIENT_ALLOW_HTTP:false}
+  reconciliation:
+    collector:
+      enabled: ${WMS_RECONCILIATION_COLLECTOR_ENABLED:false}
+      inbound-url: ${WMS_RECONCILIATION_INBOUND_URL:}
+      outbound-url: ${WMS_RECONCILIATION_OUTBOUND_URL:}
+      token-directory: ${WMS_RECONCILIATION_TOKEN_DIRECTORY:}
+      allow-http: ${WMS_RECONCILIATION_ALLOW_HTTP:false}
   inventory:
     datasource:
       url: ${WMS_INVENTORY_JDBC_URL:}

@@ -83,6 +83,12 @@
     <pluginManagement>
       <plugins>
         <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <!-- Boot必须从当前薄Jar重新打包；仅依赖变化时复用旧可执行Jar会保留过期BOOT-INF/lib。 -->
+          <configuration><forceCreation>true</forceCreation></configuration>
+        </plugin>
+        <plugin>
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
         </plugin>

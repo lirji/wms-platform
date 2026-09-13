@@ -3807,6 +3807,166 @@ paths:
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}:
+    post:
+      operationId: requestReconciliationWindow
+      tags: [recon]
+      summary: 只请求原历史窗口，服务器在后台核验三方证明；调用者不能设置水位或完成状态
+      security:
+        - oidc: [recon.export]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - in: path
+          name: cutoffId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceWindowRequest'
+      responses:
+        '202':
+          description: 已持久化受理，不是业务终态成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationWindowState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: getReconciliationWindow
+      tags: [recon]
+      summary: 读取有界持久进度，只有COMPLETE返回可用于快照的服务器原三方标识
+      security:
+        - oidc: [recon.read]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - in: path
+          name: cutoffId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationWindowState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/retries:
+    post:
+      operationId: retryReconciliationWindow
+      tags: [recon]
+      summary: 隔离后按原领取代际审计重排，保留检查点；旧代际返回409
+      security:
+        - oidc: [recon.remediate]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - in: path
+          name: cutoffId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconciliationWindowControl'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationWindowState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/cancellations:
+    post:
+      operationId: cancelReconciliationWindow
+      tags: [recon]
+      summary: 停止采集并释放活动名额；历史冻结和已提交业务效果保留
+      security:
+        - oidc: [recon.remediate]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/WarehouseId'
+        - in: path
+          name: cutoffId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconciliationWindowControl'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationWindowState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /internal/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}:
     post:
       operationId: collectSourceWindow
@@ -5438,6 +5598,26 @@ components:
       required: [cutoff]
       properties:
         cutoff: { type: string, format: date-time, maxLength: 64, description: 过去的UTC排他上界，最大微秒精度 }
+    ReconciliationWindowControl:
+      type: object
+      required: [expectedClaimEpoch, reason]
+      properties:
+        expectedClaimEpoch: { type: integer, format: int64, minimum: 0 }
+        reason: { type: string, minLength: 1, maxLength: 512 }
+    ReconciliationWindowState:
+      type: object
+      required: [cutoffId, cutoff, state, claimEpoch, attempts, watermarksComplete]
+      properties:
+        cutoffId: { $ref: '#/components/schemas/Id' }
+        cutoff: { type: string, format: date-time }
+        state: { type: string, enum: [UNREQUESTED, PENDING, RUNNING, ISOLATED, COMPLETE, CANCELLED] }
+        claimEpoch: { type: integer, format: int64, minimum: 0 }
+        attempts: { type: integer, minimum: 0, maximum: 12 }
+        errorCode: { type: [string, 'null'], maxLength: 64 }
+        watermarksComplete: { type: boolean }
+        sourceWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
+        postingWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
+        receiptWatermark: { type: string, pattern: '^[a-f0-9]{64}$' }
     SourceWindowProof:
       type: object
       required: [schemaVersion, sourceService, enterpriseId, warehouseId, cutoffId, cutoff, state, factCount, digest]

@@ -81,6 +81,7 @@ class InventoryPersistence {
         config.addMapper(com.lrj.wms.inventory.query.InventoryHttpQueryMapper.class);
         config.addMapper(com.lrj.wms.inventory.domain.infrastructure.DomainCommandMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class);
+        config.addMapper(com.lrj.wms.inventory.recon.ReconciliationCollectionMapper.class);
         config.addMapper(com.lrj.wms.inventory.archive.ArchivePlanMapper.class);
         config.addMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class);
         config.addMapper(com.lrj.wms.inventory.migrate.WarehouseRouteMapper.class);

@@ -2,9 +2,9 @@
 
 ## 当前基线与授权
 
-更新时间：2026-09-13。已发布基线为 `main 365a1eb`，包含序列拣发 dd22cd0/1dd3d18及控制台和文档整合。[main CI 34725376702](https://github.com/lirji/wms-platform/actions/runs/34725376702)的java与console均成功。旧CI34723887946曾因双执行器19/20次触发失败，保留失败证据，不将旧运行标成成功。
+更新时间：2026-09-13。已发布基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
-用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。当前WATERMARK进行中：来源提供端本地提交695e84f/5af8081，库存历史屏障和拒绝伪造水位门禁正在定向验证，尚未发布。可信库存采集器未完成；整体仍为 **in-progress**，不能以局部测试或CI通过代替全部整改及50项AC验收。
+用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。WATERMARK采集器本地实现及真实进程验收通过，待本批Git发布；TRANSFER/TC/COMP/FINAL仍待完成，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
 
 持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 
@@ -35,8 +35,8 @@
 
 ## 未发布开发与门禁
 
-- 序列号PICK提交dd22cd0、SHIP提交1dd3d18位于fix/serial-outbound-execution，均有阶段证据；当前正在整合main与发布，具体状态见根进度。
-- 工程验证：后端基线 `3e2c720` CI **pass**；控制台切片记录本地 21 文件/41 用例、typecheck/build 通过，最新 main CI **console 成功、java 运行中**，AC-26 现场黑盒仍 open。本轮文档结构/链接、契约88路径/生成物一致、Compose模板静态解析及 diff 检查通过；没有重跑业务测试或启动环境。纯文档使用既有 `[skip ci]` 规则，不取消正在运行的工作流。
+- 序列拣发与历史门禁已发布并通过CI。水位采集器最新定向8项IT与5项协议单测通过，非空迁移清单56表，OpenAPI96路径110操作；最终全量回归在FINAL执行。
+- AC-26现场黑盒仍open；默认不开启来源/采集器，旧写节点退出及受控服务凭据配置是启用条件，不自动部署。
 - 完整功能/非功能验收：**未完成**。历史 [AC_EVIDENCE](AC_EVIDENCE.md) 和 [DELIVERY_REPORT](DELIVERY_REPORT.md) 保留当时的证据缺口；其中“真实 TM/RM 未实现”等早期结论已由后续专题证据更新，但没有因此自动关闭全部 AC。
 - 生产安全与环境：版本锁、漏洞例外、生产凭据/ACL、容量和恢复目标未签署。[既有 OSV 快照](../../implementation/sbom/osv-findings.md)仍记录两个组件命中，本次未重新扫描。
 
