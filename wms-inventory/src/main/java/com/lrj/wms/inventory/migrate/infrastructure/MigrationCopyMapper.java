@@ -18,4 +18,8 @@ interface MigrationCopyMapper {
             @Param("row") Map<String, Object> row, @Param("immutable") boolean immutable);
     long count(@Param("table") String table, @Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId);
     Map<String, Object> quantities(@Param("enterpriseId") String enterpriseId, @Param("warehouseId") String warehouseId);
+    /** Fence没有仓字段，必须通过原意图和终态证据定位，逐意图有界分页。 */
+    List<Map<String,Object>> terminalFences(@Param("e") String enterprise,@Param("w") String warehouse,@Param("after") String after);
+    Map<String,Object> fence(@Param("xid") String xid,@Param("branch") long branch);
+    void insertFence(@Param("f") Map<String,Object> fence);
 }

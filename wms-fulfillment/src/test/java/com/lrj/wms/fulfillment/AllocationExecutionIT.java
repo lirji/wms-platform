@@ -45,10 +45,11 @@ class AllocationExecutionIT {
         f.step();assertEquals("FINISH_REQUESTED",f.state());assertEquals("COMMIT",f.value("requested_action"));
         f.commitUnknown=true;f.step();assertEquals("WAITING_TERMINAL",f.state());assertEquals("TC_COMMIT_UNKNOWN",f.value("error_code"));
         f.commitUnknown=false;f.step();assertEquals(2,f.commits.get());assertEquals(1,f.begins.get());assertEquals(f.xid,f.value("xid"));
-        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=?",Integer.class,f.e));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
         f.confirm();f.proof=proof(f.xid,"Committed",9);f.step();
         assertEquals("COMPLETED",f.state());assertEquals("ALLOCATED",db.queryForObject("SELECT state FROM allocation_attempt WHERE id=?",String.class,f.attempt));
-        assertEquals(5,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=?",Integer.class,f.e));
+        assertEquals(5,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
+        assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type='TcTerminalNoticeV1'",Integer.class,f.e));
         assertFalse(f.worker().executeOne(f.e));assertEquals(2,f.commits.get());
     }
 
@@ -75,7 +76,7 @@ class AllocationExecutionIT {
         f.step();assertEquals(1,f.commits.get());assertEquals(0,f.rollbacks.get());
         f.confirm();f.proof=proof(f.xid,"Committed",9);f.step();
         assertEquals("WAITING_TERMINAL",f.state());assertEquals("CANCEL_REQUIRES_COMPENSATION",f.value("error_code"));
-        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=?",Integer.class,f.e));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE enterprise_id=? AND event_type<>'TcTerminalNoticeV1'",Integer.class,f.e));
     }
 
     @Test void failedTryHasBoundedRetriesAndRollbackRequiresTcEvidence() {

@@ -109,6 +109,7 @@ public final class AllocationRecoverySweep {
                         int changed = 0;
                         if (observation.isPresent()) {
                             service.observeTc(enterpriseId, id, observation.get().status(), observation.get().evidence());
+                            TcTerminalNotifications.enqueue(session,clock,enterpriseId,current,scope,observation.get());
                             if ("Committed".equals(observation.get().status())) {
                                 try { service.markAllocated(enterpriseId, id); changed = 1; }
                                 catch (FulfillmentException pending) {

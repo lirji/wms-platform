@@ -101,6 +101,22 @@ class AllocationRecoverySweepIT {
                 + "no Confirm/Cancel");
     }
 
+    @Test
+    void terminalNotificationCountCannotHideMissingExecutionAuthorization() {
+        String id;
+        try(var session=sessions.openSession(false)) {
+            var service=new FulfillmentService(session,Clock.fixed(NOW,ZoneOffset.UTC));
+            id=readyAttempt(service,"NOTICE-COUNT","xid-notice-count",true);service.markAllocated("ENT-SW",id);session.commit();
+        }
+        assertEquals(2,jdbc.update("DELETE FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",id));
+        assertEquals(2,jdbc.update("INSERT INTO fulfillment_outbox(event_id,enterprise_id,attempt_id,warehouse_id,event_type,operation_id,payload,status,version,created_at,updated_at) SELECT CONCAT('notice-',warehouse_id),enterprise_id,attempt_id,warehouse_id,'TcTerminalNoticeV1',CONCAT('notice-',warehouse_id),'{}','PENDING',0,created_at,updated_at FROM fulfillment_outbox WHERE attempt_id=? AND warehouse_id IN ('WH-A','WH-B')",id));
+        assertEquals(5,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?",Integer.class,id));
+        try(var session=sessions.openSession(false)) {
+            new FulfillmentService(session,Clock.fixed(NOW,ZoneOffset.UTC)).recoverReadyBarriers("ENT-SW");session.commit();
+        }
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",Integer.class,id));
+    }
+
     private static String readyAttempt(FulfillmentService service, String sourceOrderNo, String xid,
             boolean observeCommitted) {
         Map<String, Object> order = service.createOrder("ENT-SW", "OMS", sourceOrderNo, DIGEST,

@@ -106,6 +106,8 @@ class TcAuditRecoveryIT {
             assertEquals("TCC_TRYING", state(rollbackAttempt));
             assertEquals(3, countOutbox(commitAttempt));
             assertEquals(0, countOutbox(rollbackAttempt));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='TcTerminalNoticeV1'",Integer.class,commitAttempt));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='TcTerminalNoticeV1'",Integer.class,rollbackAttempt));
             assertTrue(port.read("not-a-real-xid").isEmpty());
             assertEquals("TC_EVIDENCE_IDENTITY_MISMATCH", assertThrows(FulfillmentException.class,
                     () -> new JdbcTcStatusPort(auditSessions,
@@ -230,10 +232,11 @@ class TcAuditRecoveryIT {
         }
     }
     private static TcStatusPort.Observation evidence(String xid) {
-        return new TcStatusPort.Observation("Committed", "{\"xid\":\"" + xid + "\",\"status\":9}");
+        return new TcStatusPort.Observation("Committed", com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(Map.of(
+                "xid",xid,"status",9,"clusterId",SCOPE.clusterId(),"applicationId",SCOPE.applicationId(),"transactionGroup",SCOPE.transactionGroup())));
     }
     private static String state(String id) { return jdbc.queryForObject("SELECT state FROM allocation_attempt WHERE id=?", String.class, id); }
-    private static int countOutbox(String id) { return jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?", Integer.class, id); }
+    private static int countOutbox(String id) { return jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type<>'TcTerminalNoticeV1'", Integer.class, id); }
     private static MysqlDataSource source(MySQLContainer mysql, String user) {
         var ds = new MysqlDataSource();
         ds.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));

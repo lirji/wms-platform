@@ -25,9 +25,12 @@
         <if test="afterId != null">AND a.id &gt; #{afterId}</if>
         AND (a.state IN ('TCC_TRYING','TCC_COMPLETING')
           OR (a.state='ALLOCATED' AND (SELECT COUNT(*) FROM fulfillment_outbox o
-              WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id)
+              WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id AND o.event_type&lt;&gt;'TcTerminalNoticeV1')
               &lt; 1+2*(SELECT COUNT(*) FROM allocation_participant p
-              WHERE p.enterprise_id=a.enterprise_id AND p.attempt_id=a.id)))
+              WHERE p.enterprise_id=a.enterprise_id AND p.attempt_id=a.id))
+          OR (a.tc_terminal_evidence IS NOT NULL AND EXISTS(SELECT 1 FROM allocation_participant p
+              WHERE p.enterprise_id=a.enterprise_id AND p.attempt_id=a.id AND NOT EXISTS(SELECT 1 FROM fulfillment_outbox o
+                WHERE o.enterprise_id=a.enterprise_id AND o.attempt_id=a.id AND o.warehouse_id=p.warehouse_id AND o.event_type='TcTerminalNoticeV1'))))
         ORDER BY a.id LIMIT 20
     </select>
     <update id="advance">

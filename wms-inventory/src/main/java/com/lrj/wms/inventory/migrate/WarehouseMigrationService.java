@@ -110,6 +110,7 @@ public final class WarehouseMigrationService {
         for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
             rows += copies.copyTable(table, enterpriseId, warehouseId, null);
         }
+        copies.copyTerminalFences(enterpriseId,warehouseId,false);
         stampCutoff(enterpriseId, warehouseId, ACTIVE, cutoff);
         Map<String, Object> body = view(source.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId));
         body.put("copiedRows", rows);
@@ -125,6 +126,7 @@ public final class WarehouseMigrationService {
         for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
             rows += copies.copyTable(table, enterpriseId, warehouseId, since);
         }
+        copies.copyTerminalFences(enterpriseId,warehouseId,false);
         stampCutoff(enterpriseId, warehouseId, String.valueOf(route.get("state")), cutoff);
         Map<String, Object> body = view(source.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId));
         body.put("copiedRows", rows);
@@ -151,6 +153,7 @@ public final class WarehouseMigrationService {
     }
 
     public Map<String, Object> validate(String enterpriseId, String warehouseId) {
+        copies.copyTerminalFences(enterpriseId,warehouseId,true);
         Map<String, Object> diffs = new LinkedHashMap<>();
         for (String table : com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore.COPY_TABLES) {
             Long sourceCount = copies.count(false, table, enterpriseId, warehouseId);

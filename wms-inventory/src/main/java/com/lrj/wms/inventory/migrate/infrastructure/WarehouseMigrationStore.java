@@ -16,7 +16,7 @@ import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 
 /** 仓迁移持久化适配器：表名受固定允许列表约束，每批最多 200 行并独立提交目标库。 */
 public final class WarehouseMigrationStore {
-    private static final List<String> IMMUTABLE_TABLES = List.of("stock_ledger", "message_recovery_audit", "serial_recovery_audit", "archive_plan_item");
+    private static final List<String> IMMUTABLE_TABLES = List.of("stock_ledger", "message_recovery_audit", "serial_recovery_audit", "archive_plan_item", "inventory_tcc_terminal");
 
     public static final List<String> COPY_TABLES = List.of("warehouse", "location", "location_gate", "lot", "stock_balance",
             "stock_ledger", "reservation", "reservation_line", "outbox_event", "command_dedup", "write_idempotency",
@@ -27,7 +27,7 @@ public final class WarehouseMigrationStore {
             "expiry_notice", "projection_inbox", "inventory_view", "projection_checkpoint",
             "reconciliation_cutoff", "reconciliation_case", "source_execution_fact", "reconciliation_snapshot", "snapshot_part",
             "runtime_message_inbox", "message_recovery_audit", "stock_receipt_quality", "reconciliation_scan",
-            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit", "inventory_tcc_intent", "serial_receipt_batch", "serial_release_intent", "count_adjustment_intent", "count_serial_intent", "serial_pick_fact", "serial_shipment_intent", "reconciliation_history_guard", "reconciliation_collection_audit", "serial_transfer_command");
+            "archive_plan", "archive_plan_item", "serial_recovery_intent", "serial_recovery_audit", "inventory_tcc_intent", "serial_receipt_batch", "serial_release_intent", "count_adjustment_intent", "count_serial_intent", "serial_pick_fact", "serial_shipment_intent", "reconciliation_history_guard", "reconciliation_collection_audit", "serial_transfer_command", "inventory_tcc_terminal");
 
     private final SqlSessionFactory source;
     private final SqlSessionFactory target;
@@ -123,6 +123,29 @@ public final class WarehouseMigrationStore {
                 session.commit();
             }
             cursor = String.valueOf(rows.getLast().get(key));
+        }
+    }
+
+    /** 计数与数量汇总只比较指定企业、仓库。 */
+    public void copyTerminalFences(String enterprise,String warehouse,boolean verifyOnly) {
+        String after=null;
+        while(true) {
+            List<Map<String,Object>> page;
+            try(var session=source.openSession()) {page=session.getMapper(MigrationCopyMapper.class).terminalFences(enterprise,warehouse,after);}
+            if(page.isEmpty()) return;
+            try(var session=target.openSession(false)) {
+                var route=session.getMapper(WarehouseRouteMapper.class).lock(enterprise,warehouse);
+                if(route==null || !"COPYING".equals(route.get("state"))) throw new InventoryException("MIGRATION_TARGET_IN_USE","Fence仅允许在专用复制目标核验");
+                var mapper=session.getMapper(MigrationCopyMapper.class);
+                for(var row:page) {
+                    var original=new java.util.LinkedHashMap<>(row);original.remove("id");
+                    if(!verifyOnly) mapper.insertFence(original);
+                    var stored=mapper.fence((String)row.get("xid"),((Number)row.get("branch_id")).longValue());
+                    if(!original.equals(stored)) throw new InventoryException("MIGRATION_FENCE_MISMATCH","原XID/branch/资源/Fence不一致，禁止覆盖或切流");
+                }
+                session.commit();
+            }
+            after=(String)page.getLast().get("id");
         }
     }
 

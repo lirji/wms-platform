@@ -50,7 +50,7 @@ class AllocationExecutionProcessesIT {
             adminDb.execute("GRANT SELECT ON seata.terminal_evidence TO 'tc_audit'@'%'");
             var settings=new KafkaSettings(true,kafka.getBootstrapServers(),"wms.execution","PLAINTEXT","","");
             try(var admin=AdminClient.create(settings.connection())) {
-                admin.createTopics(List.of("inventory.events","inbound.commands","inbound.results","outbound.commands","outbound.results","outbound.authorizations","fulfillment.results","fulfillment.events")
+                admin.createTopics(List.of("tcc.terminals","transfer.commands","inventory.events","inbound.commands","inbound.results","outbound.commands","outbound.results","outbound.authorizations","fulfillment.results","fulfillment.events")
                         .stream().map(t->new NewTopic("wms.execution."+t,1,(short)1)).toList()).all().get(20,TimeUnit.SECONDS);
             }
             int tcPort=port();
@@ -103,6 +103,8 @@ class AllocationExecutionProcessesIT {
                 String original=ffSql.queryForObject("SELECT xid FROM allocation_execution WHERE attempt_id=?",String.class,attempt);
                 long branchB=sqlB.queryForObject("SELECT branch_id FROM inventory_tcc_intent WHERE attempt_id=?",Long.class,attempt);
                 assertEquals(0,count(outSql,"SELECT COUNT(*) FROM outbound_execution_authorization"));
+                var originalGlobal=adminDb.queryForMap("SELECT * FROM global_table WHERE xid=?",original);
+                var originalBranches=adminDb.queryForList("SELECT * FROM branch_table WHERE xid=? ORDER BY branch_id",original);
                 stop(pf);pf=null;ffSql.execute("ALTER TABLE allocation_execution DROP CHECK ck_test_execution_receipt");
                 pf=start(root,"fulfillment",ff,kafka,portF,issuer,logs,"fulfillment",tm,Map.of("WMS_TC_AUDIT_JDBC_URL",tcDb.getJdbcUrl(),"WMS_TC_AUDIT_USER","tc_audit","WMS_TC_AUDIT_PASSWORD",tcDb.getPassword()));
                 await(()->count(ffSql,"SELECT COUNT(*) FROM allocation_execution WHERE state='COMPLETED'")==1
@@ -111,6 +113,9 @@ class AllocationExecutionProcessesIT {
                 assertEquals(branchB,sqlB.queryForObject("SELECT branch_id FROM inventory_tcc_intent WHERE attempt_id=?",Long.class,attempt));
                 assertEquals(1,count(adminDb,"SELECT COUNT(*) FROM terminal_evidence"));assertEquals(9,adminDb.queryForObject("SELECT terminal_status FROM terminal_evidence WHERE xid=?",Integer.class,original));
                 assertEquals(1,count(sqlA,"SELECT COUNT(*) FROM inventory_tcc_intent"));assertEquals(1,count(sqlB,"SELECT COUNT(*) FROM inventory_tcc_intent"));
+                await(()->count(sqlA,"SELECT COUNT(*) FROM inventory_tcc_terminal")==1 && count(sqlB,"SELECT COUNT(*) FROM inventory_tcc_terminal")==1,
+                        30,"TC终态未通过真实Kafka可靠通知两个RM",pa,pb,pf,po);
+                assertEquals(2,count(ffSql,"SELECT COUNT(*) FROM fulfillment_outbox WHERE event_type='TcTerminalNoticeV1'"));
                 assertEquals(2,count(ffSql,"SELECT COUNT(*) FROM allocation_participant WHERE state='CONFIRMED'"));
                 assertEquals(2,count(outSql,"SELECT COUNT(*) FROM outbound_order WHERE owner_id='OWNER' AND status='ALLOCATED'"));
                 assertEquals(1,sqlA.queryForObject("SELECT reserved_qty FROM stock_balance",BigDecimal.class).intValueExact());
@@ -140,8 +145,62 @@ class AllocationExecutionProcessesIT {
                     assertEquals(0,count(sqlA,"SELECT COUNT(*) FROM stock_command WHERE command_id='ROUTE-STALE'"));
                     assertEquals(1,sqlA.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE quality_code='HOLD'",BigDecimal.class).intValueExact());
                 }
+                // 原B已收到真实TC终态及Kafka证明，停旧进程后迁移到新物理cell并重启原生RM。
+                stop(pb);pb=null;
+                try(var migrated=mysql("inventory_c")) {
+                    migrated.start();var target=source(migrated);
+                    new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", "").initialize(target,()->Flyway.configure().dataSource(target).locations("classpath:db/migration").load().migrate());
+                    var sourceSessions=InventoryPersistence.sessions(source(b),new org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory(),new com.lrj.wms.runtime.db.DatabaseBudget(4,0,500,250,1,500,1500));
+                    var targetSql=new JdbcTemplate(target);
+                    try(var session=sourceSessions.openSession(false)) {
+                        var migration=new com.lrj.wms.inventory.migrate.WarehouseMigrationService(session,sqlB,targetSql,Clock.systemUTC());
+                        migration.prepare("ENT","B","B","C");session.commit();
+                    }
+                    try(var session=sourceSessions.openSession(false)) {
+                        var migration=new com.lrj.wms.inventory.migrate.WarehouseMigrationService(session,sqlB,targetSql,Clock.systemUTC());
+                        migration.copyFull("ENT","B");migration.quiesce("ENT","B");session.commit();
+                    }
+                    try(var session=sourceSessions.openSession(false)) {
+                        new com.lrj.wms.inventory.migrate.WarehouseMigrationService(session,sqlB,targetSql,Clock.systemUTC()).switchEpoch("ENT","B");session.commit();
+                    }
+                    assertEquals(sqlB.queryForList("SELECT * FROM tcc_fence_log"),targetSql.queryForList("SELECT * FROM tcc_fence_log"));
+                    assertEquals(sqlB.queryForList("SELECT * FROM inventory_tcc_intent"),targetSql.queryForList("SELECT * FROM inventory_tcc_intent"));
+                    var argsC=new ArrayList<>(rm.stream().filter(arg->!arg.startsWith("--wms.messaging.inventory-routing-json=")).toList());
+                    argsC.add("--wms.tcc.rm.cell-id=C");argsC.add("--wms.messaging.inventory-routing-json="+RuntimeMessage.JSON.writeValueAsString(Map.of("schemaVersion",1,"routes",List.of(
+                            Map.of("enterpriseId","ENT","warehouseId","A","cellId","A","routeEpoch",2),
+                            Map.of("enterpriseId","ENT","warehouseId","B","cellId","C","routeEpoch",2)))));
+                    Process pc=start(root,"inventory",migrated,kafka,portB,issuer,logs,"C",argsC);
+                    try {
+                        await(()->healthy(portB),60,"迁移后原生RM未恢复资源并就绪",pc);
+                        assertEquals(1,count(targetSql,"SELECT COUNT(*) FROM inventory_tcc_terminal"));
+                        assertEquals(1,targetSql.queryForObject("SELECT reserved_qty FROM stock_balance WHERE quality_code='GOOD'",BigDecimal.class).intValueExact());
+                        // 再次启动同一目标，原分支与Fence仍保留；不能重新Try产生新预占。
+                        stop(pc);pc=start(root,"inventory",migrated,kafka,portB,issuer,logs,"C",argsC);
+                        await(()->healthy(portB),60,"迁移目标重启未恢复历史资源",pc);
+                        assertEquals(branchB,targetSql.queryForObject("SELECT branch_id FROM inventory_tcc_intent",Long.class));
+                        assertEquals(1,count(targetSql,"SELECT COUNT(*) FROM outbox_event WHERE event_type='ReservationConfirmed'"));
+                        // 仅在本测试TC库重放保存的原会话：模拟延迟/重复二阶段，不补造新的业务决定。
+                        // 原全局9证据和原分支均来自此前真实执行；TC重新寻址原应用，B旧进程已停止。
+                        tc.stop();assertEquals(0,count(adminDb,"SELECT COUNT(*) FROM global_table"));
+                        originalGlobal.put("status",org.apache.seata.core.model.GlobalStatus.CommitRetrying.getCode());
+                        insertOriginal(adminDb,"global_table",originalGlobal);
+                        for(var branch:originalBranches) insertOriginal(adminDb,"branch_table",branch);
+                        tc.start();
+                        await(()->count(adminDb,"SELECT COUNT(*) FROM global_table")==0 && count(adminDb,"SELECT COUNT(*) FROM branch_table")==0,
+                                90,"真实TC未按原应用/资源恢复迁移后的重复回调",pa,pc);
+                        assertEquals(1,count(adminDb,"SELECT COUNT(*) FROM terminal_evidence"));
+                        assertEquals(1,count(targetSql,"SELECT COUNT(*) FROM outbox_event WHERE event_type='ReservationConfirmed'"));
+                        assertEquals(sqlB.queryForList("SELECT * FROM tcc_fence_log"),targetSql.queryForList("SELECT * FROM tcc_fence_log"));
+
+                    } finally {stop(pc);}
+                }
             }
         } finally {stop(pf);stop(pa);stop(pb);stop(po);jwks.stop(0);Files.deleteIfExists(tokens.resolve(RuntimeMessage.hash("ENT")+".jwt"));Files.deleteIfExists(tokens);}
+    }
+    /** 表与列仅来自本测试保存的TC官方表行，值参数绑定，不接收业务输入。 */
+    private static void insertOriginal(JdbcTemplate jdbc,String table,Map<String,Object> row) {
+        if(!Set.of("global_table","branch_table").contains(table) || row.keySet().stream().anyMatch(key->!key.matches("[a-z_]+"))) throw new IllegalArgumentException();
+        jdbc.update("INSERT INTO "+table+" ("+String.join(",",row.keySet())+") VALUES ("+String.join(",",Collections.nCopies(row.size(),"?"))+")",row.values().toArray());
     }
     private static RuntimeMessage receipt(String wh,String command) {
         var body=new LinkedHashMap<String,Object>();body.put("commandId",command);body.put("action","RECEIVE");body.put("qty","1");

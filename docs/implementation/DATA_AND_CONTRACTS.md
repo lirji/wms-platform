@@ -1,6 +1,6 @@
 # 数据与接口索引
 
-核对已发布基线 `051a7eb`及本地公开序列调拨切片（2026-09-13，调拨尚待完整验收和发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
+核对已发布基线 `7659d34`及本地TC迁移切片（2026-09-13，TC尚待回调寻址验收和发布）。本文定位实际源码和迁移，不复制一套容易漂移的完整字段字典。业务规则见[领域设计](../design/02-domain.md)，当前整改边界见[交付状态](../delivery/wms-v1/DELIVERY_STATUS.md)。
 
 ## 数据所有权与迁移
 
@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | inbound | 入库单、分批收货观察、质检、上架、来源命令及回执 | `wms_inbound` | [inbound 迁移](../../wms-inbound/src/main/resources/db/migration)；V017 `source_reconciliation_window` |
 | outbound | 出库单、拣发任务、实物执行、取消、履约授权快照 | `wms_outbound` | [outbound 迁移](../../wms-outbound/src/main/resources/db/migration)；V019 `source_reconciliation_window` |
-| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V047 `serial_transfer_command`（本地待发布），V045水位已发布 |
+| inventory | 主数据、库存余额/流水、预占与执行资格、盘点、仓路由、序列号本地事实、可信水位与查询投影 | `wms_inventory`，按 Cell 隔离 | [inventory 迁移](../../wms-inventory/src/main/resources/db/migration)；V048 `tcc_terminal_proof`（本地待发布）；V047调拨与V045水位已发布 |
 | serial-registry | 企业 + SKU + SN 身份、归属和转移凭据 | `wms_registry` | [registry 迁移](../../wms-serial-registry/src/main/resources/db/migration/registry)；V005 `serial_shipment` |
 | fulfillment | 跨仓计划、attempt/XID 绑定、参与者与自动执行恢复、授权 Outbox、原序列调拨命令及逐SN成员 | `wms_fulfillment` | [fulfillment 迁移](../../wms-fulfillment/src/main/resources/db/migration/fulfillment)；V020 `serial_transfer_command`（本地待发布） |
 
@@ -16,7 +16,7 @@
 
 新增表和字段必须写中文含义注释；通过追加迁移演进，不修改已执行文件伪造历史。唯一约束、条件更新、影响行数和事务边界共同维护完整性。变更前检查新旧应用共存、回填和回退条件；代码回退不自动撤销已提交业务数据。
 
-仓迁移显式复制 57 张企业/仓范围表（含本地新增序列调拨命令），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
+仓迁移显式复制 58 张企业/仓范围表（含本地新增序列调拨命令），列表由[WarehouseMigrationStore](../../wms-inventory/src/main/java/com/lrj/wms/inventory/migrate/infrastructure/WarehouseMigrationStore.java)维护；仓路由、共享目录、数据库时间策略和 TC Fence 有独立限制，不能推断整库均可迁移。详细见[迁移边界](WAREHOUSE_MIGRATION_LIMITS.md)。
 
 ## HTTP 与鉴权
 

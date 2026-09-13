@@ -41,6 +41,12 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         this.cellId=cellId;this.actionName=actionName;
     }
     public String actionName(){return actionName;}
+    /** 只注册本物理cell已经激活的历史资源；每进程最多256个，超限明确拒绝而非默默漏回调。 */
+    public List<String> historicalResources() {
+        var resources=mapper().historicalResources(cellId);
+        if(resources.size()>256) throw failure("TCC_RESOURCE_CAPACITY_EXCEEDED");
+        return resources;
+    }
 
     /** HTTP重放沿用原branch；REGISTERING表示结果未知，永远不据租约再次登记。 */
     public WarehouseTryResult tryReserve(WarehouseTryRequest request,String xid,Registration registration) {
@@ -122,21 +128,51 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         return transactions.execute(status->{guard(BusinessActionContextUtil.getContext(),xid,branch);return fence.prepareFence(xid,branch,action,callback);});
     }
     @Override public boolean commitFence(Method method,Object target,String xid,Long branch,Object[] args) {
-        return finishFence(true,method,target,xid,branch,args,actionName);
+        String action=args!=null && args.length==1 && args[0] instanceof BusinessActionContext context?context.getActionName():null;
+        return finishFence(true,method,target,xid,branch,args,action);
     }
     @Override public boolean rollbackFence(Method method,Object target,String xid,Long branch,Object[] args,String action) {
         return finishFence(false,method,target,xid,branch,args,action);
     }
     private boolean finishFence(boolean commit,Method method,Object target,String xid,Long branch,Object[] args,String action) {
-        if(!actionName.equals(action) || target!=this || args==null || args.length!=1 || !(args[0] instanceof BusinessActionContext context))
+        if(target!=this || args==null || args.length!=1 || !(args[0] instanceof BusinessActionContext context)
+                || !Objects.equals(action,context.getActionName()))
             throw failure("TCC_RESOURCE_MISMATCH");
         return Boolean.TRUE.equals(transactions.execute(status->{
+            if(terminalReplay(commit,context,xid,branch)) return true;
+            if(!actionName.equals(action)) throw failure("TCC_RESOURCE_MISMATCH");
             var row=guard(context,xid,branch);
             boolean done=commit?fence.commitFence(method,target,xid,branch,args):fence.rollbackFence(method,target,xid,branch,args,action);
             if(done && mapper().finished(text(row,"id"),branch,commit?"CONFIRMED":"CANCELLED")!=1)
                 throw failure("TCC_TERMINAL_CONFLICT");
             return done;
         }));
+    }
+    /** 迁移后的历史回调只返回原证明结果；不重新调用库存业务、不更新原Fence时间。 */
+    private boolean terminalReplay(boolean commit,BusinessActionContext context,String xid,Long branch) {
+        if(branch==null || branch<=0 || !Objects.equals(xid,context.getXid()) || context.getBranchId()!=branch) throw failure("TCC_CONTEXT_MISMATCH");
+        String enterprise=value(context,"enterpriseId"),warehouse=value(context,"warehouseId");
+        var route=sessions.getMapper(WarehouseRouteMapper.class).lock(enterprise,warehouse);
+        var row=mapper().lock(enterprise,warehouse,value(context,"allocationId"),value(context,"attemptId"));
+        if(row==null) throw failure("TCC_CONTEXT_MISMATCH");
+        var proof=mapper().proof(text(row,"id"));
+        if(proof==null) return false;
+        long epoch;
+        try {epoch=new java.math.BigDecimal(value(context,"routeEpoch")).longValueExact();}
+        catch(RuntimeException invalid) {throw failure("TCC_CONTEXT_MISMATCH");}
+        if(route==null || !cellId.equals(route.get("cell_id")) || !Set.of("ACTIVE","QUIESCING","RETIRED").contains(route.get("state"))
+                || !xid.equals(row.get("xid")) || !Objects.equals(branch,row.get("branch_id"))
+                || !context.getActionName().equals(row.get("action_name")) || !value(context,"intentId").equals(row.get("id"))
+                || !value(context,"requestDigest").equals(row.get("request_digest")) || !value(context,"cellId").equals(row.get("cell_id"))
+                || epoch!=((Number)row.get("route_epoch")).longValue()) throw failure("TCC_CONTEXT_MISMATCH");
+        var notice=RuntimeMessage.JSON.readValue(text(proof,"proof_json"),com.lrj.wms.contract.messaging.TcTerminalNotice.class);
+        if(!TcTerminalService.resource(notice.clusterId(),cellId).equals(actionName)
+                || !TcTerminalService.resource(notice.clusterId(),text(row,"cell_id")).equals(context.getActionName())
+                || !xid.equals(proof.get("xid")) || !Objects.equals(branch,proof.get("branch_id"))
+                || !context.getActionName().equals(proof.get("action_name"))) throw failure("TCC_RESOURCE_MISMATCH");
+        int terminal=((Number)proof.get("terminal_status")).intValue();
+        if(commit!=(terminal==9) || !TcTerminalService.matches(row,mapper().fence(xid,branch),terminal)) throw failure("TCC_TERMINAL_CONFLICT");
+        return true;
     }
     /** 保留策略未获业务确认，不能让SDK按默认天数删除幂等Fence。 */
     @Override public int deleteFenceByDate(Date before){return 0;}

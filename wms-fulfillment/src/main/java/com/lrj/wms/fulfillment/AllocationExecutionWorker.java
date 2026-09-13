@@ -174,6 +174,8 @@ public final class AllocationExecutionWorker {
                 }
             } else {
                 service.observeTc(text(row,"enterprise_id"),text(row,"attempt_id"),proof.status(),proof.evidence());
+                TcTerminalNotifications.enqueue(session,clock,text(row,"enterprise_id"),
+                        session.getMapper(FulfillmentMapper.class).lockAttempt(text(row,"enterprise_id"),text(row,"attempt_id")),scope,proof);
                 if(code==9) {
                     if(!"COMMIT".equals(current.get("requested_action"))) {
                         current.put("state","ISOLATED");current.put("error_code","UNEXPECTED_TC_COMMIT");

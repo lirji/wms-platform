@@ -46,4 +46,18 @@
             COALESCE(SUM(free_execution_claim_qty),0) claimed FROM stock_balance
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
     </select>
+    <select id="terminalFences" resultType="map">
+        SELECT i.id,f.xid,f.branch_id,f.action_name,f.status,f.gmt_create,f.gmt_modified
+        FROM inventory_tcc_intent i JOIN inventory_tcc_terminal t ON t.id=i.id AND t.xid=i.xid AND t.branch_id=i.branch_id
+        JOIN tcc_fence_log f ON f.xid=i.xid AND f.branch_id=i.branch_id AND f.action_name=i.action_name
+        WHERE i.enterprise_id=#{e} AND i.warehouse_id=#{w}
+        <if test="after != null">AND i.id&gt;#{after}</if>
+        ORDER BY i.id LIMIT 200
+    </select>
+    <select id="fence" resultType="map">SELECT * FROM tcc_fence_log WHERE xid=#{xid} AND branch_id=#{branch} FOR UPDATE</select>
+    <insert id="insertFence">
+        INSERT INTO tcc_fence_log(xid,branch_id,action_name,status,gmt_create,gmt_modified)
+        VALUES(#{f.xid},#{f.branch_id},#{f.action_name},#{f.status},#{f.gmt_create},#{f.gmt_modified})
+        ON DUPLICATE KEY UPDATE xid=xid
+    </insert>
 </mapper>

@@ -24,4 +24,18 @@
     UPDATE inventory_tcc_intent SET state=#{state},updated_at=UTC_TIMESTAMP(6)
     WHERE id=#{id} AND branch_id=#{branch} AND state IN ('REGISTERED','TRIED',#{state})
   </update>
+  <select id="fence" resultType="map">
+    SELECT * FROM tcc_fence_log WHERE xid=#{xid} AND branch_id=#{branch}
+  </select>
+  <insert id="terminal">
+    INSERT INTO inventory_tcc_terminal(id,enterprise_id,warehouse_id,xid,branch_id,action_name,terminal_status,proof_json,proof_hash,created_at,updated_at)
+    VALUES(#{i.id},#{i.enterprise_id},#{i.warehouse_id},#{i.xid},#{i.branch_id},#{i.action_name},#{status},CAST(#{json} AS JSON),#{hash},UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+    ON DUPLICATE KEY UPDATE id=id
+  </insert>
+  <select id="proof" resultType="map">SELECT * FROM inventory_tcc_terminal WHERE id=#{id}</select>
+  <select id="historicalResources" resultType="string">
+    SELECT DISTINCT t.action_name FROM inventory_tcc_terminal t
+      JOIN warehouse_route r ON r.enterprise_id=t.enterprise_id AND r.warehouse_id=t.warehouse_id
+    WHERE r.cell_id=#{cell} AND r.state='ACTIVE' ORDER BY t.action_name LIMIT 257
+  </select>
 </mapper>

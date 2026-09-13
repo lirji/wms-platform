@@ -2,10 +2,10 @@
 
 ## 当前基线与授权
 
-远程main已发布051a7eb，包含水位采集器2e7451c和控制台2c31c54/df8c56f。前一main CI34728530641全部成功，新CI34729813580运行中。当前在feat/public-serial-transfer实施调拨，未验证代码尚未发布。
+远程main已发布7659d34（公开序列调拨），新CI34731081335运行中。前一main 051a7eb的CI34729813580全部成功。当前feat/tcc-terminal-migration实施TC原资源迁移，未验证代码未发布。
 更新时间：2026-09-13。前一阶段基线为 `main e22f0b2`，包含序列拣发、文档控制台、来源关窗及库存历史门禁。[main CI 34727355968](https://github.com/lirji/wms-platform/actions/runs/34727355968)的java与console均成功。旧CI34723887946失败证据保留。
 
-用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。WATERMARK已实现、验证并发布；TRANSFER/TC/COMP/FINAL仍待完成，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
+用户已恢复后端整改，唯一有限验收见[计划](DELIVERY_PLAN.md)的“剩余整改有限验收”。OUT/WATERMARK/TRANSFER已实现、验证并发布；TC/COMP/FINAL仍待完成，整体 **in-progress**。水位实现、故障修复与准确证据见[可信水位](../../implementation/RECONCILIATION_WATERMARK.md)。
 
 持续授权正常提交并合入远程main，不包含生产部署、共享环境故障注入或补造业务决定。文档入口见[docs/README](../../README.md)，恢复上下文见[CODEX_PROGRESS](../../../CODEX_PROGRESS.md)。
 

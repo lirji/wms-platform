@@ -63,6 +63,15 @@
           AND state&lt;&gt;'OPEN' AND NOT(state='MAINTENANCE' AND reason_code &lt;=> 'WAREHOUSE_MIGRATION')
     </select>
     <select id="runtimeTccIntents" resultType="int">
-        SELECT EXISTS(SELECT 1 FROM inventory_tcc_intent WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId})
+        SELECT EXISTS(SELECT 1 FROM inventory_tcc_intent i
+          LEFT JOIN inventory_tcc_terminal t ON t.id=i.id AND t.enterprise_id=i.enterprise_id AND t.warehouse_id=i.warehouse_id
+            AND t.xid=i.xid AND t.branch_id=i.branch_id AND t.action_name=i.action_name
+          LEFT JOIN tcc_fence_log f ON f.xid=i.xid AND f.branch_id=i.branch_id AND f.action_name=i.action_name
+          WHERE i.enterprise_id=#{enterpriseId} AND i.warehouse_id=#{warehouseId}
+            AND (t.id IS NULL OR f.xid IS NULL OR NOT((i.state='CONFIRMED' AND t.terminal_status=9 AND f.status=2)
+              OR (i.state='CANCELLED' AND t.terminal_status IN (11,13) AND f.status IN (3,4)))))
+          OR EXISTS(SELECT 1 FROM reservation r WHERE r.enterprise_id=#{enterpriseId} AND r.warehouse_id=#{warehouseId}
+            AND NOT EXISTS(SELECT 1 FROM inventory_tcc_intent i WHERE i.enterprise_id=r.enterprise_id AND i.warehouse_id=r.warehouse_id
+              AND i.xid=r.xid AND i.branch_id=r.branch_id AND i.action_name=r.action_name AND i.reservation_id=r.id))
     </select>
 </mapper>

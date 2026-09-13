@@ -284,12 +284,12 @@ v0.4幂等任务已并入各阶段。每项任务记录实现、验证、提交�
 | --- | --- | --- | --- | --- | --- |
 | OUT：具体SN分次发运并恢复 | 原订单行/桶/epoch；T1/T2/T3；独立SHIPPED证明；丢回执不重复扣量；旧执行器不覆盖；可查询/审计重排 | PICK dd22cd0；outbound V018、inventory V042、registry V005；有界HTTP与既有作业 | MySQL IT、公开HTTP、实际JAR/Kafka/登记恢复、非空迁移 | 跨三服务补建；先证明历史回执和本地原子性，再扩实际进程；同类失败两次复核 | complete |
 | WATERMARK：可信对账完整性 | 调用者字符串不能关窗；来源关闭/库存过账/来源回执可核对；未追平不导出完成 | 来源命令/Inbox/Outbox/快照和对账；不引入第二库存权威 | 真实数据库缺失/迟到/重复及重启 | 先确认权威数据和截止点；重大兼容变化再做差异评审 | complete |
-| TRANSFER：公开序列调拨闭环 | 原转移/SN/epoch封闭及目的确认；重复不双重授权；数量身份一致 | [公开序列调拨](../../implementation/SERIAL_PUBLIC_TRANSFER.md)、源释放、公开单据与恢复 | MySQL、真实登记HTTP、公开入口 | 跨服务接线，不扩未批准退货业务 | verified，待发布 |
-| TC：原资源与Fence迁移 | 可靠终态通知；原XID/branch/资源身份保持；未终结拒绝切流；恢复不丢回调 | RM意图、TC审计、仓路由及迁移门禁 | 隔离真实TC/RM/双库及重启 | 先验证回调寻址与终态证据，不能仅复制表关闭验收 | pending |
+| TRANSFER：公开序列调拨闭环 | 原转移/SN/epoch封闭及目的确认；重复不双重授权；数量身份一致 | [公开序列调拨](../../implementation/SERIAL_PUBLIC_TRANSFER.md)、源释放、公开单据与恢复 | MySQL、真实登记HTTP、公开入口 | 跨服务接线，不扩未批准退货业务 | complete，main7659d34；新CI运行中 |
+| TC：原资源与Fence迁移 | 可靠终态通知；原XID/branch/资源身份保持；未终结拒绝切流；恢复不丢回调 | RM意图、TC审计、仓路由及迁移门禁 | 隔离真实TC/RM/双库及重启 | 先验证回调寻址与终态证据，不能仅复制表关闭验收 | verified，待发布 |
 | COMP：全局提交后取消恢复 | 不向已提交TCC伪发Cancel；已知未执行额度补偿一次；实物未知保留处理中；持久重试审计 | 取消/执行授权/库存预占及原执行事实 | 真实数据库并发、部分执行/未知结果与重放 | 需要新业务取舍时只请求该差异，独立授权工作继续 | pending |
 | FINAL：组合与交付 | 契约/迁移/文档/必需IT齐备；最终组合、main发布及CI；R22结项范围明确 | 上述切片通过，复用未变证据 | 默认verify一次、独立profile、smoke、必要前端和CI | 不重复采样或在构建中编辑；未签署生产目标不声称通过 | pending |
 
-OUT已由dd22cd0/1dd3d18实现并经365a1eb发布main；WATERMARK经2e7451c/051a7eb发布main，真实进程及非空迁移证据见对应专题。前一main CI34728530641全部成功；051a7eb的新CI34729813580待结果。当前实施TRANSFER，整体保持in-progress。
+OUT已由dd22cd0/1dd3d18实现并经365a1eb发布main；WATERMARK经2e7451c/051a7eb发布main，真实进程及非空迁移证据见对应专题。051a7eb的main CI34729813580全部成功。TRANSFER7659d34已发布main，新CI34731081335运行中；当前实施TC，整体保持in-progress。
 
 ## 序列盘亏与占用前置校验
 

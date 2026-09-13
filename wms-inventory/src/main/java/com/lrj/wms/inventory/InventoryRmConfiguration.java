@@ -17,7 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ConditionalOnProperty(name="wms.tcc.rm.enabled",havingValue="true")
 public class InventoryRmConfiguration {
     @Bean
-    RuntimeTccCoordinator runtimeTccCoordinator(DataSource dataSource,DatabaseBudget budget,PlatformTransactionManager transactionManager,
+    RuntimeTccCoordinator runtimeTccCoordinator(DataSource dataSource,org.flywaydb.core.Flyway flyway,DatabaseBudget budget,PlatformTransactionManager transactionManager,
             org.apache.seata.rm.fence.SpringFenceHandler inventoryTccFence,Environment env) {
         String cell=env.getRequiredProperty("wms.tcc.rm.cell-id"),cluster=env.getRequiredProperty("wms.tcc.cluster-id");
         if(!cell.matches("[A-Za-z0-9_.-]{1,64}") || !cluster.matches("[A-Za-z0-9_.-]{1,64}")) throw new IllegalArgumentException("TC集群与cell标识无效");

@@ -4,7 +4,9 @@
 
 ## 配置和启动
 
-Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGING_ENABLED=false`，验证收货闭环时完成数据库/OIDC配置后同时设为 true；本机进程使用 `.env.example` 的 `WMS_MESSAGING_*`。开启而没有 broker 或数据库时启动失败。先执行本项目 kafka-init 创建 `<prefix>.inventory.events`、`<prefix>.inbound.commands`、`<prefix>.inbound.results`；出库还需outbound.commands/outbound.results，履约确认还需fulfillment.results。不开启自动建 Topic。隔离开发 Topic 一分区、一副本，最多保留七天或每分区256MiB，这是测试容量上限，不是生产保留依据或高可用承诺。旧 outbox Topic 保留供旧夹具使用，不自动迁移位点。
+Compose 默认 `WMS_INBOUND_MESSAGING_ENABLED=false` 和 `WMS_INVENTORY_MESSAGING_ENABLED=false`，验证收货闭环时完成数据库/OIDC配置后同时设为 true；本机进程使用 `.env.example` 的 `WMS_MESSAGING_*`。开启而没有 broker 或数据库时启动失败。先执行本项目 kafka-init 创建 `<prefix>.inventory.events`、`<prefix>.inbound.commands`、`<prefix>.inbound.results`；出库还需outbound.commands/outbound.results，履约确认还需fulfillment.results；公开序列调拨需transfer.commands，TC终态通知需tcc.terminals。不开启自动建 Topic。隔离开发 Topic 一分区、一副本，最多保留七天或每分区256MiB，这是测试容量上限，不是生产保留依据或高可用承诺。旧 outbox Topic 保留供旧夹具使用，不自动迁移位点。
+
+新增主题按既有来源隔离：fulfillment写transfer.commands/tcc.terminals，inventory按cell路由读取；inventory写原命令完成到fulfillment.results。
 
 生产凭据按来源服务独立分配：inbound 写本环境 inbound.commands、读 inbound.results；inventory 读 inbound.commands，写 inbound.results 和 inventory.events，投影消费者只读同环境 inventory.events 和自己的消费者组。企业/仓在受信服务信封中验证；Topic 来源校验依赖 broker ACL，开发 PLAINTEXT 无法提供身份认证。TLS/SASL 凭据从受控环境注入，不记录 JAAS/令牌。生产副本、ISR、保留、ACL、容量、RTO/RPO 需要真实环境确认。
 

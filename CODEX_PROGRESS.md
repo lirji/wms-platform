@@ -2,44 +2,44 @@
 
 ## 任务目标
 
-完成已批准R13/R14/R15/R22。唯一有限验收：docs/delivery/wms-v1/DELIVERY_PLAN.md，OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。连续执行、正常Git发布已授权，不扩项、不操作共享或生产、不使用子Agent。
+完成已批准R13/R14/R15/R22。唯一有限验收：docs/delivery/wms-v1/DELIVERY_PLAN.md，OUT → WATERMARK → TRANSFER → TC → COMP → FINAL。持续执行、正常Git发布已授权；不扩项，不操作共享或生产，不使用子Agent。
 
 ## 已完成
 
-- OUT已发布main 365a1eb，CI34725376702成功。
-- WATERMARK已发布main 051a7eb（包含2e7451c及控制台2c31c54），此前main CI34728530641成功，新CI34729813580仍运行。真实三服务水位、缺T3拒绝导出、库存重启检查点和非空迁移通过，证据见RECONCILIATION_WATERMARK.md。
-- TRANSFER实现并定向验证完成，尚未提交发布。09:21:01 .local/public-serial-transfer-preparation-proof-it.log BUILD SUCCESS：真实履约/库存/登记JAR、三MySQL、Kafka、XXL，公开发出、权限拒绝、源登记成功后本地恢复写失败、库存重启、目的两批收货及重复不重复扣增。登记1及HTTP客户端5项同批通过。
-- 09:23:31 .local/public-serial-transfer-migration-it.log BUILD SUCCESS：57表非空迁移6、两库核心事务1、真实登记进程恢复1；必需IT清单129项、文档结构检查通过。不是全仓最新回归。
+- OUT已发布main365a1eb、CI成功。WATERMARK已发布051a7eb，main CI34729813580全部成功。
+- TRANSFER7659d34已发布任务分支和main，祖先核验通过。真实三JAR/三MySQL/Kafka/XXL、源恢复最终写失败、库存重启、两批目的收货、重复与非空57表迁移通过。新main CI34731081335运行中，不能推同ref取消verify。详见SERIAL_PUBLIC_TRANSFER.md。
+- TC本地实现与定向验证完成，待提交发布。09:41:10 .local/tcc-original-application-replay-it.log BUILD SUCCESS：自动执行器5、真实TC/Kafka/迁移与原应用回调重放1、仓迁移6。
+- 原B进程停止，迁移目标C重启，TC重启后重放此前真实原会话；目标09:40:17收到原B的XID/branch/资源回调并返回PhaseTwo_Committed。原Fence逐字段不变，业务效果一次。TC会话重放为明确隔离故障夹具，不是生产灾备演练。
+- TC审计恢复4、原生RM数据库2、两库终态迁移1已通过。09:43:08 .local/tcc-terminal-final-guards-it.log证明缺原RM来源的预占仍阻断迁移；09:43:56 .local/tcc-notice-barrier-recovery-it.log恢复2通过，通知数量不能掩盖缺失授权。必需IT131、Compose静态与文档结构检查通过。
 
 ## 已修改文件
 
-- 当前git diff为TRANSFER：共享SerialTransferCommand；履约V020原命令/SN成员/序列模式及3个公开入口；库存V046目的仓、V047原命令、原恢复完成回执；既有Kafka Inbox/Outbox与XXL接线。
-- 登记准备协议可选X-Wms-Serial-Prepare-Proof: 1，提供不可变历史准备凭证；库存重试不依赖当前身份仍是TRANSFER_PREPARED。源流水同时写查询投影Outbox。
-- 公开接口默认关闭；OpenAPI99路径113操作、迁移清单57、必需IT129；相关测试、配置和文档随本批提交。
-- TC_RESOURCE_MIGRATION.md是下一切片设计草稿，尚未实施，不混入TRANSFER提交。
+- git diff为TC切片：TcTerminalNotice、履约执行器/恢复扫描的逐仓Outbox、库存TcTerminalService及V048原证明、Inbox/topic接线。
+- WarehouseMigrationStore为58仓表另精确复制原Fence；RuntimeTccCoordinator历史回调只读原终态；SeataRmDriver使用官方RegisterRM为原应用/资源登记别名并逐连接恢复；InventoryRmConfiguration显式等待Flyway。
+- 相关真实数据库/TC/进程测试、必需清单、专题与交付文档、Kafka初始化主题。
 
 ## 未完成
 
-- 提交TRANSFER，等待main正在运行的CI完成后正常发布，不能推同ref取消旧verify。
-- TC：可靠终态通知、原资源/XID/branch/Fence迁移、未终结拒绝切流与真实回调恢复。
-- COMP：全局提交后业务补偿、已知未执行额度仅一次、实物未知保留处理中与持久审计。
-- FINAL：组合/default verify、profiles、smoke、文档、main/CI、R22结项。
-- OQ-03/AC-26现场/WCS、容量/RTO/RPO及生产历史时间是外部边界，不能补造通过。
+- 提交TC至独立分支；main7659d34的CI完成后从干净发布树正常合入main。
+- COMP：已提交TCC的取消业务补偿；已知未执行额度仅一次；实物未知保留处理中；持久重试审计。
+- FINAL：组合/default verify、profiles、smoke、文档、main/CI、R22范围结项。
+- OQ-03/AC-26现场/WCS、容量/RTO/RPO及生产历史时间保持外部边界，不补造通过。
 
 ## 当前问题
 
-- 工作目录 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；分支feat/public-serial-transfer，HEAD051a7eb。根用户工作树feat/console-shadcn-dialog及其他工作树不动。
-- Maven74674已BUILD SUCCESS，未再启动构建；源码/测试与Maven不可重叠修改。
-- 首次公开进程测试因prepare返回当前IN_TRANSIT状态而恢复失败，已改核验历史原凭证并真实重启通过。此前测试夹具路径、MyBatis Number绑定、RSAKey导入失败均保留日志，不计为成功。
-- 现有TC迁移对任何inventory_tcc_intent阻断；Fence无企业/仓列，未复制。现有履约审计读取有来源绑定，但未可靠通知库存。下一片先完成这些具体边界，不能仅删除门禁。
-- 发布工作树 .local/watermark-main-publish 保持干净可复用；无生产部署授权。
+- 工作目录 /Users/liruijun/personal/LLM/wms-platform/.local/backend-remediation-integrate；分支feat/tcc-terminal-migration，基于7659d34。根用户工作树feat/console-shadcn-dialog及其他工作树不动。
+- Maven99914已BUILD SUCCESS，暂无活动构建。禁止在Maven运行时编辑源码/测试。
+- 干净发布树.local/watermark-main-publish当前7659d34，可复用；正常main发布已授权，不包含生产部署。
+- 重要TC来源限制：Seata2.6.0的TCC不会跨application回退；仅注册旧resource不足，当前已用原应用别名及真实TC重放修正验证。不要删此兼容逻辑或把新应用就绪当成回调证据。
+- 首次迁移测试曾错传JdbcTemplate参数、遗漏UTC来源初始化，已修正；通知计数测试已加强为真实缺失授权场景。失败日志保留，不能算通过。
+- COMP预研：FulfillmentService.requestCancel仅受理；AllocationExecutionWorker的原COMMIT意图不翻转，晚取消停在CANCEL_REQUIRES_COMPENSATION。OutboundAuthorizationService/OutboundOrderService负责执行门禁；已有postOutboundReservation(CANCEL)可释放原未拣行，但必须先阻断迟到授权/新派工并处理实物未知，不可直接调用legacy releaseUnpicked或TCC Cancel。
 
 ## 下一步建议
 
-1. 检查暂存差异并提交TRANSFER，核验生成契约一致；main CI完成后发布，不重跑已通过的定向测试。
-2. 按TC_RESOURCE_MIGRATION设计恢复TC切片，再COMP，最后统一组合验证。
-3. 持续更新本文件及唯一交付状态；不把完成一片当作整体完成。
+1. 审核暂存TC差异并提交推任务分支；已有main CI未结束时不要推main。
+2. 从TC提交建立COMP分支，按唯一有限验收实现取消补偿，不扩展退货业务。
+3. 各片发布后做一次最终组合与必需门禁；复用未变证据，不重复OUT/WATERMARK/TRANSFER。
 
 ## 恢复 Prompt
 
-读取CODEX_PROGRESS.md与唯一计划，从首个未完成步骤继续。核对Git、工作树、活动Maven和最新日志，复用有效证据，不重复OUT/WATERMARK，不等待逐片确认。只在必要业务信息、危险操作、权限或真实环境阻塞时暂停。
+读取CODEX_PROGRESS.md与唯一计划，从首个未完成步骤继续。核对Git、工作树、活动Maven和最新日志；保留用户其他工作树，不等待逐片确认。只在必要业务信息、危险操作、权限或真实环境阻塞时暂停。
