@@ -331,8 +331,8 @@ export function CatalogPage() {
             { key: "id", label: "批次", keys: ["id", "lotId"], kind: "id", copyKind: "批次" },
             { key: "code", label: "编码", keys: ["code", "lotCode", "lot_code"] },
             { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-            { key: "produced", label: "生产", keys: ["producedAt", "produced_at"] },
-            { key: "expires", label: "失效", keys: ["expiresAt", "expires_at"] }
+            { key: "produced", label: "生产", keys: ["producedAt", "produced_at"], empty: "未绑定" },
+            { key: "expires", label: "失效", keys: ["expiresAt", "expires_at"], empty: "未绑定" }
           ]}
         />
       </Card>

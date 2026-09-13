@@ -29,6 +29,12 @@ export function ActionEffectDetailPage() {
       loading={loading}
       error={error}
       record={record}
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "id", label: "效果", keys: ["id", "effectId"], kind: "id", copyKind: "效果" },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[]}
       extra={(
         <Card size="small" title="恢复证据">
           <Descriptions

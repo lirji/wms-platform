@@ -123,6 +123,8 @@ services:
       WMS_TCC_TRANSACTION_GROUP: ${WMS_TCC_TRANSACTION_GROUP:-}
       WMS_TCC_SERVERS: ${WMS_TCC_SERVERS:-}
       WMS_TCC_XID_ADDRESSES: ${WMS_TCC_XID_ADDRESSES:-}
+    volumes:
+      - ${WMS_RECON_TOKEN_HOST_DIR:-./.local/service-tokens/recon}:/run/wms/recon-tokens:ro
     depends_on:
       mysql-cell-a:
         condition: service_healthy
@@ -194,6 +196,8 @@ services:
       WMS_FULFILLMENT_EXECUTION_ALLOW_HTTP: ${WMS_FULFILLMENT_EXECUTION_ALLOW_HTTP:-false}
       WMS_FULFILLMENT_EXECUTION_ACCESS_KEY: ${WMS_FULFILLMENT_EXECUTION_ACCESS_KEY:-}
       WMS_FULFILLMENT_EXECUTION_SECRET_KEY: ${WMS_FULFILLMENT_EXECUTION_SECRET_KEY:-}
+    volumes:
+      - ${WMS_FULFILLMENT_TOKEN_HOST_DIR:-./.local/service-tokens/fulfillment}:/run/wms/fulfillment-tokens:ro
     depends_on:
       mysql-apps:
         condition: service_healthy

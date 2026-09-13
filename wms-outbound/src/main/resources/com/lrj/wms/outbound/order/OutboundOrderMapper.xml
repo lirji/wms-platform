@@ -165,16 +165,28 @@
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{packageId}, #{lineId}, #{qty}, 0, #{now}, #{now})
     </insert>
 
-    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <!-- listOrders：单头加首行摘要，供工作台展示 SKU/已分配/已拣/同步，不多行展开。 -->
     <select id="listOrdersPage" resultType="map">
-        SELECT id, allocation_id, attempt_id, owner_id, execution_authorization_id, status, version, created_at
-        FROM outbound_order
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
+        SELECT o.id, o.allocation_id, o.attempt_id, o.owner_id, o.execution_authorization_id, o.status, o.version, o.created_at,
+               l.sku_id, l.allocated_qty, l.picked_physical_qty, l.stock_sync_status
+        FROM outbound_order o
+        LEFT JOIN outbound_line l
+          ON l.enterprise_id=o.enterprise_id
+         AND l.warehouse_id=o.warehouse_id
+         AND l.order_id=o.id
+         AND l.id=(
+            SELECT MIN(x.id)
+            FROM outbound_line x
+            WHERE x.enterprise_id=o.enterprise_id
+              AND x.warehouse_id=o.warehouse_id
+              AND x.order_id=o.id
+         )
+        WHERE o.enterprise_id=#{enterpriseId}
+        AND o.warehouse_id=#{warehouseId}
         <if test="page.id != null">
-            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+            AND (o.created_at &lt; #{page.time} OR (o.created_at = #{page.time} AND o.id &lt; #{page.id}))
         </if>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT #{page.fetchLimit}
     </select>
 

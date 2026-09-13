@@ -13,6 +13,16 @@ export function TransferPage() {
       title="调拨"
       sub="源仓发出、目的授权接收、在途损耗。打开单据后提交命令。"
       empty="当前企业没有调拨单"
+      columns={[
+        { key: "id", label: "标识", keys: ["id", "transferId"], kind: "id", copyKind: "单据" },
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+        { key: "plannedQty", label: "数量", qty: true, keys: ["plannedQty", "planned_qty"] },
+        { key: "issuedQty", label: "已发", qty: true, keys: ["issuedQty", "issued_qty"] },
+        { key: "receivedQty", label: "已收", qty: true, keys: ["receivedQty", "received_qty"] },
+        { key: "sourceWarehouseId", label: "源仓", keys: ["sourceWarehouseId", "source_warehouse_id"] },
+        { key: "targetWarehouseId", label: "目的仓", keys: ["targetWarehouseId", "target_warehouse_id"] }
+      ]}
       paths={ready ? ["/api/wms/v1/transfers"] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/transfers/${recordId(row, "id", "transferId")}` : undefined}
       createLabel="创建调拨单"

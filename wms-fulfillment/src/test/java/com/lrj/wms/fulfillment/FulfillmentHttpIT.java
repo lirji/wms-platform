@@ -91,13 +91,19 @@ class FulfillmentHttpIT {
         HttpResponse<String> listed = get("/api/wms/v1/fulfillments", token);
         assertEquals(200, listed.statusCode());
         assertTrue(listed.body().contains("SO-HTTP-1"));
+        assertTrue(listed.body().contains("SKU-STD"));
         HttpResponse<String> transfer = post("/api/wms/v1/transfers", token, "TR-HTTP-1",
                 "{\"sourceWarehouseId\":\"WH-A\",\"targetWarehouseId\":\"WH-B\","
                         + "\"lines\":[{\"lineId\":\"TL-1\",\"skuId\":\"SKU-STD\",\"plannedQty\":\"2\",\"unit\":\"EA\"}]}");
         assertEquals(201, transfer.statusCode());
+        HttpResponse<String> transfers = get("/api/wms/v1/transfers", token);
+        assertEquals(200, transfers.statusCode());
+        assertTrue(transfers.body().contains("SKU-STD"));
+        assertTrue(transfers.body().contains("\"planned_qty\":\"2\""));
         HttpResponse<String> got = get("/api/wms/v1/transfers/TR-HTTP-1?warehouseId=WH-A", token);
         assertEquals(200, got.statusCode());
         assertTrue(got.body().contains("WH-B"));
+        assertTrue(got.body().contains("\"version\""));
         String fulfillmentId = textBetween(fulfillment.body(), "\"id\":\"", "\"");
         HttpResponse<String> attempt = post("/api/wms/v1/fulfillments/" + fulfillmentId + "/attempts", token, "KEY-ATT-1",
                 "{\"warehouses\":[\"WH-A\"],\"lines\":[{\"warehouseId\":\"WH-A\",\"orderLineId\":\"SL-1\","

@@ -282,6 +282,7 @@ public final class TransferService {
         body.put("status", order.get("status"));
         body.put("sourceWarehouseId", order.get("source_warehouse_id"));
         body.put("targetWarehouseId", order.get("target_warehouse_id"));
+        body.put("version", order.get("version"));
         body.put("legs", mapper.listLegs(enterpriseId, transferId));
         body.put("lines", mapper.listLines(enterpriseId, transferId));
         return body;

@@ -13,6 +13,7 @@ export type Column = {
   keys?: string[];
   kind?: "id" | "status" | "qty" | "name" | "text";
   copyKind?: string;
+  empty?: string;
 };
 
 function kindOf(column: Column): NonNullable<Column["kind"]> {
@@ -111,9 +112,9 @@ export function DataTable({
                 return <StatusChip value={value} />;
               }
               if (kind === "qty") {
-                return <span style={{ fontVariantNumeric: "tabular-nums" }}>{value || "—"}</span>;
+                return <span style={{ fontVariantNumeric: "tabular-nums" }}>{value || column.empty || "—"}</span>;
               }
-              return value || "—";
+              return value || column.empty || "—";
             }
           };
         })}

@@ -1,11 +1,54 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "../../app/AppProviders";
 import { WorkspaceProvider } from "../../shell/WorkspaceContext";
 import { OutboundDetailPage } from "./OutboundDetailPage";
 
 describe("OutboundDetailPage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("maps outbound GET header and line quantities including version", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      id: "OB-1",
+      status: "PENDING_AUTHORIZATION",
+      allocationId: "ALLOC-1",
+      attemptId: "ATT-1",
+      executionAuthorizationId: null,
+      version: 1,
+      lines: [{
+        id: "OL-1",
+        sku_id: "SKU-STD",
+        allocated_qty: "6",
+        picked_physical_qty: "0",
+        packed_physical_qty: "0",
+        shipped_physical_qty: "0",
+        cancelled_qty: "0",
+        stock_sync_status: "IDLE"
+      }],
+      tasks: []
+    }), { status: 200 })));
+    render(
+      <AppProviders>
+        <MemoryRouter initialEntries={["/w/WH-A/outbound/OB-1"]}>
+          <WorkspaceProvider value={{ token: "t", warehouseId: "WH-A", scopes: ["outbound.pick"] }}>
+            <Routes>
+              <Route path="/w/:warehouseId/outbound/:outboundOrderId" element={<OutboundDetailPage />} />
+            </Routes>
+          </WorkspaceProvider>
+        </MemoryRouter>
+      </AppProviders>
+    );
+    await waitFor(() => expect(screen.getByText("ALLOC-1")).toBeTruthy());
+    expect(screen.getByText("执行授权")).toBeTruthy();
+    expect(screen.getByText("SKU-STD")).toBeTruthy();
+    expect(screen.getAllByText("已分配").length).toBeGreaterThan(0);
+    expect(screen.getByText("6")).toBeTruthy();
+    expect(screen.queryByText(/^实物$/)).toBeNull();
+  });
+
   it("exposes pick, pack, ship and cancel commands", { timeout: 30_000 }, () => {
     render(
       <AppProviders>

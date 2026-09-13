@@ -286,8 +286,8 @@ export function LotDetailPage() {
         textItem(record, "货主", "ownerId", "owner_id"),
         textItem(record, "批次编码", "lotCode", "lot_code"),
         textItem(record, "跨仓批次键", "businessLotKey", "business_lot_key"),
-        textItem(record, "生产时刻", "producedAt", "produced_at"),
-        textItem(record, "失效时刻", "expiresAt", "expires_at"),
+        { key: "producedAt", label: "生产时刻", children: field(record, "producedAt", "produced_at") || "未绑定" },
+        { key: "expiresAt", label: "失效时刻", children: field(record, "expiresAt", "expires_at") || "未绑定" },
         textItem(record, "来源日", "sourceDate", "source_date"),
         textItem(record, "效期规则版本", "expiryRuleVersion", "expiry_rule_version"),
         textItem(record, "版本", "version")

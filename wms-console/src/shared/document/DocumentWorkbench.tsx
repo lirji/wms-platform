@@ -12,10 +12,24 @@ import { StatusBanner } from "../ui/StatusBanner";
 import { StatusChip } from "../ui/StatusChip";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
+export type HeaderField = {
+  key: string;
+  label: string;
+  keys?: string[];
+  kind?: "id" | "status" | "text";
+  copyKind?: string;
+};
+
+const DEFAULT_HEADER: HeaderField[] = [
+  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+  { key: "id", label: "标识", keys: ["orderId", "id", "fulfillmentId", "transferId"], kind: "id", copyKind: "单据" },
+  { key: "version", label: "版本", keys: ["version"] }
+];
+
 const LINE_COLUMNS: Column[] = [
   { key: "id", label: "行", keys: ["id", "lineId", "orderLineId", "source_line_id", "external_line_id"], kind: "id", copyKind: "行" },
   { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-  { key: "status", label: "状态", keys: ["status", "state", "stock_sync_status"], kind: "status" },
+  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
   { key: "qty", label: "数量", qty: true, keys: ["expected_qty", "allocated_qty", "planned_qty", "requested_qty", "qty"] }
 ];
 
@@ -106,6 +120,8 @@ export function DocumentWorkbench({
   error,
   record,
   lineKeys = ["lines"],
+  headerFields = DEFAULT_HEADER,
+  lineColumns,
   extraColumns,
   commands,
   extra
@@ -118,6 +134,8 @@ export function DocumentWorkbench({
   error?: unknown;
   record: ItemRecord;
   lineKeys?: string[];
+  headerFields?: HeaderField[];
+  lineColumns?: Column[];
   extraColumns?: Column[];
   commands: ReactNode;
   extra?: ReactNode;
@@ -125,7 +143,7 @@ export function DocumentWorkbench({
   const { scopes } = useWorkspace();
   const [tick, setTick] = useState(0);
   const lines = nestedRecords(record, ...lineKeys);
-  const identifier = field(record, "orderId", "id", "fulfillmentId", "transferId");
+  const columns = lineColumns ?? [...LINE_COLUMNS, ...(extraColumns ?? [])];
   const tabs = useMemo(() => collectCommandTabs(commands, scopes), [commands, scopes]);
   void tick;
 
@@ -170,23 +188,28 @@ export function DocumentWorkbench({
         <Descriptions
           size="small"
           column={2}
-          items={[
-            { key: "status", label: "状态", children: field(record, "status", "state") ? <StatusChip value={field(record, "status", "state")} /> : "—" },
-            { key: "physical", label: "实物", children: field(record, "physicalStatus") ? <StatusChip value={field(record, "physicalStatus")} /> : "—" },
-            { key: "sync", label: "库存同步", children: field(record, "stockSyncStatus") ? <StatusChip value={field(record, "stockSyncStatus")} /> : "—" },
-            { key: "version", label: "版本", children: field(record, "version") || "—" },
-            { key: "id", label: "标识", children: identifier ? <CopyId value={identifier} kind="单据" /> : "—" }
-          ]}
+          items={headerFields.map((item) => {
+            const value = field(record, ...(item.keys ?? [item.key]));
+            let children: ReactNode = value || "—";
+            if (item.kind === "status" && value) {
+              children = <StatusChip value={value} />;
+            } else if (item.kind === "id" && value) {
+              children = <CopyId value={value} kind={item.copyKind || item.label} />;
+            }
+            return { key: item.key, label: item.label, children };
+          })}
         />
       </Card>
-      <Card title="明细">
-        <DataTable
-          caption="单据明细"
-          rows={lines}
-          columns={[...LINE_COLUMNS, ...(extraColumns ?? [])]}
-          emptyText="这张单还没有行"
-        />
-      </Card>
+      {columns.length > 0 ? (
+        <Card title="明细">
+          <DataTable
+            caption="单据明细"
+            rows={lines}
+            columns={columns}
+            emptyText="这张单还没有行"
+          />
+        </Card>
+      ) : null}
       {extra}
     </Space>
   );

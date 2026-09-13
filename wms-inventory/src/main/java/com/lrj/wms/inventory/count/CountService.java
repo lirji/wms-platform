@@ -388,6 +388,16 @@ public final class CountService {
         body.put("status", plan.get("status"));
         body.put("reasonCode", plan.get("reason_code"));
         body.put("approvalId", plan.get("approval_id"));
+        body.put("version", plan.get("version"));
+        // 范围来自已有 listScope；草稿尚无盘点行时仍能看见库位，不编造 SKU。
+        List<Map<String, Object>> locations = new ArrayList<>();
+        for (Map<String, Object> scope : counts.listScope(enterpriseId, warehouseId, String.valueOf(plan.get("id")))) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("locationId", scope.get("location_id"));
+            item.put("gateEpoch", scope.get("gate_epoch"));
+            locations.add(item);
+        }
+        body.put("locations", locations);
         List<Map<String, Object>> lines = new ArrayList<>();
         for (Map<String, Object> line : counts.listLines(enterpriseId, warehouseId, String.valueOf(plan.get("id")))) {
             lines.add(lineView(line));

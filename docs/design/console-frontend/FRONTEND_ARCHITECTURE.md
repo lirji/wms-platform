@@ -180,7 +180,7 @@ wms-console/src/
 | 扫描 | 输入 → 结果 → 历史；无侧栏 | 缩桌面壳当 PDA |
 | 状态 | 一条 `Alert`：401 会话，403 仓/权限 | 401/5xx 写成权限不足 |
 
-Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。顶栏展示仓与权限名，不展示 access_token。F6 已开通 42 项 scope，已登录会话须重新登录。
+Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。顶栏展示仓与权限名，不展示 access_token。作业员角色已开通全部 48 项公开契约 scope；已登录会话须重新登录才能拿到新 JWT。`serial.registry.*` / `recon.evidence` 进令牌不等于内部受信主体已放行。
 
 ## 9. 视口策略
 
@@ -303,7 +303,7 @@ Casdoor 令牌必须带作业 `scope` 以及 `warehouses` / `enterprise_id`。�
 
 ## 12. 未决
 
-F7 已落地。F-serial / F-202 / F-recovery / F-catalog 已接到现有命令弹层与任务页，不另起 IA。商品/库位/批次可点进公开 GET 详情。
+F7 已落地。F-serial / F-202 / F-recovery / F-catalog 已接到现有命令弹层与任务页，不另起 IA。商品/库位/批次可点进公开 GET 详情。单据详情头按各 GET 本域字段传入，不再默认画入库「实物 / 库存同步」。盘点行不编造 SKU；批次空时刻显示「未绑定」。
 
 仍 blocked / 不发明：
 

@@ -7,16 +7,37 @@ export function pageItems(payload: unknown): ItemRecord[] {
   return [];
 }
 
+function snakeOf(key: string): string {
+  if (!/[A-Z]/.test(key)) {
+    return key;
+  }
+  return key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+function readField(row: ItemRecord, key: string): string {
+  const value = row[key];
+  if (value == null || value === "") {
+    return "";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 export function field(row: ItemRecord, ...keys: string[]): string {
   for (const key of keys) {
-    const value = row[key];
-    if (value == null || value === "") {
-      continue;
+    const direct = readField(row, key);
+    if (direct) {
+      return direct;
     }
-    if (typeof value === "object") {
-      return JSON.stringify(value);
+    const snake = snakeOf(key);
+    if (snake !== key) {
+      const aliased = readField(row, snake);
+      if (aliased) {
+        return aliased;
+      }
     }
-    return String(value);
   }
   return "";
 }
@@ -65,10 +86,11 @@ export function withQuery(path: string, params: Record<string, string | undefine
 
 export function asOfMeta(payload: unknown): { asOf: string; lagSeconds: string; stale: boolean } {
   const record = payload && typeof payload === "object" ? payload as ItemRecord : {};
-  const lag = Number(record.lagSeconds ?? 0);
+  const lagSeconds = field(record, "lagSeconds");
+  const lag = Number(lagSeconds || 0);
   return {
     asOf: field(record, "asOf"),
-    lagSeconds: field(record, "lagSeconds"),
+    lagSeconds,
     stale: Number.isFinite(lag) && lag > 30
   };
 }

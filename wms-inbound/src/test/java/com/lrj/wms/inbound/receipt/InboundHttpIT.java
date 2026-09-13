@@ -97,6 +97,8 @@ class InboundHttpIT {
         HttpResponse<String> list = get("/api/wms/v1/warehouses/WH-A/inbound-orders", token);
         assertEquals(200, list.statusCode());
         assertTrue(list.body().contains("EXT-HTTP-1"));
+        assertTrue(list.body().contains("SKU-STD"));
+        assertTrue(list.body().contains("\"expected_qty\":\"10\""));
         HttpResponse<String> receipt = post("/api/wms/v1/warehouses/WH-A/inbound-orders/KEY-ASN-1/receipts", token,
                 "CMD-R1", "{\"lineId\":\"LINE-1\",\"qty\":\"4\",\"receiptPartId\":\"PART-1\"}");
         assertEquals(202, receipt.statusCode());

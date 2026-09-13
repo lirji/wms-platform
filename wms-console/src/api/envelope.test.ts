@@ -6,6 +6,8 @@ describe("envelope", () => {
     expect(pageItems({ items: [{ onHandQty: "12.000" }] })).toHaveLength(1);
     expect(qtyField({ onHandQty: "12.000" }, "onHandQty")).toBe("12.000");
     expect(field({ id: "WH-A" }, "id", "warehouseId")).toBe("WH-A");
+    expect(field({ sku_id: "SKU-STD", on_hand_qty: "120" }, "skuId")).toBe("SKU-STD");
+    expect(qtyField({ on_hand_qty: "120" }, "onHandQty")).toBe("120");
   });
 
   it("marks stale queries after 30s lag", () => {

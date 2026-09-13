@@ -441,6 +441,7 @@ public final class OutboundOrderService {
         body.put("allocationId", order.get("allocation_id"));
         body.put("attemptId", order.get("attempt_id"));
         body.put("executionAuthorizationId", order.get("execution_authorization_id"));
+        body.put("version", order.get("version"));
         return body;
     }
 

@@ -34,12 +34,23 @@ export function OutboundDetailPage() {
       loading={loading}
       error={error}
       record={record}
-      extraColumns={[
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "id", label: "出库单", keys: ["id", "orderId"], kind: "id", copyKind: "出库单" },
+        { key: "allocationId", label: "分配", keys: ["allocationId", "allocation_id"], kind: "id", copyKind: "分配" },
+        { key: "attemptId", label: "attempt", keys: ["attemptId", "attempt_id"], kind: "id", copyKind: "attempt" },
+        { key: "authorization", label: "执行授权", keys: ["executionAuthorizationId", "execution_authorization_id"], kind: "id", copyKind: "授权" },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[
+        { key: "id", label: "行", keys: ["id", "order_line_id", "orderLineId"], kind: "id", copyKind: "行" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
         { key: "allocated", label: "已分配", qty: true, keys: ["allocated_qty"] },
         { key: "picked", label: "已拣", qty: true, keys: ["picked_physical_qty"] },
         { key: "packed", label: "已包装", qty: true, keys: ["packed_physical_qty"] },
         { key: "shipped", label: "已发", qty: true, keys: ["shipped_physical_qty"] },
-        { key: "cancelled", label: "已取消", qty: true, keys: ["cancelled_qty"] }
+        { key: "cancelled", label: "已取消", qty: true, keys: ["cancelled_qty"] },
+        { key: "sync", label: "库存同步", keys: ["stock_sync_status", "stockSyncStatus"], kind: "status" }
       ]}
       extra={(
         <Space orientation="vertical" size={16} style={{ display: "flex" }}>

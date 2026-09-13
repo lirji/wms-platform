@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Checkbox, Form, Input } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
+import { nestedRecords } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
 import { SerialIdsField } from "../../shared/serial/SerialIdsField";
 import { countObservation, countText } from "../../shared/serial/serialIds";
+import { DataTable } from "../../shared/ui/DataTable";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
@@ -28,11 +30,33 @@ export function CountDetailPage() {
       loading={loading}
       error={error}
       record={record}
-      extraColumns={[
-        { key: "snapshot", label: "快照", qty: true, keys: ["snapshotQty", "snapshot_qty"] },
-        { key: "counted", label: "点数", qty: true, keys: ["countedQty", "counted_qty"] },
-        { key: "reserved", label: "预占", qty: true, keys: ["reservedQty", "reserved_qty"] }
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "id", label: "盘点计划", keys: ["id", "planId"], kind: "id", copyKind: "盘点计划" },
+        { key: "reason", label: "原因", keys: ["reasonCode", "reason_code"] },
+        { key: "approval", label: "审批", keys: ["approvalId", "approval_id"], kind: "id", copyKind: "审批" },
+        { key: "version", label: "版本", keys: ["version"] }
       ]}
+      lineColumns={[
+        { key: "id", label: "行", keys: ["id", "lineId"], kind: "id", copyKind: "行" },
+        { key: "location", label: "库位", keys: ["locationId", "location_id"], kind: "id", copyKind: "库位" },
+        { key: "balance", label: "余额", keys: ["balanceId", "balance_id"], kind: "id", copyKind: "余额" },
+        { key: "snapshot", label: "快照", qty: true, keys: ["snapshotQty", "snapshot_qty"] },
+        { key: "reserved", label: "预占", qty: true, keys: ["reservedQty", "reserved_qty"] },
+        { key: "counted", label: "点数", qty: true, keys: ["countedQty", "counted_qty"] },
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" }
+      ]}
+      extra={(
+        <DataTable
+          caption="盘点范围"
+          rows={nestedRecords(record, "locations", "scopes")}
+          emptyText="还没有范围库位"
+          columns={[
+            { key: "location", label: "库位", keys: ["locationId", "location_id"], kind: "id", copyKind: "库位" },
+            { key: "epoch", label: "围栏世代", keys: ["gateEpoch", "gate_epoch"] }
+          ]}
+        />
+      )}
       commands={(
         <>
           <CommandCol title="排空 / 冻结" requireScope="count.freeze">

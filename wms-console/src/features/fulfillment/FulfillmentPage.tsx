@@ -15,6 +15,13 @@ export function FulfillmentPage() {
         extra="tcc"
         sub="准备分配只创建 attempt。没有 TC 终态证据时，页面不会把单仓 Confirmed 写成整单成功。"
         empty="当前企业没有履约单"
+        columns={[
+          { key: "id", label: "标识", keys: ["id", "fulfillmentId"], kind: "id", copyKind: "单据" },
+          { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+          { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+          { key: "requestedQty", label: "数量", qty: true, keys: ["requestedQty", "requested_qty"] },
+          { key: "sourceOrderNo", label: "来源单号", keys: ["sourceOrderNo", "source_order_no"] }
+        ]}
         paths={ready ? ["/api/wms/v1/fulfillments"] : []}
         hrefFor={(row) => ready ? `/w/${warehouseId}/fulfillment/${recordId(row, "id", "fulfillmentId")}` : undefined}
         createLabel="创建履约单"
@@ -62,6 +69,14 @@ export function FulfillmentPage() {
         title="本仓出库"
         sub="次表面：拣、包装、部分发运、未拣取消回库在出库详情。"
         empty={`当前仓 ${warehouseId || "(未选)"} 没有出库单`}
+        columns={[
+          { key: "id", label: "标识", keys: ["id", "orderId"], kind: "id", copyKind: "单据" },
+          { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+          { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+          { key: "allocatedQty", label: "数量", qty: true, keys: ["allocatedQty", "allocated_qty"] },
+          { key: "pickedQty", label: "实物", qty: true, keys: ["pickedPhysicalQty", "picked_physical_qty"] },
+          { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus", "stock_sync_status"], kind: "status" }
+        ]}
         queryKey="oq"
         cursorKey="oc"
         paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/outbound-orders`] : []}

@@ -189,29 +189,41 @@
         AND (target_lot_id IS NULL OR target_lot_id=#{targetLotId})
     </update>
 
-    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <!-- listOrders：单头加首行摘要，供工作台展示 SKU/计划/已发/已收，不多行展开。 -->
+    <sql id="firstLineSelect">
+        SELECT o.id, o.source_warehouse_id, o.target_warehouse_id, o.status, o.version, o.created_at,
+               l.sku_id, l.planned_qty, l.issued_qty, l.received_qty
+        FROM transfer_order o
+        LEFT JOIN transfer_line l
+          ON l.enterprise_id=o.enterprise_id
+         AND l.transfer_id=o.id
+         AND l.id=(
+            SELECT MIN(x.id)
+            FROM transfer_line x
+            WHERE x.enterprise_id=o.enterprise_id
+              AND x.transfer_id=o.id
+         )
+    </sql>
     <select id="listOrdersPage" resultType="map">
-        SELECT id, source_warehouse_id, target_warehouse_id, status, version, created_at
-        FROM transfer_order
-        WHERE enterprise_id=#{enterpriseId}
+        <include refid="firstLineSelect"/>
+        WHERE o.enterprise_id=#{enterpriseId}
         <if test="page.id != null">
-            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+            AND (o.created_at &lt; #{page.time} OR (o.created_at = #{page.time} AND o.id &lt; #{page.id}))
         </if>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT #{page.fetchLimit}
     </select>
     <select id="listVisibleOrders" resultType="map">
-        SELECT id, source_warehouse_id, target_warehouse_id, status, version, created_at
-        FROM transfer_order
-        WHERE enterprise_id=#{enterpriseId}
+        <include refid="firstLineSelect"/>
+        WHERE o.enterprise_id=#{enterpriseId}
         <choose><when test="warehouses != null and !warehouses.isEmpty()">
-            AND (source_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>
-                OR target_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>)
+            AND (o.source_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>
+                OR o.target_warehouse_id IN <foreach collection="warehouses" item="warehouse" open="(" close=")" separator=",">#{warehouse}</foreach>)
         </when><otherwise>AND 1=0</otherwise></choose>
         <if test="page.id != null">
-            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+            AND (o.created_at &lt; #{page.time} OR (o.created_at = #{page.time} AND o.id &lt; #{page.id}))
         </if>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT #{page.fetchLimit}
     </select>
 </mapper>

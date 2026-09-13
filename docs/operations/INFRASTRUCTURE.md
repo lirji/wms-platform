@@ -47,6 +47,7 @@ Kafka 宿主端口映射到容器 `19092` 外部监听器，内部应用仍用 `
 | 序列号客户端 | `WMS_SERIAL_CLIENT_ENABLED=false` | 登记地址、令牌目录及受控只读挂载；本机 HTTP 仅显式允许 |
 | TC 审计 / 原生 RM | `WMS_TC_AUDIT_ENABLED=false`、`WMS_TCC_RM_ENABLED=false` | 原 TC 集群/分组、只读审计源、资源地址与网络隔离；见[RM 门禁](../implementation/RUNTIME_TCC_RM.md) |
 | 自动履约执行 | `WMS_FULFILLMENT_EXECUTION_ENABLED=false` | 消息和审计链路、固定 Cell 映射、企业范围、服务令牌目录及只读挂载；见[执行配置](../implementation/FULFILLMENT_EXECUTION.md) |
+| 本机服务令牌挂载 | Compose 将 `.local/service-tokens/recon` 与 `fulfillment` 只读挂进容器 | 目录由本机凭据控制器写入，不进仓库；打开采集/自动履约时必须有对应企业摘要 `.jwt` |
 | 数据库时间 | UTC 模板 | 新库时间策略；旧库来源证明与固定偏移审计，见[时间规范](../implementation/DATABASE_TIME.md) |
 
 仓库 `.gitignore` 排除 `.env` 与 `.local/`。本轮未收集真实账号密码，也未生成空的“私有密码手册”。实际凭据来源、负责人、轮换时间、生产地址/版本均待环境负责人核验；后续在受控凭据系统登记并用上述连接 ID 关联。

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Form, Input } from "antd";
+import { Form, Input, Space } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
-import { field } from "../../api/envelope";
+import { field, nestedRecords } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
+import { DataTable } from "../../shared/ui/DataTable";
 import { StatusBanner } from "../../shared/ui/StatusBanner";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
@@ -26,16 +27,50 @@ export function FulfillmentDetailPage() {
       loading={loading}
       error={error}
       record={record}
-      extra={(
-        <StatusBanner
-          kind="tcc"
-          title={`活动 attempt ${field(record, "activeAttemptId") || "尚未准备"}`}
-          detail={`attemptState=${attemptState || "无"} tcObservedStatus=${field(record, "tcObservedStatus") || "无"}`}
-        />
-      )}
-      extraColumns={[
-        { key: "requested", label: "请求数量", qty: true, keys: ["requested_qty", "requestedQty"] }
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "fulfillmentId", label: "履约单", keys: ["fulfillmentId", "id"], kind: "id", copyKind: "履约单" },
+        { key: "ownerId", label: "货主", keys: ["ownerId", "owner_id"], kind: "id", copyKind: "货主" },
+        { key: "sourceSystem", label: "来源系统", keys: ["sourceSystem", "source_system"] },
+        { key: "sourceOrderNo", label: "来源单号", keys: ["sourceOrderNo", "source_order_no"], kind: "id", copyKind: "来源单号" },
+        { key: "version", label: "版本", keys: ["version"] }
       ]}
+      lineColumns={[
+        { key: "id", label: "来源行", keys: ["source_line_id", "sourceLineId", "id"], kind: "id", copyKind: "行" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+        { key: "requested", label: "请求数量", qty: true, keys: ["requested_qty", "requestedQty"] },
+        { key: "unit", label: "单位", keys: ["base_unit", "baseUnit"] }
+      ]}
+      extra={(
+        <Space orientation="vertical" size={16} style={{ display: "flex" }}>
+          <StatusBanner
+            kind="tcc"
+            title={`活动 attempt ${field(record, "activeAttemptId") || "尚未准备"}`}
+            detail={`attemptState=${attemptState || "无"} tcObservedStatus=${field(record, "tcObservedStatus") || "无"}`}
+          />
+          <DataTable
+            caption="参与仓"
+            rows={nestedRecords(record, "participants")}
+            emptyText="还没有参与仓"
+            columns={[
+              { key: "warehouse", label: "仓", keys: ["warehouse_id", "warehouseId"], kind: "id", copyKind: "仓" },
+              { key: "status", label: "状态", keys: ["state", "status"], kind: "status" },
+              { key: "xid", label: "xid", keys: ["xid"] },
+              { key: "branch", label: "分支观察", keys: ["observed_branch_state", "observedBranchState"] }
+            ]}
+          />
+          <DataTable
+            caption="取消请求"
+            rows={nestedRecords(record, "cancellations")}
+            emptyText="没有取消请求"
+            columns={[
+              { key: "id", label: "取消", keys: ["id", "client_operation_id", "clientOperationId"], kind: "id", copyKind: "取消" },
+              { key: "status", label: "状态", keys: ["state", "status"], kind: "status" },
+              { key: "reason", label: "原因", keys: ["reason"] }
+            ]}
+          />
+        </Space>
+      )}
       commands={(
         <>
           <CommandCol title="准备跨仓分配" requireScope="fulfillment.execute">

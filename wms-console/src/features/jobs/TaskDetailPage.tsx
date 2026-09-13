@@ -36,6 +36,13 @@ export function TaskDetailPage() {
       loading={loading}
       error={error}
       record={record}
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "id", label: "仓任务", keys: ["id", "taskId"], kind: "id", copyKind: "仓任务" },
+        { key: "type", label: "类型", keys: ["taskType", "task_type"] },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[]}
       extra={(
         <DataTable
           rows={effects}

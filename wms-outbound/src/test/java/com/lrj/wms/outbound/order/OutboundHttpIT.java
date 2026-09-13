@@ -97,10 +97,16 @@ class OutboundHttpIT {
                         + "\"authorizationId\":\"AUTH-1\",\"lines\":[{\"orderLineId\":\"OL-1\",\"skuId\":\"SKU-STD\","
                         + "\"qty\":\"6\",\"baseUnit\":\"EA\"}]}");
         assertEquals(201, created.statusCode());
+        assertTrue(created.body().contains("\"version\""));
         String orderId = textBetween(created.body(), "\"id\":\"", "\"");
+        HttpResponse<String> detail = get("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId, token);
+        assertEquals(200, detail.statusCode(), detail.body());
+        assertTrue(detail.body().contains("\"version\""));
         HttpResponse<String> list = get("/api/wms/v1/warehouses/WH-A/outbound-orders", token);
         assertEquals(200, list.statusCode());
         assertTrue(list.body().contains("ALLOC-1"));
+        assertTrue(list.body().contains("SKU-STD"));
+        assertTrue(list.body().contains("\"allocated_qty\":\"6\""));
         assertTrue(created.body().contains("PENDING_AUTHORIZATION"));
         HttpResponse<String> unverified = post("/api/wms/v1/warehouses/WH-A/outbound-orders/" + orderId + "/pick-tasks",
                 token, "BARE-AUTH", "{\"orderLineId\":\"OL-1\",\"sourceLocationId\":\"LOC-P\",\"stagingLocationId\":\"LOC-S\",\"qty\":\"3\"}");

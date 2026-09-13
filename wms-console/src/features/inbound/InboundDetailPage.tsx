@@ -41,9 +41,21 @@ export function InboundDetailPage() {
       loading={loading}
       error={error}
       record={record}
-      extraColumns={[
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "orderId", label: "入库单", keys: ["orderId", "id"], kind: "id", copyKind: "入库单" },
+        { key: "ownerId", label: "货主", keys: ["ownerId", "owner_id"], kind: "id", copyKind: "货主" },
+        { key: "externalSource", label: "外部来源", keys: ["externalSource", "external_source"] },
+        { key: "externalNo", label: "外部单号", keys: ["externalNo", "external_no"], kind: "id", copyKind: "外部单号" },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[
+        { key: "id", label: "行", keys: ["id", "lineId"], kind: "id", copyKind: "行" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+        { key: "expected", label: "应收", qty: true, keys: ["expected_qty", "expectedQty"] },
         { key: "received", label: "已收实物", qty: true, keys: ["received_physical_qty"] },
-        { key: "putaway", label: "已上架", qty: true, keys: ["putaway_physical_qty"] }
+        { key: "putaway", label: "已上架", qty: true, keys: ["putaway_physical_qty"] },
+        { key: "sync", label: "库存同步", keys: ["stock_sync_status", "stockSyncStatus"], kind: "status" }
       ]}
       commands={(
         <>

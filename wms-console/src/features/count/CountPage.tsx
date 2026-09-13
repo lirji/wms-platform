@@ -13,6 +13,12 @@ export function CountPage() {
       title="盘点"
       sub="先建计划，再排空冻结、点数、复盘、审批、按行调整。"
       empty={`当前仓 ${warehouseId || "(未选)"} 没有盘点计划`}
+      columns={[
+        { key: "id", label: "标识", keys: ["id", "planId"], kind: "id", copyKind: "单据" },
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "reason", label: "原因", keys: ["reasonCode", "reason_code"] },
+        { key: "locationId", label: "库位", keys: ["locationId", "location_id"], kind: "id", copyKind: "库位" }
+      ]}
       paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/count-plans`] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/counts/${recordId(row, "id", "planId")}` : undefined}
       createLabel="创建计划"

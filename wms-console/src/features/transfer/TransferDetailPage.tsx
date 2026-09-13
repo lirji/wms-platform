@@ -2,12 +2,13 @@ import { FormEvent, useState } from "react";
 import { Button, Card, Form, Input } from "antd";
 import { useParams } from "react-router-dom";
 import { api } from "../../api/client";
-import { asRecord, field } from "../../api/envelope";
+import { asRecord, field, nestedRecords } from "../../api/envelope";
 import { CommandCard } from "../../shared/command/CommandCard";
 import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
 import { SerialChoiceQuery } from "../../shared/serial/SerialChoiceQuery";
 import { SerialExecutionField } from "../../shared/serial/SerialExecutionField";
 import { serialExecution } from "../../shared/serial/serialIds";
+import { DataTable } from "../../shared/ui/DataTable";
 import { errorBanner } from "../../shared/ui/errorBanner";
 import { useDocument } from "../../shared/useDocument";
 import { useWorkspace } from "../../shell/WorkspaceContext";
@@ -52,7 +53,16 @@ export function TransferDetailPage() {
       loading={loading}
       error={error}
       record={record}
-      extraColumns={[
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "transferId", label: "调拨单", keys: ["transferId", "id"], kind: "id", copyKind: "调拨单" },
+        { key: "source", label: "源仓", keys: ["sourceWarehouseId", "source_warehouse_id"], kind: "id", copyKind: "源仓" },
+        { key: "target", label: "目的仓", keys: ["targetWarehouseId", "target_warehouse_id"], kind: "id", copyKind: "目的仓" },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[
+        { key: "id", label: "行", keys: ["id", "lineId"], kind: "id", copyKind: "行" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
         { key: "planned", label: "计划", qty: true, keys: ["planned_qty"] },
         { key: "issued", label: "已发", qty: true, keys: ["issued_qty"] },
         { key: "received", label: "已收", qty: true, keys: ["received_qty"] },
@@ -60,6 +70,16 @@ export function TransferDetailPage() {
       ]}
       extra={(
         <>
+          <DataTable
+            caption="仓腿"
+            rows={nestedRecords(record, "legs")}
+            emptyText="还没有仓腿"
+            columns={[
+              { key: "warehouse", label: "仓", keys: ["warehouse_id", "warehouseId"], kind: "id", copyKind: "仓" },
+              { key: "role", label: "角色", keys: ["role"] },
+              { key: "status", label: "状态", keys: ["status", "state"], kind: "status" }
+            ]}
+          />
           {source === warehouseId || !source ? <SerialChoiceQuery kind="selectable" warehouseId={warehouseId} /> : null}
           <Card size="small" title="序列调拨命令" extra="Outbox 已发送不等于 COMPLETE。">
             <Form layout="inline" className="list-toolbar" onSubmitCapture={(event: FormEvent) => {

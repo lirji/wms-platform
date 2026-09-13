@@ -13,6 +13,14 @@ export function InboundPage() {
       title="入库工作台"
       sub="打开单据后做收货、质检、上架。库存同步看 stockSyncStatus。"
       empty={`当前仓 ${warehouseId || "(未选)"} 没有入库单`}
+      columns={[
+        { key: "id", label: "标识", keys: ["id", "orderId"], kind: "id", copyKind: "单据" },
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+        { key: "expectedQty", label: "数量", qty: true, keys: ["expectedQty", "expected_qty"] },
+        { key: "receivedQty", label: "实物", qty: true, keys: ["receivedPhysicalQty", "received_physical_qty"] },
+        { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus", "stock_sync_status"], kind: "status" }
+      ]}
       paths={ready ? [`/api/wms/v1/warehouses/${warehouseId}/inbound-orders`] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/inbound/${recordId(row, "id", "orderId")}` : undefined}
       createLabel="创建入库单"

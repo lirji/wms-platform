@@ -15,12 +15,12 @@ export function StockPage() {
       sub="数量按字符串展示，不在浏览器做发运量运算。打开一行查看流水。移库/限制/独立调整写库存域，不是盘点冻结。"
       empty={`当前仓 ${warehouseId || "(未选)"} 没有库存行`}
       columns={[
-        { key: "skuId", label: "SKU", keys: ["skuId"] },
-        { key: "lotId", label: "批次", keys: ["lotId"] },
-        { key: "onHandQty", label: "在手", qty: true, keys: ["onHandQty", "qty", "quantity"] },
-        { key: "reservedQty", label: "预占", qty: true, keys: ["reservedQty"] },
-        { key: "availableQty", label: "可用", qty: true, keys: ["availableQty"] },
-        { key: "qualityCode", label: "质量", keys: ["qualityCode"] }
+        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+        { key: "lotId", label: "批次", keys: ["lotId", "lot_id"] },
+        { key: "onHandQty", label: "在手", qty: true, keys: ["onHandQty", "on_hand_qty"] },
+        { key: "reservedQty", label: "预占", qty: true, keys: ["reservedQty", "reserved_qty"] },
+        { key: "claimQty", label: "执行占用", qty: true, keys: ["freeExecutionClaimQty", "free_execution_claim_qty"] },
+        { key: "qualityCode", label: "质量", keys: ["qualityCode", "quality_code"] }
       ]}
       paths={ready ? [`/api/wms/v1/inventory?warehouseIds=${encodeURIComponent(warehouseId)}`] : []}
       hrefFor={(row) => ready ? `/w/${warehouseId}/stock/${recordId(row)}` : undefined}

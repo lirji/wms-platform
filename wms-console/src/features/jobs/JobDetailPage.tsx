@@ -29,6 +29,12 @@ export function JobDetailPage() {
       loading={loading}
       error={error}
       record={record}
+      headerFields={[
+        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
+        { key: "id", label: "任务", keys: ["id", "jobId"], kind: "id", copyKind: "任务" },
+        { key: "version", label: "版本", keys: ["version"] }
+      ]}
+      lineColumns={[]}
       extra={(
         <DataTable
           rows={shards}

@@ -1,0 +1,91 @@
+{
+  "enterpriseId": "ENT-DEMO",
+  "ownerId": "OWNER-SELF",
+  "warehouses": ["WH-A", "WH-B"],
+  "volumePrinciple": "不是按表生成固定条数，而是按测试场景生成最小充分数据集。",
+  "volumeDefaults": {
+    "entity": "1~5, max 10",
+    "coreBusiness": "default <=100, not a hard cap",
+    "loadTest": ">1000 only when user asks"
+  },
+  "volumePlan": {
+    "notes": [
+      "官方 Seed* 入口类写入 DEMO 主数据与单据；本目录只追加 TESTFL 4 个头实体。",
+      "5 个 SKU 是不同策略（普通/批次/序列号/临期/过期），不是同类复制。",
+      "库位、批次、授权映射、单据行不计入核心 100 条配额。"
+    ],
+    "scenarios": {
+      "SCENE_001": { "inbound": 1, "stock": 1, "fulfillment": 1, "attempt": 1, "outbound": 1, "transfer": 1 },
+      "SCENE_002": { "sku": 2, "stock": 2 },
+      "SCENE_003": { "inbound": 1 },
+      "SCENE_004": { "sku": 1, "inbound": 1 },
+      "SCENE_005": { "outbound": 1 },
+      "SCENE_006": { "fulfillment": 1, "attempt": 1 },
+      "SCENE_007": { "countPlan": 1 },
+      "SCENE_008": { "extraRows": 0 }
+    },
+    "estimatedBusinessRecords": "见 init 结束时的实测 COUNT，不在此写死"
+  },
+  "notes": [
+    "SCENE_001 至 SCENE_003/007 来自官方 SeedLocal / SeedInbound / SeedOutbound / SeedFulfillment。",
+    "SCENE_004 至 SCENE_006 为 TESTFL 前缀补充行。",
+    "不写 Redis、不投 Kafka、不登记序列号实物。",
+    "OB-DEMO-ALLOC-* 的 ALLOCATED 只是出库单据状态，不是 TCC 整单成功。"
+  ],
+  "scenarios": [
+    {
+      "id": "SCENE_001",
+      "name": "standard-success",
+      "description": "WH-A 可收货入库单、可分配库存、履约 OPEN + attempt PLANNED、调拨 OPEN",
+      "ids": [
+        "INB-DEMO-OPEN-A",
+        "BAL-WH-A-STD-STO-GOOD",
+        "FF-DEMO-PLANNED",
+        "ATT-DEMO-PLANNED",
+        "OB-DEMO-ALLOC-A",
+        "TR-DEMO-AB"
+      ]
+    },
+    {
+      "id": "SCENE_002",
+      "name": "expiry-boundary",
+      "description": "临期 LOT-NEAR 与过期 HOLD 库存，代码按 quality_code/效期过滤",
+      "ids": ["SKU-NEAR", "SKU-EXPIRED", "BAL-WH-A-NEAR-STO-GOOD", "BAL-WH-A-EXP-STO-HOLD"]
+    },
+    {
+      "id": "SCENE_003",
+      "name": "inbound-receiving",
+      "description": "入库单已部分收货，可继续收货",
+      "ids": ["INB-DEMO-RCV-A"]
+    },
+    {
+      "id": "SCENE_004",
+      "name": "serial-without-stock",
+      "description": "SKU-SN 无开账库存；TESTFL 入库单可供收货后走登记",
+      "ids": ["SKU-SN", "TESTFL-INB-SN-A"]
+    },
+    {
+      "id": "SCENE_005",
+      "name": "outbound-pending-authorization",
+      "description": "出库单真实初始状态，尚无 execution_authorization_id",
+      "ids": ["TESTFL-OB-PENDING-A"]
+    },
+    {
+      "id": "SCENE_006",
+      "name": "fulfillment-deadline-passed",
+      "description": "PLANNED attempt 的 deadline 已过，执行 worker 不得启动",
+      "ids": ["TESTFL-FF-EXPIRED", "TESTFL-ATT-EXPIRED"]
+    },
+    {
+      "id": "SCENE_007",
+      "name": "draft-count",
+      "description": "草稿盘点，不排空不冻结门禁",
+      "ids": ["CNT-DEMO-DRAFT-WH-A"]
+    },
+    {
+      "id": "SCENE_008",
+      "name": "idempotent-replay",
+      "description": "重复执行 init-test-data.sh 不得因唯一键失败"
+    }
+  ]
+}

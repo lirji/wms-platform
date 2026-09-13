@@ -56,16 +56,28 @@
         AND id=#{planId}
     </select>
 
-    <!-- listPlans：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <!-- listPlans：计划头加首个范围库位。草稿尚无盘点行，不编造 SKU/数量。 -->
     <select id="listPlansPage" resultType="map">
-        SELECT id, status, reason_code, scope_version, approved_by, approval_id, version, created_at
-        FROM count_plan
-        WHERE enterprise_id=#{enterpriseId}
-        AND warehouse_id=#{warehouseId}
+        SELECT p.id, p.status, p.reason_code, p.scope_version, p.approved_by, p.approval_id, p.version, p.created_at,
+               s.location_id
+        FROM count_plan p
+        LEFT JOIN count_scope s
+          ON s.enterprise_id=p.enterprise_id
+         AND s.warehouse_id=p.warehouse_id
+         AND s.count_plan_id=p.id
+         AND s.location_id=(
+            SELECT MIN(x.location_id)
+            FROM count_scope x
+            WHERE x.enterprise_id=p.enterprise_id
+              AND x.warehouse_id=p.warehouse_id
+              AND x.count_plan_id=p.id
+         )
+        WHERE p.enterprise_id=#{enterpriseId}
+        AND p.warehouse_id=#{warehouseId}
         <if test="page.id != null">
-            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+            AND (p.created_at &lt; #{page.time} OR (p.created_at = #{page.time} AND p.id &lt; #{page.id}))
         </if>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY p.created_at DESC, p.id DESC
         LIMIT #{page.fetchLimit}
     </select>
 

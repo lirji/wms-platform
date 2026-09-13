@@ -103,4 +103,20 @@ describe("CatalogDetailPage", () => {
       "/w/WH-A/catalog/skus/SKU-EXPIRED"
     );
   });
+
+  it("shows 未绑定 when lot produced and expires instants are empty", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      id: "WH-A-LOT-STD",
+      owner_id: "OWNER-SELF",
+      sku_id: "SKU-LOT",
+      lot_code: "LOT-STD",
+      business_lot_key: "LOT-STD",
+      produced_at: null,
+      expires_at: null,
+      version: 1
+    }), { status: 200 })));
+    renderDetail("/w/WH-A/catalog/lots/WH-A-LOT-STD");
+    expect(await screen.findByRole("heading", { name: "批次 WH-A-LOT-STD" })).toBeTruthy();
+    expect(screen.getAllByText("未绑定").length).toBeGreaterThan(0);
+  });
 });

@@ -352,7 +352,16 @@ class MasterdataHttpIT {
             line=String.valueOf(((java.util.List<java.util.Map<String,Object>>)frozen.get("lines")).getFirst().get("id"));session.commit();
         }
         String path="/api/wms/v1/warehouses/"+w+"/count-plans/"+plan+"/observations";
-        String authorized=token("wms-ops",List.of(w),List.of("count.record"));
+        String authorized=token("wms-ops",List.of(w),List.of("count.record","count.read"));
+        var listed=get("/api/wms/v1/warehouses/"+w+"/count-plans",authorized);
+        assertEquals(200,listed.statusCode(),listed.body());
+        assertTrue(listed.body().contains(plan));
+        assertTrue(listed.body().contains(location));
+        var detail=get("/api/wms/v1/warehouses/"+w+"/count-plans/"+plan,authorized);
+        assertEquals(200,detail.statusCode(),detail.body());
+        assertTrue(detail.body().contains(location));
+        assertTrue(detail.body().contains("\"version\""));
+        assertTrue(detail.body().contains("\"locations\""));
         var json=com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
         String body=json.writeValueAsString(java.util.Map.of("lineId",line,"qty","1","roundNo",1,"serialObservation",java.util.Map.of("schemaVersion",1,"serialIds",List.of("count-a"))));
         assertEquals(403,postRecovery(path,token("wms-ops",List.of("WH-B"),List.of("count.record")),"COUNT-OBS",body).statusCode());

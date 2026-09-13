@@ -17,10 +17,10 @@ import { useWorkspace } from "../../shell/WorkspaceContext";
 const DEFAULT_COLUMNS: Column[] = [
   { key: "id", label: "标识", keys: ["id", "orderId", "planId", "jobId", "caseId"], kind: "id", copyKind: "单据" },
   { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-  { key: "skuId", label: "SKU", keys: ["skuId"], kind: "id", copyKind: "SKU" },
-  { key: "qty", label: "数量", qty: true, keys: ["qty", "quantity", "onHandQty", "reservedQty"] },
+  { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
+  { key: "qty", label: "数量", qty: true, keys: ["qty", "quantity", "onHandQty", "on_hand_qty", "expectedQty", "expected_qty"] },
   { key: "physicalStatus", label: "实物", keys: ["physicalStatus"], kind: "status" },
-  { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus"], kind: "status" }
+  { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus", "stock_sync_status"], kind: "status" }
 ];
 
 export function DocumentListPage({

@@ -316,15 +316,25 @@
         AND attempt_id=#{attemptId}
     </select>
 
-    <!-- listOrders：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+    <!-- listOrders：单头加首行摘要，供工作台展示 SKU/请求数量，不多行展开。 -->
     <select id="listOrdersPage" resultType="map">
-        SELECT id, owner_id, source_system, source_order_no, status, strategy_version, active_attempt_id, version, created_at
-        FROM fulfillment_order
-        WHERE enterprise_id=#{enterpriseId}
+        SELECT o.id, o.owner_id, o.source_system, o.source_order_no, o.status, o.strategy_version, o.active_attempt_id, o.version, o.created_at,
+               l.sku_id, l.requested_qty
+        FROM fulfillment_order o
+        LEFT JOIN fulfillment_line l
+          ON l.enterprise_id=o.enterprise_id
+         AND l.fulfillment_id=o.id
+         AND l.id=(
+            SELECT MIN(x.id)
+            FROM fulfillment_line x
+            WHERE x.enterprise_id=o.enterprise_id
+              AND x.fulfillment_id=o.id
+         )
+        WHERE o.enterprise_id=#{enterpriseId}
         <if test="page.id != null">
-            AND (created_at &lt; #{page.time} OR (created_at = #{page.time} AND id &lt; #{page.id}))
+            AND (o.created_at &lt; #{page.time} OR (o.created_at = #{page.time} AND o.id &lt; #{page.id}))
         </if>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY o.created_at DESC, o.id DESC
         LIMIT #{page.fetchLimit}
     </select>
 
