@@ -132,8 +132,8 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
         </Layout.Sider>
         <Layout>
           <Layout.Header className="app-header">
-            <Flex align="center" justify="space-between" gap={16}>
-              <Space size={10}>
+            <Flex className="app-header-row" align="center" justify="space-between" gap={16}>
+              <Space className="workspace-switcher" size={10}>
                 <ShopOutlined />
                 <Typography.Text type="secondary">作业仓</Typography.Text>
                 <Select
@@ -145,7 +145,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
                   onChange={changeWarehouse}
                 />
               </Space>
-              <Space size={12}>
+              <Space className="workspace-actions" size={12} wrap>
                 <Typography.Text type="secondary">本机 {clock} UTC</Typography.Text>
                 <Popover
                   title="当前令牌权限"
@@ -166,7 +166,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
                   </Button>
                 </Popover>
                 <Avatar style={{ background: wmsTokens.colorPrimary }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
-                <Typography.Text strong>{displayName}</Typography.Text>
+                <Typography.Text className="workspace-user" strong title={String(displayName)}>{displayName}</Typography.Text>
                 <Tooltip title="打开 PDA">
                   <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
                     打开 PDA

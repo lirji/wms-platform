@@ -121,4 +121,38 @@ describe("CommandCard", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 1200));
     expect(fetchMock.mock.calls.length).toBe(afterFirst);
   });
+
+  it.each(["success", "failure"])("isolates old %s and busy cleanup after changing operation", async (outcome) => {
+    let oldResolve: (value: unknown) => void = () => undefined;
+    let oldReject: (error: unknown) => void = () => undefined;
+    let newResolve: (value: unknown) => void = () => undefined;
+    const onDone = vi.fn();
+    const oldRun = vi.fn(() => new Promise((resolve, reject) => { oldResolve = resolve; oldReject = reject; }));
+    const newRun = vi.fn(() => new Promise((resolve) => { newResolve = resolve; }));
+    const view = (operation: string, onRun: typeof oldRun | typeof newRun) => <AppProviders>
+      <WorkspaceProvider value={{ token: "fixture", warehouseId: "WH-A", scopes: [] }}>
+        <CommandCard title="创建" hint="fixture" operation={operation} submitLabel="提交" onRun={onRun} onDone={onDone}>
+          <Form.Item label="单号" name="externalNo" initialValue="initial"><Input /></Form.Item>
+        </CommandCard>
+      </WorkspaceProvider>
+    </AppProviders>;
+    const rendered = render(view("create:WH-A", oldRun));
+    fireEvent.change(screen.getByLabelText(/单号/), { target: { value: "old-input" } });
+    fireEvent.click(screen.getByRole("button", { name: "提交" }));
+    await waitFor(() => expect(oldRun).toHaveBeenCalledTimes(1));
+    rendered.rerender(view("create:WH-B", newRun));
+    expect((screen.getByLabelText(/单号/) as HTMLInputElement).value).toBe("initial");
+    expect((screen.getByRole("button", { name: "提交" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "提交" }));
+    await waitFor(() => expect(newRun).toHaveBeenCalledTimes(1));
+    if (outcome === "success") oldResolve({ status: "OLD", __httpStatus: 201 });
+    else oldReject({ status: 409, message: "old-conflict" });
+    await Promise.resolve();
+    await waitFor(() => expect((screen.getByRole("button", { name: /提交/ }) as HTMLButtonElement).disabled).toBe(true));
+    expect(screen.queryByText("OLD")).toBeNull();
+    expect(screen.queryByText(/old-conflict/)).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
+    newResolve({ status: "NEW", __httpStatus: 201 });
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ status: "NEW", __httpStatus: 201 }));
+  });
 });

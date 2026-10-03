@@ -58,12 +58,31 @@ body {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.app-header {
+.app-shell .app-header {
   position: sticky;
   top: 0;
   z-index: 8;
   border-bottom: 1px solid var(--line);
   background: var(--card);
+  height: auto;
+  padding: 12px 24px;
+  line-height: 1.5;
+}
+
+/* 窄桌面的顶栏应随分组换行增高，避免文字挤成竖排并遮住页面入口。 */
+.app-header-row { flex-wrap: wrap; }
+.workspace-switcher { flex-shrink: 0; }
+.workspace-actions {
+  max-width: 100%;
+  margin-inline-start: auto;
+  justify-content: flex-end;
+}
+.workspace-actions .ant-space-item { white-space: nowrap; }
+.workspace-user {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-content {

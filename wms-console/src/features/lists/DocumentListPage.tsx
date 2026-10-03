@@ -35,6 +35,7 @@ export function DocumentListPage({
   createTitle,
   createHint,
   createScope,
+  clearFilterOnCreate,
   create,
   actions,
   queryKey = "q",
@@ -52,6 +53,7 @@ export function DocumentListPage({
   createTitle?: string;
   createHint?: string;
   createScope?: string | string[];
+  clearFilterOnCreate?: boolean;
   create?: ReactNode;
   actions?: ReactNode;
   queryKey?: string;
@@ -143,6 +145,7 @@ export function DocumentListPage({
           <div className="list-toolbar">
             {create && createLabel ? (
               <CommandDrawer
+                key={warehouseId}
                 triggerLabel={createLabel}
                 title={createTitle || createLabel}
                 hint={createHint}
@@ -150,7 +153,7 @@ export function DocumentListPage({
                 disabled={!token || !warehouseId || warehouseId === "_"}
                 onSubmitted={() => {
                   setTick((current) => current + 1);
-                  patch({ [cursorKey]: undefined });
+                  patch({ [cursorKey]: undefined, ...(clearFilterOnCreate ? { [queryKey]: undefined } : {}) });
                 }}
               >
                 {create}

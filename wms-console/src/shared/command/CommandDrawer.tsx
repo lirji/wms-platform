@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { Button, Modal } from "antd";
 import { hasScope } from "../../auth/can";
 import { useWorkspace } from "../../shell/WorkspaceContext";
-import { DirtyFormContext } from "./dirtyForm";
+import { CommandDialogContext, DirtyFormContext } from "./dirtyForm";
 
 /** 命令入口仍叫 Drawer，实际是居中弹层，避免右侧挤占密表。 */
 export function CommandDrawer({
@@ -29,30 +29,38 @@ export function CommandDrawer({
   const { scopes } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [contentVersion, setContentVersion] = useState(0);
+  const [modal, modalContext] = Modal.useModal();
   if (!hasScope(scopes, requireScope)) {
     return null;
   }
 
   function requestClose() {
+    if (busy) {
+      return;
+    }
     if (!dirty) {
       setOpen(false);
       return;
     }
-    Modal.confirm({
+    modal.confirm({
       title: "放弃未提交的内容？",
-      content: "弹层里的表单已改，关闭后不会保存。幂等键不会更换。",
+      content: "已填写的内容尚未成功提交。放弃后会清空本次输入。",
       okText: "放弃",
       cancelText: "继续编辑",
       centered: true,
       onOk: () => {
         setDirty(false);
         setOpen(false);
+        setContentVersion((current) => current + 1);
       }
     });
   }
 
   return (
     <>
+      {modalContext}
       <Button className="list-action" type={triggerType} disabled={disabled} onClick={() => setOpen(true)}>
         {triggerLabel}
       </Button>
@@ -60,6 +68,9 @@ export function CommandDrawer({
         title={title}
         open={open}
         onCancel={requestClose}
+        closable={!busy}
+        keyboard={!busy}
+        mask={{ closable: !busy }}
         footer={null}
         centered
         width={width}
@@ -67,15 +78,15 @@ export function CommandDrawer({
         styles={{ body: { maxHeight: "70vh", overflow: "auto" } }}
       >
         {hint ? <p className="command-dialog-hint">{hint}</p> : null}
+        {busy ? <p role="status">正在提交，请等待服务端结果后再关闭。</p> : null}
         <DirtyFormContext.Provider value={setDirty}>
-          <div
-            onSubmitCapture={() => {
-              setDirty(false);
-              onSubmitted?.();
-            }}
-          >
-            {children}
-          </div>
+          <CommandDialogContext.Provider value={{
+            submitted: () => onSubmitted?.(),
+            setBusy,
+            close: requestClose
+          }}>
+            <div key={contentVersion}>{children}</div>
+          </CommandDialogContext.Provider>
         </DirtyFormContext.Provider>
       </Modal>
     </>

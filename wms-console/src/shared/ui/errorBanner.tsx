@@ -30,6 +30,9 @@ export function errorBanner(error: unknown) {
     return <StatusBanner kind="error" title="找不到该记录" detail={[code, message].filter(Boolean).join(" · ")} />;
   }
   if (apiError?.status === 409) {
+    if (code === "DUPLICATE_DOCUMENT") {
+      return <StatusBanner kind="error" title="单据或明细行已存在" detail={[code, message, "请核对单号和行号后继续处理。"].filter(Boolean).join(" · ")} />;
+    }
     return <StatusBanner kind="conflict" title="版本冲突" detail={[code, message, "请确认最新记录后再提交，不会自动更换幂等键。"].filter(Boolean).join(" · ")} />;
   }
   if (apiError?.status === 422) {

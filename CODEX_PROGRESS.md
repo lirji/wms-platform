@@ -1,5 +1,19 @@
 # Codex Progress
 
+## 当前任务：前端修复本机 Docker 部署（2026-10-03）
+
+- 用户已授权部署刚完成试点的前端修复，目标为 desktop-linux 本机 wms-local 控制台，沿用真实 OIDC/Compose/现有数据卷和后端镜像。
+- 当前任务工作树：~/.local/share/git-worktrees/wms-platform/frontend-skill-pilot-20261003，分支 fix/frontend-inbound-recovery-docker，基线 7b79733；原 main 工作区的 Driver/文档/进度等无关修改保留，不夹带交付。
+- 前端10个源/测试文件与试点最终身份一致；15项隔离浏览器、36文件74项测试、类型检查/build/diff检查已通过。B列标题与A创建失败恢复按独立逻辑提交。
+- 本地部署门禁：相同源码的前端测试、实际Docker编译与镜像身份。Git main发布另核查本次远程console检查；历史基线Java CI失败记录，不宣称全仓CI已通过。
+- 进行中：构建带真实公开OIDC参数的不可变前端镜像，启动现有必要依赖，验证HTTP/SPA/反代/健康及浏览器登录入口。
+- 尚未完成：镜像/服务部署、实际访问smoke、正常Git发布与最终进度保存。无需新增中间件拓扑或修改正式后端/真实业务数据。
+- 回退：保留部署前console镜像sha256:26d410a7428111b462083cc2d09e2494c7e4ec6292e30b40b1a314dd445e5f94；若新console健康失败，用单服务image覆盖回退，不删卷、不停止其他项目。
+- 证据与最终部署记录：/Users/liruijun/outputs/wms-console-docker-20261003/。普通启停仍用根compose.yaml/deploy脚本。
+- 恢复：先读取上述本轮证据和实际Docker/Git状态，完成未完成动作；下列WMS历史业务目标与待办保持，不自动启动S9或Driver积压工作。
+
+## 以下为任务起点的 WMS 历史上下文
+
 ## 任务目标
 
 完成已批准 WMS v1 到 S9 与 50 项 AC。有限后端范围 OUT → WATERMARK → TRANSFER → TC → COMP → FINAL 已发布。控制台按已公开契约接线序列拣发/调拨、对账窗口、仓级 action-effects，以及 PDA 收/拣/发。
