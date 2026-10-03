@@ -17,7 +17,7 @@ export function InboundPage() {
         { key: "id", label: "标识", keys: ["id", "orderId"], kind: "id", copyKind: "单据" },
         { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
         { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-        { key: "expectedQty", label: "数量", qty: true, keys: ["expectedQty", "expected_qty"] },
+        { key: "expectedQty", label: "应收数量", qty: true, keys: ["expectedQty", "expected_qty"] },
         { key: "receivedQty", label: "实物", qty: true, keys: ["receivedPhysicalQty", "received_physical_qty"] },
         { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus", "stock_sync_status"], kind: "status" }
       ]}
