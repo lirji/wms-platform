@@ -1,0 +1,18 @@
+# 在根 compose.yaml 上叠加，专用于本机已构建控制台的发布，不另起基础设施。
+# 本机冷启动期间实测出现 JDBC 握手超时；10秒仍在 DatabaseBudget 允许范围内。
+services:
+  inbound:
+    environment:
+      WMS_RUNTIME_DB_CONNECTIONTIMEOUTMS: "10000"
+      WMS_RUNTIME_DB_CONNECTTIMEOUTMS: "10000"
+  outbound:
+    environment:
+      WMS_RUNTIME_DB_CONNECTIONTIMEOUTMS: "10000"
+      WMS_RUNTIME_DB_CONNECTTIMEOUTMS: "10000"
+  serial-registry:
+    environment:
+      WMS_RUNTIME_DB_CONNECTIONTIMEOUTMS: "10000"
+      WMS_RUNTIME_DB_CONNECTTIMEOUTMS: "10000"
+  console:
+    # 由实际 docker image inspect 解析的 sha256 引用，避免误部署可变标签。
+    image: ${WMS_CONSOLE_IMAGE:?set WMS_CONSOLE_IMAGE to the built immutable image ID}

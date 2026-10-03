@@ -2,15 +2,39 @@
 
 ## 当前任务：前端修复本机 Docker 部署（2026-10-03）
 
-- 用户已授权部署刚完成试点的前端修复，目标为 desktop-linux 本机 wms-local 控制台，沿用真实 OIDC/Compose/现有数据卷和后端镜像。
-- 当前任务工作树：~/.local/share/git-worktrees/wms-platform/frontend-skill-pilot-20261003，分支 fix/frontend-inbound-recovery-docker，基线 7b79733；原 main 工作区的 Driver/文档/进度等无关修改保留，不夹带交付。
-- 前端10个源/测试文件与试点最终身份一致；15项隔离浏览器、36文件74项测试、类型检查/build/diff检查已通过。B列标题与A创建失败恢复按独立逻辑提交。
-- 本地部署门禁：相同源码的前端测试、实际Docker编译与镜像身份。Git main发布另核查本次远程console检查；历史基线Java CI失败记录，不宣称全仓CI已通过。
-- 进行中：构建带真实公开OIDC参数的不可变前端镜像，启动现有必要依赖，验证HTTP/SPA/反代/健康及浏览器登录入口。
-- 尚未完成：镜像/服务部署、实际访问smoke、正常Git发布与最终进度保存。无需新增中间件拓扑或修改正式后端/真实业务数据。
-- 回退：保留部署前console镜像sha256:26d410a7428111b462083cc2d09e2494c7e4ec6292e30b40b1a314dd445e5f94；若新console健康失败，用单服务image覆盖回退，不删卷、不停止其他项目。
-- 证据与最终部署记录：/Users/liruijun/outputs/wms-console-docker-20261003/。普通启停仍用根compose.yaml/deploy脚本。
-- 恢复：先读取上述本轮证据和实际Docker/Git状态，完成未完成动作；下列WMS历史业务目标与待办保持，不自动启动S9或Driver积压工作。
+### 任务目标
+
+按用户后续授权，将 Claude 技能试点中验证的入库创建回执/失败恢复和应收数量列标题修复部署到 desktop-linux 本机 wms-local，保留原项目数据与无关工作。
+
+### 已完成
+
+- 复用现有任务 worktree，分支 fix/frontend-inbound-recovery-docker；前端源码分别提交 09f03e4、8e5dbe0。原项目 main 的 Driver/pom/文档/进度等用户改动保留。
+- 同版前端 15 项隔离浏览器、36 文件74项测试、类型/build 检查及远程 console CI 37109208184 通过。共享 Claude/Codex/Cursor 前端技能无需内容修补，原验收报告保留历史范围。
+- 核对222项本机已安装依赖与锁文件一致，使用真实公开 OIDC 参数编译并冻结43项静态资源。引擎停滞期间取消原容器编译；采用本机 tsc/Vite 编译及相同 Nginx digest 打包，没有修改永久 Dockerfile。
+- 用户授权重启 Docker Desktop。正常停止超时后对核实的 Docker 父进程发送 SIGTERM，再正常 start；现有镜像与数据卷保留。恢复了同次重启退出255、未自动恢复的4个原 auth-platform 容器。
+- 实际发布 console 镜像 sha256:4b80def5429ce60a59b1fba7092fd6cb298969cf1d2dc83d9db221372fac90c0，OCI revision 为8e5dbe0c262b93d286ab8aae2ff270feb251c626。控制台、5个后端与5个必要中间件全部 healthy，后端镜像保持原身份。
+- 56 项真实 HTTP 检查通过：入口/深链接/readiness/匿名业务401/OIDC discovery/43静态资源哈希；4项新上下文真实浏览器检查通过并已查看截图，登录按钮进入原 Casdoor 表单。没有模拟响应或注入身份。
+- 新增本机发布叠加配置：不可变 console image及 inbound/outbound/serial 的10秒连接预算；根拓扑、凭据、端口及数据归属沿用现状。部署说明同步，Compose配置/diff/文档结构检查通过。
+
+### 已修改文件
+
+- 本任务10个前端源/测试文件，见提交09f03e4、8e5dbe0。
+- deploy/compose.console-release.yml、deploy/README.md、本文件。
+
+### 未完成与验证限制
+
+- 当前 Docker 部署目标已完成；收尾按已授权的正常Git流程发布本任务到 origin/main，并将真实结果保存到下述外部报告。此记录随发布提交保存，不预先宣称 push 成功。
+- 整套 Java CI仍按实际远程状态记录，不能以 console job 成功宣称全仓CI通过；没有在本轮修改后端源码。
+- 未完成真实账号登录后的授权/创建/持久化验收，也未覆盖生产、真实用户观察或所有50项 AC。历史业务待办保持。
+
+### 当前问题与回退
+
+- 无阻止本机控制台部署的未解决故障。保留引擎停滞、初次等待失败和修复证据，不以最终成功覆盖失败历史。
+- 旧 console 镜像 sha256:26d410a7428111b462083cc2d09e2494c7e4ec6292e30b40b1a314dd445e5f94 保留；按 deploy/README.md 单服务回退。本轮 NOT_NEEDED，无删卷/清空数据。
+
+### 下一步与恢复 Prompt
+
+入口 http://127.0.0.1:18180/ 。最新实际 Git/CI/部署结果以 /Users/liruijun/outputs/wms-console-docker-20261003/REPORT.md 及 evidence/ 为准。恢复时先读取报告和当前 Git/Docker 状态，仅处理已记录收尾，不重新构建已部署镜像、不启动 S9/Driver 积压任务。任务 worktree 与冻结证据先保留，未经清理授权不删除。
 
 ## 以下为任务起点的 WMS 历史上下文
 

@@ -32,6 +32,27 @@ docker compose --env-file .env config --quiet
 
 只启动中间件、本机运行 JAR 的步骤见[本地运行手册](../docs/implementation/S0_RUNBOOK.md)。
 
+## 已构建控制台的本机发布
+
+[compose.console-release.yml](compose.console-release.yml) 是叠加在根 Compose 上的可选发布配置。它复用 `wms-local` 网络、端口和现有数据卷；`WMS_CONSOLE_IMAGE` 必须指定已检查的不可变镜像 ID。公开 OIDC 参数在编译阶段写入静态资源，不能靠容器启动环境变量替换。
+
+本机冷启动时曾出现 JDBC 连接/握手超时，因此此配置把 inbound、outbound、serial-registry 的 `wms.runtime.db.connectionTimeoutMs` 和 `connectTimeoutMs` 调为 10000 ms，仍在现有 `DatabaseBudget` 允许范围内。这个局部调整不代表容量或性能达标。Docker 引擎自身无响应时，先处理引擎状态；调整应用超时不能证明引擎已恢复。
+
+```bash
+# 常规构建仍用现有两阶段 Dockerfile，读取已有 .env 的公开 OIDC 参数
+docker compose --env-file .env build console
+export WMS_CONSOLE_IMAGE="$(docker image inspect wms-local-console --format '{{.Id}}')"
+docker compose -f compose.yaml -f deploy/compose.console-release.yml --env-file .env config --quiet
+# 应用这三个本机连接预算；其余服务和数据卷沿用现状
+docker compose -f compose.yaml -f deploy/compose.console-release.yml --env-file .env up -d --no-build --no-deps --wait --wait-timeout 180 inbound outbound serial-registry
+# 五个后端 readiness 通过后，单独发布控制台
+docker compose -f compose.yaml -f deploy/compose.console-release.yml --env-file .env up -d --no-build --no-deps --wait --wait-timeout 120 console
+```
+
+发布后确认 console 实际 image ID，检查 `/healthz`、SPA 深链接、四个 `/inbound-api/`、`/outbound-api/`、`/inventory-api/`、`/fulfillment-api/` readiness 反代以及 OIDC 登录跳转。匿名业务 API 应拒绝访问。登记服务没有控制台反代，直接检查其 18184 readiness。登录入口可用不等于已验证账号授权和真实业务写入。
+
+部署前保存旧 image ID。需要局部回退时，将 `WMS_CONSOLE_IMAGE` 设为该 ID，再运行上面的 console 单服务发布命令；保留数据卷和其他项目容器。
+
 ## 功能开关与初始化
 
 - 默认关闭各服务运行消息、序列号远程客户端、TC 审计、原生 RM 和自动履约执行。需要按[连接清单](../docs/operations/INFRASTRUCTURE.md)关联的专题文档准备 Topic/Cell 路由、网络边界和服务令牌，不能仅将开关全部改为 true。
@@ -39,4 +60,10 @@ docker compose --env-file .env config --quiet
 - `deploy/init/` 只在空 MySQL 数据卷首次执行。旧卷缺账号/schema 时需要显式迁移或初始化方案；业务表由 Flyway 维护。
 - 演示数据通过 `scripts/seed-local.sh --profile isolated-wms` 写入隔离数据库，需要明确提供 Cell A/B 和应用库凭据；不在页面写死业务数据。
 
-控制台入口为 `http://127.0.0.1:18180/`。本次文档核对未启动或登录环境；生产部署、真实设备、容量、备份恢复与全部 50 项 AC 均需独立证据。
+控制台入口为 `http://127.0.0.1:18180/`。
+
+2026-10-03 本机实测：控制台与五个后端、五个必要中间件均 healthy；56 项 HTTP 检查包含入口、深链接、五个 readiness、匿名真实业务路径的 401、OIDC discovery，以及 43 个已构建静态资源的逐项 SHA256。四项新浏览器上下文检查通过，实际跳转至 `http://localhost:8000` 的 Casdoor 登录表单。没有使用真实账号完成登录或创建业务单据。
+
+本轮前端源码为 `8e5dbe0c262b93d286ab8aae2ff270feb251c626`，console 镜像为 `sha256:4b80def5429ce60a59b1fba7092fd6cb298969cf1d2dc83d9db221372fac90c0`。Docker 引擎停滞时，原两阶段构建已取消；本次采用核对锁定依赖后的本机 tsc/Vite 编译，再将冻结静态资源装入相同 digest 的 Nginx 基础镜像。永久 Dockerfile 未改变；这次构建方法、资源清单及镜像身份单独保存于 `/Users/liruijun/outputs/wms-console-docker-20261003/`。
+
+Docker Desktop 经用户授权重启后，四个原先运行、但 restart policy 为 `no` 的 auth-platform 容器没有自动恢复；已按停止时间/退出状态核对并恢复原实例，未重建其配置或数据。旧 console 镜像保留，未执行回退。生产部署、真实业务写入、真实设备、容量、备份恢复与全部 50 项 AC 仍需独立证据。
