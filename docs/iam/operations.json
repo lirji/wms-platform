@@ -1,0 +1,758 @@
+{
+  "schema_version": "1",
+  "application": "wms",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/fulfillments",
+      "legacy_scope": "fulfillment.read",
+      "capability": "wms.fulfillment.read",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/fulfillments/{fulfillmentId}",
+      "legacy_scope": "fulfillment.read",
+      "capability": "wms.fulfillment.read",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/inventory",
+      "legacy_scope": "stock.read",
+      "capability": "wms.stock.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/jobs",
+      "legacy_scope": "job.read",
+      "capability": "wms.job.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/jobs/{jobId}",
+      "legacy_scope": "job.read",
+      "capability": "wms.job.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/operations/{operationId}",
+      "legacy_scope": "operation.read",
+      "capability": "wms.operation.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/reconciliation-cases",
+      "legacy_scope": "recon.read",
+      "capability": "wms.recon.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/reconciliation-snapshots/{snapshotId}",
+      "legacy_scope": "recon.read",
+      "capability": "wms.recon.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/skus",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/skus/{skuId}",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/skus/{skuId}/units",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/transfers",
+      "legacy_scope": "transfer.read",
+      "capability": "wms.transfer.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/transfers/{transferId}",
+      "legacy_scope": "transfer.read",
+      "capability": "wms.transfer.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/transfers/{transferId}/serial-commands/{commandId}",
+      "legacy_scope": "transfer.read",
+      "capability": "wms.transfer.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/action-effects",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/action-effects/{effectId}",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/adjustments",
+      "legacy_scope": "adjustment.read",
+      "capability": "wms.adjustment.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/adjustments/{adjustmentId}",
+      "legacy_scope": "adjustment.read",
+      "capability": "wms.adjustment.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans",
+      "legacy_scope": "count.read",
+      "capability": "wms.count.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}",
+      "legacy_scope": "count.read",
+      "capability": "wms.count.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inbound-orders",
+      "legacy_scope": "inbound.read",
+      "capability": "wms.inbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}",
+      "legacy_scope": "inbound.read",
+      "capability": "wms.inbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts",
+      "legacy_scope": "inbound.read",
+      "capability": "wms.inbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inventory/{balanceId}/ledger",
+      "legacy_scope": "stock.audit",
+      "capability": "wms.stock.audit",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/locations",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/locations/{locationId}",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/locations/{locationId}/gate",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/lots",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/lots/{lotId}",
+      "legacy_scope": "masterdata.read",
+      "capability": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages",
+      "legacy_scope": "messaging.read",
+      "capability": "wms.messaging.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders",
+      "legacy_scope": "outbound.read",
+      "capability": "wms.outbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}",
+      "legacy_scope": "outbound.read",
+      "capability": "wms.outbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shippable-serials",
+      "legacy_scope": "outbound.read",
+      "capability": "wms.outbound.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases",
+      "legacy_scope": "recon.read",
+      "capability": "wms.recon.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}",
+      "legacy_scope": "recon.read",
+      "capability": "wms.recon.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}",
+      "legacy_scope": "recon.read",
+      "capability": "wms.recon.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/serial-recoveries",
+      "legacy_scope": "messaging.read",
+      "capability": "wms.messaging.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/serial-stock",
+      "legacy_scope": "inventory.read",
+      "capability": "wms.inventory.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W04"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/action-effects",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/fulfillments",
+      "legacy_scope": "fulfillment.create",
+      "capability": "wms.fulfillment.create",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/fulfillments/{fulfillmentId}/attempts",
+      "legacy_scope": "fulfillment.execute",
+      "capability": "wms.fulfillment.execute.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/fulfillments/{fulfillmentId}/attempts/{attemptId}/executions",
+      "legacy_scope": "fulfillment.execute",
+      "capability": "wms.fulfillment.execute.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/fulfillments/{fulfillmentId}/cancellations",
+      "legacy_scope": "fulfillment.cancel",
+      "capability": "wms.fulfillment.cancel",
+      "resource_type": "wms_enterprise",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/jobs/{jobId}/retries",
+      "legacy_scope": "job.retry",
+      "capability": "wms.job.retry",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/reconciliation-cases/{id}/remediations",
+      "legacy_scope": "recon.remediate",
+      "capability": "wms.recon.remediate.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/reconciliation-snapshots",
+      "legacy_scope": "recon.export",
+      "capability": "wms.recon.export.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/skus",
+      "legacy_scope": "masterdata.write",
+      "capability": "wms.masterdata.write.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/skus/{skuId}/units",
+      "legacy_scope": "masterdata.write",
+      "capability": "wms.masterdata.write.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/transfers",
+      "legacy_scope": "transfer.create",
+      "capability": "wms.transfer.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/transfers/{transferId}/issues",
+      "legacy_scope": "transfer.create",
+      "capability": "wms.transfer.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/transfers/{transferId}/losses",
+      "legacy_scope": "stock.move",
+      "capability": "wms.stock.move",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/transfers/{transferId}/receipt-authorizations",
+      "legacy_scope": "transfer.authorizeReceipt",
+      "capability": "wms.transfer.authorize_receipt",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/transfers/{transferId}/serial-issues",
+      "legacy_scope": "transfer.create",
+      "capability": "wms.transfer.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses",
+      "legacy_scope": "masterdata.write",
+      "capability": "wms.masterdata.write.enterprise",
+      "resource_type": "wms_enterprise",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/action-effects",
+      "legacy_scope": "task.read",
+      "capability": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/action-effects/{effectId}/execution-attempts",
+      "legacy_scope": "task.claim",
+      "capability": "wms.task.claim",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/adjustments",
+      "legacy_scope": "adjustment.create",
+      "capability": "wms.adjustment.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/adjustments/{adjustmentId}/applications",
+      "legacy_scope": "adjustment.apply",
+      "capability": "wms.adjustment.apply",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/adjustments/{adjustmentId}/approvals",
+      "legacy_scope": "adjustment.approve",
+      "capability": "wms.adjustment.approve",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans",
+      "legacy_scope": "count.create",
+      "capability": "wms.count.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/applications",
+      "legacy_scope": "adjustment.apply",
+      "capability": "wms.adjustment.apply",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/approvals",
+      "legacy_scope": "adjustment.approve",
+      "capability": "wms.adjustment.approve",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/freeze-requests",
+      "legacy_scope": "count.freeze",
+      "capability": "wms.count.freeze",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/observations",
+      "legacy_scope": "count.record",
+      "capability": "wms.count.record",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/count-plans/{countPlanId}/reviews",
+      "legacy_scope": "count.record",
+      "capability": "wms.count.record",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inbound-orders",
+      "legacy_scope": "inbound.create",
+      "capability": "wms.inbound.create",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/inbound-orders/{inboundOrderId}/receipts",
+      "legacy_scope": "inbound.receive",
+      "capability": "wms.inbound.receive",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/locations",
+      "legacy_scope": "masterdata.write",
+      "capability": "wms.masterdata.write",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/lots",
+      "legacy_scope": "masterdata.write",
+      "capability": "wms.masterdata.write",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/message-queues/{queue}/messages/{messageId}/retries",
+      "legacy_scope": "messaging.recover",
+      "capability": "wms.messaging.recover",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/moves",
+      "legacy_scope": "stock.move",
+      "capability": "wms.stock.move",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders",
+      "legacy_scope": "fulfillment.execute",
+      "capability": "wms.fulfillment.execute",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/cancellations",
+      "legacy_scope": "outbound.pick",
+      "capability": "wms.outbound.pick",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/execution-authorizations",
+      "legacy_scope": "fulfillment.execute",
+      "capability": "wms.fulfillment.execute",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/packings",
+      "legacy_scope": "outbound.pack",
+      "capability": "wms.outbound.pack",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/pick-tasks",
+      "legacy_scope": "outbound.pick",
+      "capability": "wms.outbound.pick",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/outbound-orders/{outboundOrderId}/shipments",
+      "legacy_scope": "outbound.ship",
+      "capability": "wms.outbound.ship",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/quality-inspections/{inspectionId}/results",
+      "legacy_scope": "quality.inspect",
+      "capability": "wms.quality.inspect",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-cases/{caseId}/remediations",
+      "legacy_scope": "recon.remediate",
+      "capability": "wms.recon.remediate",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}",
+      "legacy_scope": "recon.export",
+      "capability": "wms.recon.export",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/cancellations",
+      "legacy_scope": "recon.remediate",
+      "capability": "wms.recon.remediate",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/reconciliation-windows/{cutoffId}/retries",
+      "legacy_scope": "recon.remediate",
+      "capability": "wms.recon.remediate",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/serial-recoveries/{intentId}/retries",
+      "legacy_scope": "messaging.recover",
+      "capability": "wms.messaging.recover",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/serial-transfer-receipts",
+      "legacy_scope": "transfer.receive",
+      "capability": "wms.transfer.receive",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/stock-holds",
+      "legacy_scope": "stock.hold",
+      "capability": "wms.stock.hold",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/stock-holds/{holdId}/releases",
+      "legacy_scope": "stock.releaseHold",
+      "capability": "wms.stock.release_hold",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/claims",
+      "legacy_scope": "task.claim",
+      "capability": "wms.task.claim",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/picks",
+      "legacy_scope": "outbound.pick",
+      "capability": "wms.outbound.pick",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/tasks/{taskId}/putaways",
+      "legacy_scope": "inbound.putaway",
+      "capability": "wms.inbound.putaway",
+      "resource_type": "wms_warehouse",
+      "slice": "W05"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wms/v1/warehouses/{warehouseId}/transfer-receipts",
+      "legacy_scope": "transfer.receive",
+      "capability": "wms.transfer.receive",
+      "resource_type": "wms_warehouse",
+      "slice": "W06"
+    }
+  ]
+}
