@@ -344,7 +344,9 @@ class OutboundHttpIT {
         assertEquals(400, post(path, trusted, "CUT", "{}").statusCode());
         var response = post(path, trusted, "CUT", body);
         assertEquals(200, response.statusCode(), response.body());
-        var proof = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(response.body());
+        var proof =
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.readTree(
+                        response.body());
         assertEquals("COMPLETE", proof.path("state").asString());
         assertEquals(0, proof.path("factCount").asInt());
         assertEquals(response.body(), post(path, trusted, "CUT-REPLAY", body).body());
@@ -354,7 +356,8 @@ class OutboundHttpIT {
                         .statusCode());
         var page = get(path + "/facts?cutoff=2026-09-12T00%3A00%3A00Z", trusted);
         assertEquals(200, page.statusCode(), page.body());
-        var facts = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(page.body());
+        var facts =
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.readTree(page.body());
         assertEquals("wms-outbound", facts.path("sourceService").asString());
         assertEquals(proof.path("digest"), facts.path("digest"));
         assertTrue(facts.path("facts").isEmpty());

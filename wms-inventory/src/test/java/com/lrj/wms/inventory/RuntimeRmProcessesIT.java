@@ -14,7 +14,7 @@ import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.*;

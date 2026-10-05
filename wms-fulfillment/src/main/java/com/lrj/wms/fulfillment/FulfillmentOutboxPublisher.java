@@ -1,9 +1,9 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.runtime.messaging.AllocationAuthorizationMessage;
-import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.protocol.AllocationAuthorizationMessage;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

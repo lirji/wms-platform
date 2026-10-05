@@ -523,7 +523,8 @@ public final class CountService {
         if (counted.compareTo(BigDecimal.valueOf(input.serialIds().size())) != 0)
             throw new InventoryException("SERIAL_QTY_MISMATCH", "点数必须等于完整实见身份数");
         String inputJson =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(input);
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.writeValueAsString(
+                        input);
         Map<String, Object> observation =
                 persistObservation(
                         enterpriseId,
@@ -695,11 +696,11 @@ public final class CountService {
             if (serialInput != null
                             && (!"SERIAL".equals(existing.get("observation_kind"))
                                     || stored == null
-                                    || !com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                                    || !com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                                             .readTree(serialInput)
                                             .equals(
-                                                    com.lrj.wms.runtime.messaging.RuntimeMessage
-                                                            .JSON
+                                                    com.lrj.wms.runtime.messaging.protocol
+                                                            .RuntimeMessage.JSON
                                                             .readTree(stored.toString())))
                     || serialInput == null
                             && ("SERIAL".equals(existing.get("observation_kind"))

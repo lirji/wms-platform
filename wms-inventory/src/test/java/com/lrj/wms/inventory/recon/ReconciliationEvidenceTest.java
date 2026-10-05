@@ -3,10 +3,10 @@ package com.lrj.wms.inventory.recon;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
-import com.lrj.wms.runtime.messaging.SourceWindowService;
-import com.lrj.wms.runtime.messaging.SourceWindowService.Fact;
-import com.lrj.wms.runtime.messaging.SourceWindowService.Page;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService.Fact;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService.Page;
 
 import org.junit.jupiter.api.Test;
 

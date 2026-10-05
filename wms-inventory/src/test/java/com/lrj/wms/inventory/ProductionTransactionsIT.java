@@ -35,7 +35,7 @@ class ProductionTransactionsIT {
             new ApplicationContextRunner()
                     .withUserConfiguration(
                             InventoryPersistence.class,
-                            com.lrj.wms.runtime.RuntimeAutoConfiguration.class)
+                            com.lrj.wms.runtime.configuration.RuntimeAutoConfiguration.class)
                     .withPropertyValues(
                             "wms.inventory.datasource.url=" + mysql.getJdbcUrl(),
                             "wms.inventory.datasource.username=" + mysql.getUsername(),

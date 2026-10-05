@@ -174,18 +174,19 @@ class FulfillmentLaunchIT {
             var evidence =
                     new TcStatusPort.Observation(
                             "Rollbacked",
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                    Map.of(
-                                            "xid",
-                                            "xid-empty",
-                                            "status",
-                                            11,
-                                            "clusterId",
-                                            "fixture",
-                                            "applicationId",
-                                            "wms-fulfillment",
-                                            "transactionGroup",
-                                            "fixture-group")));
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                    .writeValueAsString(
+                                            Map.of(
+                                                    "xid",
+                                                    "xid-empty",
+                                                    "status",
+                                                    11,
+                                                    "clusterId",
+                                                    "fixture",
+                                                    "applicationId",
+                                                    "wms-fulfillment",
+                                                    "transactionGroup",
+                                                    "fixture-group")));
             Map<String, Object> cleaned =
                     service.cleanupEmptyLaunch("ENT-CL", emptyId, evidence, scope);
             assertEquals(cleaned, service.cleanupEmptyLaunch("ENT-CL", emptyId, evidence, scope));

@@ -2,7 +2,7 @@ package com.lrj.wms.inventory.serial;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.sun.net.httpserver.HttpServer;
 
 import org.junit.jupiter.api.Test;

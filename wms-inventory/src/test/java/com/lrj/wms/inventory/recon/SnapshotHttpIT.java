@@ -121,7 +121,7 @@ class SnapshotHttpIT {
             tokenDirectory = java.nio.file.Files.createTempDirectory("reconciliation-http-it-");
             java.nio.file.Files.writeString(
                     tokenDirectory.resolve(
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
                                             SeedCatalog.ENTERPRISE)
                                     + ".jwt"),
                     "fixture.service.jwt");
@@ -148,7 +148,7 @@ class SnapshotHttpIT {
         try {
             java.nio.file.Files.deleteIfExists(
                     tokenDirectory.resolve(
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
                                             SeedCatalog.ENTERPRISE)
                                     + ".jwt"));
             java.nio.file.Files.deleteIfExists(tokenDirectory);
@@ -293,8 +293,8 @@ class SnapshotHttpIT {
                 post(
                         "/api/wms/v1/reconciliation-snapshots",
                         token(List.of("WH-B")),
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                request));
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                .writeValueAsString(request));
         assertEquals(202, exported.statusCode(), exported.body());
         assertTrue(exported.body().contains("\"state\":\"COMPLETE\""), exported.body());
     }
@@ -318,16 +318,17 @@ class SnapshotHttpIT {
                                                     .getRawQuery()
                                                     .substring("cutoff=".length()),
                                             java.nio.charset.StandardCharsets.UTF_8)
-                                    : com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                                    : com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                                             .readTree(exchange.getRequestBody().readAllBytes())
                                             .path("cutoff")
                                             .asString();
                     String digest =
-                            com.lrj.wms.runtime.messaging.SourceWindowService.initialDigest(
+                            com.lrj.wms.runtime.messaging.window.SourceWindowService.initialDigest(
                                     source, SeedCatalog.ENTERPRISE, w, id, Instant.parse(cutoff));
                     Object body =
                             page
-                                    ? new com.lrj.wms.runtime.messaging.SourceWindowService.Page(
+                                    ? new com.lrj.wms.runtime.messaging.window.SourceWindowService
+                                            .Page(
                                             1,
                                             source,
                                             SeedCatalog.ENTERPRISE,
@@ -358,8 +359,8 @@ class SnapshotHttpIT {
                                             "digest",
                                             digest);
                     byte[] bytes =
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsBytes(
-                                    body);
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                    .writeValueAsBytes(body);
                     exchange.getResponseHeaders().set("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, bytes.length);
                     try (var out = exchange.getResponseBody()) {

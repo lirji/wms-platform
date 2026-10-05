@@ -7,7 +7,7 @@ import com.lrj.wms.inventory.inventory.StockCommandService;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

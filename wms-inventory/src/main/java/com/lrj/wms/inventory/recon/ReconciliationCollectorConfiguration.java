@@ -1,6 +1,6 @@
 package com.lrj.wms.inventory.recon;
 
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

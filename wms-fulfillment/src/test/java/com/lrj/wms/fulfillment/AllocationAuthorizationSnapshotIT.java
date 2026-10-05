@@ -2,8 +2,8 @@ package com.lrj.wms.fulfillment;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.runtime.messaging.AllocationAuthorizationMessage;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.AllocationAuthorizationMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;
@@ -50,7 +50,8 @@ class AllocationAuthorizationSnapshotIT {
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(FulfillmentMapper.class);
         config.addMapper(AllocationRecoveryMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.recovery.persistence.MessageRecoveryMapper.class);
         config.addMapper(FulfillmentCancelMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
@@ -275,10 +276,12 @@ class AllocationAuthorizationSnapshotIT {
                 "UPDATE fulfillment_outbox SET status='ISOLATED',claim_epoch=9,error_code='RETRY_EXHAUSTED' WHERE event_id=?",
                 event);
         var recovery =
-                new com.lrj.wms.runtime.messaging.MessageRecoveryService(
+                new com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService(
                         sessions,
-                        com.lrj.wms.runtime.messaging.MessageQueueMetrics.Queue.FULFILLMENT_OUTBOX,
-                        new com.lrj.wms.runtime.messaging.RuntimeInbox(sessions, Map.of(), CLOCK),
+                        com.lrj.wms.runtime.messaging.observability.MessageQueueMetrics.Queue
+                                .FULFILLMENT_OUTBOX,
+                        new com.lrj.wms.runtime.messaging.inbox.RuntimeInbox(
+                                sessions, Map.of(), CLOCK),
                         CLOCK);
         recovery.retry(
                 "ENT-BARRIER", "WH-A", "OUTBOX", event, "RETRY-AUTH", 9, "检查原授权后重排", "operator");
@@ -311,7 +314,8 @@ class AllocationAuthorizationSnapshotIT {
         assertEquals(
                 "MESSAGE_NOT_REPLAYABLE",
                 assertThrows(
-                                com.lrj.wms.runtime.messaging.MessageRecoveryException.class,
+                                com.lrj.wms.runtime.messaging.recovery.MessageRecoveryException
+                                        .class,
                                 () ->
                                         recovery.retry(
                                                 "ENT-BARRIER",

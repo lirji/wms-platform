@@ -1,10 +1,10 @@
 package com.lrj.wms.inventory.messaging;
 
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
-import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.RuntimeInbox;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.inbox.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.kafka.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

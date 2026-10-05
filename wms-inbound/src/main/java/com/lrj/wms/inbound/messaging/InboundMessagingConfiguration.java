@@ -2,16 +2,16 @@ package com.lrj.wms.inbound.messaging;
 
 import com.lrj.wms.inbound.protocol.SourceMapper;
 import com.lrj.wms.inbound.receipt.InboundReceiptService;
-import com.lrj.wms.runtime.messaging.KafkaDependencyHealth;
-import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
-import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
-import com.lrj.wms.runtime.messaging.KafkaSettings;
-import com.lrj.wms.runtime.messaging.MessageQueueMetrics;
-import com.lrj.wms.runtime.messaging.MessageRecoveryService;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.MessageWorker;
-import com.lrj.wms.runtime.messaging.RuntimeInbox;
-import com.lrj.wms.runtime.messaging.SourceOutboxPublisher;
+import com.lrj.wms.runtime.messaging.inbox.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.kafka.KafkaDependencyHealth;
+import com.lrj.wms.runtime.messaging.kafka.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
+import com.lrj.wms.runtime.messaging.observability.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.outbox.SourceOutboxPublisher;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.worker.MessageWorker;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

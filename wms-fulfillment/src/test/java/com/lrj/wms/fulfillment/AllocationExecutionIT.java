@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.contract.tcc.WarehouseTryResult;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;
@@ -249,7 +249,7 @@ class AllocationExecutionIT {
         for (String warehouse : List.of("A", "B")) {
             try (var session = sessions.openSession(false)) {
                 var payload =
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.valueToTree(
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.valueToTree(
                                 Map.of(
                                         "schemaVersion",
                                         1,
@@ -264,7 +264,7 @@ class AllocationExecutionIT {
                                         "executedQty",
                                         BigDecimal.ZERO));
                 var result =
-                        new com.lrj.wms.runtime.messaging.RuntimeMessage(
+                        new com.lrj.wms.runtime.messaging.protocol.RuntimeMessage(
                                 1,
                                 "RESULT-" + warehouse,
                                 "wms-outbound",

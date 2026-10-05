@@ -110,7 +110,7 @@ class OutboundProtocolIT {
             assertEquals("CMD-P1", closed.get("commandId"));
             assertNotNull(closed.get("safeCloseRef"));
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    com.lrj.wms.runtime.messaging.protocol.MessageRejectedException.class,
                     () ->
                             service.consumeResult(
                                     "ENT-1",
@@ -133,7 +133,7 @@ class OutboundProtocolIT {
                             "CMD-P1");
             assertEquals("CMD-P2", next.get("commandId"));
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    com.lrj.wms.runtime.messaging.protocol.MessageRejectedException.class,
                     () ->
                             service.consumeResult(
                                     "ENT-1",

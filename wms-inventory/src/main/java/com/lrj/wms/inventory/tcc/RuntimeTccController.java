@@ -60,7 +60,7 @@ public class RuntimeTccController {
                 throw new IllegalArgumentException("Try数量或效期类型无效");
         }
         WarehouseTryRequest request =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.treeToValue(
                         body, WarehouseTryRequest.class);
         if (!"wms-fulfillment".equals(jwt.getSubject())
                 || !WmsJwtAuthorities.enterpriseId(jwt).equals(request.enterpriseId()))

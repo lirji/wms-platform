@@ -5,8 +5,8 @@ import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.*;
 

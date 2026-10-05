@@ -10,8 +10,8 @@ import com.lrj.wms.inventory.tcc.InventoryTccFence;
 import com.lrj.wms.inventory.tcc.RuntimeTccCoordinator;
 import com.lrj.wms.inventory.tcc.TcTerminalService;
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.seata.rm.tcc.api.*;

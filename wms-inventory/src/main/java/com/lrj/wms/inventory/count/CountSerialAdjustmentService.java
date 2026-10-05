@@ -6,7 +6,7 @@ import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
 import com.lrj.wms.inventory.serial.LocalSerialMapper;
 import com.lrj.wms.inventory.serial.SerialCountRegistryPort;
 import com.lrj.wms.inventory.serial.SerialRecoveryService;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

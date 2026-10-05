@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dockerjava.api.model.*;
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
-import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
-import com.lrj.wms.runtime.messaging.KafkaSettings;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.*;

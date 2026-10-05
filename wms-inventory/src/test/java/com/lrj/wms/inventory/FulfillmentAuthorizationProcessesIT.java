@@ -6,9 +6,9 @@ import com.lrj.wms.fulfillment.AllocationRecoveryMapper;
 import com.lrj.wms.fulfillment.FulfillmentMapper;
 import com.lrj.wms.fulfillment.FulfillmentService;
 import com.lrj.wms.fulfillment.TcEvidenceScope;
-import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
-import com.lrj.wms.runtime.messaging.KafkaSettings;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;

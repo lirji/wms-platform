@@ -1,8 +1,8 @@
 package com.lrj.wms.inventory.recon;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
-import com.lrj.wms.runtime.messaging.SourceWindowService;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;

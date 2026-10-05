@@ -2,7 +2,7 @@ package com.lrj.wms.fulfillment;
 
 import static com.lrj.wms.fulfillment.AllocationExecutionService.*;
 
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

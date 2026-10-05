@@ -501,7 +501,7 @@ class TcAuditRecoveryIT {
     private static TcStatusPort.Observation evidence(String xid) {
         return new TcStatusPort.Observation(
                 "Committed",
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.writeValueAsString(
                         Map.of(
                                 "xid",
                                 xid,

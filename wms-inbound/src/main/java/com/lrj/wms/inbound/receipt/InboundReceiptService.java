@@ -350,7 +350,7 @@ public final class InboundReceiptService {
                         "HOLD",
                         null,
                         null);
-        new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session)
+        new com.lrj.wms.runtime.messaging.outbox.SourceCommandContextStore(session)
                 .bindReceipt(
                         enterpriseId,
                         warehouseId,
@@ -389,7 +389,8 @@ public final class InboundReceiptService {
         new SourceProtocolService(session, clock)
                 .requireResultFact(enterpriseId, warehouseId, commandId, "RECEIVE", lineId);
         if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
+                    "RESULT_FACT_MISSING");
         }
         Map<String, Object> result =
                 new SourceProtocolService(session, clock)
@@ -575,13 +576,13 @@ public final class InboundReceiptService {
                     || !orderId.equals(receipt.get("order_id")))
                 throw new InboundException("UNKNOWN_RECEIPT_BATCH", "收货批次不属于该入库单行");
             var payload =
-                    com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(
+                    com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.readTree(
                             String.valueOf(receipt.get("payload_json")));
             if (payload.hasNonNull("serialObservation")) {
                 if (selection == null)
                     throw new InboundException("SERIAL_SELECTION_REQUIRED", "序列号上架必须明确所选身份");
                 var observed =
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.treeToValue(
                                 payload.path("serialObservation"),
                                 com.lrj.wms.contract.serial.observation.SerialReceiptObservation
                                         .class);
@@ -592,7 +593,7 @@ public final class InboundReceiptService {
             if (!payload.hasNonNull("postingContext"))
                 throw new InboundException("MISSING_POSTING_CONTEXT", "原收货缺少库存维度");
             var original =
-                    com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(
+                    com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.treeToValue(
                             payload.path("postingContext"),
                             com.lrj.wms.contract.inventory.StockPostingContext.class);
             original.requireForAction("RECEIVE");
@@ -636,7 +637,7 @@ public final class InboundReceiptService {
             if (batchContext != null) {
                 if (task.get("receipt_command_id") == null)
                     throw new InboundException("MISSING_POSTING_CONTEXT", "历史任务没有可信批次绑定");
-                new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session)
+                new com.lrj.wms.runtime.messaging.outbox.SourceCommandContextStore(session)
                         .bindPutaway(
                                 enterpriseId,
                                 warehouseId,
@@ -758,7 +759,7 @@ public final class InboundReceiptService {
             }
         }
         if (batchContext != null)
-            new com.lrj.wms.runtime.messaging.SourceCommandContextStore(session)
+            new com.lrj.wms.runtime.messaging.outbox.SourceCommandContextStore(session)
                     .bindPutaway(
                             enterpriseId,
                             warehouseId,
@@ -785,7 +786,8 @@ public final class InboundReceiptService {
         new SourceProtocolService(session, clock)
                 .requireResultFact(enterpriseId, warehouseId, commandId, "PUTAWAY", lineId);
         if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
+                    "RESULT_FACT_MISSING");
         }
         Map<String, Object> result =
                 new SourceProtocolService(session, clock)

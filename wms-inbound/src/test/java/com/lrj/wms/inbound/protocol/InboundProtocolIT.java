@@ -156,7 +156,7 @@ class InboundProtocolIT {
             assertNotEquals(first.get("effectId"), secondPart.get("effectId"));
             service.safeClose("ENT-1", "WH-A", "CMD-F1");
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    com.lrj.wms.runtime.messaging.protocol.MessageRejectedException.class,
                     () ->
                             service.consumeResult(
                                     "ENT-1",
@@ -179,7 +179,7 @@ class InboundProtocolIT {
                             "CMD-F1");
             assertEquals("CMD-F4", next.get("commandId"));
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    com.lrj.wms.runtime.messaging.protocol.MessageRejectedException.class,
                     () ->
                             service.consumeResult(
                                     "ENT-1",

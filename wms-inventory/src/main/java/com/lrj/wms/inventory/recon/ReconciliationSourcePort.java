@@ -1,6 +1,6 @@
 package com.lrj.wms.inventory.recon;
 
-import com.lrj.wms.runtime.messaging.SourceWindowService.Page;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService.Page;
 
 import java.time.Instant;
 

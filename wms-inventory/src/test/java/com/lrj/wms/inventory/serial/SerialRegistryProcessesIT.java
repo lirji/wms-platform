@@ -10,7 +10,7 @@ import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.*;

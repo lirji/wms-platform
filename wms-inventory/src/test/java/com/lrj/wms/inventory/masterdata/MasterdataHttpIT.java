@@ -339,7 +339,7 @@ class MasterdataHttpIT {
     @Test
     void serialRecoveryRequiresWarehouseScopeAndAtomicAuditedRequeue() throws Exception {
         var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
-        var json = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        var json = com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON;
         var now = java.sql.Timestamp.from(Instant.parse("2026-09-12T01:02:03.123456Z"));
         for (int n = 1; n <= 2; n++)
             jdbc.update(
@@ -650,7 +650,7 @@ class MasterdataHttpIT {
         assertTrue(detail.body().contains(location));
         assertTrue(detail.body().contains("\"version\""));
         assertTrue(detail.body().contains("\"locations\""));
-        var json = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        var json = com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON;
         String body =
                 json.writeValueAsString(
                         java.util.Map.of(

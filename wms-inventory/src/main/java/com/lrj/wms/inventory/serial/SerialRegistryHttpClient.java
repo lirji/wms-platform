@@ -1,6 +1,6 @@
 package com.lrj.wms.inventory.serial;
 
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.lrj.wms.runtime.web.AdmissionBudget;
 import com.lrj.wms.runtime.web.AdmissionGate;
 

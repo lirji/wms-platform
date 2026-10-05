@@ -1,8 +1,8 @@
 package com.lrj.wms.outbound.order;
 
 import com.lrj.wms.contract.inventory.StockPostingContext;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
-import com.lrj.wms.runtime.messaging.SourceCommandContextStore;
+import com.lrj.wms.runtime.messaging.outbox.SourceCommandContextStore;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 
@@ -220,7 +220,7 @@ public final class OutboundPostingService {
                 || !body.path("outboundSchemaVersion").canConvertToInt()
                 || body.path("outboundSchemaVersion").intValue()
                         != (body.hasNonNull("serialExecution") ? 2 : 1))
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "UNSUPPORTED_OUTBOUND_SCHEMA");
         var context =
                 RuntimeMessage.JSON.treeToValue(
@@ -256,7 +256,7 @@ public final class OutboundPostingService {
         if (body.hasNonNull("serialExecution")) {
             if (!body.path("outboundSchemaVersion").isIntegralNumber()
                     || body.path("outboundSchemaVersion").asInt() != 2)
-                throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+                throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                         "UNSUPPORTED_OUTBOUND_SCHEMA");
             var selection =
                     RuntimeMessage.JSON.treeToValue(

@@ -5,8 +5,8 @@ import com.lrj.wms.inventory.inventory.OutboxRecord;
 import com.lrj.wms.inventory.inventory.OutboxTransport;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

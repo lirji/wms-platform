@@ -332,7 +332,8 @@ public final class OutboundOrderService {
         new SourceProtocolService(session, clock)
                 .requireResultFact(enterpriseId, warehouseId, commandId, "PICK", lineId);
         if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
+                    "RESULT_FACT_MISSING");
         }
         Map<String, Object> result =
                 new SourceProtocolService(session, clock)
@@ -500,7 +501,8 @@ public final class OutboundOrderService {
         new SourceProtocolService(session, clock)
                 .requireResultFact(enterpriseId, warehouseId, commandId, "SHIP", lineId);
         if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
+                    "RESULT_FACT_MISSING");
         }
         Map<String, Object> result =
                 new SourceProtocolService(session, clock)
@@ -651,7 +653,8 @@ public final class OutboundOrderService {
         var protocol = new SourceProtocolService(session, clock);
         protocol.requireResultFact(enterpriseId, warehouseId, commandId, "CANCEL", lineId);
         if (mapper().lockLine(enterpriseId, warehouseId, lineId) == null)
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException("RESULT_FACT_MISSING");
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
+                    "RESULT_FACT_MISSING");
         var result =
                 protocol.consumeResult(
                         enterpriseId,

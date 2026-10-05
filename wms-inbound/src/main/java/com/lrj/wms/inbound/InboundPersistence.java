@@ -59,13 +59,17 @@ class InboundPersistence {
                         new Environment("inbound", new JdbcTransactionFactory(), dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.inbox.persistence.RuntimeInboxMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.recovery.persistence.MessageRecoveryMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.observability.persistence.MessageQueueMetricsMapper
+                        .class);
         config.addMapper(SourceMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceWindowMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.outbox.persistence.SourceOutboxMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.outbox.persistence.SourceContextMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.window.persistence.SourceWindowMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         config.addMapper(com.lrj.wms.inbound.receipt.ReceiptQualityMapper.class);
         config.addMapper(com.lrj.wms.inbound.receipt.ReceiptSerialPutawayMapper.class);

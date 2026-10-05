@@ -54,7 +54,8 @@ class OutboundPickIT {
         config.addMapper(SourceMapper.class);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(OutboundSerialMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.outbox.persistence.SourceContextMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
 
@@ -1342,7 +1343,7 @@ class OutboundPickIT {
         assertEquals(
                 0,
                 new BigDecimal(
-                                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                                         .readTree(command.get("payload_json").toString())
                                         .path("qty")
                                         .asString())
@@ -1392,16 +1393,17 @@ class OutboundPickIT {
             session.commit();
         }
         String command =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                List.of(
-                                        "cancel-compensation",
-                                        "ENT-1",
-                                        "WH-A",
-                                        "CANCEL-RACE",
-                                        "L-CANCEL",
-                                        "LOC-1",
-                                        "NO_LOT")));
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                .writeValueAsString(
+                                        List.of(
+                                                "cancel-compensation",
+                                                "ENT-1",
+                                                "WH-A",
+                                                "CANCEL-RACE",
+                                                "L-CANCEL",
+                                                "LOC-1",
+                                                "NO_LOT")));
         jdbc.execute(
                 "ALTER TABLE source_outbox ADD CONSTRAINT ck_cancel_last_outbox CHECK(command_id<>'"
                         + command
@@ -1478,7 +1480,7 @@ class OutboundPickIT {
     }
 
     /** 明确的可信消息夹具，真实TC来源另由跨进程用例证明。 */
-    private static com.lrj.wms.runtime.messaging.RuntimeMessage cancellation(
+    private static com.lrj.wms.runtime.messaging.protocol.RuntimeMessage cancellation(
             String id, Clock clock) {
         var lines = new java.util.ArrayList<com.lrj.wms.contract.tcc.WarehouseTryRequest.Line>();
         lines.add(
@@ -1499,7 +1501,7 @@ class OutboundPickIT {
                         request,
                         new com.lrj.wms.contract.tcc.TcTerminalNotice(
                                 1, id, id, "xid-" + id, "cluster", "wms-fulfillment", "group", 9));
-        return new com.lrj.wms.runtime.messaging.RuntimeMessage(
+        return new com.lrj.wms.runtime.messaging.protocol.RuntimeMessage(
                 1,
                 id,
                 "wms-fulfillment",
@@ -1510,7 +1512,7 @@ class OutboundPickIT {
                 1,
                 clock.instant().toString(),
                 null,
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.valueToTree(value));
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.valueToTree(value));
     }
 
     private static void authorizeForTest(

@@ -74,7 +74,8 @@ class OutboxPublisherIT {
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
         config.addMapper(OutboxMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.recovery.persistence.MessageRecoveryMapper.class);
         config.addMapper(CommandDedupMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         try (SqlSession session = sessions.openSession(false)) {
@@ -183,10 +184,11 @@ class OutboxPublisherIT {
                         String.class);
         var recoveryClock = Clock.fixed(NOW, ZoneOffset.UTC);
         var recovery =
-                new com.lrj.wms.runtime.messaging.MessageRecoveryService(
+                new com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService(
                         sessions,
-                        com.lrj.wms.runtime.messaging.MessageQueueMetrics.Queue.INVENTORY_OUTBOX,
-                        new com.lrj.wms.runtime.messaging.RuntimeInbox(
+                        com.lrj.wms.runtime.messaging.observability.MessageQueueMetrics.Queue
+                                .INVENTORY_OUTBOX,
+                        new com.lrj.wms.runtime.messaging.inbox.RuntimeInbox(
                                 sessions, java.util.Map.of(), recoveryClock),
                         recoveryClock);
         recovery.retry("ENT-1", "WH-A", "OUTBOX", eventId, "RETRY-ISO", 12, "已核对投递适配修复", "OPS");

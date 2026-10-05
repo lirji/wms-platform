@@ -146,8 +146,9 @@ class ReconciliationCollectionIT {
         }
     }
 
-    private static com.lrj.wms.runtime.messaging.SourceWindowService.Fact sourceFact(String id) {
-        return new com.lrj.wms.runtime.messaging.SourceWindowService.Fact(
+    private static com.lrj.wms.runtime.messaging.window.SourceWindowService.Fact sourceFact(
+            String id) {
+        return new com.lrj.wms.runtime.messaging.window.SourceWindowService.Fact(
                 id,
                 "SHIP",
                 "EX-" + id,
@@ -159,7 +160,8 @@ class ReconciliationCollectionIT {
     }
 
     private static ReconciliationSourcePort port(
-            Map<String, List<com.lrj.wms.runtime.messaging.SourceWindowService.Fact>> facts) {
+            Map<String, List<com.lrj.wms.runtime.messaging.window.SourceWindowService.Fact>>
+                    facts) {
         return new ReconciliationSourcePort() {
             @Override
             public Collection collect(
@@ -168,14 +170,16 @@ class ReconciliationCollectionIT {
             }
 
             @Override
-            public com.lrj.wms.runtime.messaging.SourceWindowService.Page read(
+            public com.lrj.wms.runtime.messaging.window.SourceWindowService.Page read(
                     String source, String e, String w, String id, Instant cutoff, String cursor) {
                 String digest =
-                        com.lrj.wms.runtime.messaging.SourceWindowService.initialDigest(
+                        com.lrj.wms.runtime.messaging.window.SourceWindowService.initialDigest(
                                 source, e, w, id, cutoff);
                 for (var fact : facts.get(source))
-                    digest = com.lrj.wms.runtime.messaging.SourceWindowService.append(digest, fact);
-                return new com.lrj.wms.runtime.messaging.SourceWindowService.Page(
+                    digest =
+                            com.lrj.wms.runtime.messaging.window.SourceWindowService.append(
+                                    digest, fact);
+                return new com.lrj.wms.runtime.messaging.window.SourceWindowService.Page(
                         1,
                         source,
                         e,
@@ -193,7 +197,7 @@ class ReconciliationCollectionIT {
     private static void insertOriginal(
             String w,
             String source,
-            com.lrj.wms.runtime.messaging.SourceWindowService.Fact fact,
+            com.lrj.wms.runtime.messaging.window.SourceWindowService.Fact fact,
             Instant posted)
             throws Exception {
         try (var session = sessions.openSession(false)) {
@@ -293,7 +297,7 @@ class ReconciliationCollectionIT {
             assertEquals(0, ((Number) row.get("evidence_version")).intValue());
             assertEquals(
                     1,
-                    com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                    com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                             .readTree(String.valueOf(row.get("collection_progress")))
                             .path("page")
                             .asInt());

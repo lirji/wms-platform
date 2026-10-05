@@ -2,7 +2,7 @@ package com.lrj.wms.fulfillment;
 
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.contract.tcc.WarehouseTryResult;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import java.net.URI;
 import java.net.http.*;

@@ -18,7 +18,7 @@ import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;

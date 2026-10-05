@@ -2,7 +2,7 @@ package com.lrj.wms.fulfillment;
 
 import com.lrj.wms.contract.cancellation.CommittedCancellation;
 import com.lrj.wms.contract.tcc.TcTerminalNotice;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 
@@ -78,21 +78,21 @@ final class CommittedCancellationFlow {
                 || !a.equals(body.path("attemptId").asString())
                 || !java.util.Set.of("COMPLETED", "PARTIALLY_COMPENSATED")
                         .contains(body.path("state").asString()))
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "INVALID_CANCELLATION_RESULT");
         var mapper = session.getMapper(FulfillmentMapper.class);
         if (mapper.lockAttempt(e, a) == null)
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "CANCELLATION_ATTEMPT_MISSING");
         var sent = mapper.getBarrierOutbox(e, a, w, CommittedCancellation.EVENT);
         if (sent == null)
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "CANCELLATION_ORIGINAL_MISSING");
         var original =
                 RuntimeMessage.JSON.readValue(
                         sent.get("payload").toString(), CommittedCancellation.class);
         if (!original.cancellationId().equals(body.path("cancellationId").asString()))
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "CANCELLATION_RESULT_MISMATCH");
         try {
             var released = new java.math.BigDecimal(body.path("releasedQty").asString());
@@ -107,7 +107,7 @@ final class CommittedCancellationFlow {
                     || ("COMPLETED".equals(body.path("state").asString())
                             != (executed.signum() == 0))) throw new IllegalArgumentException();
         } catch (RuntimeException invalid) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "CANCELLATION_RESULT_QUANTITY_MISMATCH");
         }
         String payload = body.toString(), hash = RuntimeMessage.contentHash(payload);
@@ -129,7 +129,7 @@ final class CommittedCancellationFlow {
                         "hash",
                         hash));
         if (!hash.equals(cancels.compensationResult(e, a, w).get("payload_hash")))
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "CANCELLATION_RESULT_CONFLICT");
         cancels.finishCompensation(e, a);
         cancels.finishExecution(e, a);

@@ -1,7 +1,7 @@
 package com.lrj.wms.security;
 
-import com.lrj.wms.runtime.messaging.MessageRecoveryException;
-import com.lrj.wms.runtime.messaging.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryException;
+import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService;
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
 
 import jakarta.validation.Valid;

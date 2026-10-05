@@ -2,7 +2,7 @@ package com.lrj.wms.serial;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;

@@ -1,6 +1,6 @@
 package com.lrj.wms.outbound.protocol;
 
-import com.lrj.wms.runtime.messaging.SourceWindowService;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService;
 import com.lrj.wms.security.ScopeForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
 
@@ -123,7 +123,7 @@ public final class SourceWindowController {
     }
 
     /** 尚未齐全的来源事实返回409，接收方保留检查点并稍后重试。 */
-    @ExceptionHandler(com.lrj.wms.runtime.messaging.SourceWindowPendingException.class)
+    @ExceptionHandler(com.lrj.wms.runtime.messaging.window.SourceWindowPendingException.class)
     org.springframework.http.ResponseEntity<Map<String, Object>> pending() {
         return org.springframework.http.ResponseEntity.status(409)
                 .body(

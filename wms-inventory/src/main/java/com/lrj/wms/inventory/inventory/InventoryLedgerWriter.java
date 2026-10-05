@@ -56,7 +56,7 @@ public final class InventoryLedgerWriter {
                         now)
                 != 1) throw new InventoryException("VERSION_CONFLICT", "库存流水未写入");
         String payload =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.writeValueAsString(
                         Map.of(
                                 "schemaVersion",
                                 com.lrj.wms.inventory.compat.CompatibilityGate.CURRENT_EVENT_SCHEMA,

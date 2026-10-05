@@ -10,7 +10,7 @@ import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.seata.common.Constants;
 import org.apache.seata.common.executor.Callback;

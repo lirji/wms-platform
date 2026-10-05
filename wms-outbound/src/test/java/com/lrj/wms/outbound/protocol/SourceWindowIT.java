@@ -2,8 +2,8 @@ package com.lrj.wms.outbound.protocol;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.runtime.messaging.SourceWindowService;
-import com.lrj.wms.runtime.messaging.persistence.SourceWindowMapper;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService;
+import com.lrj.wms.runtime.messaging.window.persistence.SourceWindowMapper;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;

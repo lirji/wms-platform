@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.lrj.wms.runtime.db.DatabaseBudget;
 import com.lrj.wms.runtime.db.DatabaseTimePolicy;
 import com.lrj.wms.runtime.db.RuntimeDataSources;
-import com.lrj.wms.runtime.messaging.MessageQueueMetrics;
-import com.lrj.wms.runtime.messaging.MessageRecoveryService;
-import com.lrj.wms.runtime.messaging.RuntimeInbox;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.inbox.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.observability.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 

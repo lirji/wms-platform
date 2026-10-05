@@ -52,7 +52,8 @@ class InboundReceiptIT {
                 new Configuration(new Environment("inbound", new JdbcTransactionFactory(), source));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(SourceMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.SourceContextMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.outbox.persistence.SourceContextMapper.class);
         config.addMapper(InboundReceiptMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
     }
@@ -147,7 +148,7 @@ class InboundReceiptIT {
                             "ACTOR",
                             new BigDecimal("2"));
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MissingCommandContextException.class,
+                    com.lrj.wms.runtime.messaging.outbox.MissingCommandContextException.class,
                     () ->
                             service.bindReceiveContext(
                                     "ENT-1",
@@ -160,7 +161,7 @@ class InboundReceiptIT {
             session.commit();
         }
         var body =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.readTree(
                         jdbc.queryForObject(
                                 "SELECT payload_json FROM source_command WHERE command_id='CMD-CTX'",
                                 String.class));
@@ -171,7 +172,7 @@ class InboundReceiptIT {
                 "RECEIVING-1", body.path("postingContext").path("sourceLocationId").asString());
         assertEquals(
                 body,
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.readTree(
                         jdbc.queryForObject(
                                 "SELECT payload FROM source_outbox WHERE command_id='CMD-CTX'",
                                 String.class)));
@@ -187,7 +188,7 @@ class InboundReceiptIT {
                         "SELECT actor_id FROM source_execution WHERE command_id='CMD-CTX'",
                         String.class));
         assertFalse(
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                         .readTree(
                                 jdbc.queryForObject(
                                         "SELECT payload_json FROM source_command WHERE command_id='CMD-LEGACY'",
@@ -291,7 +292,7 @@ class InboundReceiptIT {
                                             new BigDecimal("5")));
             assertEquals("OVER_RECEIVE", over.code());
             assertThrows(
-                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    com.lrj.wms.runtime.messaging.protocol.MessageRejectedException.class,
                     () ->
                             service.consumeReceive(
                                     "ENT-1",

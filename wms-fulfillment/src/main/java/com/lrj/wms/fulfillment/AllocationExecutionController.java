@@ -1,7 +1,7 @@
 package com.lrj.wms.fulfillment;
 
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.lrj.wms.security.ScopeForbiddenException;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;

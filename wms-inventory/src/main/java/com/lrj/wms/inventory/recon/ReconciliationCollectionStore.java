@@ -205,8 +205,9 @@ public final class ReconciliationCollectionStore {
     private static void progress(String json) {
         if (json == null
                 || json.length() > 8192
-                || !com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.readTree(json).isObject())
-            throw new IllegalArgumentException("采集检查点必须为有界对象");
+                || !com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                        .readTree(json)
+                        .isObject()) throw new IllegalArgumentException("采集检查点必须为有界对象");
     }
 
     private static void requireOne(int count) {

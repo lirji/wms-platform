@@ -10,7 +10,7 @@ import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
-import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.kafka.KafkaInboxConsumer;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.kafka.clients.admin.AdminClient;

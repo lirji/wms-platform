@@ -444,7 +444,7 @@ public final class SourceProtocolService {
         if (fact == null
                 || !action.equals(fact.get("action"))
                 || !lineId.equals(fact.get("fact_line_id"))) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "RESULT_FACT_MISMATCH");
         }
     }
@@ -468,7 +468,7 @@ public final class SourceProtocolService {
                 || postedQty == null
                 || postedQty.signum() < 0
                 || !"APPLIED".equals(resultState) && postedQty.signum() != 0) {
-            throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+            throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                     "INVALID_COMMAND_RESULT");
         }
         Map<String, Object> effect =
@@ -483,12 +483,12 @@ public final class SourceProtocolService {
                     || com.lrj.wms.runtime.command.CommandReplay.quantity(command)
                                     .compareTo(postedQty)
                             != 0) {
-                throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+                throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                         "RESULT_QUANTITY_MISMATCH");
             }
             if (command.get("safe_close_id") != null
                     || !commandId.equals(String.valueOf(effect.get("active_command_id")))) {
-                throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+                throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                         "STALE_EXECUTION_ATTEMPT");
             }
         }
@@ -496,7 +496,7 @@ public final class SourceProtocolService {
                 .contains(String.valueOf(command.get("state")))) {
             if (!resultState.equals(command.get("state"))
                     || !java.util.Objects.equals(postingId, command.get("posting_id"))) {
-                throw new com.lrj.wms.runtime.messaging.MessageRejectedException(
+                throw new com.lrj.wms.runtime.messaging.protocol.MessageRejectedException(
                         "CONFLICTING_COMMAND_RESULT");
             }
             Map<String, Object> replay =
@@ -514,8 +514,8 @@ public final class SourceProtocolService {
                         warehouseId,
                         commandId,
                         "InventoryCommandResult",
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                resultPayload),
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                .writeValueAsString(resultPayload),
                         now);
         if (inserted == 1) {
             mapper.updateCommandResult(

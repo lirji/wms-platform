@@ -837,8 +837,8 @@ public final class StockCommandService {
                     CommandDigest.v1Parts(
                             "SERIAL_PUTAWAY_V1",
                             digest,
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                    selection));
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                    .writeValueAsString(selection));
         String effectId =
                 ensureEffect(
                         effects,
@@ -919,7 +919,7 @@ public final class StockCommandService {
                     .move(enterpriseId, warehouseId, receiptCommandId, source, target, selection);
         String postingId = UUID.randomUUID().toString();
         String manifest =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.writeValueAsString(
                         selection == null
                                 ? Map.of("operationId", operation)
                                 : Map.of(
@@ -953,7 +953,7 @@ public final class StockCommandService {
                                 commandId,
                                 StockCommandCodes.CMD_PENDING,
                                 StockCommandCodes.CMD_APPLIED,
-                                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                                         .writeValueAsString(Map.of("postingId", postingId)),
                                 now)
                         != 1) throw new InventoryException("VERSION_CONFLICT", "上架凭证写入冲突");
@@ -1007,15 +1007,15 @@ public final class StockCommandService {
                         documentId,
                         hold,
                         decision.inspectedQty().toPlainString(),
-                        com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                decision));
+                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                .writeValueAsString(decision));
         if (observation != null)
             digest =
                     CommandDigest.v1Parts(
                             "SERIAL_QUALITY_V1",
                             digest,
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                    observation));
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                    .writeValueAsString(observation));
         String effectId =
                 ensureEffect(
                         effects,
@@ -1084,7 +1084,7 @@ public final class StockCommandService {
                         observation);
         String postingId = UUID.randomUUID().toString();
         String manifest =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON.writeValueAsString(
                         observation == null
                                 ? Map.of("operationId", operation)
                                 : Map.of(
@@ -1118,7 +1118,7 @@ public final class StockCommandService {
                                 commandId,
                                 StockCommandCodes.CMD_PENDING,
                                 StockCommandCodes.CMD_APPLIED,
-                                com.lrj.wms.runtime.messaging.RuntimeMessage.JSON
+                                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
                                         .writeValueAsString(Map.of("postingId", postingId)),
                                 now)
                         != 1) {
@@ -1543,9 +1543,9 @@ public final class StockCommandService {
             if (id == null || id.isBlank() || id.length() > 64)
                 throw new InventoryException("INVALID_RESERVATION_CONTEXT", "原出库身份缺失或超长");
         String sourceService = StockCommandCodes.SOURCE_OUTBOUND;
-        var json = com.lrj.wms.runtime.messaging.RuntimeMessage.JSON;
+        var json = com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON;
         String digest =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.contentHash(
                         json.writeValueAsString(
                                 java.util.List.of(
                                         "OUTBOUND_POSTING_V1",
@@ -1645,7 +1645,7 @@ public final class StockCommandService {
                                 context.qualityCode());
         // 库存流水operationId跨来源共享唯一空间，按企业/仓/服务/原命令生成稳定身份。
         String operation =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
                         json.writeValueAsString(
                                 java.util.List.of(
                                         sourceService, enterpriseId, warehouseId, commandId)));

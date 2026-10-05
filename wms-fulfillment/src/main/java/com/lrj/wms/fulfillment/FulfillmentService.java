@@ -279,7 +279,7 @@ public final class FulfillmentService {
                         .sorted(java.util.Comparator.comparing(JSON::writeValueAsString))
                         .toList();
         String hash =
-                com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
                         JSON.writeValueAsString(
                                 java.util.Arrays.asList(
                                         "attempt-command-v1",
@@ -1141,9 +1141,9 @@ public final class FulfillmentService {
                         || mapper.bindOutboxDelivery(eventId, delivery) != 1)
                     throw new FulfillmentException(
                             "LEGACY_AUTHORIZATION_CONTEXT_MISSING", "旧事件缺完整授权快照，不自动补齐");
-            } else if (!com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(delivery)
+            } else if (!com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.contentHash(delivery)
                     .equals(
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.contentHash(
                                     String.valueOf(existing.get("delivery_payload"))))) {
                 throw new FulfillmentException("BARRIER_OUTBOX_CONFLICT", "屏障投递快照与原始事实不一致");
             }

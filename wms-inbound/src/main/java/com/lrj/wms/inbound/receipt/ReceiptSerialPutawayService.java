@@ -3,8 +3,8 @@ package com.lrj.wms.inbound.receipt;
 import com.lrj.wms.contract.inventory.ReceiptQualityDecision;
 import com.lrj.wms.contract.serial.observation.SerialQualityObservation;
 import com.lrj.wms.contract.serial.selection.SerialStockSelection;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
-import com.lrj.wms.runtime.messaging.persistence.SourceContextMapper;
+import com.lrj.wms.runtime.messaging.outbox.persistence.SourceContextMapper;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

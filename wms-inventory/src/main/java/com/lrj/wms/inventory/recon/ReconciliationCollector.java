@@ -2,8 +2,8 @@ package com.lrj.wms.inventory.recon;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
 import com.lrj.wms.runtime.db.DatabaseInstants;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
-import com.lrj.wms.runtime.messaging.SourceWindowService;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.window.SourceWindowService;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

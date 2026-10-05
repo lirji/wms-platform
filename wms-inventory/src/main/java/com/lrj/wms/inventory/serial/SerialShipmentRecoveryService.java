@@ -1,7 +1,7 @@
 package com.lrj.wms.inventory.serial;
 
 import com.lrj.wms.inventory.inventory.InventoryException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

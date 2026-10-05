@@ -145,9 +145,10 @@ public final class SerialRegistryService {
                 throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "发运只可消费原仓原代际的有效身份");
             var now = Timestamp.from(clock.instant());
             String id =
-                    com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
-                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
-                                    java.util.List.of(e, sku, normalized, fact)));
+                    com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
+                            com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.JSON
+                                    .writeValueAsString(
+                                            java.util.List.of(e, sku, normalized, fact)));
             if (mapper.insertShipment(
                                     Map.of(
                                             "id",

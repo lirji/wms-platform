@@ -12,8 +12,8 @@ import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.messaging.StockCommandMessageHandler;
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.messaging.MessageRejectedException;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;

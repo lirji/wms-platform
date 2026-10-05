@@ -1,7 +1,7 @@
 package com.lrj.wms.serial;
 
 import com.lrj.wms.runtime.command.CommandKeys;
-import com.lrj.wms.runtime.messaging.RuntimeMessage;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

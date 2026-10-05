@@ -9,7 +9,7 @@ import java.util.Map;
 /** 共享边界只翻译明确的运行时错误，不改变领域错误语义。 */
 @RestControllerAdvice
 public class RuntimeErrors {
-    @ExceptionHandler(com.lrj.wms.runtime.messaging.MissingCommandContextException.class)
+    @ExceptionHandler(com.lrj.wms.runtime.messaging.outbox.MissingCommandContextException.class)
     public ResponseEntity<Map<String, Object>> missingCommandContext() {
         return ResponseEntity.status(409)
                 .body(

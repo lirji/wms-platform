@@ -75,9 +75,12 @@ class InventoryPersistence {
                 new Configuration(new Environment("inventory", transactions, dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.RuntimeInboxMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageRecoveryMapper.class);
-        config.addMapper(com.lrj.wms.runtime.messaging.persistence.MessageQueueMetricsMapper.class);
+        config.addMapper(com.lrj.wms.runtime.messaging.inbox.persistence.RuntimeInboxMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.recovery.persistence.MessageRecoveryMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.observability.persistence.MessageQueueMetricsMapper
+                        .class);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(com.lrj.wms.inventory.tcc.RuntimeTccMapper.class);
         config.addMapper(
