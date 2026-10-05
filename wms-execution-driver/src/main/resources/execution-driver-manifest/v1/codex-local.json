@@ -1,0 +1,27 @@
+{
+  "protocol": "execution-driver-manifest/v1",
+  "driver_id": "codex-local",
+  "display_name": "codex local CLI adapter",
+  "status": "active",
+  "priority": 100,
+  "adapters": ["native"],
+  "risk_classes": ["NORMAL"],
+  "capabilities": [
+    "read_repo",
+    "write_design_docs",
+    "modify_product_code",
+    "modify_tests",
+    "modify_runtime_files",
+    "execute_local_commands",
+    "execute_tests"
+  ],
+  "command": {
+    "executable": "codex",
+    "version_args": ["--version"],
+    "exec_subcommand": "exec"
+  },
+  "timeout": {
+    "default_ms": 120000,
+    "max_ms": 600000
+  }
+}

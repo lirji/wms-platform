@@ -15,6 +15,7 @@
   <modules>
     <module>wms-contract</module>
     <module>wms-runtime</module>
+    <module>wms-execution-driver</module>
     <module>wms-security</module>
     <module>wms-inbound</module>
     <module>wms-integration</module>

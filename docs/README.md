@@ -1,6 +1,6 @@
 # 项目文档入口
 
-基础架构文档历史核对基线：已发布 `main c5c96e3`，日期 2026-09-13。当前本机部署已于 2026-10-05 更新为 WMS 562f90f / Auth e4d14eb，见[部署、运行预算及验收](deployment/auth-wms-refactor-docker-20261005.md)；后续文档提交不改变镜像源码版本。仓库已有 10 个 Maven 模块、5 个后端应用和 1 个前端应用。完整交付仍在进行；未合入 main 的本地开发不计入本文的已实现能力。
+基础架构文档历史核对基线：已发布 `main c5c96e3`，日期 2026-09-13。当前本机部署已于 2026-10-05 更新为 WMS 562f90f / Auth e4d14eb，见[部署、运行预算及验收](deployment/auth-wms-refactor-docker-20261005.md)；后续文档提交不改变镜像源码版本。当前源码有 11 个 Maven 模块（含本地执行 Driver）、5 个后端应用和 1 个前端应用。完整业务交付仍在进行；Driver 的 Git 发布状态见根进度及交付回执。
 
 ## 按任务阅读
 
@@ -9,6 +9,7 @@
 | 查看当前 Docker 部署 | [2026-10-05 部署结果](deployment/auth-wms-refactor-docker-20261005.md) | 实际制品、入口、权限/数据核验、私密 overlay、维护及期限 |
 | 了解项目与服务关系 | [总体架构](design/01-architecture.md) | 当前进程、模块职责、数据权威与演进目标 |
 | 启动与调试 | [本地运行与验证](implementation/S0_RUNBOOK.md)、[容器启动](../deploy/README.md)、[前端开发](../wms-console/README.md) | 配置前提、命令、端口与常见失败 |
+| 检查本机 AI 编程工具 | [执行 Driver](../wms-execution-driver/README.md) | Codex/Cursor 能力、健康检查、调用入口与测试范围 |
 | 配置数据库和中间件 | [基础设施与连接清单](operations/INFRASTRUCTURE.md) | 宿主/容器地址、数据库、账号角色、凭据变量与核验状态 |
 | 核对版本和依赖风险 | [版本记录](implementation/VERSION_LOCK.md) | POM、锁文件、镜像标签及已有 SBOM/OSV 证据 |
 | 修改数据库或对接接口 | [数据与接口索引](implementation/DATA_AND_CONTRACTS.md) | 数据归属、迁移入口、OpenAPI、权限及事件协议 |

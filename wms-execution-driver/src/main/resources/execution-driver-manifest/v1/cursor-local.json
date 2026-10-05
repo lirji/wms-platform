@@ -1,0 +1,28 @@
+{
+  "protocol": "execution-driver-manifest/v1",
+  "driver_id": "cursor-local",
+  "display_name": "Cursor Local CLI Driver",
+  "status": "active",
+  "priority": 110,
+  "adapters": ["native"],
+  "risk_classes": ["NORMAL"],
+  "capabilities": [
+    "read_repo",
+    "write_design_docs",
+    "modify_product_code",
+    "modify_tests",
+    "modify_runtime_files",
+    "execute_local_commands",
+    "execute_tests"
+  ],
+  "command": {
+    "executable": "agent",
+    "candidates": ["agent", "cursor-agent"],
+    "version_args": ["-v"],
+    "exec_subcommand": ""
+  },
+  "timeout": {
+    "default_ms": 180000,
+    "max_ms": 600000
+  }
+}

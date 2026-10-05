@@ -91,6 +91,7 @@ wms-platform/
   pom.xml
   wms-contract/                   版本化DTO与事件schema，不包含共享领域实体
   wms-runtime/                    数据库时间、连接池、健康、消息等运行支持
+  wms-execution-driver/           本机 Codex/Cursor 执行适配、能力选择与进程管理
   wms-security/                   OIDC、操作scope及仓权限
   wms-inbound/                    单据/收货/质检/上架/来源命令与恢复
   wms-outbound/                   单据/拣货/包装/发运/取消与恢复
@@ -105,7 +106,7 @@ wms-platform/
   docs/
 ```
 
-Maven reactor 共 10 个模块。inventory POM 对其他业务模块的依赖用于测试装配，不表示生产可直接调用其他服务的业务实现。
+Maven reactor 共 11 个模块。`wms-execution-driver` 是开发辅助模块，通过独立 CLI 调用本机 Codex/Cursor；业务应用没有依赖它，Compose 不为它启动服务。使用与验证入口见[Driver 说明](../../wms-execution-driver/README.md)。inventory POM 对其他业务模块的依赖用于测试装配，不表示生产可直接调用其他服务的业务实现。
 
 各服务内部按业务能力组织domain/application/infrastructure/api。SQL只在所属服务Mapper；应用服务只组织本服务事务。跨服务调用发生在本地提交之后，通过持久化协调恢复，禁止带数据库事务等待远程执行。简单CRUD不机械增加空接口。
 
