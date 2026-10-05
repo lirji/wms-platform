@@ -109,3 +109,5 @@ R03还修正协议到Kafka适配器的反向依赖：262144字节预算由Runtim
 100个Java单测、87个console测试、13个脚本测试，前端类型/build，Java/XML/console格式、包边界、权限目录、文档与diff检查全部PASS。SQL120份、Mapper SQL文本64份及中央目录字节保持。WCS先新增测试复现无效回执占用事件身份；修复后重复无效请求仍拒绝，合法相同身份可首次成功，并发重放只有一次首次接受。效期投影转换迁移前后同组特征测试通过，类型与错误保持。页面清空上下文的旧错误回归先失败、修复后通过。
 
 原始卫生CLI扫描R11真实差异通过：IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS、零finding。唯一限制FORMAT_TOOL_NOT_AVAILABLE是命令发现器没有识别已执行的独立Java CLI；实际三类格式check已PASS。初次检查发现源码集合名称直接比较及重复回执错误码，已复用命名常量修正并重新验证；原结果保留，没有改变技能规则或规范化R11差异。最终日志/回执在.local/refactoring-module-packages/R11_TEST_RESULT.json。完整真实IT/profile/精确CI由R12执行，不能以本批单测替代。
+
+R12 首轮候选 e7c3294 的完整 CI 37269556033 在跨进程迁移后的 RM 就绪检查失败；135 个库存 IT 中 1 项失败，后续 profile 未执行。单测与控制台检查成功。失败发生于子进程退出，当前回执未归档子进程日志，因此补充原测试目录日志上传后重新定位，不放宽断言或跳过测试。R12 保持 IN_PROGRESS。

@@ -64,6 +64,8 @@ jobs:
           name: test-reports
           path: |
             **/target/*-reports/*
+            **/target/allocation-execution-processes/*.log
+            **/target/runtime-rm-processes/*.log
             .local/reports/**/*.xml
           include-hidden-files: true
           if-no-files-found: error

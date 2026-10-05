@@ -2,7 +2,7 @@
 
 ## 任务目标
 
-权限接入之后按Claude SKILL细化WMS每个正式模块的包结构、格式化、按规范优化并完整验证/正常Git交付。WMS范围按原任务执行；Auth权限实施已完成。本次不部署。
+用户已明确范围为Auth与WMS两个项目。权限接入之后按Claude SKILL逐模块拆包、格式化、规范优化、完整验证并分别正常Git交付。当前WMS处于R12，Auth已建立原目录任务分支并完成331单测基线；权限实施不重做，本次不部署。
 
 ## 已完成
 
@@ -20,12 +20,13 @@
 
 ## 未完成
 
-- R12：当前完整真实默认verify、warehouse/tc/failure profile、启动smoke及精确提交CI；最终兼容/原工作保护核对和正常main交付。
+- WMS R12：完整真实默认verify、warehouse/tc/failure profile、启动smoke及精确提交CI37269556033；最终兼容/原工作保护核对和正常main交付。
+- Auth A01–A08：六后端模块、两个前端的全部拆包/格式/优化及完整验证/交付。Auth A00基线331单测PASS，见原项目CODEX_PROGRESS及.local/refactoring-module-packages-auth。整体goal在两个项目全部完成前保持active。
 - 不把本地单测/格式通过宣称整个目标完成；保持主动推进，不等待继续。
 
 ## 当前问题
 
-- 无当前实现阻断。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
+- R12 CI37269556033跨进程迁移后RM子进程退出，完整验证FAIL；补充既有子进程日志归档后定位，不能发布main。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
 - 原WMSmain17048d5/55个用户文件/Driver保持，11旧工作树和私密证据保留。只在既有central-authorization树的refactor/module-packages-code-quality分支工作。
 - 本次没有重部署授权，现有W07制品/数据及权限TTL不因源码任务更改。
 
@@ -36,7 +37,7 @@
 
 ## 恢复 Prompt
 
-读取本文件、重构报告和.local/refactoring-module-packages最新R11/R12、Git/CI结果，继续R12完整验证和main交付。R00–R11已完成本地验证，不重做包迁移/权限部署，不触碰原WMS、Driver或运行数据，不清理、不等待继续。
+读取本文件、重构报告和.local/refactoring-module-packages最新R11/R12、Git/CI结果，继续WMS R12完整验证和main交付，再连续完成Auth A01–A08。用户已确认两个项目，不能在WMS结束时把整体goal完成。WMS R00–R11已完成本地验证，不重做包迁移/权限部署，不触碰原WMS、Driver或运行数据，不清理、不等待继续。
 
 ---
 
