@@ -67,3 +67,7 @@ docker compose -f compose.yaml -f deploy/compose.console-release.yml --env-file 
 本轮前端源码为 `8e5dbe0c262b93d286ab8aae2ff270feb251c626`，console 镜像为 `sha256:4b80def5429ce60a59b1fba7092fd6cb298969cf1d2dc83d9db221372fac90c0`。Docker 引擎停滞时，原两阶段构建已取消；本次采用核对锁定依赖后的本机 tsc/Vite 编译，再将冻结静态资源装入相同 digest 的 Nginx 基础镜像。永久 Dockerfile 未改变；这次构建方法、资源清单及镜像身份单独保存于 `/Users/liruijun/outputs/wms-console-docker-20261003/`。
 
 Docker Desktop 经用户授权重启后，四个原先运行、但 restart policy 为 `no` 的 auth-platform 容器没有自动恢复；已按停止时间/退出状态核对并恢复原实例，未重建其配置或数据。旧 console 镜像保留，未执行回退。生产部署、真实业务写入、真实设备、容量、备份恢复与全部 50 项 AC 仍需独立证据。
+
+## 中央权限本机接入
+
+原wms-local已采用中央身份18090/wms-central、Auth可信HTTPS18545与独立local-wms→ENT-DEMO绑定。运行、机器期限、备份和回退范围见[W07说明](../docs/iam/W07_RUNTIME.md)。旧8000发行方仅内部机器链使用。

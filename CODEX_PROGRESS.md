@@ -2,41 +2,39 @@
 
 ## 任务目标
 
-连续完成W00–W07：WMS只读、入出库/PDA、盘点调整/调拨接入Auth，local-wms绑定ENT-DEMO，实际本机运行与正常Git发布。不生产部署。
+完成W00–W07 WMS接入Auth：独立local-wms绑定ENT-DEMO，真实本机运行和正常Git发布，不生产部署。
 
 ## 已完成
 
-- W00–W03已发布。Auth W04 8189b13/CI37246323217、W05 be49acc/CI37247522224已成功正常发布main。
-- WMS W04 876b13c远程CI37246311489终态FAIL：旧OutboundMessagingProcessesIT登记调用不可用；原日志保留，未发布该失败SHA。W05 fd722b4本地完整验证已提交；W06累计CI须PASS后再正常发布。
-- W05 23身份/SQL、34动作、4PDA+5导航浏览器、10写撤权、15故障读撤权及21安全/8Owner HTTP/147门禁/10UI构建PASS。正常Docker恢复已完成，135原ID/镜像/挂载/状态与36运行健康核对，不重复重启。
-- W06当前runtime-w06-5f4504b82280：23身份/SQL，94控制（72真实检查点后恢复22），原盘点/调拨6项MySQL回归、21安全、10UI/类型/build、当前5PKCE浏览器与4控制撤权PASS。2控制+2额外视觉来源已全部精准撤销，原旧Token2项403；5菜单、9当前故障/读撤权PASS，9最终图片实看。
-- 本人接口改为复核完整49能力，解决菜单提示遗漏写权限；调拨UI按真实源/目的Owner仓显示命令。产品动作判权/Manifest不变。盘点仍APPLYING仅1行，调拨物理已发2/已收2，不冒称全完成/消息库存完成。
-- W07 Runtime准备中：新增Auth源码Dockerfile/HTTPS配置+回环relay+独立私密卷初始化；WMS根Compose增量中央overlay。Auth与console候选源码镜像build PASS，Java候选镜像仍构建。TLS/5消费者资料保存在Auth私密docker目录，原业务未切换。
+- W00–W06实施/验证/正常main发布；Auth dd04404/CI37249142702、WMS0f62d41/CI37249068115全成功。原W04失败保存，由累计全CI解除发布门禁。
+- W07四源码镜像、HTTPS18545/5独立UID10001/600卷，隔离18、实际旧IdP/机器Owner/SQL/旧序列同库重放23、真实Auth管理范围/严格撤权/连续投影证明完成。
+- 原6WMS应用与治理console/admin/projector、WMS relay/server共11服务healthy；原目标4用户PKCE6项/5当前图片实看、最终11 SDK/故障/恢复PASS，最终浏览器0个5xx/0 mock/0 Token注入/0业务写。
+- 原两MySQL镜像/业务卷不变，最终142表摘要相同；初始化挂载路径变但文件字节同。原dirty WMS HEAD/status/55文件同，Driver/ERP/local main保护。
+- Runtime/验收/审查/连接记录同步；当前仅本任务私密堆64–256MiB，同一Graph本体转发、Java客户端仍回环；原IdP/Graph实例不变，治理console只更新挂载、静态镜像不变。原超时/502/工具失败保留。
 
 ## 已修改文件
 
-- W06 WMS中央navigation、对应安全测试、调拨页/测试/DocumentWorkbench、浏览器脚本、docs/iam；Authcontrols工具/CI与W06结果、切片/进度。
-- W07 Authserver Dockerfile/deploy/docker-compose.yml、governance relay/init、docker-prepare工具；WMS deploy/compose.central-auth.yml（尚未提交，与W06分开）。
+- Auth W07 Dockerfile/Compose、relay/init/Graph默认覆盖、四工具、CI、README/doc-map及WMS设计Runtime/W07结果/审查/状态。
+- WMS 中央Compose、真实浏览器工具/CI、docs/iam/deploy README及本文件；无W07 Java/UI产品源码变更。
 
 ## 未完成
 
-- W06显式路径两仓逻辑提交/当前累计CI；本片视觉/撤权/菜单/当前故障已全部PASS。
-- W07隔离Docker HTTPS/非root独立凭据验收，原数据备份、精确CI后真实wms-local更新、旧机器IdP证明、兼容回退/故障恢复、最终文档/Git。
+- 实施与本机验收无剩余项；最新精确提交Git/CI/远端main事实按Auth私密delivery-result.json核对并连续完成，不重复实施或部署。
 
 ## 当前问题
 
-- W06自动hygiene仅浏览器PASS输出误报；人工逐条审查，保留原FAIL/无formatter限制。桌面动画disabled截图只显遮罩，工具已移除disabled并等待opacity/transform稳定，重新验收中。
-- 当前自有runtime session91490（原5WMS已正常terminate、parent等最终reap）；新5制品v2由私密refresh helper session66433持有，stop-v2会正常停止。Vite3518仍本任务。不得运行中覆盖target/旧artifacts，当前新制品已冻结并记摘要。
-- 临时caffeinate68556最终停止；凭据/旧失败/测试DB/卷/工作树保留，不清理。原WMS55保护文件/HEAD/status不得改。Docker正常恢复已完成，不重复重启。
+- 生产/容量/灾备/TCC业务与全目标实际回滚不在本片证明范围。机器JWT一小时/演示Grant24小时，显式续发；无自动续发。凭据在Auth0600 w03-state/ACCESS.md。
+- 自有fixture/测试库已正常停止，数据/容器/卷/网络/旧镜像/备份/失败/工作树保留；只结束自己有界caffeinate，禁止清理他人内容。
+- 原WMS local main保持17048d5，远端main另按已验收SHA发布，不能修改原dirty树来同步。Graph重建需重新核对连接绑定，不能照用历史IP。
 
 ## 下一步建议
 
-1. 完成W06当前截图和视觉来源撤销，完整记录后显式路径提交（排除W07），推累计WMS版本进行完整CI；失败证据保留，不强推或绕过门禁。
-2. 连续完成W07，不等继续。运行配置固定HTTPS host.docker.internal:18545，证书可信、UID10001+600独立卷，旧8000机器链仅internal。现有原wms-local已停，不动卷，不假称已切换。
+1. 核对最新delivery-result.json及精确CI终态，按授权正常发布main；有失败保留并修复/复核，不绕过。
+2. 当前源/运行已完整验收，不重复灌数、授予、重建或恢复Docker。保留测试证据和任务树。
 
 ## 恢复 Prompt
 
-读取本检查点和Auth规范PROGRESS_STATE/私密delivery-result.json，沿当前W06/W07继续完整目标。WMS任务树/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。Auth W05已发布成功，WMS W04 CI确已FAIL而非仍运行。当前W06真实fixture和artifact-v2继续验收；W07文件未提交/本机未更新。正常Docker恢复不重复，原Driver/ERP/数据不动，继续直到Git/CI/真实本机与回退证据完成。
+读本检查点、Auth规范PROGRESS_STATE和私密delivery-result.json，从尚未完成的Git/CI交付继续。W00–W07实施及原本机验证完整PASS，原WMS/管理已实际更新，142表及55文件保护PASS；最新原目标浏览器original-target-browser-final6项零5xx。不要重做部署或授权、不清理、不改原dirty树，不等待继续。
 
 ---
 

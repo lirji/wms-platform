@@ -88,6 +88,7 @@ jobs:
         working-directory: wms-console
       - run: npm run typecheck
         working-directory: wms-console
+      - run: node --check scripts/verify-central-runtime-browser.mjs
       - run: npm test
         working-directory: wms-console
       - run: npm run build

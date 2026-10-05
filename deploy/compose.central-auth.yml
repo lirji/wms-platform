@@ -1,0 +1,65 @@
+# 叠加唯一根compose.yaml；复用wms-local业务卷/网络，不复制旧数据或开启额外业务worker。
+x-central-env: &central-env
+  WMS_IAM_ENABLED: "true"
+  WMS_IAM_CONFIGURATION: /run/wms-central/central.properties
+  WMS_OIDC_ISSUER: ${WMS_CENTRAL_ISSUER:-http://localhost:18090}
+  WMS_OIDC_CLIENT_ID: ${WMS_CENTRAL_CLIENT_ID:-wms-central}
+  WMS_OIDC_JWK_SET_URI: ${WMS_CENTRAL_JWKS_URI:-http://host.docker.internal:18090/.well-known/jwks}
+  JAVA_TOOL_OPTIONS: ${WMS_APP_JAVA_OPTS:--Xms128m -Xmx384m} -Djavax.net.ssl.trustStore=/run/wms-central/truststore.p12 -Djavax.net.ssl.trustStoreType=PKCS12 -Djavax.net.ssl.trustStorePassword=changeit
+
+x-internal-env: &internal-env
+  WMS_INTERNAL_OIDC_ISSUER: ${WMS_MACHINE_ISSUER:-http://localhost:8000}
+  WMS_INTERNAL_OIDC_CLIENT_ID: ${WMS_MACHINE_CLIENT_ID:-wms-platform}
+  WMS_INTERNAL_OIDC_JWK_SET_URI: ${WMS_MACHINE_JWKS_URI:-http://host.docker.internal:8000/.well-known/jwks}
+
+services:
+  inbound:
+    image: ${WMS_CENTRAL_JAVA_IMAGE:?set immutable WMS_CENTRAL_JAVA_IMAGE}
+    environment:
+      <<: [*central-env, *internal-env]
+      WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS: ${WMS_RECONCILIATION_ALLOWED_SUBJECTS:-recon-worker}
+    volumes: ["central-inbound:/run/wms-central:ro"]
+  outbound:
+    image: ${WMS_CENTRAL_JAVA_IMAGE:?set immutable WMS_CENTRAL_JAVA_IMAGE}
+    environment:
+      <<: [*central-env, *internal-env]
+      WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS: ${WMS_RECONCILIATION_ALLOWED_SUBJECTS:-recon-worker}
+    volumes: ["central-outbound:/run/wms-central:ro"]
+  inventory:
+    image: ${WMS_CENTRAL_JAVA_IMAGE:?set immutable WMS_CENTRAL_JAVA_IMAGE}
+    environment:
+      <<: [*central-env, *internal-env]
+      WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS: wms-fulfillment
+      # 专属0600机器令牌位于本服务卷；原宿主挂载保留，不覆盖旧文件或启用新worker。
+      WMS_RECONCILIATION_TOKEN_DIRECTORY: /run/wms-central/recon-tokens
+    volumes: ["central-inventory:/run/wms-central:ro"]
+  fulfillment:
+    image: ${WMS_CENTRAL_JAVA_IMAGE:?set immutable WMS_CENTRAL_JAVA_IMAGE}
+    environment: *central-env
+    volumes: ["central-fulfillment:/run/wms-central:ro"]
+  serial-registry:
+    image: ${WMS_CENTRAL_JAVA_IMAGE:?set immutable WMS_CENTRAL_JAVA_IMAGE}
+    environment:
+      <<: [*central-env, *internal-env]
+      WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS: ${WMS_SERIAL_ALLOWED_SUBJECTS:-inventory-worker}
+    volumes: ["central-serial:/run/wms-central:ro"]
+  console:
+    image: ${WMS_CENTRAL_CONSOLE_IMAGE:?set immutable WMS_CENTRAL_CONSOLE_IMAGE}
+    # 显式更新后端会改变Docker IP；重启既有nginx，让它重新解析服务名，避免健康但反代502。
+    depends_on:
+      inbound: {condition: service_healthy, restart: true}
+      outbound: {condition: service_healthy, restart: true}
+      inventory: {condition: service_healthy, restart: true}
+      fulfillment: {condition: service_healthy, restart: true}
+    build:
+      args:
+        VITE_OIDC_ISSUER: ${WMS_CENTRAL_ISSUER:-http://localhost:18090}
+        VITE_OIDC_CLIENT_ID: ${WMS_CENTRAL_CLIENT_ID:-wms-central}
+
+# truststore只含本机CA公钥；每个消费者卷只含自己的独立服务凭据，应用均以uid10001读600文件。
+volumes:
+  central-inbound: {external: true, name: auth-platform-wms-inbound-credentials}
+  central-outbound: {external: true, name: auth-platform-wms-outbound-credentials}
+  central-inventory: {external: true, name: auth-platform-wms-inventory-credentials}
+  central-fulfillment: {external: true, name: auth-platform-wms-fulfillment-credentials}
+  central-serial: {external: true, name: auth-platform-wms-serial-credentials}
