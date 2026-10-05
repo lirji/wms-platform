@@ -4,17 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.application.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+import com.lrj.wms.inventory.inventory.outbox.persistence.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.SeedCatalog;
 import com.lrj.wms.inventory.masterdata.SeedLocal;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.recon.collection.application.ReconciliationCollector;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -138,7 +139,7 @@ class SnapshotHttpIT {
     private ReconciliationCollector collector;
 
     @org.springframework.beans.factory.annotation.Autowired
-    private com.lrj.wms.inventory.jobs.InventoryCatalogJobs jobs;
+    private com.lrj.wms.inventory.jobs.configuration.InventoryCatalogJobs jobs;
 
     @AfterAll
     static void cleanup() {

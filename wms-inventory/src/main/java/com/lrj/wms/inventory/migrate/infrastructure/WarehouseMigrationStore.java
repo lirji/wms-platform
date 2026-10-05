@@ -1,7 +1,7 @@
 package com.lrj.wms.inventory.migrate.infrastructure;
 
-import com.lrj.wms.inventory.inventory.InventoryException;
-import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
+import com.lrj.wms.inventory.inventory.domain.InventoryException;
+import com.lrj.wms.inventory.migrate.persistence.WarehouseRouteMapper;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;

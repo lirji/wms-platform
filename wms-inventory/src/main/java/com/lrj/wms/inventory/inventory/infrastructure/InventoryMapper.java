@@ -103,7 +103,7 @@ public interface InventoryMapper {
                         .isBefore(
                                 com.lrj.wms.runtime.db.DatabaseInstants.require(
                                         guard.get("closed_before"))))
-            throw new com.lrj.wms.inventory.inventory.InventoryException(
+            throw new com.lrj.wms.inventory.inventory.domain.InventoryException(
                     "HISTORY_WINDOW_CLOSED", "旧时间事实不能写入已冻结历史窗口");
         return appendLedger(
                 id,

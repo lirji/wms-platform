@@ -2,17 +2,19 @@ package com.lrj.wms.inventory.recon;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.application.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
-import com.lrj.wms.inventory.masterdata.MasterdataService;
+import com.lrj.wms.inventory.inventory.outbox.persistence.OutboxMapper;
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.recon.application.StockInternalReconcile;
+import com.lrj.wms.inventory.recon.persistence.ReconciliationMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;
@@ -70,7 +72,7 @@ class StockInternalReconcileIT {
         config.addMapper(OutboxMapper.class);
         config.addMapper(CommandDedupMapper.class);
         config.addMapper(ReconciliationMapper.class);
-        config.addMapper(com.lrj.wms.inventory.archive.ArchivePlanMapper.class);
+        config.addMapper(com.lrj.wms.inventory.archive.persistence.ArchivePlanMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         Clock clock = Clock.fixed(POSTED, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
@@ -457,7 +459,7 @@ class StockInternalReconcileIT {
                         Integer.class));
         try (var session = sessions.openSession(false)) {
             assertThrows(
-                    com.lrj.wms.inventory.jobs.JobRunException.class,
+                    com.lrj.wms.inventory.jobs.domain.JobRunException.class,
                     () ->
                             new StockInternalReconcile(session, clock)
                                     .closeWindow(
@@ -520,7 +522,8 @@ class StockInternalReconcileIT {
             assertThrows(
                     RuntimeException.class,
                     () ->
-                            new com.lrj.wms.inventory.archive.ArchivePlanner(session, clock)
+                            new com.lrj.wms.inventory.archive.application.ArchivePlanner(
+                                            session, clock)
                                     .execute(
                                             "ENT-1",
                                             "WH-ARCH",
@@ -541,7 +544,7 @@ class StockInternalReconcileIT {
         for (int page = 0; page < 3; page++) {
             try (var session = sessions.openSession(false)) {
                 var result =
-                        new com.lrj.wms.inventory.archive.ArchivePlanner(session, clock)
+                        new com.lrj.wms.inventory.archive.application.ArchivePlanner(session, clock)
                                 .execute(
                                         "ENT-1",
                                         "WH-ARCH",
@@ -561,9 +564,10 @@ class StockInternalReconcileIT {
         }
         try (var session = sessions.openSession(false)) {
             assertThrows(
-                    com.lrj.wms.inventory.jobs.JobRunException.class,
+                    com.lrj.wms.inventory.jobs.domain.JobRunException.class,
                     () ->
-                            new com.lrj.wms.inventory.archive.ArchivePlanner(session, clock)
+                            new com.lrj.wms.inventory.archive.application.ArchivePlanner(
+                                            session, clock)
                                     .execute(
                                             "ENT-1",
                                             "WH-ARCH",

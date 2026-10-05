@@ -1,7 +1,7 @@
 package com.lrj.wms.inventory.compat;
 
-import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.inventory.recon.WarehouseQuantityFact;
+import com.lrj.wms.inventory.jobs.domain.JobRunException;
+import com.lrj.wms.inventory.recon.domain.WarehouseQuantityFact;
 
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;

@@ -1,0 +1,1144 @@
+package com.lrj.wms.inventory.process;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
+import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
+import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
+import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.*;
+import com.nimbusds.jwt.*;
+
+import org.apache.ibatis.mapping.Environment;
+import org.apache.ibatis.session.*;
+import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
+import org.apache.kafka.clients.admin.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.mysql.MySQLContainer;
+
+import java.math.BigDecimal;
+import java.net.*;
+import java.net.http.*;
+import java.nio.file.*;
+import java.security.*;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.time.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+
+/** 两个独立可执行服务、两库与真实Kafka，验证HTTP收货到T3回执及故障恢复。 */
+class ReceiveMessagingProcessesIT {
+    private final HttpClient http =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+
+    @Test
+    void receiptSurvivesBrokerOutageAndUpdatesSourceExactlyOnce() throws Exception {
+        Path root = Path.of("..").toRealPath();
+        Path logs = Path.of("target", "receive-messaging-processes").toAbsolutePath();
+        Files.createDirectories(logs);
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keys = generator.generateKeyPair();
+        RSAKey rsa =
+                new RSAKey.Builder((RSAPublicKey) keys.getPublic())
+                        .privateKey((RSAPrivateKey) keys.getPrivate())
+                        .keyID("it")
+                        .build();
+        var jwks =
+                com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        byte[] publicKeys =
+                new JWKSet(rsa.toPublicJWK())
+                        .toString()
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        jwks.createContext(
+                "/jwks",
+                exchange -> {
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, publicKeys.length);
+                    try (var body = exchange.getResponseBody()) {
+                        body.write(publicKeys);
+                    }
+                });
+        jwks.start();
+        String issuer = "http://127.0.0.1:" + jwks.getAddress().getPort();
+        Process inboundProcess = null, inventoryProcess = null;
+        try (var inbound = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_inbound");
+                var inventory =
+                        new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_inventory");
+                var kafka = new KafkaContainer("apache/kafka:3.8.0")) {
+            inbound.start();
+            inventory.start();
+            kafka.start();
+            var settings =
+                    new KafkaSettings(
+                            true, kafka.getBootstrapServers(), "wms.process", "PLAINTEXT", "", "");
+            try (var admin = AdminClient.create(settings.connection())) {
+                admin.createTopics(
+                                List.of(
+                                        new NewTopic("wms.process.inventory.events", 1, (short) 1),
+                                        new NewTopic("wms.process.inbound.commands", 1, (short) 1),
+                                        new NewTopic("wms.process.inbound.results", 1, (short) 1)))
+                        .all()
+                        .get(20, TimeUnit.SECONDS);
+            }
+            int inboundPort = port(), inventoryPort = port();
+            inboundProcess = start(root, "inbound", inbound, kafka, inboundPort, issuer, logs);
+            inventoryProcess =
+                    start(root, "inventory", inventory, kafka, inventoryPort, issuer, logs);
+            Process in = inboundProcess, stock = inventoryProcess;
+            await(
+                    () -> health(inboundPort) && health(inventoryPort),
+                    75,
+                    "两个真实服务未启动，日志=" + logs,
+                    in,
+                    stock);
+            var stockSource = source(inventory);
+            var configuration =
+                    new Configuration(
+                            new Environment(
+                                    "seed-only", new JdbcTransactionFactory(), stockSource));
+            com.lrj.wms.runtime.db.DatabaseInstants.configure(configuration);
+            configuration.addMapper(MasterdataMapper.class);
+            try (var session =
+                    new SqlSessionFactoryBuilder().build(configuration).openSession(false)) {
+                var masterdata = new MasterdataService(session, Clock.systemUTC());
+                masterdata.createWarehouse("WH", "ENT", "WH", "测试仓", "UTC");
+                masterdata.createLocation(
+                        "LOC",
+                        "GATE",
+                        "ENT",
+                        "WH",
+                        "LOC",
+                        "A",
+                        "RECEIVING",
+                        new BigDecimal("100"),
+                        "EA");
+                masterdata.createLocation(
+                        "LOC-B",
+                        "GATE-B",
+                        "ENT",
+                        "WH",
+                        "LOC-B",
+                        "A",
+                        "RECEIVING",
+                        new BigDecimal("100"),
+                        "EA");
+                masterdata.createLocation(
+                        "STORAGE",
+                        "GATE-STORAGE",
+                        "ENT",
+                        "WH",
+                        "STORAGE",
+                        "A",
+                        "STORAGE",
+                        new BigDecimal("100"),
+                        "EA");
+                masterdata.createSku(
+                        SkuPolicy.create(
+                                "SKU", "ENT", "SKU", "测试商品", "EA", 0, false, false, false, 1,
+                                "ACTIVE"),
+                        "UNIT");
+                masterdata.createSku(
+                        SkuPolicy.create(
+                                "SKU-SERIAL",
+                                "ENT",
+                                "SKU-SERIAL",
+                                "序列商品",
+                                "EA",
+                                0,
+                                false,
+                                true,
+                                false,
+                                1,
+                                "ACTIVE"),
+                        "UNIT-SERIAL");
+                session.commit();
+            }
+            String token = token(issuer, rsa);
+            String base = "http://127.0.0.1:" + inboundPort + "/api/wms/v1/warehouses/WH";
+            var created =
+                    post(
+                            base + "/inbound-orders",
+                            token,
+                            "ORDER",
+                            """
+                    {"sourceSystem":"ERP","externalNo":"EXT","ownerId":"OWNER","lines":[
+                    {"lineId":"LINE","externalLineId":"EXT-LINE","skuId":"SKU","expectedQty":"5","unit":"EA"}]}
+                    """);
+            assertEquals(201, created.statusCode(), created.body());
+            String receiptPath = base + "/inbound-orders/ORDER/receipts";
+            var missing =
+                    post(receiptPath, token, "NO-CONTEXT", "{\"lineId\":\"LINE\",\"qty\":\"3\"}");
+            assertEquals(400, missing.statusCode(), missing.body());
+            String receipt =
+                    "{\"lineId\":\"LINE\",\"qty\":\"3\",\"receiptPartId\":\"PART\",\"locationId\":\"LOC\",\"lotId\":\"NO_LOT\"}";
+            var inDb = new JdbcTemplate(source(inbound));
+            var stockDb = new JdbcTemplate(stockSource);
+            kafka.getDockerClient().pauseContainerCmd(kafka.getContainerId()).exec();
+            try {
+                var accepted = post(receiptPath, token, "RECEIVE-CMD", receipt);
+                assertEquals(202, accepted.statusCode(), accepted.body());
+                assertEquals(
+                        "PENDING",
+                        inDb.queryForObject(
+                                "SELECT state FROM source_command WHERE command_id='RECEIVE-CMD'",
+                                String.class));
+                assertEquals(
+                        0,
+                        stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            } finally {
+                kafka.getDockerClient().unpauseContainerCmd(kafka.getContainerId()).exec();
+            }
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='RECEIVE-CMD'",
+                                                    String.class)),
+                    60,
+                    "回执未完成，日志=" + logs,
+                    in,
+                    stock);
+            assertEquals(202, post(receiptPath, token, "RECEIVE-RETRY", receipt).statusCode());
+            assertEquals(
+                    1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_posting", Integer.class));
+            assertEquals(
+                    1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            assertEquals(
+                    "HOLD",
+                    stockDb.queryForObject("SELECT quality_code FROM stock_balance", String.class));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance", BigDecimal.class)
+                            .compareTo(new BigDecimal("3")));
+            assertEquals(
+                    0,
+                    inDb.queryForObject(
+                                    "SELECT received_posted_qty FROM inbound_line WHERE id='LINE'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("3")));
+            assertEquals(
+                    "operator-process",
+                    stockDb.queryForObject("SELECT actor_id FROM stock_ledger", String.class));
+            // 重新投递不同事件ID的同一真实回执，来源终态仍必须阻止二次累计。
+            var result =
+                    RuntimeMessage.JSON.readTree(
+                            stockDb.queryForObject(
+                                    "SELECT payload FROM outbox_event WHERE event_type='InventoryCommandResult'",
+                                    String.class));
+            try (var publisher = new KafkaMessagePublisher(settings, "duplicate-result-probe")) {
+                publisher.publish(
+                        "wms.process.inbound.results",
+                        "RECEIVE-CMD",
+                        new RuntimeMessage(
+                                        1,
+                                        "REDELIVERED-RESULT",
+                                        "wms-inventory",
+                                        "ENT",
+                                        "WH",
+                                        "InventoryCommandResult",
+                                        "RECEIVE-CMD",
+                                        1,
+                                        Instant.now().toString(),
+                                        "replay-probe",
+                                        result)
+                                .encode());
+            }
+            await(
+                    () ->
+                            inDb.queryForObject(
+                                            "SELECT COUNT(*) FROM runtime_message_inbox WHERE status='DONE'",
+                                            Integer.class)
+                                    == 2,
+                    20,
+                    "重复回执未消费",
+                    in,
+                    stock);
+            assertEquals(
+                    0,
+                    inDb.queryForObject(
+                                    "SELECT received_posted_qty FROM inbound_line WHERE id='LINE'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("3")));
+            assertEquals(
+                    1, inDb.queryForObject("SELECT COUNT(*) FROM source_execution", Integer.class));
+            // 模拟依赖故障耗尽后的真实有效回执；用HTTP恢复，不能改写原始载荷或重复累计。
+            var retryMessage =
+                    new RuntimeMessage(
+                            1,
+                            "RECOVERY-RESULT",
+                            "wms-inventory",
+                            "ENT",
+                            "WH",
+                            "InventoryCommandResult",
+                            "RECEIVE-CMD",
+                            1,
+                            Instant.now().toString(),
+                            "recovery-probe",
+                            result);
+            inDb.update(
+                    "INSERT INTO runtime_message_inbox(id,event_key,enterprise_id,warehouse_id,source_service,topic_name,partition_no,offset_no,payload_hash,payload,status,error_code,claim_epoch,next_attempt_at,created_at,updated_at) VALUES ('RECOVERY-INBOX',?,'ENT','WH','wms-inventory','wms.process.inbound.results',99,0,?,?,'ISOLATED','PROCESSING_FAILED',12,?,?,?)",
+                    retryMessage.identity(),
+                    RuntimeMessage.contentHash(retryMessage.encode()),
+                    retryMessage.encode(),
+                    java.sql.Timestamp.from(Instant.now()),
+                    java.sql.Timestamp.from(Instant.now()),
+                    java.sql.Timestamp.from(Instant.now()));
+            String retryPath = base + "/message-queues/INBOX/messages/RECOVERY-INBOX/retries";
+            String retryBody = "{\"expectedEpoch\":12,\"reason\":\"依赖已恢复并核对原事实\"}";
+            assertEquals(403, post(retryPath, token, "RECOVERY-CMD", retryBody).statusCode());
+            String adminToken = token(issuer, rsa, List.of("messaging.read", "messaging.recover"));
+            assertEquals(
+                    403,
+                    post(
+                                    retryPath.replace("warehouses/WH", "warehouses/OTHER"),
+                                    adminToken,
+                                    "RECOVERY-CMD",
+                                    retryBody)
+                            .statusCode());
+            var recovered = post(retryPath, adminToken, "RECOVERY-CMD", retryBody);
+            assertEquals(202, recovered.statusCode(), recovered.body());
+            await(
+                    () ->
+                            "DONE"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT status FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'",
+                                                    String.class)),
+                    20,
+                    "HTTP恢复后未处理原回执",
+                    in,
+                    stock);
+            var repeatedRecovery = post(retryPath, adminToken, "RECOVERY-CMD", retryBody);
+            assertEquals(202, repeatedRecovery.statusCode(), repeatedRecovery.body());
+            assertTrue(
+                    RuntimeMessage.JSON
+                            .readTree(repeatedRecovery.body())
+                            .path("replayed")
+                            .asBoolean());
+            assertEquals(
+                    1,
+                    inDb.queryForObject(
+                            "SELECT COUNT(*) FROM message_recovery_audit", Integer.class));
+            assertEquals(
+                    "operator-process",
+                    inDb.queryForObject(
+                            "SELECT actor_id FROM message_recovery_audit", String.class));
+            assertEquals(
+                    13L,
+                    inDb.queryForObject(
+                            "SELECT claim_epoch FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'",
+                            Long.class));
+            assertEquals(
+                    retryMessage.encode(),
+                    inDb.queryForObject(
+                            "SELECT payload FROM runtime_message_inbox WHERE id='RECOVERY-INBOX'",
+                            String.class));
+            assertEquals(
+                    0,
+                    inDb.queryForObject(
+                                    "SELECT received_posted_qty FROM inbound_line WHERE id='LINE'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("3")));
+            assertEquals(
+                    1, stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            // 同一入库行两次收货到不同库位，质检必须分别命中自己的HOLD库存。
+            String secondReceipt =
+                    "{\"lineId\":\"LINE\",\"qty\":\"2\",\"receiptPartId\":\"PART-B\",\"locationId\":\"LOC-B\",\"lotId\":\"NO_LOT\"}";
+            assertEquals(202, post(receiptPath, token, "RECEIVE-B", secondReceipt).statusCode());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='RECEIVE-B'",
+                                                    String.class)),
+                    30,
+                    "第二批收货未完成",
+                    in,
+                    stock);
+            String qualityToken = token(issuer, rsa, List.of("quality.inspect"));
+            String qualityPath = base + "/quality-inspections/INSPECT-A/results";
+            String qualityBody =
+                    "{\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-CMD\",\"acceptedQty\":\"2\",\"rejectedQty\":\"1\",\"sourceVersion\":1}";
+            assertEquals(403, post(qualityPath, token, "QUALITY-A", qualityBody).statusCode());
+            assertEquals(
+                    400,
+                    post(
+                                    qualityPath,
+                                    qualityToken,
+                                    "QUALITY-OVER",
+                                    qualityBody.replace("\"2\"", "\"4\""))
+                            .statusCode());
+            var qualityAccepted = post(qualityPath, qualityToken, "QUALITY-A", qualityBody);
+            assertEquals(202, qualityAccepted.statusCode(), qualityAccepted.body());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='QUALITY-A'",
+                                                    String.class)),
+                    30,
+                    "第一批质检未完成，日志=" + logs,
+                    in,
+                    stock);
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='REJECTED'",
+                                    BigDecimal.class)
+                            .compareTo(BigDecimal.ONE));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC-B' AND quality_code='HOLD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            assertEquals(
+                    202,
+                    post(
+                                    qualityPath,
+                                    qualityToken,
+                                    "QUALITY-REPLAY",
+                                    qualityBody.replace("\"2\"", "\"2.0\""))
+                            .statusCode());
+            assertEquals(
+                    409,
+                    post(
+                                    qualityPath,
+                                    qualityToken,
+                                    "QUALITY-A",
+                                    qualityBody.replace("\"2\"", "\"1\""))
+                            .statusCode());
+            String qualityB =
+                    "{\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-B\",\"acceptedQty\":\"2\",\"rejectedQty\":\"0\",\"sourceVersion\":1}";
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/quality-inspections/INSPECT-B/results",
+                                    qualityToken,
+                                    "QUALITY-B",
+                                    qualityB)
+                            .statusCode());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='QUALITY-B'",
+                                                    String.class)),
+                    30,
+                    "第二批质检未完成",
+                    in,
+                    stock);
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC-B' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            int beforeRevision =
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            // 在最后质量状态更新注入数据库约束失败，证明前面的转桶、流水和结果不能单独提交。
+            stockDb.execute(
+                    "ALTER TABLE stock_receipt_quality ADD CONSTRAINT reject_quality_test_revision CHECK (receipt_command_id <> 'RECEIVE-CMD' OR source_version < 2)");
+            String revised =
+                    qualityBody
+                            .replace("\"2\"", "\"3\"")
+                            .replace("\"1\"", "\"0\"")
+                            .replace("\"sourceVersion\":1", "\"sourceVersion\":2");
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/quality-inspections/INSPECT-A-V2/results",
+                                    qualityToken,
+                                    "QUALITY-A-V2",
+                                    revised)
+                            .statusCode());
+            await(
+                    () ->
+                            stockDb.queryForObject(
+                                            "SELECT COUNT(*) FROM runtime_message_inbox WHERE payload LIKE '%QUALITY-A-V2%' AND error_code='PROCESSING_FAILED'",
+                                            Integer.class)
+                                    == 1,
+                    20,
+                    "未触发质检事务失败",
+                    in,
+                    stock);
+            assertEquals(
+                    beforeRevision,
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                            "SELECT COUNT(*) FROM stock_posting WHERE command_id='QUALITY-A-V2'",
+                            Integer.class));
+            stockDb.execute(
+                    "ALTER TABLE stock_receipt_quality DROP CHECK reject_quality_test_revision");
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='QUALITY-A-V2'",
+                                                    String.class)),
+                    30,
+                    "质检修复后未恢复",
+                    in,
+                    stock);
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("3")));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='REJECTED'",
+                                    BigDecimal.class)
+                            .signum());
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT SUM(on_hand_qty) FROM stock_balance", BigDecimal.class)
+                            .compareTo(new BigDecimal("5")));
+            assertEquals(
+                    2L,
+                    inDb.queryForObject(
+                            "SELECT applied_version FROM inbound_receipt_quality WHERE receipt_command_id='RECEIVE-CMD'",
+                            Long.class));
+            int finalLedgers =
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            String previousWire =
+                    stockDb.queryForObject(
+                            "SELECT payload FROM runtime_message_inbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.payload.commandId'))='QUALITY-A'",
+                            String.class);
+            var previousMessage = RuntimeMessage.parse(previousWire);
+            try (var publisher = new KafkaMessagePublisher(settings, "late-quality-probe")) {
+                publisher.publish(
+                        "wms.process.inbound.commands",
+                        "late-quality",
+                        new RuntimeMessage(
+                                        1,
+                                        "LATE-QUALITY",
+                                        "wms-inbound",
+                                        "ENT",
+                                        "WH",
+                                        previousMessage.eventType(),
+                                        previousMessage.aggregateId(),
+                                        previousMessage.aggregateVersion(),
+                                        previousMessage.occurredAt(),
+                                        previousMessage.requestId(),
+                                        previousMessage.payload())
+                                .encode());
+            }
+            await(
+                    () ->
+                            stockDb.queryForObject(
+                                            "SELECT COUNT(*) FROM runtime_message_inbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.eventId'))='LATE-QUALITY' AND status='DONE'",
+                                            Integer.class)
+                                    == 1,
+                    20,
+                    "迟到质检重放未消费",
+                    in,
+                    stock);
+            assertEquals(
+                    finalLedgers,
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            // 上架必须绑定该批质量额度；同一入库行的另一批余额不能补足本批超额请求。
+            String putawayToken = token(issuer, rsa, List.of("inbound.putaway"));
+            String putawayA =
+                    "{\"inboundOrderId\":\"ORDER\",\"lineId\":\"LINE\",\"receiptCommandId\":\"RECEIVE-CMD\",\"targetLocationId\":\"STORAGE\",\"qty\":\"2\"}";
+            assertEquals(
+                    400,
+                    post(
+                                    base + "/tasks/PUTAWAY-OVER/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-OVER",
+                                    putawayA.replace("\"2\"", "\"4\""))
+                            .statusCode());
+            var putawayAccepted =
+                    post(base + "/tasks/PUTAWAY-A/putaways", putawayToken, "PUTAWAY-A", putawayA);
+            assertEquals(202, putawayAccepted.statusCode(), putawayAccepted.body());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='PUTAWAY-A'",
+                                                    String.class)),
+                    30,
+                    "第一批上架未闭环，日志=" + logs,
+                    in,
+                    stock);
+            int afterPutaway =
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class);
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/tasks/PUTAWAY-A/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-REPLAY",
+                                    putawayA)
+                            .statusCode());
+            assertEquals(
+                    afterPutaway,
+                    stockDb.queryForObject("SELECT COUNT(*) FROM stock_ledger", Integer.class));
+            assertEquals(
+                    409,
+                    post(
+                                    base + "/tasks/PUTAWAY-A/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-OTHER-BATCH",
+                                    putawayA.replace("RECEIVE-CMD", "RECEIVE-B"))
+                            .statusCode());
+            assertEquals(
+                    400,
+                    post(
+                                    base + "/tasks/PUTAWAY-OVER-REMAIN/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-OVER-REMAIN",
+                                    putawayA)
+                            .statusCode());
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='LOC' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(BigDecimal.ONE));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='STORAGE' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            String downgrade =
+                    qualityBody
+                            .replace("\"2\"", "\"1\"")
+                            .replace("\"sourceVersion\":1", "\"sourceVersion\":3");
+            assertEquals(
+                    400,
+                    post(
+                                    base + "/quality-inspections/INSPECT-A-V3/results",
+                                    qualityToken,
+                                    "QUALITY-A-V3",
+                                    downgrade)
+                            .statusCode());
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/tasks/PUTAWAY-B/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-B",
+                                    putawayA.replace("RECEIVE-CMD", "RECEIVE-B"))
+                            .statusCode());
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/tasks/PUTAWAY-A-REST/putaways",
+                                    putawayToken,
+                                    "PUTAWAY-A-REST",
+                                    putawayA.replace("\"2\"", "\"1\""))
+                            .statusCode());
+            await(
+                    () ->
+                            inDb.queryForObject(
+                                                    "SELECT putaway_posted_qty FROM inbound_line WHERE id='LINE'",
+                                                    BigDecimal.class)
+                                            .compareTo(new BigDecimal("5"))
+                                    == 0,
+                    30,
+                    "分批上架累计未完成",
+                    in,
+                    stock);
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE location_id='STORAGE' AND quality_code='GOOD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("5")));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT SUM(putaway_qty) FROM stock_receipt_quality",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("5")));
+            assertEquals(
+                    0,
+                    inDb.queryForObject(
+                                    "SELECT SUM(putaway_qty) FROM inbound_receipt_quality",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("5")));
+            var firstPage =
+                    http.send(
+                            HttpRequest.newBuilder(URI.create(receiptPath + "?limit=1"))
+                                    .timeout(Duration.ofSeconds(5))
+                                    .header("Authorization", "Bearer " + token)
+                                    .GET()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, firstPage.statusCode(), firstPage.body());
+            var firstBatch = RuntimeMessage.JSON.readTree(firstPage.body());
+            assertEquals(1, firstBatch.path("items").size());
+            assertFalse(firstBatch.path("items").get(0).has("payload_json"));
+            var secondPage =
+                    http.send(
+                            HttpRequest.newBuilder(
+                                            URI.create(
+                                                    receiptPath
+                                                            + "?limit=1&cursor="
+                                                            + firstBatch
+                                                                    .path("nextCursor")
+                                                                    .asString()))
+                                    .timeout(Duration.ofSeconds(5))
+                                    .header("Authorization", "Bearer " + token)
+                                    .GET()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, secondPage.statusCode(), secondPage.body());
+            var secondBatch = RuntimeMessage.JSON.readTree(secondPage.body());
+            assertEquals(1, secondBatch.path("items").size());
+            assertNotEquals(
+                    firstBatch.path("items").get(0).path("id").asString(),
+                    secondBatch.path("items").get(0).path("id").asString());
+            assertFalse(secondBatch.has("nextCursor"));
+            // 同一真实来源服务新增序列收货批次：身份和数量一起入账，登记关闭时保持HOLD及持久恢复意图。
+            var serialOrder =
+                    post(
+                            base + "/inbound-orders",
+                            token,
+                            "ORDER-SERIAL",
+                            """
+                    {"sourceSystem":"ERP","externalNo":"EXT-SERIAL","ownerId":"OWNER","lines":[
+                    {"lineId":"LINE-SERIAL","externalLineId":"EXT-SERIAL-LINE","skuId":"SKU-SERIAL","expectedQty":"2","unit":"EA"}]}
+                    """);
+            assertEquals(201, serialOrder.statusCode(), serialOrder.body());
+            String serialPath = base + "/inbound-orders/ORDER-SERIAL/receipts";
+            String serialReceipt =
+                    """
+                    {"lineId":"LINE-SERIAL","qty":"2","receiptPartId":"SERIAL-PART","locationId":"LOC","lotId":"NO_LOT",
+                     "serialObservation":{"schemaVersion":1,"serialIds":[" sn-b ","SN-A"]}}
+                    """;
+            assertEquals(
+                    400,
+                    post(
+                                    serialPath,
+                                    token,
+                                    "SERIAL-BAD-QTY",
+                                    serialReceipt.replace("\"qty\":\"2\"", "\"qty\":\"1\""))
+                            .statusCode());
+            assertEquals(
+                    400,
+                    post(serialPath, token, "SERIAL-DUP", serialReceipt.replace("SN-A", "SN-B"))
+                            .statusCode());
+            var serialAccepted = post(serialPath, token, "RECEIVE-SERIAL", serialReceipt);
+            assertEquals(202, serialAccepted.statusCode(), serialAccepted.body());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='RECEIVE-SERIAL'",
+                                                    String.class)),
+                    30,
+                    "序列号收货未闭环",
+                    in,
+                    stock);
+            assertEquals(
+                    202,
+                    post(
+                                    serialPath,
+                                    token,
+                                    "RECEIVE-SERIAL-REPLAY",
+                                    serialReceipt.replace(" sn-b ", "SN-B"))
+                            .statusCode());
+            assertEquals(
+                    409,
+                    post(
+                                    serialPath,
+                                    token,
+                                    "RECEIVE-SERIAL-CHANGED",
+                                    serialReceipt.replace("SN-A", "SN-C"))
+                            .statusCode());
+            String omittedObservation =
+                    "{\"lineId\":\"LINE-SERIAL\",\"qty\":\"2\",\"receiptPartId\":\"SERIAL-PART\",\"locationId\":\"LOC\",\"lotId\":\"NO_LOT\"}";
+            assertEquals(
+                    409,
+                    post(serialPath, token, "RECEIVE-SERIAL-OMITTED", omittedObservation)
+                            .statusCode());
+            assertEquals(
+                    1,
+                    stockDb.queryForObject(
+                            "SELECT COUNT(*) FROM stock_posting WHERE command_id='RECEIVE-SERIAL'",
+                            Integer.class));
+            assertEquals(
+                    0,
+                    stockDb.queryForObject(
+                                    "SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-SERIAL' AND quality_code='HOLD'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            assertEquals(
+                    List.of("SN-A", "SN-B"),
+                    stockDb.queryForList(
+                            "SELECT serial_id FROM local_serial WHERE receipt_operation_id='RECEIVE-SERIAL' ORDER BY serial_id",
+                            String.class));
+            assertEquals(
+                    2,
+                    stockDb.queryForObject(
+                            "SELECT COUNT(*) FROM local_serial WHERE state='HOLD_RECEIVED' AND receipt_operation_id='RECEIVE-SERIAL'",
+                            Integer.class));
+            assertEquals(
+                    2,
+                    stockDb.queryForObject(
+                            "SELECT COUNT(*) FROM serial_recovery_intent WHERE operation_id='RECEIVE-SERIAL' AND state='PENDING'",
+                            Integer.class));
+            assertEquals(
+                    0,
+                    inDb.queryForObject(
+                                    "SELECT received_posted_qty FROM inbound_line WHERE id='LINE-SERIAL'",
+                                    BigDecimal.class)
+                            .compareTo(new BigDecimal("2")));
+            String serialQuality =
+                    """
+                    {"lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","sourceVersion":1,"acceptedQty":"1","rejectedQty":"1",
+                     "serialQualityObservation":{"schemaVersion":1,"acceptedSerials":["SN-A"],"rejectedSerials":["SN-B"]}}
+                    """;
+            String serialQualityPath = base + "/quality-inspections/INSPECT-SERIAL/results";
+            assertEquals(
+                    400,
+                    post(
+                                    serialQualityPath,
+                                    qualityToken,
+                                    "QUALITY-SERIAL-BAD",
+                                    serialQuality.replace("SN-A", "OTHER"))
+                            .statusCode());
+            String noIdentity =
+                    "{\"lineId\":\"LINE-SERIAL\",\"receiptCommandId\":\"RECEIVE-SERIAL\",\"sourceVersion\":1,\"acceptedQty\":\"1\",\"rejectedQty\":\"1\"}";
+            assertEquals(
+                    400,
+                    post(serialQualityPath, qualityToken, "QUALITY-SERIAL-NONE", noIdentity)
+                            .statusCode());
+            // 本测试专门证明来源消息链；登记授权使用明确夹具，真实HTTP授权后质检另见登记进程测试。
+            stockDb.update(
+                    "UPDATE local_serial SET state='AUTHORIZED',registry_state='ACTIVE',owner_epoch=1 WHERE receipt_operation_id='RECEIVE-SERIAL'");
+            var serialQualityAccepted =
+                    post(serialQualityPath, qualityToken, "QUALITY-SERIAL", serialQuality);
+            assertEquals(202, serialQualityAccepted.statusCode(), serialQualityAccepted.body());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='QUALITY-SERIAL'",
+                                                    String.class)),
+                    30,
+                    "身份质检未闭环",
+                    in,
+                    stock);
+            assertEquals(
+                    202,
+                    post(serialQualityPath, qualityToken, "QUALITY-SERIAL-REPLAY", serialQuality)
+                            .statusCode());
+            assertEquals(
+                    409,
+                    post(
+                                    serialQualityPath,
+                                    qualityToken,
+                                    "QUALITY-SERIAL-REPLACED",
+                                    serialQuality
+                                            .replace("SN-A", "TEMP")
+                                            .replace("SN-B", "SN-A")
+                                            .replace("TEMP", "SN-B"))
+                            .statusCode());
+            assertEquals(
+                    List.of("GOOD", "REJECTED"),
+                    stockDb.queryForList(
+                            "SELECT b.quality_code FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='RECEIVE-SERIAL' ORDER BY s.serial_id",
+                            String.class));
+            String serialQuality2 =
+                    """
+                    {"lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","sourceVersion":2,"acceptedQty":"2","rejectedQty":"0",
+                     "serialQualityObservation":{"schemaVersion":1,"acceptedSerials":["SN-A","SN-B"],"rejectedSerials":[]}}
+                    """;
+            assertEquals(
+                    202,
+                    post(
+                                    base + "/quality-inspections/INSPECT-SERIAL-2/results",
+                                    qualityToken,
+                                    "QUALITY-SERIAL-2",
+                                    serialQuality2)
+                            .statusCode());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='QUALITY-SERIAL-2'",
+                                                    String.class)),
+                    30,
+                    "第二版序列质检未闭环",
+                    in,
+                    stock);
+            String serialPutaway =
+                    """
+                    {"inboundOrderId":"ORDER-SERIAL","lineId":"LINE-SERIAL","receiptCommandId":"RECEIVE-SERIAL","targetLocationId":"STORAGE","qty":"1",
+                     "serialSelection":{"schemaVersion":1,"serialIds":["SN-A"]}}
+                    """;
+            String serialPutPath = base + "/tasks/SERIAL-P1/putaways";
+            var serialPutAccepted = post(serialPutPath, putawayToken, "SERIAL-P1", serialPutaway);
+            assertEquals(202, serialPutAccepted.statusCode(), serialPutAccepted.body());
+            await(
+                    () ->
+                            "APPLIED"
+                                    .equals(
+                                            inDb.queryForObject(
+                                                    "SELECT state FROM source_command WHERE command_id='SERIAL-P1'",
+                                                    String.class)),
+                    30,
+                    "第一身份上架未闭环",
+                    in,
+                    stock);
+            assertEquals(
+                    202,
+                    post(serialPutPath, putawayToken, "SERIAL-P1-REPLAY", serialPutaway)
+                            .statusCode());
+            assertEquals(
+                    409,
+                    post(
+                                    serialPutPath,
+                                    putawayToken,
+                                    "SERIAL-P1-SWAP",
+                                    serialPutaway.replace("SN-A", "SN-B"))
+                            .statusCode());
+            String secondPut = base + "/tasks/SERIAL-P2/putaways";
+            assertEquals(
+                    409, post(secondPut, putawayToken, "SERIAL-P2", serialPutaway).statusCode());
+            assertEquals(
+                    1,
+                    inDb.queryForObject(
+                            "SELECT COUNT(*) FROM inbound_serial_putaway WHERE receipt_command_id='RECEIVE-SERIAL'",
+                            Integer.class));
+            String swappedQuality =
+                    serialQuality
+                            .replace("\"sourceVersion\":1", "\"sourceVersion\":3")
+                            .replace("SN-A", "TEMP")
+                            .replace("SN-B", "SN-A")
+                            .replace("TEMP", "SN-B");
+            assertEquals(
+                    400,
+                    post(
+                                    base + "/quality-inspections/INSPECT-SERIAL-3/results",
+                                    qualityToken,
+                                    "QUALITY-SERIAL-3",
+                                    swappedQuality)
+                            .statusCode());
+            // 来源最后任务写失败时，新增身份占用、数量和来源命令必须一起回滚。
+            inDb.execute(
+                    "ALTER TABLE inbound_task ADD CONSTRAINT test_serial_task_final CHECK(id<>'SERIAL-P2' OR completed_qty=0)");
+            try {
+                assertTrue(
+                        post(
+                                                secondPut,
+                                                putawayToken,
+                                                "SERIAL-P2",
+                                                serialPutaway.replace("SN-A", "SN-B"))
+                                        .statusCode()
+                                >= 500);
+                assertEquals(
+                        1,
+                        inDb.queryForObject(
+                                "SELECT COUNT(*) FROM inbound_serial_putaway WHERE receipt_command_id='RECEIVE-SERIAL'",
+                                Integer.class));
+                assertEquals(
+                        0,
+                        inDb.queryForObject(
+                                "SELECT COUNT(*) FROM source_command WHERE command_id='SERIAL-P2'",
+                                Integer.class));
+                assertEquals(
+                        0,
+                        inDb.queryForObject(
+                                        "SELECT putaway_physical_qty FROM inbound_line WHERE id='LINE-SERIAL'",
+                                        BigDecimal.class)
+                                .compareTo(BigDecimal.ONE));
+            } finally {
+                inDb.execute("ALTER TABLE inbound_task DROP CHECK test_serial_task_final");
+            }
+            assertEquals(
+                    202,
+                    post(
+                                    secondPut,
+                                    putawayToken,
+                                    "SERIAL-P2",
+                                    serialPutaway.replace("SN-A", "SN-B"))
+                            .statusCode());
+            await(
+                    () ->
+                            inDb.queryForObject(
+                                                    "SELECT putaway_posted_qty FROM inbound_line WHERE id='LINE-SERIAL'",
+                                                    BigDecimal.class)
+                                            .compareTo(new BigDecimal("2"))
+                                    == 0,
+                    30,
+                    "全部序列身份上架未闭环",
+                    in,
+                    stock);
+            assertEquals(
+                    List.of("STORAGE", "STORAGE"),
+                    stockDb.queryForList(
+                            "SELECT b.location_id FROM local_serial s JOIN stock_balance b ON b.id=s.balance_id WHERE s.receipt_operation_id='RECEIVE-SERIAL' ORDER BY s.serial_id",
+                            String.class));
+            // 正常退出先停业务进程，再关闭专属组件，验证期间不制造无关的连接中断噪声。
+            stop(inboundProcess);
+            inboundProcess = null;
+            stop(inventoryProcess);
+            inventoryProcess = null;
+        } finally {
+            stop(inboundProcess);
+            stop(inventoryProcess);
+            jwks.stop(0);
+        }
+    }
+
+    private Process start(
+            Path root,
+            String service,
+            MySQLContainer db,
+            KafkaContainer kafka,
+            int port,
+            String issuer,
+            Path logs)
+            throws Exception {
+        Path jar =
+                root.resolve("wms-" + service + "/target/wms-" + service + "-0.1.0-SNAPSHOT.jar");
+        assertTrue(Files.isRegularFile(jar), "缺少本次构建服务Jar：" + jar);
+        var builder =
+                new ProcessBuilder(
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-Xmx256m",
+                        "-jar",
+                        jar.toString());
+        var env = builder.environment();
+        env.put("WMS_HTTP_PORT", String.valueOf(port));
+        env.put("WMS_BIND_ADDRESS", "127.0.0.1");
+        env.put("WMS_" + service.toUpperCase(Locale.ROOT) + "_JDBC_URL", db.getJdbcUrl());
+        env.put("WMS_" + service.toUpperCase(Locale.ROOT) + "_DB_USER", db.getUsername());
+        env.put("WMS_" + service.toUpperCase(Locale.ROOT) + "_DB_PASSWORD", db.getPassword());
+        env.put("WMS_OIDC_ISSUER", issuer);
+        env.put("WMS_OIDC_JWK_SET_URI", issuer + "/jwks");
+        env.put("WMS_OIDC_CLIENT_ID", "wms-platform");
+        env.put("WMS_MESSAGING_RECOVERYENABLED", "true");
+        env.put("WMS_MESSAGING_ENABLED", "true");
+        env.put("WMS_MESSAGING_BOOTSTRAPSERVERS", kafka.getBootstrapServers());
+        env.put("WMS_MESSAGING_TOPICPREFIX", "wms.process");
+        return builder.redirectErrorStream(true)
+                .redirectOutput(logs.resolve(service + ".log").toFile())
+                .start();
+    }
+
+    private static com.mysql.cj.jdbc.MysqlDataSource source(MySQLContainer db) {
+        var source = new com.mysql.cj.jdbc.MysqlDataSource();
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(db.getJdbcUrl(), "UTC"));
+        source.setUser(db.getUsername());
+        source.setPassword(db.getPassword());
+        return source;
+    }
+
+    private HttpResponse<String> post(String url, String token, String key, String body)
+            throws Exception {
+        return http.send(
+                HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofSeconds(5))
+                        .header("Authorization", "Bearer " + token)
+                        .header("Idempotency-Key", key)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    private boolean health(int port) {
+        try {
+            return http.send(
+                                    HttpRequest.newBuilder(
+                                                    URI.create(
+                                                            "http://127.0.0.1:"
+                                                                    + port
+                                                                    + "/actuator/health/liveness"))
+                                            .timeout(Duration.ofSeconds(2))
+                                            .GET()
+                                            .build(),
+                                    HttpResponse.BodyHandlers.discarding())
+                            .statusCode()
+                    == 200;
+        } catch (Exception unavailable) {
+            return false;
+        }
+    }
+
+    private static void await(
+            BooleanSupplier done, int seconds, String failure, Process... processes)
+            throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
+        while (!done.getAsBoolean()) {
+            for (var process : processes) assertTrue(process.isAlive(), failure);
+            assertTrue(System.nanoTime() < deadline, failure);
+            Thread.sleep(250);
+        }
+    }
+
+    private static int port() throws Exception {
+        try (var socket = new java.net.ServerSocket(0, 0, InetAddress.getByName("127.0.0.1"))) {
+            return socket.getLocalPort();
+        }
+    }
+
+    private static void stop(Process process) throws Exception {
+        if (process == null) return;
+        process.destroy();
+        if (!process.waitFor(15, TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            process.waitFor(5, TimeUnit.SECONDS);
+        }
+    }
+
+    private static String token(String issuer, RSAKey rsa) throws Exception {
+        return token(issuer, rsa, List.of("inbound.create", "inbound.read", "inbound.receive"));
+    }
+
+    private static String token(String issuer, RSAKey rsa, List<String> scopes) throws Exception {
+        var claims =
+                new JWTClaimsSet.Builder()
+                        .issuer(issuer)
+                        .audience("wms-platform")
+                        .subject("operator-process")
+                        .expirationTime(Date.from(Instant.now().plusSeconds(600)))
+                        .claim("enterprise_id", "ENT")
+                        .claim("warehouses", List.of("WH"))
+                        .claim("scope", scopes)
+                        .build();
+        var jwt =
+                new SignedJWT(
+                        new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("it").build(), claims);
+        jwt.sign(new RSASSASigner(rsa));
+        return jwt.serialize();
+    }
+}

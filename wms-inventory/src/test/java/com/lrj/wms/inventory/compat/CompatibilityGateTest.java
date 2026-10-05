@@ -2,8 +2,8 @@ package com.lrj.wms.inventory.compat;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.inventory.recon.WarehouseQuantityFact;
+import com.lrj.wms.inventory.jobs.domain.JobRunException;
+import com.lrj.wms.inventory.recon.domain.WarehouseQuantityFact;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

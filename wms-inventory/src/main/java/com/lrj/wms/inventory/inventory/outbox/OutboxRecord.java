@@ -1,0 +1,14 @@
+package com.lrj.wms.inventory.inventory.outbox;
+
+/** 一次待投递库存事件。发布器按 eventId 幂等。 */
+public record OutboxRecord(
+        String eventId,
+        String enterpriseId,
+        String warehouseId,
+        String aggregateType,
+        String aggregateId,
+        long aggregateVersion,
+        String eventType,
+        String operationId,
+        String payload,
+        java.time.Instant occurredAt) {}

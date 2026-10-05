@@ -1,13 +1,14 @@
 package com.lrj.wms.inventory.masterdata;
 
-import com.lrj.wms.inventory.count.CountMapper;
-import com.lrj.wms.inventory.count.CountService;
+import com.lrj.wms.inventory.count.application.CountService;
+import com.lrj.wms.inventory.count.persistence.CountMapper;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.lrj.wms.inventory.masterdata.infrastructure.SeedStockMapper;
-import com.lrj.wms.inventory.query.InventoryProjectionService;
-import com.lrj.wms.inventory.query.ProjectionMapper;
+import com.lrj.wms.inventory.query.application.InventoryProjectionService;
+import com.lrj.wms.inventory.query.persistence.ProjectionMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

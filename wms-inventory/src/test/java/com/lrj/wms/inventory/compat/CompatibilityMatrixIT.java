@@ -2,24 +2,24 @@ package com.lrj.wms.inventory.compat;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inventory.effect.EffectService;
+import com.lrj.wms.inventory.effect.application.EffectService;
 import com.lrj.wms.inventory.effect.domain.EffectCodes;
 import com.lrj.wms.inventory.effect.domain.RequestDigest;
 import com.lrj.wms.inventory.effect.infrastructure.EffectMapper;
-import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.application.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
-import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.inventory.masterdata.MasterdataService;
+import com.lrj.wms.inventory.inventory.outbox.persistence.OutboxMapper;
+import com.lrj.wms.inventory.jobs.domain.JobRunException;
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import com.lrj.wms.inventory.query.InventoryProjectionService;
-import com.lrj.wms.inventory.query.ProjectionMapper;
-import com.lrj.wms.inventory.recon.WarehouseQuantityFact;
+import com.lrj.wms.inventory.query.application.InventoryProjectionService;
+import com.lrj.wms.inventory.query.persistence.ProjectionMapper;
+import com.lrj.wms.inventory.recon.domain.WarehouseQuantityFact;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

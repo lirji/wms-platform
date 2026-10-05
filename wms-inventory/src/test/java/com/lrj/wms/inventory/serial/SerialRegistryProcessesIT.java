@@ -6,10 +6,25 @@ import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
-import com.lrj.wms.inventory.masterdata.MasterdataService;
+import com.lrj.wms.inventory.inventory.outbox.persistence.OutboxMapper;
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.inventory.serial.application.SerialReceiptBatchService;
+import com.lrj.wms.inventory.serial.application.SerialReceiptService;
+import com.lrj.wms.inventory.serial.application.SerialRecoveryService;
+import com.lrj.wms.inventory.serial.application.SerialReleaseRecoveryService;
+import com.lrj.wms.inventory.serial.application.SerialTransferLocalService;
+import com.lrj.wms.inventory.serial.persistence.LocalSerialMapper;
+import com.lrj.wms.inventory.serial.persistence.SerialReceiptBatchMapper;
+import com.lrj.wms.inventory.serial.persistence.SerialRecoveryMapper;
+import com.lrj.wms.inventory.serial.persistence.SerialReleaseMapper;
+import com.lrj.wms.inventory.serial.registry.error.SerialRegistryUnavailableException;
+import com.lrj.wms.inventory.serial.registry.http.SerialRegistryHttpClient;
+import com.lrj.wms.inventory.serial.registry.port.SerialCountRegistryPort;
+import com.lrj.wms.inventory.serial.registry.port.SerialRegistryPort;
+import com.lrj.wms.inventory.serial.registry.port.SerialReleaseRegistryPort;
+import com.lrj.wms.inventory.serial.registry.port.SerialTransferRegistryPort;
 import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -148,7 +163,7 @@ class SerialRegistryProcessesIT {
                     new Configuration(
                             new Environment("inventory", new JdbcTransactionFactory(), source));
             com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
-            config.addMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class);
+            config.addMapper(com.lrj.wms.inventory.recon.persistence.ReconciliationMapper.class);
             config.addMapper(MasterdataMapper.class);
             config.addMapper(InventoryMapper.class);
             config.addMapper(OutboxMapper.class);
@@ -156,11 +171,12 @@ class SerialRegistryProcessesIT {
             config.addMapper(LocalSerialMapper.class);
             config.addMapper(SerialReleaseMapper.class);
             config.addMapper(SerialRecoveryMapper.class);
-            config.addMapper(com.lrj.wms.inventory.count.CountMapper.class);
-            config.addMapper(com.lrj.wms.inventory.count.CountSerialMapper.class);
+            config.addMapper(com.lrj.wms.inventory.count.persistence.CountMapper.class);
+            config.addMapper(com.lrj.wms.inventory.count.persistence.CountSerialMapper.class);
             config.addMapper(SerialReceiptBatchMapper.class);
             config.addMapper(StockCommandMapper.class);
-            config.addMapper(com.lrj.wms.inventory.quality.ReceiptQualityStockMapper.class);
+            config.addMapper(
+                    com.lrj.wms.inventory.quality.persistence.ReceiptQualityStockMapper.class);
             config.addMapper(com.lrj.wms.inventory.effect.infrastructure.EffectMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(config);
             var jdbc = new JdbcTemplate(source);
@@ -413,7 +429,7 @@ class SerialRegistryProcessesIT {
                 assertQuantity(jdbc, "B", 1);
                 try (var session = sessions.openSession(false)) {
                     assertThrows(
-                            com.lrj.wms.inventory.inventory.InventoryException.class,
+                            com.lrj.wms.inventory.inventory.domain.InventoryException.class,
                             () ->
                                     new SerialTransferLocalService(session, clock, actual)
                                             .receiveDestination(
@@ -491,7 +507,7 @@ class SerialRegistryProcessesIT {
                                     .sealSource("ENT", "A", "SN", "TRANSFER", epoch, "RELEASE")
                                     .get("state"));
                     assertThrows(
-                            com.lrj.wms.inventory.inventory.InventoryException.class,
+                            com.lrj.wms.inventory.inventory.domain.InventoryException.class,
                             () ->
                                     transfers.sealSource(
                                             "ENT", "A", "SN", "TRANSFER", epoch + 1, "RELEASE"));
@@ -592,7 +608,8 @@ class SerialRegistryProcessesIT {
                     var quality =
                             new com.lrj.wms.contract.serial.observation.SerialQualityObservation(
                                     1, List.of("BATCH-1"), List.of("BATCH-2"));
-                    new com.lrj.wms.inventory.inventory.StockCommandService(session, clock)
+                    new com.lrj.wms.inventory.inventory.application.StockCommandService(
+                                    session, clock)
                             .applyQuality(
                                     "ENT",
                                     "A",
@@ -629,7 +646,8 @@ class SerialRegistryProcessesIT {
                     var to =
                             StockBucketKey.of(
                                     "ENT", "A", "OWNER", "PUT-STORAGE", "SKU", "NO_LOT", "GOOD");
-                    new com.lrj.wms.inventory.inventory.StockCommandService(session, clock)
+                    new com.lrj.wms.inventory.inventory.application.StockCommandService(
+                                    session, clock)
                             .applyPutaway(
                                     "ENT",
                                     "A",
@@ -662,7 +680,7 @@ class SerialRegistryProcessesIT {
                         java.sql.Timestamp.from(now));
                 var stopped =
                         assertThrows(
-                                com.lrj.wms.inventory.inventory.InventoryException.class,
+                                com.lrj.wms.inventory.inventory.domain.InventoryException.class,
                                 () ->
                                         new SerialRecoveryService(
                                                         sessions, at(now, 420), actual, actual)
@@ -758,7 +776,7 @@ class SerialRegistryProcessesIT {
                         String.class));
         try (var session = sessions.openSession(false)) {
             assertThrows(
-                    com.lrj.wms.inventory.inventory.InventoryException.class,
+                    com.lrj.wms.inventory.inventory.domain.InventoryException.class,
                     () ->
                             new SerialTransferLocalService(session, clock, actual)
                                     .sealSource(
@@ -874,7 +892,7 @@ class SerialRegistryProcessesIT {
                     .prepareStatement(
                             "UPDATE local_serial SET owner_epoch=1 WHERE warehouse_id='C' AND serial_id='COUNT-C3'")
                     .executeUpdate();
-            var counts = new com.lrj.wms.inventory.count.CountService(session, clock);
+            var counts = new com.lrj.wms.inventory.count.application.CountService(session, clock);
             counts.create("ENT", "C", "COUNT-C", "CYCLE", List.of("LOC-C"));
             counts.startQuiescing("ENT", "C", "COUNT-C");
             line =
@@ -896,7 +914,8 @@ class SerialRegistryProcessesIT {
             counts.approve("ENT", "C", "COUNT-C", "COUNT-APPROVAL-C", "approver");
             assertEquals(
                     "REGISTRY_PENDING",
-                    new com.lrj.wms.inventory.count.CountSerialAdjustmentService(session, clock)
+                    new com.lrj.wms.inventory.count.application.CountSerialAdjustmentService(
+                                    session, clock)
                             .apply("ENT", "C", "COUNT-C", line, "COUNT-APPLY-C", "count-operator")
                             .get("status"));
             session.commit();
@@ -932,7 +951,8 @@ class SerialRegistryProcessesIT {
                     }
                 };
         var first =
-                new com.lrj.wms.inventory.count.CountApplyRecovery(sessions, clock, lossy)
+                new com.lrj.wms.inventory.count.application.CountApplyRecovery(
+                                sessions, clock, lossy)
                         .execute("ENT", "C", "COUNT-C");
         assertEquals(0, first.applied());
         assertEquals(1, first.failed());
@@ -953,7 +973,7 @@ class SerialRegistryProcessesIT {
         Thread.sleep(1100);
         try {
             var failed =
-                    new com.lrj.wms.inventory.count.CountApplyRecovery(
+                    new com.lrj.wms.inventory.count.application.CountApplyRecovery(
                                     sessions, at(now, 600), lossy)
                             .execute("ENT", "C", "COUNT-C");
             assertEquals(0, failed.applied());
@@ -979,7 +999,8 @@ class SerialRegistryProcessesIT {
         }
         int priorCalls = foundCalls.get() + missingCalls.get();
         var recovered =
-                new com.lrj.wms.inventory.count.CountApplyRecovery(sessions, at(now, 700), lossy)
+                new com.lrj.wms.inventory.count.application.CountApplyRecovery(
+                                sessions, at(now, 700), lossy)
                         .execute("ENT", "C", "COUNT-C");
         assertEquals(1, recovered.applied());
         assertEquals(0, recovered.failed());
@@ -1004,12 +1025,12 @@ class SerialRegistryProcessesIT {
         try (var session = sessions.openSession(false)) {
             assertEquals(
                     "COMPLETED",
-                    new com.lrj.wms.inventory.count.CountService(session, at(now, 700))
+                    new com.lrj.wms.inventory.count.application.CountService(session, at(now, 700))
                             .unfreeze("ENT", "C", "COUNT-C")
                             .get("status"));
             assertEquals(
                     "APPLIED",
-                    new com.lrj.wms.inventory.count.CountSerialAdjustmentService(
+                    new com.lrj.wms.inventory.count.application.CountSerialAdjustmentService(
                                     session, at(now, 700))
                             .apply("ENT", "C", "COUNT-C", line, "ANOTHER-KEY", "another-actor")
                             .get("status"));
@@ -1031,7 +1052,7 @@ class SerialRegistryProcessesIT {
                                 .header("X-Wms-Enterprise-Id", "ENT")
                                 .header(
                                         "Idempotency-Key",
-                                        SerialRegistryHttpClient.digest(
+                                        com.lrj.wms.runtime.messaging.protocol.RuntimeMessage.hash(
                                                 action
                                                         + RuntimeMessage.JSON.writeValueAsString(
                                                                 new TreeMap<>(body))))
@@ -1078,7 +1099,9 @@ class SerialRegistryProcessesIT {
     private static void assertSerialCount(SqlSessionFactory sessions, String wh, int count) {
         try (var session = sessions.openSession()) {
             var rows =
-                    session.getMapper(com.lrj.wms.inventory.recon.ReconciliationMapper.class)
+                    session.getMapper(
+                                    com.lrj.wms.inventory.recon.persistence.ReconciliationMapper
+                                            .class)
                             .balancePage(
                                     "ENT",
                                     wh,

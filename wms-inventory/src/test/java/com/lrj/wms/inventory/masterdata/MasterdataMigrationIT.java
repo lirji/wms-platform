@@ -2,6 +2,7 @@ package com.lrj.wms.inventory.masterdata;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.lrj.wms.inventory.masterdata.application.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
