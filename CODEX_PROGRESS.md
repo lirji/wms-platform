@@ -2,39 +2,41 @@
 
 ## 任务目标
 
-连续完成WMS全部集中权限：只读→入出库/PDA→盘点调整/调拨→实际本机运行与正常Git发布。local-wms绑定ENT-DEMO，不生产部署。
+连续完成W00–W07：WMS只读、入出库/PDA、盘点调整/调拨接入Auth，local-wms绑定ENT-DEMO，实际本机运行与正常Git发布。不生产部署。
 
 ## 已完成
 
-- W00–W03已发布；W04 Auth8189b13/CI37246323217 SUCCESS且远端main同步，WMS876b13c/CI37246311489仍在运行，不能取消或冒称PASS。
-- W04本地真实身份/SQL、企业-only、浏览器、撤权、故障与恢复PASS；原两次Allocation失败保留，正常Docker恢复后同版专项PASS，144 default门禁PASS。135原容器ID/镜像/挂载/状态匹配，36原运行服务恢复。
-- W05验证DONE：runtime-w05-b8e3b083814c，23身份/SQL、34动作、4PDA浏览器、5导航浏览器、10旧Token写撤权、15故障/读撤权PASS。21安全/8Owner HTTP/147门禁、10UI/类型/buildPASS，8张当前图已看。
-- 原WMS55受保护文件、HEAD/status未改。W05原工具失败与并发503保留；运行制品复制冻结、MySQL最终TCP就绪、原orderId/replayed契约正确消费。新写与重试拒绝不撤销已提交数量3。
+- W00–W03已发布。Auth W04 8189b13/CI37246323217、W05 be49acc/CI37247522224已成功正常发布main。
+- WMS W04 876b13c远程CI37246311489终态FAIL：旧OutboundMessagingProcessesIT登记调用不可用；原日志保留，未发布该失败SHA。W05 fd722b4本地完整验证已提交；W06累计CI须PASS后再正常发布。
+- W05 23身份/SQL、34动作、4PDA+5导航浏览器、10写撤权、15故障读撤权及21安全/8Owner HTTP/147门禁/10UI构建PASS。正常Docker恢复已完成，135原ID/镜像/挂载/状态与36运行健康核对，不重复重启。
+- W06当前runtime-w06-5f4504b82280：23身份/SQL，94控制（72真实检查点后恢复22），原盘点/调拨6项MySQL回归、21安全、10UI/类型/build、当前5PKCE浏览器与4控制撤权PASS。2控制+2额外视觉来源已全部精准撤销，原旧Token2项403；5菜单、9当前故障/读撤权PASS，9最终图片实看。
+- 本人接口改为复核完整49能力，解决菜单提示遗漏写权限；调拨UI按真实源/目的Owner仓显示命令。产品动作判权/Manifest不变。盘点仍APPLYING仅1行，调拨物理已发2/已收2，不冒称全完成/消息库存完成。
+- W07 Runtime准备中：新增Auth源码Dockerfile/HTTPS配置+回环relay+独立私密卷初始化；WMS根Compose增量中央overlay。Auth与console候选源码镜像build PASS，Java候选镜像仍构建。TLS/5消费者资料保存在Auth私密docker目录，原业务未切换。
 
 ## 已修改文件
 
-- W05 WMS内部机器配置/过滤链与3真实Spring验签测试、五服务yaml、PDA表单label/顶栏、浏览器工具与清单/验收/Review/本进度。
-- W05 Auth动作/写撤权工具、runtime冻结/TCP/五服务、CI、设计进度与验证记录。W05逻辑提交中。
+- W06 WMS中央navigation、对应安全测试、调拨页/测试/DocumentWorkbench、浏览器脚本、docs/iam；Authcontrols工具/CI与W06结果、切片/进度。
+- W07 Authserver Dockerfile/deploy/docker-compose.yml、governance relay/init、docker-prepare工具；WMS deploy/compose.central-auth.yml（尚未提交，与W06分开）。
 
 ## 未完成
 
-- W04 WMS精确CI/main发布，W05 Git/精确CI/main发布。不要推WMS W05分支取消仍运行的W04 CI。
-- W06独立审批/应用、源/目标调拨，W07跨Docker HTTPS、真实本机运行/故障/兼容回退、最终交付。整体目标未完成，继续推进。
+- W06显式路径两仓逻辑提交/当前累计CI；本片视觉/撤权/菜单/当前故障已全部PASS。
+- W07隔离Docker HTTPS/非root独立凭据验收，原数据备份、精确CI后真实wms-local更新、旧机器IdP证明、兼容回退/故障恢复、最终文档/Git。
 
 ## 当前问题
 
-- W05无产品验证阻塞；自动hygiene2项为测试工具误报，逐条人工审查，原FAIL及无formatter限制保留，不改共享政策。
-- 旧8000/wms-platform机器白名单仅内部路径兼容；真实RSA过滤链已证明，旧IdP真实机器发行仍待W07。原wms-local停服尚未切换。
-- W05fixture进程session61967与Vite48618由本任务持有，验证后停止；临时caffeinate68556任务结束停止。凭据、证据、测试DB/卷/工作树均保留，无清理授权。
+- W06自动hygiene仅浏览器PASS输出误报；人工逐条审查，保留原FAIL/无formatter限制。桌面动画disabled截图只显遮罩，工具已移除disabled并等待opacity/transform稳定，重新验收中。
+- 当前自有runtime session91490（原5WMS已正常terminate、parent等最终reap）；新5制品v2由私密refresh helper session66433持有，stop-v2会正常停止。Vite3518仍本任务。不得运行中覆盖target/旧artifacts，当前新制品已冻结并记摘要。
+- 临时caffeinate68556最终停止；凭据/旧失败/测试DB/卷/工作树保留，不清理。原WMS55保护文件/HEAD/status不得改。Docker正常恢复已完成，不重复重启。
 
 ## 下一步建议
 
-1. 保存W05证据并显式路径提交，核对W04 WMS CI，再正常发布已验证SHA。Auth本轮main可用祖先检查后正常ff push，原目录dirty避免切分支；最终clean后同步local main。
-2. W06 READY，同轮连续实施，不重复组织/继续问题；复用既有任务工作树，不动Driver/ERP。
+1. 完成W06当前截图和视觉来源撤销，完整记录后显式路径提交（排除W07），推累计WMS版本进行完整CI；失败证据保留，不强推或绕过门禁。
+2. 连续完成W07，不等继续。运行配置固定HTTPS host.docker.internal:18545，证书可信、UID10001+600独立卷，旧8000机器链仅internal。现有原wms-local已停，不动卷，不假称已切换。
 
 ## 恢复 Prompt
 
-读取Auth规范PROGRESS_STATE与私密delivery-result.json，从W05 Git或已记录的W06继续；总体目标W00–W07仍active。任务树/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。当前验证runtime-w05-b8e3b083814c和immutable制品，6份结果全PASS；原工具/并发失败全部保留，不假称旧机器真实IdP证明或本机已切换。
+读取本检查点和Auth规范PROGRESS_STATE/私密delivery-result.json，沿当前W06/W07继续完整目标。WMS任务树/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。Auth W05已发布成功，WMS W04 CI确已FAIL而非仍运行。当前W06真实fixture和artifact-v2继续验收；W07文件未提交/本机未更新。正常Docker恢复不重复，原Driver/ERP/数据不动，继续直到Git/CI/真实本机与回退证据完成。
 
 ---
 

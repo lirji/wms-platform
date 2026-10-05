@@ -39,6 +39,7 @@ type CommandColProps = {
   title: string;
   requireScope?: string | string[];
   resourceType?: "warehouse" | "enterprise";
+  warehouseId?: string;
   children: ReactNode;
 };
 
@@ -54,6 +55,8 @@ export function collectCommandTabs(node: ReactNode, scopes: string[] | undefined
       return [];
     }
     const props = child.props as CommandColProps;
+    // 中央提示属于当前作业仓；跨仓单据的动作必须先切换到Owner指定的源仓/目的仓。
+    if (workspace.mode === "CENTRAL" && props.warehouseId !== undefined && props.warehouseId !== workspace.warehouseId) return [];
     if (!canOperation(workspace, props.requireScope, props.resourceType)) {
       return [];
     }

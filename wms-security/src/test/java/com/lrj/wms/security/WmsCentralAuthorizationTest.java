@@ -29,6 +29,7 @@ class WmsCentralAuthorizationTest {
     private final AtomicBoolean allow = new AtomicBoolean(true), malformed = new AtomicBoolean();
     private final AtomicReference<Set<String>> warehouses = new AtomicReference<>(Set.of("WH-A"));
     private final AtomicReference<String> capturedCapability = new AtomicReference<>();
+    private final AtomicReference<Set<String>> allowedCapabilities = new AtomicReference<>();
 
     @BeforeEach void start() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -53,10 +54,11 @@ class WmsCentralAuthorizationTest {
             }
             var clauses = List.of(new Clause("wms_warehouse".equals(resource) ? Kind.SPECIFIED_RESOURCES : Kind.TENANT_ALL,
                     "wms_warehouse".equals(resource) ? warehouses.get().stream().sorted().toList() : List.of(), false));
+            boolean granted = allow.get() && (allowedCapabilities.get() == null || allowedCapabilities.get().contains(capability));
             var plan = new Plan("1", request.path("request_id").asText(), capability, resource,
-                    allow.get() ? "ALLOW" : "DENY", UUID.randomUUID().toString(), context,
+                    granted ? "ALLOW" : "DENY", UUID.randomUUID().toString(), context,
                     UUID.randomUUID().toString(), 1, UUID.randomUUID().toString(), 1, 1, 1,
-                    Instant.now().plusSeconds(25).toString(), allow.get() ? List.of(new Alternative(UUID.randomUUID().toString(), 1, clauses)) : List.of());
+                    Instant.now().plusSeconds(25).toString(), granted ? List.of(new Alternative(UUID.randomUUID().toString(), 1, clauses)) : List.of());
             byte[] bytes = (malformed.get() ? "{}" : json.writeValueAsString(plan)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(status.get(), bytes.length); exchange.getResponseBody().write(bytes); exchange.close();
@@ -135,11 +137,17 @@ class WmsCentralAuthorizationTest {
         assertEquals("1a83b60d1cca7873695a07388c50f7202cd4236fe76d4fa0aeb594faddc44497", central.bindings.contentHash(1));
     }
     @Test void navigationChecksCurrentWarehouseAndPreservesEnterpriseCapabilityWithoutBorrowingWarehouseWrite() {
+        allowedCapabilities.set(Set.of("wms.masterdata.read", "wms.masterdata.read.enterprise", "wms.masterdata.write.enterprise", "wms.transfer.create"));
         var view = central.navigation(jwt("ENT-DEMO"), "WH-B");
         assertEquals(List.of("WH-A"), view.warehouseIds());
         assertEquals(List.of("wms.masterdata.read.enterprise", "wms.masterdata.write.enterprise"), view.capabilities());
         assertTrue(view.menus().stream().anyMatch(menu -> "/catalog".equals(menu.route())));
         assertFalse(view.capabilities().contains("wms.masterdata.write"));
-        assertEquals(4, requests.get());
+        assertFalse(view.capabilities().contains("wms.transfer.create"));
+        assertEquals(50, requests.get());
+        // transfer.create未出现在中央菜单提示里，仍须在其真实授予的A仓显示作业入口。
+        var source = central.navigation(jwt("ENT-DEMO"), "WH-A");
+        assertTrue(source.capabilities().contains("wms.transfer.create"));
+        assertEquals(100, requests.get());
     }
 }

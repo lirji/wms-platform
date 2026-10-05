@@ -10,6 +10,30 @@ describe("TransferDetailPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["WH-A", "WH-B"])("central commands bind source/target to actual document owner at %s", async (warehouseId) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      transferId: "TR-1", status: "IN_TRANSIT", sourceWarehouseId: "WH-A", targetWarehouseId: "WH-B", lines: []
+    }), { status: 200 })));
+    render(<AppProviders><MemoryRouter initialEntries={[`/w/${warehouseId}/transfers/TR-1`]}>
+      <WorkspaceProvider value={{ token: "t", warehouseId, mode: "CENTRAL", scopes: [], capabilities: [
+        "wms.transfer.read", "wms.transfer.create", "wms.transfer.authorize_receipt", "wms.transfer.receive", "wms.stock.move"
+      ] }}><Routes><Route path="/w/:warehouseId/transfers/:transferId" element={<TransferDetailPage />} /></Routes></WorkspaceProvider>
+    </MemoryRouter></AppProviders>);
+    await waitFor(() => expect(screen.getByText(/在源仓发出，在目的仓申请额度并接收/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "提交命令" }));
+    if (warehouseId === "WH-A") {
+      expect(screen.getByRole("tab", { name: "源仓发出" })).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "确认在途损耗" })).toBeTruthy();
+      expect(screen.queryByRole("tab", { name: "目的接收授权" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "目的仓接收" })).toBeNull();
+    } else {
+      expect(screen.getByRole("tab", { name: "目的接收授权" })).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "目的仓接收" })).toBeTruthy();
+      expect(screen.queryByRole("tab", { name: "源仓发出" })).toBeNull();
+      expect(screen.queryByRole("tab", { name: "确认在途损耗" })).toBeNull();
+    }
+  });
+
   it("maps transfer GET warehouses, version and line qtys without inbound sync headers", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       transferId: "TR-1",

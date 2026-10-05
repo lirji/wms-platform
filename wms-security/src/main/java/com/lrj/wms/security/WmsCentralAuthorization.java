@@ -99,9 +99,11 @@ final class WmsCentralAuthorization implements AutoCloseable {
         Set<String> allowed = new HashSet<>(); Set<String> scopes = new HashSet<>(); Set<String> warehouses = new HashSet<>();
         var pending = new ArrayList<java.util.concurrent.Future<CapabilityPlan>>();
         try {
-            for (String capability : view.capabilityHints()) {
-                var binding = bindings.all().stream().filter(value -> capability.equals(value.capability())).findFirst()
-                        .orElseThrow(() -> new CentralAuthorizationException(CentralAuthorizationException.Reason.UNAVAILABLE));
+            // 中央菜单提示只覆盖菜单准入能力；写动作可能不在其中，按已核对hash的完整目录逐项复核。
+            var capabilities = new LinkedHashSet<String>();
+            for (var binding : bindings.all()) {
+                String capability = binding.capability();
+                if (!capabilities.add(capability)) continue;
                 // 显式携带固定用户/成员代际，不传播Servlet线程或把凭据写入持久任务。
                 pending.add(navigationChecks.submit(() -> new CapabilityPlan(binding,
                         plan(jwt.getTokenValue(), capability, binding.resource(), view.context().membershipGeneration(), false))));

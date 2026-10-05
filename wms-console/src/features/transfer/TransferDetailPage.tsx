@@ -49,7 +49,7 @@ export function TransferDetailPage() {
       backTo={`/w/${warehouseId}/transfers`}
       backLabel="返回调拨列表"
       title={`调拨单 ${transferId}`}
-      sub={`源仓 ${source || "—"} → 目的仓 ${target || "—"}。接收必须先拿额度 token。`}
+      sub={`源仓 ${source || "—"} → 目的仓 ${target || "—"}。在源仓发出，在目的仓申请额度并接收。`}
       loading={loading}
       error={error}
       record={record}
@@ -102,7 +102,7 @@ export function TransferDetailPage() {
       )}
       commands={(
         <>
-          <CommandCol title="源仓发出" requireScope="transfer.create">
+          <CommandCol title="源仓发出" requireScope="transfer.create" warehouseId={source}>
             <CommandCard
               embedded
               requireScope="transfer.create"
@@ -122,7 +122,7 @@ export function TransferDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol title="序列号发出" requireScope="transfer.create">
+          <CommandCol title="序列号发出" requireScope="transfer.create" warehouseId={source}>
             <CommandCard
               embedded
               requireScope="transfer.create"
@@ -159,7 +159,7 @@ export function TransferDetailPage() {
               <SerialExecutionField required extra="先查本页可选序列号。不要手写旧代际。" />
             </CommandCard>
           </CommandCol>
-          <CommandCol title="目的接收授权" requireScope="transfer.authorizeReceipt">
+          <CommandCol title="目的接收授权" requireScope="transfer.authorizeReceipt" warehouseId={target}>
             <CommandCard
               embedded
               requireScope="transfer.authorizeReceipt"
@@ -184,7 +184,7 @@ export function TransferDetailPage() {
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol title="目的仓接收" requireScope="transfer.receive">
+          <CommandCol title="目的仓接收" requireScope="transfer.receive" warehouseId={target}>
             <CommandCard
               embedded
               requireScope="transfer.receive"
@@ -207,14 +207,14 @@ export function TransferDetailPage() {
                 }
               })}
             >
-              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input /></Form.Item>
+              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input readOnly /></Form.Item>
               <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="authorizationId" name="authorizationId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0"><Input /></Form.Item>
               <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol title="序列号接收" requireScope="transfer.receive">
+          <CommandCol title="序列号接收" requireScope="transfer.receive" warehouseId={target}>
             <CommandCard
               embedded
               requireScope="transfer.receive"
@@ -244,7 +244,7 @@ export function TransferDetailPage() {
                 });
               }}
             >
-              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input /></Form.Item>
+              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input readOnly /></Form.Item>
               <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="authorizationId" name="authorizationId" rules={[{ required: true }]}><Input /></Form.Item>
               <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0"><Input /></Form.Item>
@@ -257,7 +257,7 @@ export function TransferDetailPage() {
               <SerialExecutionField required extra="必须是已发出的原身份。" />
             </CommandCard>
           </CommandCol>
-          <CommandCol title="确认在途损耗" requireScope="stock.move">
+          <CommandCol title="确认在途损耗" requireScope="stock.move" warehouseId={source}>
             <CommandCard
               embedded
               danger
