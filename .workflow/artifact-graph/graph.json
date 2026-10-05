@@ -1,0 +1,118 @@
+{
+  "protocol": "artifact-graph/v1",
+  "graph_id": "ag-e83d3b9775b1",
+  "created_at": "2026-09-16T22:58:57Z",
+  "updated_at": "2026-09-16T22:58:57Z",
+  "nodes": {
+    "compose:compose.yaml@v1": {
+      "id": "compose:compose.yaml@v1",
+      "logical_id": "compose:compose.yaml",
+      "node_type": "ARTIFACT",
+      "subtype": "docker-compose",
+      "version": 1,
+      "fingerprint": "sha256:b1c72821452298f495408ceb6550042972391648f413f359547b4ed082b270d8",
+      "status": "CURRENT",
+      "created_by": null,
+      "source_skill": null,
+      "workflow_run": null,
+      "invocation_id": null,
+      "physical_path": "/Users/liruijun/personal/LLM/wms-platform/compose.yaml",
+      "unknown_history": true,
+      "metadata": {
+        "renderer": null
+      },
+      "protocol": "graph-node/v1",
+      "created_at": "2026-09-16T22:58:57Z"
+    },
+    "SRC-compose.yaml": {
+      "id": "SRC-compose.yaml",
+      "logical_id": "source:compose.yaml",
+      "node_type": "SOURCE",
+      "subtype": null,
+      "version": 1,
+      "fingerprint": "sha256:cfbb0e72d06ea641ba95efb7ade30d1a8a3c0fb1b9c2d8ffbb5058bc33a10d97",
+      "status": "CURRENT",
+      "created_by": null,
+      "source_skill": null,
+      "workflow_run": null,
+      "invocation_id": null,
+      "physical_path": "compose.yaml",
+      "unknown_history": false,
+      "metadata": {},
+      "protocol": "graph-node/v1",
+      "created_at": "2026-09-16T22:58:57Z"
+    },
+    "compose:deploy_compose.local.yml@v1": {
+      "id": "compose:deploy_compose.local.yml@v1",
+      "logical_id": "compose:deploy_compose.local.yml",
+      "node_type": "ARTIFACT",
+      "subtype": "docker-compose",
+      "version": 1,
+      "fingerprint": "sha256:0b94d81c4f7d9434c71f8a25868b1bc86fb624d89544425d11a7084e89269feb",
+      "status": "CURRENT",
+      "created_by": null,
+      "source_skill": null,
+      "workflow_run": null,
+      "invocation_id": null,
+      "physical_path": "/Users/liruijun/personal/LLM/wms-platform/deploy/compose.local.yml",
+      "unknown_history": true,
+      "metadata": {
+        "renderer": null
+      },
+      "protocol": "graph-node/v1",
+      "created_at": "2026-09-16T22:58:57Z"
+    },
+    "SRC-deploy_compose.local.yml": {
+      "id": "SRC-deploy_compose.local.yml",
+      "logical_id": "source:deploy/compose.local.yml",
+      "node_type": "SOURCE",
+      "subtype": null,
+      "version": 1,
+      "fingerprint": "sha256:3e52332739bc43585cddba59496072f5770754381c42c67d9b63ee6d151217ec",
+      "status": "CURRENT",
+      "created_by": null,
+      "source_skill": null,
+      "workflow_run": null,
+      "invocation_id": null,
+      "physical_path": "deploy/compose.local.yml",
+      "unknown_history": false,
+      "metadata": {},
+      "protocol": "graph-node/v1",
+      "created_at": "2026-09-16T22:58:57Z"
+    }
+  },
+  "edges": [
+    {
+      "from": "compose:compose.yaml@v1",
+      "to": "SRC-compose.yaml",
+      "relation": "DERIVED_FROM",
+      "source": "workspace-ingest",
+      "metadata": {},
+      "protocol": "graph-edge/v1",
+      "edge_class": "LINEAGE",
+      "created_at": "2026-09-16T22:58:57Z",
+      "id": "E-a78d7de82ff7"
+    },
+    {
+      "from": "compose:deploy_compose.local.yml@v1",
+      "to": "SRC-deploy_compose.local.yml",
+      "relation": "DERIVED_FROM",
+      "source": "workspace-ingest",
+      "metadata": {},
+      "protocol": "graph-edge/v1",
+      "edge_class": "LINEAGE",
+      "created_at": "2026-09-16T22:58:57Z",
+      "id": "E-d96d3273b493"
+    }
+  ],
+  "logical_current": {
+    "compose:compose.yaml": "compose:compose.yaml@v1",
+    "source:compose.yaml": "SRC-compose.yaml",
+    "compose:deploy_compose.local.yml": "compose:deploy_compose.local.yml@v1",
+    "source:deploy/compose.local.yml": "SRC-deploy_compose.local.yml"
+  },
+  "warnings": [
+    "source=UNKNOWN for compose:compose.yaml@v1",
+    "source=UNKNOWN for compose:deploy_compose.local.yml@v1"
+  ]
+}
