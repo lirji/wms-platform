@@ -2,8 +2,8 @@ package com.lrj.wms.inventory.recon;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
 import com.lrj.wms.inventory.query.InventoryHttpJson;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

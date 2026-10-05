@@ -4,8 +4,8 @@ import com.lrj.wms.inventory.count.CountMapper;
 import com.lrj.wms.inventory.count.CountService;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.jobs.JobRunMapper;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

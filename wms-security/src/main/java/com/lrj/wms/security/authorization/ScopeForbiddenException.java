@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 /** 令牌缺少接口要求的 scope。 */
 public final class ScopeForbiddenException extends RuntimeException {

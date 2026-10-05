@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 /** 中央拒绝与不可判定故障分别建模；不把上游异常原文或凭据带到HTTP边界。 */
 final class CentralAuthorizationException extends RuntimeException {

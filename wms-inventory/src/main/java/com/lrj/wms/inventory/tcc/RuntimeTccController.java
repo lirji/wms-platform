@@ -3,7 +3,7 @@ package com.lrj.wms.inventory.tcc;
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.contract.tcc.WarehouseTryResult;
 import com.lrj.wms.inventory.inventory.InventoryException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
@@ -74,8 +74,8 @@ public class RuntimeTccController {
     }
 
     @ExceptionHandler({
-        com.lrj.wms.security.ScopeForbiddenException.class,
-        com.lrj.wms.security.WarehouseForbiddenException.class
+        com.lrj.wms.security.authorization.ScopeForbiddenException.class,
+        com.lrj.wms.security.authorization.WarehouseForbiddenException.class
     })
     ResponseEntity<java.util.Map<String, String>> forbidden(RuntimeException error) {
         return ResponseEntity.status(403).body(java.util.Map.of("code", "TCC_SCOPE_FORBIDDEN"));

@@ -1,8 +1,11 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.recovery.web;
 
 import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryException;
 import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService;
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
+import com.lrj.wms.security.authorization.ScopeForbiddenException;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;

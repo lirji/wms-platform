@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

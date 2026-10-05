@@ -4,7 +4,7 @@ import com.lrj.wms.inventory.OnInventoryJdbcConfigured;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
 import com.lrj.wms.runtime.web.CursorPage;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -92,8 +92,8 @@ public final class SerialRecoveryController {
             @NotNull @Min(0) Long expectedEpoch, @NotBlank @Size(max = 500) String reason) {}
 
     @ExceptionHandler({
-        com.lrj.wms.security.WarehouseForbiddenException.class,
-        com.lrj.wms.security.ScopeForbiddenException.class
+        com.lrj.wms.security.authorization.WarehouseForbiddenException.class,
+        com.lrj.wms.security.authorization.ScopeForbiddenException.class
     })
     ResponseEntity<Map<String, Object>> forbidden() {
         return ResponseEntity.status(403)

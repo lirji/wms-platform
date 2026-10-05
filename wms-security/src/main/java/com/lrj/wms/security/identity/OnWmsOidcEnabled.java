@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.identity;
 
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;

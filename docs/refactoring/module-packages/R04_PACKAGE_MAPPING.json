@@ -1,0 +1,30 @@
+{
+  "id": "R04",
+  "reason": "身份配置和开关、授权协作簇、消息恢复入口分开。WmsJwtAuthorities需识别私有WmsCentralJwt，留在authorization；条件装配也留在该簇，保留private封装，不以拆包为由暴露授权实现。自动配置注册与所有消费者同步。 机器配置configured()为包内规则，同授权装配保持同包，不扩大方法可见性。",
+  "classes": {
+    "com.lrj.wms.security.WmsJwtAuthoritiesTest": "com.lrj.wms.security.authorization.WmsJwtAuthoritiesTest",
+    "com.lrj.wms.security.OperationScopeFilterTest": "com.lrj.wms.security.authorization.OperationScopeFilterTest",
+    "com.lrj.wms.security.WmsInternalSecurityTest": "com.lrj.wms.security.authorization.WmsInternalSecurityTest",
+    "com.lrj.wms.security.WmsCentralSettingsTest": "com.lrj.wms.security.authorization.WmsCentralSettingsTest",
+    "com.lrj.wms.security.WmsCentralAuthorizationTest": "com.lrj.wms.security.authorization.WmsCentralAuthorizationTest",
+    "com.lrj.wms.security.TenantAdmissionFilterTest": "com.lrj.wms.security.authorization.TenantAdmissionFilterTest",
+    "com.lrj.wms.security.WmsCentralAuthorization": "com.lrj.wms.security.authorization.WmsCentralAuthorization",
+    "com.lrj.wms.security.TenantAdmissionFilter": "com.lrj.wms.security.authorization.TenantAdmissionFilter",
+    "com.lrj.wms.security.CentralAuthorizationException": "com.lrj.wms.security.authorization.CentralAuthorizationException",
+    "com.lrj.wms.security.WmsInternalOidcProperties": "com.lrj.wms.security.authorization.WmsInternalOidcProperties",
+    "com.lrj.wms.security.WmsOidcProperties": "com.lrj.wms.security.identity.WmsOidcProperties",
+    "com.lrj.wms.security.WmsCentralSettings": "com.lrj.wms.security.authorization.WmsCentralSettings",
+    "com.lrj.wms.security.OnWmsOidcEnabled": "com.lrj.wms.security.identity.OnWmsOidcEnabled",
+    "com.lrj.wms.security.WmsSecurityAutoConfiguration": "com.lrj.wms.security.authorization.WmsSecurityAutoConfiguration",
+    "com.lrj.wms.security.WmsJwtAuthorities": "com.lrj.wms.security.authorization.WmsJwtAuthorities",
+    "com.lrj.wms.security.WmsCentralBindings": "com.lrj.wms.security.authorization.WmsCentralBindings",
+    "com.lrj.wms.security.WmsCentralJwt": "com.lrj.wms.security.authorization.WmsCentralJwt",
+    "com.lrj.wms.security.MessageRecoveryController": "com.lrj.wms.security.recovery.web.MessageRecoveryController",
+    "com.lrj.wms.security.WarehouseForbiddenException": "com.lrj.wms.security.authorization.WarehouseForbiddenException",
+    "com.lrj.wms.security.WmsCentralErrors": "com.lrj.wms.security.authorization.WmsCentralErrors",
+    "com.lrj.wms.security.OperationScopeFilter": "com.lrj.wms.security.authorization.OperationScopeFilter",
+    "com.lrj.wms.security.WmsMeAccessController": "com.lrj.wms.security.authorization.WmsMeAccessController",
+    "com.lrj.wms.security.ScopeForbiddenException": "com.lrj.wms.security.authorization.ScopeForbiddenException",
+    "com.lrj.wms.security.OnWmsOidcDisabled": "com.lrj.wms.security.identity.OnWmsOidcDisabled"
+  }
+}

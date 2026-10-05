@@ -3,8 +3,8 @@ package com.lrj.wms.inventory.effect;
 import com.lrj.wms.inventory.effect.domain.EffectCodes;
 import com.lrj.wms.inventory.effect.domain.EffectProtocolException;
 import com.lrj.wms.inventory.query.InventoryAuditService;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

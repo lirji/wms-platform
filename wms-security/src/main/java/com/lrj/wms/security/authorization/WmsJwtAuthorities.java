@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

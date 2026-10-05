@@ -1,8 +1,8 @@
 package com.lrj.wms.inventory.masterdata;
 
-import com.lrj.wms.security.ScopeForbiddenException;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.ScopeForbiddenException;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

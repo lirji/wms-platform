@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 import com.lrj.authz.protocol.CentralAccessDtos.Check;
 import com.lrj.authz.protocol.NavigationDtos;

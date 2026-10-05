@@ -1,8 +1,8 @@
 package com.lrj.wms.inbound.protocol;
 
 import com.lrj.wms.runtime.messaging.window.SourceWindowService;
-import com.lrj.wms.security.ScopeForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.ScopeForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -96,7 +96,7 @@ public final class SourceWindowController {
     /** 内部路径不经过公开API权限过滤器，显式将服务主体/仓越权转换为403。 */
     @ExceptionHandler({
         ScopeForbiddenException.class,
-        com.lrj.wms.security.WarehouseForbiddenException.class
+        com.lrj.wms.security.authorization.WarehouseForbiddenException.class
     })
     org.springframework.http.ResponseEntity<Map<String, Object>> forbidden() {
         return org.springframework.http.ResponseEntity.status(403)

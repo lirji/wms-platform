@@ -1,6 +1,8 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.lrj.wms.security.identity.WmsOidcProperties;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

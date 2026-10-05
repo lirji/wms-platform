@@ -1,9 +1,9 @@
 package com.lrj.wms.inbound.receipt;
 
 import com.lrj.wms.inbound.HttpJson;
-import com.lrj.wms.security.ScopeForbiddenException;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.ScopeForbiddenException;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;

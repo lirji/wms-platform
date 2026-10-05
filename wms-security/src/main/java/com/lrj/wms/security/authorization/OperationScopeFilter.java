@@ -1,4 +1,4 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

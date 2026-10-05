@@ -2,9 +2,9 @@ package com.lrj.wms.fulfillment;
 
 import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
-import com.lrj.wms.security.ScopeForbiddenException;
-import com.lrj.wms.security.WarehouseForbiddenException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.ScopeForbiddenException;
+import com.lrj.wms.security.authorization.WarehouseForbiddenException;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;

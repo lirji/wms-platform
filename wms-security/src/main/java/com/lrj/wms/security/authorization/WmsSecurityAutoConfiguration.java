@@ -1,4 +1,9 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
+
+import com.lrj.wms.security.identity.OnWmsOidcDisabled;
+import com.lrj.wms.security.identity.OnWmsOidcEnabled;
+import com.lrj.wms.security.identity.WmsOidcProperties;
+import com.lrj.wms.security.recovery.web.MessageRecoveryController;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

@@ -3,7 +3,7 @@ package com.lrj.wms.inventory.serial;
 import com.lrj.wms.inventory.OnInventoryJdbcConfigured;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.runtime.web.CursorPage;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.context.annotation.Conditional;
@@ -58,8 +58,8 @@ public final class SerialStockController {
     }
 
     @ExceptionHandler({
-        com.lrj.wms.security.WarehouseForbiddenException.class,
-        com.lrj.wms.security.ScopeForbiddenException.class
+        com.lrj.wms.security.authorization.WarehouseForbiddenException.class,
+        com.lrj.wms.security.authorization.ScopeForbiddenException.class
     })
     org.springframework.http.ResponseEntity<Map<String, Object>> forbidden() {
         return error(403, "SERIAL_STOCK_FORBIDDEN", "缺少库存查询权限或仓范围");

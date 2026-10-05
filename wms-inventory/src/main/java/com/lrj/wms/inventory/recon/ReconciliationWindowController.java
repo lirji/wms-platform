@@ -1,7 +1,7 @@
 package com.lrj.wms.inventory.recon;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
-import com.lrj.wms.security.WmsJwtAuthorities;
+import com.lrj.wms.security.authorization.WmsJwtAuthorities;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -143,8 +143,8 @@ public class ReconciliationWindowController {
             @NotBlank @Size(max = 512) String reason) {}
 
     @ExceptionHandler({
-        com.lrj.wms.security.ScopeForbiddenException.class,
-        com.lrj.wms.security.WarehouseForbiddenException.class
+        com.lrj.wms.security.authorization.ScopeForbiddenException.class,
+        com.lrj.wms.security.authorization.WarehouseForbiddenException.class
     })
     ResponseEntity<Map<String, Object>> forbidden() {
         return ResponseEntity.status(403).body(error("WAREHOUSE_FORBIDDEN", "缺少操作或仓范围权限"));

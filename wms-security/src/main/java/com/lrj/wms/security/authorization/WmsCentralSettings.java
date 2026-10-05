@@ -1,4 +1,6 @@
-package com.lrj.wms.security;
+package com.lrj.wms.security.authorization;
+
+import com.lrj.wms.security.identity.WmsOidcProperties;
 
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
