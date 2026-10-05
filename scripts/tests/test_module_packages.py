@@ -43,3 +43,10 @@ class ModulePackagesTest(unittest.TestCase):
         errors = packages.check(self.root)
         self.assertTrue(any("package 与目录" in error for error in errors))
         self.assertTrue(any("自动配置类不存在" in error for error in errors))
+
+    def test_required_case_identity_follows_the_actual_test_package(self):
+        self.write("wms-probe/src/test/java/example/recon/CheckpointIT.java", "package example.recon; class CheckpointIT { void resumesOriginalCutoff() {} }")
+        self.write("scripts/required-its-default.txt", "example.recon.CheckpointIT#resumesOriginalCutoff\n")
+        self.assertEqual([], packages.check(self.root))
+        self.write("scripts/required-its-default.txt", "example.recon.application.CheckpointIT#resumesOriginalCutoff\n")
+        self.assertTrue(any("必需IT身份" in error for error in packages.check(self.root)))

@@ -61,6 +61,18 @@ def check(root: Path) -> list[str]:
                     name = line.split("#", 1)[0].strip()
                     if name and (module, MAIN_SOURCE_SET, name) not in sources:
                         errors.append(f"{imports.relative_to(root)}: 自动配置类不存在 {name}")
+    # 必需IT身份清单也属于已知消费者；先确认源码存在，避免重命名后运行半小时才发现错类名。
+    for required in sorted((root / "scripts").glob("required-its-*.txt")):
+        for line in required.read_text().splitlines():
+            case = line.strip()
+            if not case or case.startswith("#"):
+                continue
+            classname, separator, method = case.partition("#")
+            candidates = [text for (_, kind, name), text in sources.items()
+                          if kind == TEST_SOURCE_SET and name == classname]
+            if not separator or not any(re.search(r"\b" + re.escape(method) + r"\s*\(", text)
+                                        for text in candidates):
+                errors.append(f"{required.relative_to(root)}: 必需IT身份无对应测试方法 {case}")
     return errors
 
 

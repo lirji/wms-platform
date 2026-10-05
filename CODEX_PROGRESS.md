@@ -2,7 +2,7 @@
 
 ## 任务目标
 
-用户已明确范围为Auth与WMS两个项目。权限接入之后按Claude SKILL逐模块拆包、格式化、规范优化、完整验证并分别正常Git交付。当前WMS处于R12，Auth已建立原目录任务分支并完成331单测基线；权限实施不重做，本次不部署。
+用户已明确范围为Auth与WMS两个项目。权限接入之后按Claude SKILL逐模块拆包、格式化、规范优化、完整验证并分别正常Git交付。当前WMS处于R12，Auth已完成A00–A07本地并推候选bf7a521（332单测/50console/29portal/114部署/7结构ABI与2真实React竞态PASS）；权限实施不重做，本次不部署。
 
 ## 已完成
 
@@ -26,7 +26,7 @@
 
 ## 当前问题
 
-- R12 CI37269556033跨进程迁移后RM子进程退出，完整验证FAIL；补充既有子进程日志归档后定位，不能发布main。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
+- R12首轮跨进程启动FAIL原因缺日志未归因；第二轮0d9d7b7/37272193704完整默认verify PASS（含迁移重启），后必需清单2类名错误已按实际源/JUnit修正，147项逐项PASS。新增静态身份检查与回归，14脚本PASS。下一新候选完整CI/profile/smoke；不可提前发布main。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
 - 原WMSmain17048d5/55个用户文件/Driver保持，11旧工作树和私密证据保留。只在既有central-authorization树的refactor/module-packages-code-quality分支工作。
 - 本次没有重部署授权，现有W07制品/数据及权限TTL不因源码任务更改。
 

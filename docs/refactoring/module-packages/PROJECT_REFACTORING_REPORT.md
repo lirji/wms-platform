@@ -111,3 +111,5 @@ R03还修正协议到Kafka适配器的反向依赖：262144字节预算由Runtim
 原始卫生CLI扫描R11真实差异通过：IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS、零finding。唯一限制FORMAT_TOOL_NOT_AVAILABLE是命令发现器没有识别已执行的独立Java CLI；实际三类格式check已PASS。初次检查发现源码集合名称直接比较及重复回执错误码，已复用命名常量修正并重新验证；原结果保留，没有改变技能规则或规范化R11差异。最终日志/回执在.local/refactoring-module-packages/R11_TEST_RESULT.json。完整真实IT/profile/精确CI由R12执行，不能以本批单测替代。
 
 R12 首轮候选 e7c3294 的完整 CI 37269556033 在跨进程迁移后的 RM 就绪检查失败；135 个库存 IT 中 1 项失败，后续 profile 未执行。单测与控制台检查成功。失败发生于子进程退出，当前回执未归档子进程日志，因此补充原测试目录日志上传后重新定位，不放宽断言或跳过测试。R12 保持 IN_PROGRESS。
+
+R12 第二轮0d9d7b7/CI37272193704：完整默认verify成功，跨进程迁移/重启真实通过；随后147项必需清单的2个类名由于迁移前缀误替换而指向错误包，静态门禁失败。按真实源/JUnit身份修正为`com.lrj.wms.inventory.recon.StockInternalReconcileIT`，没有删除用例、改变断言或数量。新增清单身份源码检查及回归，14脚本测试PASS；下载的同源报告与修正清单147项逐项PASS。首轮进程退出原因因缺日志仍未能归因，原失败保留；后续成功不抹去该观察。继续完整CI/profile/smoke，R12保持IN_PROGRESS。
