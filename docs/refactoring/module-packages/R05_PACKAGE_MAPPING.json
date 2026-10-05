@@ -1,0 +1,30 @@
+{
+  "id": "R05",
+  "reason": "按已有收货/质量/上架或订单/授权/执行/取消业务能力细分协议、应用、持久化职责。小配置协作簇保持封装，应用/种子CLI全名稳定；所有消费者/Mapper资源/必需测试全名同步，不改SQL/DTO字段/事务规则。",
+  "classes": {
+    "com.lrj.wms.inbound.InboundPersistence": "com.lrj.wms.inbound.configuration.InboundPersistence",
+    "com.lrj.wms.inbound.InboundDatasourceProperties": "com.lrj.wms.inbound.configuration.InboundDatasourceProperties",
+    "com.lrj.wms.inbound.OnInboundJdbcConfigured": "com.lrj.wms.inbound.configuration.OnInboundJdbcConfigured",
+    "com.lrj.wms.inbound.HttpJson": "com.lrj.wms.inbound.web.HttpJson",
+    "com.lrj.wms.inbound.receipt.InboundReceiptService": "com.lrj.wms.inbound.receipt.application.InboundReceiptService",
+    "com.lrj.wms.inbound.receipt.InboundTaskService": "com.lrj.wms.inbound.receipt.application.InboundTaskService",
+    "com.lrj.wms.inbound.receipt.InboundReceiptIT": "com.lrj.wms.inbound.receipt.application.InboundReceiptIT",
+    "com.lrj.wms.inbound.receipt.ReceiptObservationIT": "com.lrj.wms.inbound.receipt.application.ReceiptObservationIT",
+    "com.lrj.wms.inbound.receipt.InboundReceiptMapper": "com.lrj.wms.inbound.receipt.persistence.InboundReceiptMapper",
+    "com.lrj.wms.inbound.receipt.InboundTaskMapper": "com.lrj.wms.inbound.receipt.persistence.InboundTaskMapper",
+    "com.lrj.wms.inbound.receipt.InboundWorkbenchController": "com.lrj.wms.inbound.receipt.web.InboundWorkbenchController",
+    "com.lrj.wms.inbound.receipt.InboundWorkbenchRequests": "com.lrj.wms.inbound.receipt.web.InboundWorkbenchRequests",
+    "com.lrj.wms.inbound.receipt.InboundHttpIT": "com.lrj.wms.inbound.receipt.web.InboundHttpIT",
+    "com.lrj.wms.inbound.receipt.InboundRequestBoundaryTest": "com.lrj.wms.inbound.receipt.web.InboundRequestBoundaryTest",
+    "com.lrj.wms.inbound.receipt.InboundException": "com.lrj.wms.inbound.receipt.domain.InboundException",
+    "com.lrj.wms.inbound.receipt.ReceiptQualityService": "com.lrj.wms.inbound.quality.application.ReceiptQualityService",
+    "com.lrj.wms.inbound.receipt.ReceiptQualityMapper": "com.lrj.wms.inbound.quality.persistence.ReceiptQualityMapper",
+    "com.lrj.wms.inbound.receipt.ReceiptSerialPutawayService": "com.lrj.wms.inbound.putaway.application.ReceiptSerialPutawayService",
+    "com.lrj.wms.inbound.receipt.ReceiptSerialPutawayMapper": "com.lrj.wms.inbound.putaway.persistence.ReceiptSerialPutawayMapper",
+    "com.lrj.wms.inbound.protocol.SourceProtocolService": "com.lrj.wms.inbound.protocol.application.SourceProtocolService",
+    "com.lrj.wms.inbound.protocol.InboundProtocolIT": "com.lrj.wms.inbound.protocol.application.InboundProtocolIT",
+    "com.lrj.wms.inbound.protocol.SourceMapper": "com.lrj.wms.inbound.protocol.persistence.SourceMapper",
+    "com.lrj.wms.inbound.protocol.SourceWindowController": "com.lrj.wms.inbound.protocol.web.SourceWindowController",
+    "com.lrj.wms.inbound.messaging.InboundMessagingConfiguration": "com.lrj.wms.inbound.messaging.configuration.InboundMessagingConfiguration"
+  }
+}

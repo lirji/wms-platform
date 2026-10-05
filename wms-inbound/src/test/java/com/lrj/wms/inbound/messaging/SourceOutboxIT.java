@@ -2,9 +2,9 @@ package com.lrj.wms.inbound.messaging;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inbound.protocol.SourceMapper;
-import com.lrj.wms.inbound.receipt.InboundReceiptMapper;
-import com.lrj.wms.inbound.receipt.InboundReceiptService;
+import com.lrj.wms.inbound.protocol.persistence.SourceMapper;
+import com.lrj.wms.inbound.receipt.application.InboundReceiptService;
+import com.lrj.wms.inbound.receipt.persistence.InboundReceiptMapper;
 import com.lrj.wms.runtime.messaging.inbox.RuntimeInbox;
 import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
 import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;

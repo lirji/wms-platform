@@ -1,6 +1,6 @@
 package com.lrj.wms.inbound.seed;
 
-import com.lrj.wms.inbound.receipt.InboundReceiptService;
+import com.lrj.wms.inbound.receipt.application.InboundReceiptService;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;
