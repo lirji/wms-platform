@@ -9,7 +9,7 @@
 - 读取Claude project-refactoring/backend-implementation/dev-standards，同Codex/Claude/ Cursor规范摘要一致。
 - 起点WMS远端main2efa151/完整CI37257041197 SUCCESS；当前全reactor package及93单测PASS；基线/测试保护Gate PASS。
 - 复用既有干净central-authorization工作树，建立refactor/module-packages-code-quality。518 Java/120 SQL/IAM摘要落盘，原WMS17048d5/55文件/Driver/历史pilot工作保持。
-- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00/R01 DONE（f6ceb72），R07包迁移本地验证DONE，R08开始。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
+- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00/R01 DONE（f6ceb72），R08包迁移本地验证DONE，R09开始。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
 
 ## 已修改文件
 
@@ -19,7 +19,7 @@
 
 ## 最新切片
 
-- R07：16类迁移，本地全reactor clean test/94单测与SQL/Mapper/目录/格式守卫PASS。完整IT/CI/卫生终审尚未执行；继续R08。
+- R08：57类迁移，本地全reactor clean test/94单测与SQL/Mapper/目录/格式守卫PASS。完整IT/CI/卫生终审尚未执行；继续R09。
 
 ## 未完成
 

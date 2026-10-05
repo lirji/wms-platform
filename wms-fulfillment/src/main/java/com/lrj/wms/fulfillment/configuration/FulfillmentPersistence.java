@@ -1,0 +1,81 @@
+package com.lrj.wms.fulfillment.configuration;
+
+import com.lrj.wms.fulfillment.allocation.persistence.AllocationExecutionMapper;
+import com.lrj.wms.fulfillment.cancellation.persistence.FulfillmentCancelMapper;
+import com.lrj.wms.fulfillment.messaging.outbox.persistence.FulfillmentOutboxMapper;
+import com.lrj.wms.fulfillment.order.persistence.FulfillmentMapper;
+import com.lrj.wms.fulfillment.recovery.persistence.AllocationRecoveryMapper;
+import com.lrj.wms.fulfillment.transfer.persistence.SerialTransferMapper;
+import com.lrj.wms.fulfillment.transfer.persistence.TransferMapper;
+import com.lrj.wms.runtime.db.DatabaseBudget;
+import com.lrj.wms.runtime.db.DatabaseTimePolicy;
+import com.lrj.wms.runtime.db.RuntimeDataSources;
+import com.zaxxer.hikari.HikariDataSource;
+
+import org.apache.ibatis.mapping.Environment;
+import org.apache.ibatis.session.Configuration;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
+import org.flywaydb.core.Flyway;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
+
+import javax.sql.DataSource;
+
+/** 仅在显式配置非空 JDBC 时接库并迁移。 */
+@org.springframework.context.annotation.Configuration
+@Conditional(OnFulfillmentJdbcConfigured.class)
+@EnableConfigurationProperties(FulfillmentDatasourceProperties.class)
+class FulfillmentPersistence {
+    /** 有界连接池由 Spring 关闭，避免停机留下连接和维护线程。 */
+    @Bean(destroyMethod = "close")
+    HikariDataSource dataSource(
+            FulfillmentDatasourceProperties properties,
+            DatabaseBudget budget,
+            DatabaseTimePolicy time) {
+        return RuntimeDataSources.create(
+                "fulfillment",
+                properties.url(),
+                properties.username(),
+                properties.password(),
+                budget,
+                time);
+    }
+
+    @Bean
+    Flyway flyway(DataSource dataSource, DatabaseTimePolicy time) {
+        Flyway flyway =
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations("classpath:db/migration/fulfillment")
+                        .load();
+        time.initialize(dataSource, flyway::migrate);
+        return flyway;
+    }
+
+    @Bean
+    SqlSessionFactory sqlSessionFactory(
+            DataSource dataSource, Flyway flyway, DatabaseBudget budget) {
+        Configuration config =
+                new Configuration(
+                        new Environment("fulfillment", new JdbcTransactionFactory(), dataSource));
+        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
+        config.setDefaultStatementTimeout(budget.statementTimeoutSeconds());
+        config.addMapper(com.lrj.wms.runtime.messaging.inbox.persistence.RuntimeInboxMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.recovery.persistence.MessageRecoveryMapper.class);
+        config.addMapper(
+                com.lrj.wms.runtime.messaging.observability.persistence.MessageQueueMetricsMapper
+                        .class);
+        config.addMapper(FulfillmentMapper.class);
+        config.addMapper(FulfillmentOutboxMapper.class);
+        config.addMapper(AllocationRecoveryMapper.class);
+        config.addMapper(AllocationExecutionMapper.class);
+        config.addMapper(FulfillmentCancelMapper.class);
+        config.addMapper(TransferMapper.class);
+        config.addMapper(SerialTransferMapper.class);
+        return new SqlSessionFactoryBuilder().build(config);
+    }
+}

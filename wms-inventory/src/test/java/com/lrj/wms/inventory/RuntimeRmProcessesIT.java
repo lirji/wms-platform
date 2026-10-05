@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dockerjava.api.model.*;
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.contract.tcc.WarehouseTryResult;
-import com.lrj.wms.fulfillment.SeataTmDriver;
-import com.lrj.wms.fulfillment.TcEvidenceScope;
+import com.lrj.wms.fulfillment.allocation.integration.seata.SeataTmDriver;
+import com.lrj.wms.fulfillment.tc.domain.TcEvidenceScope;
 import com.lrj.wms.inventory.inventory.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
@@ -254,7 +254,7 @@ class RuntimeRmProcessesIT {
                     processB = null;
                     try {
                         tm.commit(xid);
-                    } catch (com.lrj.wms.fulfillment.FulfillmentException unknown) {
+                    } catch (com.lrj.wms.fulfillment.domain.FulfillmentException unknown) {
                         assertEquals(
                                 "TC_COMMIT_UNKNOWN", unknown.code(), "只允许真实RPC结果未知，后续必须证明原事务恢复");
                     }

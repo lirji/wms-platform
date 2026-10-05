@@ -2,7 +2,7 @@ package com.lrj.wms.inventory.jobs;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.fulfillment.AllocationRecoverySweep;
+import com.lrj.wms.fulfillment.orchestration.AllocationRecoverySweep;
 import com.lrj.wms.inventory.tcc.TccReservationWatch;
 import com.lrj.wms.outbound.jobs.DeviceUnknownResultSweep;
 

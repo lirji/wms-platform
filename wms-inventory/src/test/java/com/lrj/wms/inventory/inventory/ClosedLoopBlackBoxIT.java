@@ -2,8 +2,8 @@ package com.lrj.wms.inventory.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.fulfillment.FulfillmentMapper;
-import com.lrj.wms.fulfillment.FulfillmentService;
+import com.lrj.wms.fulfillment.orchestration.FulfillmentService;
+import com.lrj.wms.fulfillment.order.persistence.FulfillmentMapper;
 import com.lrj.wms.inbound.protocol.persistence.SourceMapper;
 import com.lrj.wms.inbound.receipt.application.InboundReceiptService;
 import com.lrj.wms.inbound.receipt.persistence.InboundReceiptMapper;

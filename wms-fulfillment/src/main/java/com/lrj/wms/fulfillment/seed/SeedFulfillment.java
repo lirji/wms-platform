@@ -1,8 +1,8 @@
 package com.lrj.wms.fulfillment.seed;
 
-import com.lrj.wms.fulfillment.AllocationPlan;
-import com.lrj.wms.fulfillment.FulfillmentService;
-import com.lrj.wms.fulfillment.TransferService;
+import com.lrj.wms.fulfillment.allocation.domain.AllocationPlan;
+import com.lrj.wms.fulfillment.orchestration.FulfillmentService;
+import com.lrj.wms.fulfillment.transfer.application.TransferService;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

@@ -2,8 +2,8 @@ package com.lrj.wms.inventory.transfer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.fulfillment.TransferMapper;
-import com.lrj.wms.fulfillment.TransferService;
+import com.lrj.wms.fulfillment.transfer.application.TransferService;
+import com.lrj.wms.fulfillment.transfer.persistence.TransferMapper;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;

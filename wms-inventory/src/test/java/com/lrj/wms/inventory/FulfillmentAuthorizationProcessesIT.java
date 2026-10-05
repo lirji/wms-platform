@@ -2,10 +2,10 @@ package com.lrj.wms.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.fulfillment.AllocationRecoveryMapper;
-import com.lrj.wms.fulfillment.FulfillmentMapper;
-import com.lrj.wms.fulfillment.FulfillmentService;
-import com.lrj.wms.fulfillment.TcEvidenceScope;
+import com.lrj.wms.fulfillment.orchestration.FulfillmentService;
+import com.lrj.wms.fulfillment.order.persistence.FulfillmentMapper;
+import com.lrj.wms.fulfillment.recovery.persistence.AllocationRecoveryMapper;
+import com.lrj.wms.fulfillment.tc.domain.TcEvidenceScope;
 import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
 import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
 import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;

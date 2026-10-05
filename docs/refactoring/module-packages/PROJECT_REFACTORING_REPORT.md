@@ -34,8 +34,8 @@
 | R05 | inbound收货/质检/上架/任务/源协议的协议、应用和持久化责任 | R04 | DONE |
 | R06 | outbound订单/授权/拣发/取消/设备/源协议的责任及状态约束 | R05 | DONE |
 | R07 | serial-registry入口/应用/持久化/配置，保持全局身份与转移不变量 | R06 | DONE |
-| R08 | fulfillment订单/分配/调拨/TC/恢复的能力与层次，保持原事务和幂等 | R07 | IN_PROGRESS |
-| R09 | inventory主数据/库存/移动/盘点/serial/recon/TCC/jobs等每个能力的包与代码规范 | R08 | TODO |
+| R08 | fulfillment订单/分配/调拨/TC/恢复的能力与层次，保持原事务和幂等 | R07 | DONE |
+| R09 | inventory主数据/库存/移动/盘点/serial/recon/TCC/jobs等每个能力的包与代码规范 | R08 | IN_PROGRESS |
 | R10 | test-support场景/基础设施/契约分组、所有FQCN和进程入口同步；console规范/格式/结构审查 | R09 | TODO |
 | R11 | 全模块中文注释、类型/常量/配置、错误处理/规则/事务/SQL/测试的逐条审查及有证据优化 | R10 | TODO |
 | R12 | 全量必要IT/全部CI、接口/SQL/事件兼容、架构与卫生终审、文档进度和正常Git交付 | R11 | TODO |
@@ -89,3 +89,7 @@ R03还修正协议到Kafka适配器的反向依赖：262144字节预算由Runtim
 ### R07 本地包迁移验证
 
 按R07_PACKAGE_MAPPING迁移16个类，未扩大原访问可见性。全reactor清除旧编译结果后构建/单测通过（94项）；120个SQL迁移、64份Mapper SQL文本、权限目录摘要及格式/文档/差异检查通过。完整真实IT、CI与最终卫生审查仍由R12完成。原始结果：.local/refactoring-module-packages/r07-unit.log，R07_TEST_RESULT.json。
+
+### R08 本地包迁移验证
+
+按R08_PACKAGE_MAPPING迁移57个类，未扩大原访问可见性。全reactor清除旧编译结果后构建/单测通过（94项）；120个SQL迁移、64份Mapper SQL文本、权限目录摘要及格式/文档/差异检查通过。完整真实IT、CI与最终卫生审查仍由R12完成。原始结果：.local/refactoring-module-packages/r08-unit.log，R08_TEST_RESULT.json。

@@ -1,0 +1,135 @@
+package com.lrj.wms.fulfillment.orchestration;
+
+import com.lrj.wms.fulfillment.messaging.handler.ReservationConfirmationHandler;
+import com.lrj.wms.fulfillment.messaging.outbox.FulfillmentOutboxPublisher;
+import com.lrj.wms.fulfillment.transfer.application.SerialTransferService;
+import com.lrj.wms.runtime.messaging.inbox.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.kafka.KafkaDependencyHealth;
+import com.lrj.wms.runtime.messaging.kafka.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.kafka.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.kafka.KafkaSettings;
+import com.lrj.wms.runtime.messaging.observability.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.recovery.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.worker.MessageWorker;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+
+/** 显式启用的库存确认接收，消息落Inbox后才提交Kafka位点；真实TC观察仍由独立恢复负责。 */
+@Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(name = "wms.messaging.enabled", havingValue = "true")
+@EnableConfigurationProperties(KafkaSettings.class)
+public class FulfillmentMessagingConfiguration {
+    /** 与Inbox共用受控消息连接参数，发布确认后才改变本地Outbox状态。 */
+    @Bean(destroyMethod = "close")
+    KafkaMessagePublisher fulfillmentKafkaPublisher(KafkaSettings settings) {
+        return new KafkaMessagePublisher(settings, "wms-fulfillment-outbox");
+    }
+
+    @Bean
+    MessageWorker fulfillmentOutboxWorker(
+            SqlSessionFactory sessions, KafkaMessagePublisher publisher, KafkaSettings settings) {
+        var outbox =
+                new FulfillmentOutboxPublisher(
+                        sessions, publisher, settings.topicPrefix(), Clock.systemUTC());
+        return new MessageWorker("fulfillment-outbox", outbox::publishDue);
+    }
+
+    @Bean
+    RuntimeInbox fulfillmentRuntimeInbox(SqlSessionFactory sessions, KafkaSettings settings) {
+        return new RuntimeInbox(
+                sessions,
+                Map.of(
+                        settings.topicPrefix() + ".fulfillment.results",
+                        "wms-inventory",
+                        settings.topicPrefix() + ".cancellation.results",
+                        "wms-outbound"),
+                Clock.systemUTC());
+    }
+
+    @Bean
+    KafkaInboxConsumer fulfillmentKafkaInbox(KafkaSettings settings, RuntimeInbox inbox) {
+        return new KafkaInboxConsumer(
+                settings,
+                settings.topicPrefix() + ".fulfillment-results",
+                List.of(
+                        settings.topicPrefix() + ".fulfillment.results",
+                        settings.topicPrefix() + ".cancellation.results"),
+                inbox);
+    }
+
+    @Bean
+    MessageWorker fulfillmentInboxWorker(RuntimeInbox inbox) {
+        var handler = new ReservationConfirmationHandler(Clock.systemUTC());
+        return new MessageWorker(
+                "fulfillment-inbox",
+                () -> {
+                    long deadline = System.nanoTime() + java.time.Duration.ofSeconds(20).toNanos();
+                    for (int i = 0;
+                            i < 32
+                                    && System.nanoTime() < deadline
+                                    && !Thread.currentThread().isInterrupted();
+                            i++) {
+                        if (!inbox.processNext(
+                                (session, message) -> {
+                                    if (com.lrj.wms.contract.cancellation.CommittedCancellation
+                                            .RESULT
+                                            .equals(message.eventType()))
+                                        CommittedCancellationFlow.complete(session, message);
+                                    else if (com.lrj.wms.contract.transfer.SerialTransferCommand
+                                            .RESULT
+                                            .equals(message.eventType()))
+                                        new SerialTransferService(session, Clock.systemUTC())
+                                                .complete(message);
+                                    else handler.apply(session, message);
+                                })) break;
+                    }
+                });
+    }
+
+    @Bean
+    MessageQueueMetrics fulfillmentQueueMetrics(
+            SqlSessionFactory sessions, io.micrometer.core.instrument.MeterRegistry registry) {
+        return new MessageQueueMetrics(
+                sessions,
+                registry,
+                MessageQueueMetrics.Queue.FULFILLMENT_OUTBOX,
+                Clock.systemUTC());
+    }
+
+    @Bean
+    MessageWorker fulfillmentQueueMetricsWorker(MessageQueueMetrics metrics) {
+        return new MessageWorker("fulfillment-queue-metrics", metrics::sampleDue);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "wms.messaging.recovery-enabled", havingValue = "true")
+    MessageRecoveryService fulfillmentMessageRecovery(
+            SqlSessionFactory sessions, RuntimeInbox inbox) {
+        return new MessageRecoveryService(
+                sessions, MessageQueueMetrics.Queue.FULFILLMENT_OUTBOX, inbox, Clock.systemUTC());
+    }
+
+    @Bean(destroyMethod = "close")
+    KafkaDependencyHealth fulfillmentMessagingHealth(
+            KafkaSettings settings,
+            KafkaInboxConsumer consumer,
+            @org.springframework.beans.factory.annotation.Qualifier("fulfillmentInboxWorker")
+                    MessageWorker inbox,
+            @org.springframework.beans.factory.annotation.Qualifier("fulfillmentOutboxWorker")
+                    MessageWorker outbox) {
+        return new KafkaDependencyHealth(
+                settings,
+                () ->
+                        consumer.isReceiving()
+                                && inbox.lastPulseSucceeded()
+                                && outbox.lastPulseSucceeded());
+    }
+}
