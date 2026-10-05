@@ -1,3 +1,47 @@
+# Codex Progress — 本地历史改动 Git 交付
+
+## 任务目标
+
+将用户确认并统一暂存的 55 个历史改动按逻辑单元提交，通过必要验证后正常合并并推送 `origin/main`。原目录为 `/Users/liruijun/personal/LLM/wms-platform`，基线 `7c00b12`，任务分支 `feat/local-execution-driver-delivery`。
+
+## 已完成
+
+- 原 55 个文件及原暂存补丁已保护，证据目录为 `.local/git-delivery-local-changes-20261005/`。
+- Driver 最终源码通过 `./mvnw -B -ntp -pl wms-execution-driver verify`：30 单元测试、3 CLI 夹具进程集成测试，0 失败/错误/跳过。
+- 旧模块使用现有 Java 格式器整理；移除入口脚本首个 `exec` 后不会执行的重复段。未改变 Driver 功能、业务应用、数据库或部署。
+- 全 reactor Java/XML 格式、包结构、文档、权限目录、脚本语法及 14 脚本测试通过；首次格式失败与最终通过均保留。
+- Driver 使用说明与模块清单同步，当前源码 reactor 为 11 个模块；历史容器化报告保留 2026-09-16 原测量日期。
+
+## 已修改文件
+
+- 原 55 文件：`wms-execution-driver/**`、`pom.xml`、`scripts/driver-check.sh`、`.workflow/artifact-graph/graph.json`、`docs/deployment/containerization-report.md`、`wms-console/README.md`、`CODEX_PROGRESS.md`。
+- 收尾补充：`wms-execution-driver/README.md`、`docs/README.md`、`docs/design/01-architecture.md`。
+
+## 未完成
+
+- Git 提交、任务分支推送、远程 main 包含关系及精确 CI 的实时结果统一记录在 `.local/git-delivery-local-changes-20261005/DELIVERY_RESULT.json`。本检查点随交付保存，不预先宣称推送或远程 CI 成功。
+- 原业务 S9、50 AC、现场设备与容量等历史待办不由本次 Git 交付关闭。
+
+## 当前问题
+
+- 自动集成测试使用 CLI 夹具，不证明真实 AI 账号、额度或远程调用可用；本轮不调用真实 AI smoke。
+- 保留全部既有工作树、忽略文件、凭据、运行数据与历史失败证据。没有生产或本机 Docker 部署，也没有清理授权。
+
+## 下一步建议
+
+1. 以回执及远端 Git/精确 CI 核对尚未完成的交付步骤。若远端 main 已包含本任务提交，不重复提交或推送。
+2. 若 CI 失败，只修复本任务造成的问题并保存失败证据；若仍运行中，按实际状态记录，不能以本地通过代替远程成功。
+3. 所有本任务文件入库后保留任务分支和原工作树；不自动删除旧目录或运行制品。
+
+## 恢复 Prompt
+
+读取 `CODEX_PROGRESS.md` 及 `.local/git-delivery-local-changes-20261005/DELIVERY_RESULT.json`，核对 `origin/main` 与精确 CI，仅完成尚未结束的 Git 交付步骤。不要重做已通过测试、部署、授权或历史业务任务，不清理文件，不等待输入“继续”。
+
+---
+
+<details>
+<summary>历史部署、重构及业务任务记录</summary>
+
 # Codex Progress — Auth 与 WMS Docker 部署 DONE
 
 ## 任务目标
@@ -175,6 +219,14 @@
 
 本轮另交付：本地可运行的全链路测试数据工具 `test-data/`。控制台列表空列按公开契约字段补齐（入库、库存、履约、出库、调拨、盘点、批次）。详情页按各 GET 本域字段展示，不再套入库实物/库存同步头。
 
+2026-09-15 另交付独立模块 `wms-execution-driver`：`execution-driver-manifest/v1` 下 `codex-local` 与 `cursor-local` 共用 Registry/Selector，期望 status ≠ runtime status。
+
+## 当前状态
+
+- WMS v1：仍未完成 S9 / 50 AC。
+- Driver：`cursor-local` 本机 health `ACTIVE`；真实 `read_repo` smoke PASS；真实 `execute_tests`（`DriverAuditLoggerTest`）PASS。`codex-local` health `ACTIVE`，真实 Codex `exec` 仍因用量上限 FAIL（重试窗口 2026-09-19 16:23）。
+- 容器化执行（2026-09-16）：`project-containerization` GENERATION+VALIDATION **READY_WITH_WARNINGS**。未覆盖现有 Compose/Dockerfile。L1 `compose config` PASS；L2 build PASS；五应用 + console readiness/入口 smoke PASS。报告：`docs/deployment/containerization-report.md`。
+
 ## 已完成
 
 - OUT `365a1eb`、WATERMARK `051a7eb`、TRANSFER `7659d34`、TC `a3b4c65`、COMP `f043117` 均在远程 main；COMP CI [34734659069](https://github.com/lirji/wms-platform/actions/runs/34734659069) 成功。
@@ -183,6 +235,10 @@
 - 入库列表 / 库存台账空列（2026-09-13）：`listOrdersPage` 附带首行 `sku_id`/`expected_qty`/`received_physical_qty`/`stock_sync_status`；控制台 `field()` 可读 snake_case；库存台账展示契约字段「执行占用」，不发明 `availableQty`。`InboundHttpIT` 与 console 单测已绿。
 - 履约/出库/调拨/盘点/批次空列（2026-09-13）：履约/出库/调拨列表同样附带首行 SKU 与数量；盘点列表展示 `reason_code` + 首个范围库位，不编造草稿 SKU；`LOT-STD` 无时刻显示「未绑定」。`FulfillmentHttpIT` / `OutboundHttpIT` / `MasterdataHttpIT` 与对应 console 单测已绿。
 - 详情页本域字段（2026-09-13）：`DocumentWorkbench` 去掉公共「实物 / 库存同步」头；入库/履约/出库/调拨/盘点各自传入 GET 已有字段。出库 `orderView`、调拨 `view`、盘点 `view` 补 `version`；盘点详情带回 `locations`（已有 `listScope`）。批次空时刻详情也显示「未绑定」。不发明可用量或盘点 SKU。任务提交 `cb7dac9`，按用户授权直接推远程 main，不走 verify。
+- 本机 `.local` 清理（2026-09-14）：删除已合 main 的历史工作树、旧 IT 日志和 Seata 下载源码。Kafka/Seata/XXL 已用根 `compose.yaml`（与 `deploy/up.sh` 同一套）强制重建并改挂，随后拆掉 `.local/main-integration`。数据卷未删。保留 `service-tokens`、凭据文件和 auth-platform 的 OIDC 工作树。未删本地 feat 分支。
+- Driver `codex-local`（2026-09-15）：新增 `wms-execution-driver` 与 `./scripts/driver-check.sh`。Manifest 校验、Registry、Selector、Policy、Native Codex Adapter、进程超时/stdin 关闭已落地。`./scripts/driver-check.sh` health：`ACTIVE`，CLI `/opt/homebrew/bin/codex` `0.154.0`。真实 Codex `exec` 用量上限 FAIL。
+- Driver `cursor-local`（2026-09-15）：复用同一套 Driver 核心，新增 native Cursor Adapter（探测 `agent`/`cursor-agent`，不写死路径）。CLI `/Users/liruijun/.local/bin/agent` `2026.09.10-fd3934a`，runtime `ACTIVE`。执行一律经 DriverSelector。`mvn -pl wms-execution-driver verify`：Surefire 30、Failsafe 3（含 `CursorDriverSmokeIT`），BUILD SUCCESS。真实 `./scripts/driver-check.sh smoke cursor-local` SUCCEEDED（约 60s）；`./scripts/driver-check.sh execute-tests cursor-local` SUCCEEDED（约 28s，`DriverAuditLoggerTest` BUILD SUCCESS）。
+- `project-containerization` 执行阶段（2026-09-16）：KEEP 现有 `compose.yaml` / `deploy/app.Dockerfile`；仅新增报告。因 sibling 占用 18080/18091，本地 `.env` 宿主端口改为 28080/28091。EXISTING_VOLUME 补 `wms_registry` 账号（未删卷）。将 TC 审计/自动履约开关收回 Compose 默认 false 后 fulfillment HEALTHY。未 `volume rm`，未改业务代码。
 
 ## 未完成
 
@@ -190,19 +246,24 @@
 - OQ-03 / AC-26 现场 / S8-05 / S9-01 / 50 AC。
 - Cell B `wms_inventory` 已有表但缺少时区来源记录；官方 SeedLocal fail-closed。未编造 `legacy-evidence`，WH-B 库存种子 BLOCKED。根 Compose inventory 只接 Cell A。
 - 本机 Docker `console` / `outbound` / `fulfillment` / `inventory` 已按本次详情修复重建。硬刷新详情页即可。
+- 真实 Codex smoke：账号用量上限，至 2026-09-19 16:23 前 `codex exec` 失败。Driver 链路本身已回传 FAILED/stderr。
+- 架构文档 `docs/design/01-architecture.md` 尚未记载 execution-driver 模块（downstream，不由 Progress 改 Source of Truth）。
 
 ## 下一步
 
-1. 硬刷新本机 `http://127.0.0.1:18180` 的入库/履约/出库/调拨/盘点/批次详情。
-2. 不发明补偿 GET、门禁写、OQ-03。不把模拟器当设备。不在浏览器算可用量。
+1. 浏览器打开 `http://127.0.0.1:18180/`，用外部 OIDC 登录（本轮未做登录 smoke）。
+2. Codex 用量恢复后执行 `./scripts/driver-check.sh smoke codex-local`。
+3. 不发明补偿 GET、门禁写、OQ-03。不把模拟器当设备。不在浏览器算可用量。不 `deploy/down.sh --volumes`。
 
 ## 当前工作树
 
-- `/Users/liruijun/personal/LLM/wms-platform/.local/console-public-serial-ops` @ `feat/console-public-serial-ops`
-- 根用户工作树在 `feat/console-contract-list-detail` @ `cb7dac9`。
+- `/Users/liruijun/personal/LLM/wms-platform` @ `main` `7b79733`
+- 本机 `wms-local` 只引用根 `compose.yaml`（含 `deploy/compose.local.yml`）。启停用 `./deploy/up.sh` / `./deploy/down.sh`。
 
 ## 恢复 Prompt
 
 读取本文件。公开契约前端已授权发布。不要发明 OQ-03 或内部 HTTP。测试数据只改 `test-data/**`。
+
+</details>
 
 </details>
