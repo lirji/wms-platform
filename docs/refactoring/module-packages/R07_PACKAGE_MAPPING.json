@@ -1,0 +1,22 @@
+{
+  "id": "R07",
+  "reason": "按已有收货/质量/上架或订单/授权/执行/取消业务能力细分协议、应用、持久化职责。小配置协作簇保持封装，应用/种子CLI全名稳定；所有消费者/Mapper资源/必需测试全名同步，不改SQL/DTO字段/事务规则。",
+  "classes": {
+    "com.lrj.wms.serial.SerialPersistence": "com.lrj.wms.serial.configuration.SerialPersistence",
+    "com.lrj.wms.serial.SerialDatasourceProperties": "com.lrj.wms.serial.configuration.SerialDatasourceProperties",
+    "com.lrj.wms.serial.OnSerialJdbcConfigured": "com.lrj.wms.serial.configuration.OnSerialJdbcConfigured",
+    "com.lrj.wms.serial.SerialAccessProperties": "com.lrj.wms.serial.configuration.SerialAccessProperties",
+    "com.lrj.wms.serial.SerialRegistryService": "com.lrj.wms.serial.application.SerialRegistryService",
+    "com.lrj.wms.serial.SerialCommandService": "com.lrj.wms.serial.application.SerialCommandService",
+    "com.lrj.wms.serial.SerialRegistryIT": "com.lrj.wms.serial.application.SerialRegistryIT",
+    "com.lrj.wms.serial.SerialRegistryActivateIT": "com.lrj.wms.serial.application.SerialRegistryActivateIT",
+    "com.lrj.wms.serial.SerialMissingIT": "com.lrj.wms.serial.application.SerialMissingIT",
+    "com.lrj.wms.serial.SerialTransferIT": "com.lrj.wms.serial.application.SerialTransferIT",
+    "com.lrj.wms.serial.SerialRegistryMapper": "com.lrj.wms.serial.persistence.SerialRegistryMapper",
+    "com.lrj.wms.serial.SerialTransferMapper": "com.lrj.wms.serial.persistence.SerialTransferMapper",
+    "com.lrj.wms.serial.SerialHttpCommandMapper": "com.lrj.wms.serial.persistence.SerialHttpCommandMapper",
+    "com.lrj.wms.serial.SerialRegistryController": "com.lrj.wms.serial.web.SerialRegistryController",
+    "com.lrj.wms.serial.SerialRegistryHttpIT": "com.lrj.wms.serial.web.SerialRegistryHttpIT",
+    "com.lrj.wms.serial.SerialRegistryException": "com.lrj.wms.serial.domain.SerialRegistryException"
+  }
+}

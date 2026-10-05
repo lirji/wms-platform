@@ -1,7 +1,10 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.application;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.lrj.wms.serial.domain.SerialRegistryException;
+import com.lrj.wms.serial.persistence.SerialRegistryMapper;
+import com.lrj.wms.serial.persistence.SerialTransferMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

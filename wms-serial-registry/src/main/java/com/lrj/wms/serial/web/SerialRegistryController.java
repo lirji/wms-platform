@@ -1,9 +1,14 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.web;
 
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
 import com.lrj.wms.security.authorization.ScopeForbiddenException;
 import com.lrj.wms.security.authorization.WarehouseForbiddenException;
 import com.lrj.wms.security.authorization.WmsJwtAuthorities;
+import com.lrj.wms.serial.application.SerialCommandService;
+import com.lrj.wms.serial.application.SerialRegistryService;
+import com.lrj.wms.serial.configuration.OnSerialJdbcConfigured;
+import com.lrj.wms.serial.configuration.SerialAccessProperties;
+import com.lrj.wms.serial.domain.SerialRegistryException;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

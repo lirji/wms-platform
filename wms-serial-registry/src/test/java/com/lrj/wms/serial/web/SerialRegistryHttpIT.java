@@ -1,4 +1,4 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.web;
 
 import static org.junit.jupiter.api.Assertions.*;
 

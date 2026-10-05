@@ -80,8 +80,8 @@ com.lrj.wms.runtime.messaging.observability.MessageQueueMetricsIT#boundedBacklog
 
 com.lrj.wms.runtime.messaging.recovery.MessageRecoveryIT#auditedRetryPreservesIdentityAndFencingAndRejectsUntrustedMessages
 
-com.lrj.wms.serial.SerialRegistryHttpIT#serviceIdentityScopeWarehouseIdempotencyAndAuditAreEnforcedOverHttp
-com.lrj.wms.serial.SerialRegistryActivateIT#claimActivateReplayAndRejectOtherWarehouse
+com.lrj.wms.serial.web.SerialRegistryHttpIT#serviceIdentityScopeWarehouseIdempotencyAndAuditAreEnforcedOverHttp
+com.lrj.wms.serial.application.SerialRegistryActivateIT#claimActivateReplayAndRejectOtherWarehouse
 # R22 UTC / 已核实旧库偏移 / 独立 JVM 游标
 com.lrj.wms.runtime.TimeSemanticsIT#preservesInstantsAcrossJvmZonesAndRequiresLegacyEvidence
 # R15 逐页对账与规划只写候选
@@ -91,7 +91,7 @@ com.lrj.wms.inventory.recon.StockInternalReconcileIT#archivePlansOnlyWithExplici
 # R14/R15真实登记HTTP、丢回执恢复与受审计重排
 com.lrj.wms.inventory.serial.SerialRegistryProcessesIT#lostRepliesAndLocalCommitFailureRecoverFromPersistedOriginalIntent
 com.lrj.wms.inventory.masterdata.MasterdataHttpIT#serialRecoveryRequiresWarehouseScopeAndAtomicAuditedRequeue
-com.lrj.wms.serial.SerialRegistryHttpIT#transferAndFoundRecoveryPreserveWarehouseEpochAndOriginalFacts
+com.lrj.wms.serial.web.SerialRegistryHttpIT#transferAndFoundRecoveryPreserveWarehouseEpochAndOriginalFacts
 
 # 仓权威清单及迁移目标隔离
 com.lrj.wms.inventory.migrate.WarehouseMigrationIT#scopedRecoveryRowsCopyCompletelyAndConflictsRollbackWithoutOverwritingOtherWarehouses
@@ -176,7 +176,7 @@ com.lrj.wms.outbound.order.web.OutboundHttpIT#serialQuantityMismatchIsRejectedBe
 
 # 分次发运原身份与独立历史证明；既有实际进程/迁移测试同时覆盖SHIP
 com.lrj.wms.outbound.execution.application.OutboundPickIT#partialSerialShipmentConsumesOnlyPostedOriginalIdentitiesAndReceiptIsAtomic
-com.lrj.wms.serial.SerialRegistryHttpIT#shipmentHasImmutableProofAndNeverReactivatesByOldReceipt
+com.lrj.wms.serial.web.SerialRegistryHttpIT#shipmentHasImmutableProofAndNeverReactivatesByOldReceipt
 
 # 来源关窗权威、在途事务与重启分页；不代替库存侧完整水位核验
 com.lrj.wms.outbound.protocol.application.SourceWindowIT#persistedPagesWaitForReceiptAndRollbackWithoutLosingOriginalDigest

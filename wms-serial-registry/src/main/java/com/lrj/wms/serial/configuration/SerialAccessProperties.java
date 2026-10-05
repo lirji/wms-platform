@@ -1,4 +1,4 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.configuration;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

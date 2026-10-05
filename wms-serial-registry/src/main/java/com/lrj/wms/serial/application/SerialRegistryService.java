@@ -1,4 +1,8 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.application;
+
+import com.lrj.wms.serial.domain.SerialRegistryException;
+import com.lrj.wms.serial.persistence.SerialRegistryMapper;
+import com.lrj.wms.serial.persistence.SerialTransferMapper;
 
 import org.apache.ibatis.session.SqlSession;
 

@@ -1,7 +1,9 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.application;
 
 import com.lrj.wms.runtime.command.CommandKeys;
 import com.lrj.wms.runtime.messaging.protocol.RuntimeMessage;
+import com.lrj.wms.serial.domain.SerialRegistryException;
+import com.lrj.wms.serial.persistence.SerialHttpCommandMapper;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 

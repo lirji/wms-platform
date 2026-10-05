@@ -1,4 +1,4 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.domain;
 
 /** 序列号登记冲突，携带稳定错误码。 */
 public final class SerialRegistryException extends RuntimeException {

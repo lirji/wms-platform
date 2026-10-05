@@ -1,8 +1,11 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.configuration;
 
 import com.lrj.wms.runtime.db.DatabaseBudget;
 import com.lrj.wms.runtime.db.DatabaseTimePolicy;
 import com.lrj.wms.runtime.db.RuntimeDataSources;
+import com.lrj.wms.serial.persistence.SerialHttpCommandMapper;
+import com.lrj.wms.serial.persistence.SerialRegistryMapper;
+import com.lrj.wms.serial.persistence.SerialTransferMapper;
 import com.zaxxer.hikari.HikariDataSource;
 
 import org.apache.ibatis.mapping.Environment;

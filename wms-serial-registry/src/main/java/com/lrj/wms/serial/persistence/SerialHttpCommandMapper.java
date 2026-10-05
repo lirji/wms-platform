@@ -1,4 +1,4 @@
-package com.lrj.wms.serial;
+package com.lrj.wms.serial.persistence;
 
 import org.apache.ibatis.annotations.Param;
 

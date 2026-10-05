@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.lrj.wms.serial.SerialTransferMapper">
+<mapper namespace="com.lrj.wms.serial.persistence.SerialTransferMapper">
   <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
   <insert id="insertIgnore">
         INSERT IGNORE INTO serial_transfer (id, enterprise_id, sku_id, normalized_serial, serial_id, transfer_id, source_warehouse_id, target_warehouse_id, from_epoch, to_epoch, state, source_release_ref, target_receipt_ref, prepare_operation_id, version, created_at, updated_at)
