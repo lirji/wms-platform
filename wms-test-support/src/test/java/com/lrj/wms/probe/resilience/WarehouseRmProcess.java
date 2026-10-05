@@ -1,5 +1,7 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.resilience;
 
+import com.lrj.wms.probe.persistence.StockProbeMapper;
+import com.lrj.wms.probe.persistence.TccProbeMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;
@@ -61,7 +63,7 @@ public final class WarehouseRmProcess {
                         + "rules:\n  - !SHARDING\n    tables:\n"
                         + tables
                         + "    shardingAlgorithms:\n      cell_route:\n        type: CLASS_BASED\n        props:\n"
-                        + "          strategy: STANDARD\n          algorithmClassName: com.lrj.wms.probe.CellFenceAlgorithm\n"
+                        + "          strategy: STANDARD\n          algorithmClassName: com.lrj.wms.probe.routing.CellFenceAlgorithm\n"
                         + "          warehouse: "
                         + warehouse
                         + "\nprops:\n  sql-show: false\n";

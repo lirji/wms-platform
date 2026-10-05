@@ -1,0 +1,32 @@
+{
+  "id": "R10",
+  "reason": "将独立测试探针按路由/上下文/任务/可靠性场景和Mapper职责组织。TCC与故障场景共享私有屏障、终态证据和容器所有权助手，保持同一resilience协作包，不暴露测试内部实现。所有子进程FQCN/映射资源/profile/required-IT名字同步。前端既有features/shared/auth/shell架构保留并进行规范审查。",
+  "classes": {
+    "com.lrj.wms.jobs.JobCatalogClusterIT": "com.lrj.wms.probe.jobs.JobCatalogClusterIT",
+    "com.lrj.wms.probe.StockProbeMapper": "com.lrj.wms.probe.persistence.StockProbeMapper",
+    "com.lrj.wms.probe.OwnedContainerGuard": "com.lrj.wms.probe.resilience.OwnedContainerGuard",
+    "com.lrj.wms.probe.InventoryMigrationSupport": "com.lrj.wms.probe.resilience.InventoryMigrationSupport",
+    "com.lrj.wms.probe.CellFenceAlgorithm": "com.lrj.wms.probe.routing.CellFenceAlgorithm",
+    "com.lrj.wms.probe.ReservationProbeMapper": "com.lrj.wms.probe.persistence.ReservationProbeMapper",
+    "com.lrj.wms.probe.TwoWarehouseTccProbe": "com.lrj.wms.probe.resilience.TwoWarehouseTccProbe",
+    "com.lrj.wms.probe.TerminalEvidenceAdapter": "com.lrj.wms.probe.resilience.TerminalEvidenceAdapter",
+    "com.lrj.wms.probe.TcDatabaseEvidenceIT": "com.lrj.wms.probe.resilience.TcDatabaseEvidenceIT",
+    "com.lrj.wms.probe.ShardingRouteIT": "com.lrj.wms.probe.routing.ShardingRouteIT",
+    "com.lrj.wms.probe.XxlAdminTriggerIT": "com.lrj.wms.probe.jobs.XxlAdminTriggerIT",
+    "com.lrj.wms.probe.BusinessBarrierMapper": "com.lrj.wms.probe.persistence.BusinessBarrierMapper",
+    "com.lrj.wms.probe.TccProbeMapper": "com.lrj.wms.probe.persistence.TccProbeMapper",
+    "com.lrj.wms.probe.FailureDigestReplayIT": "com.lrj.wms.probe.resilience.FailureDigestReplayIT",
+    "com.lrj.wms.probe.IndependentRmProbe": "com.lrj.wms.probe.resilience.IndependentRmProbe",
+    "com.lrj.wms.probe.BusinessBarrierProbe": "com.lrj.wms.probe.resilience.BusinessBarrierProbe",
+    "com.lrj.wms.probe.WarehouseRmProcess": "com.lrj.wms.probe.resilience.WarehouseRmProcess",
+    "com.lrj.wms.probe.FailureIdentityUniquenessIT": "com.lrj.wms.probe.resilience.FailureIdentityUniquenessIT",
+    "com.lrj.wms.probe.DuplicateTryProbe": "com.lrj.wms.probe.resilience.DuplicateTryProbe",
+    "com.lrj.wms.probe.LaunchBindingProbe": "com.lrj.wms.probe.resilience.LaunchBindingProbe",
+    "com.lrj.wms.probe.TcTerminalEvidenceIT": "com.lrj.wms.probe.resilience.TcTerminalEvidenceIT",
+    "com.lrj.wms.probe.WarehouseProbeAlgorithm": "com.lrj.wms.probe.routing.WarehouseProbeAlgorithm",
+    "com.lrj.wms.probe.LaunchProbeMapper": "com.lrj.wms.probe.persistence.LaunchProbeMapper",
+    "com.lrj.wms.probe.HttpGatewayTryProbe": "com.lrj.wms.probe.resilience.HttpGatewayTryProbe",
+    "com.lrj.wms.probe.FailureIsolationIT": "com.lrj.wms.probe.resilience.FailureIsolationIT",
+    "com.lrj.wms.probe.ContextIsolationIT": "com.lrj.wms.probe.context.ContextIsolationIT"
+  }
+}

@@ -1,7 +1,10 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.resilience;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.lrj.wms.probe.persistence.BusinessBarrierMapper;
+import com.lrj.wms.probe.persistence.StockProbeMapper;
+import com.lrj.wms.probe.persistence.TccProbeMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import com.xxl.job.core.handler.IJobHandler;
 

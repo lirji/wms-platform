@@ -1,4 +1,4 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.routing;
 
 import org.apache.shardingsphere.sharding.api.sharding.standard.PreciseShardingValue;
 import org.apache.shardingsphere.sharding.api.sharding.standard.RangeShardingValue;

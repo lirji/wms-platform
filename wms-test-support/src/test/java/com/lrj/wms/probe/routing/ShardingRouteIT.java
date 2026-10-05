@@ -1,7 +1,8 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.routing;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.lrj.wms.probe.persistence.StockProbeMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

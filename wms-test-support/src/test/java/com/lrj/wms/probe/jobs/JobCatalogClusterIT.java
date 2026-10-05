@@ -1,4 +1,4 @@
-package com.lrj.wms.jobs;
+package com.lrj.wms.probe.jobs;
 
 import static org.junit.jupiter.api.Assertions.*;
 

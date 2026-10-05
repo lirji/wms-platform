@@ -1,4 +1,6 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.resilience;
+
+import com.lrj.wms.probe.persistence.BusinessBarrierMapper;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;

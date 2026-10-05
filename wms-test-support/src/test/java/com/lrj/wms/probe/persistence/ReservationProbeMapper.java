@@ -1,4 +1,4 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.persistence;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;

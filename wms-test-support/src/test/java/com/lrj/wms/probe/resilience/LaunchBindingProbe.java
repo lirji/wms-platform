@@ -1,7 +1,8 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.resilience;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.lrj.wms.probe.persistence.LaunchProbeMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

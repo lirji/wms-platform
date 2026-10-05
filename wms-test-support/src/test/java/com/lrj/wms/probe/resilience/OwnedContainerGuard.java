@@ -1,4 +1,4 @@
-package com.lrj.wms.probe;
+package com.lrj.wms.probe.resilience;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
