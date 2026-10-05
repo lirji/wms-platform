@@ -24,7 +24,8 @@ final class TerminalEvidenceAdapter {
     private final JdbcTemplate business;
     private final BusinessBarrierMapper attempts;
 
-    TerminalEvidenceAdapter(JdbcTemplate audit, JdbcTemplate business, BusinessBarrierMapper attempts) {
+    TerminalEvidenceAdapter(
+            JdbcTemplate audit, JdbcTemplate business, BusinessBarrierMapper attempts) {
         this.audit = audit;
         this.business = business;
         this.attempts = attempts;
@@ -62,7 +63,8 @@ final class TerminalEvidenceAdapter {
         }
         String expectedTm = attempts.expectedTm(tenant, attempt);
         String expectedGroup = attempts.expectedGroup(tenant, attempt);
-        if (expectedTm == null || expectedGroup == null
+        if (expectedTm == null
+                || expectedGroup == null
                 || !expectedTm.equals(evidence.applicationId)
                 || !expectedGroup.equals(evidence.transactionGroup)) {
             return Decision.RECOVERY_PENDING;
@@ -91,12 +93,16 @@ final class TerminalEvidenceAdapter {
     /** 审计账号只允许SELECT；写入必须由数据库拒绝。 */
     void assertAuditIsReadOnly() {
         try {
-            audit.update("INSERT INTO terminal_evidence(xid,application_id,transaction_service_group,terminal_status) "
-                    + "VALUES('audit-write-forbidden','x','g',9)");
+            audit.update(
+                    "INSERT INTO terminal_evidence(xid,application_id,transaction_service_group,terminal_status) "
+                            + "VALUES('audit-write-forbidden','x','g',9)");
             throw new AssertionError("只读审计账号不得INSERT terminal_evidence");
         } catch (DataAccessException rejected) {
-            Integer leaked = audit.queryForObject(
-                    "SELECT COUNT(*) FROM terminal_evidence WHERE xid=?", Integer.class, "audit-write-forbidden");
+            Integer leaked =
+                    audit.queryForObject(
+                            "SELECT COUNT(*) FROM terminal_evidence WHERE xid=?",
+                            Integer.class,
+                            "audit-write-forbidden");
             if (leaked != null && leaked > 0) {
                 throw new AssertionError("审计拒绝写入后仍出现证据行", rejected);
             }
@@ -104,10 +110,11 @@ final class TerminalEvidenceAdapter {
     }
 
     private Evidence loadEvidence(String xid) {
-        var rows = audit.query(
-                "SELECT application_id, transaction_service_group, terminal_status FROM terminal_evidence WHERE xid=?",
-                (rs, row) -> new Evidence(rs.getString(1), rs.getString(2), rs.getInt(3)),
-                xid);
+        var rows =
+                audit.query(
+                        "SELECT application_id, transaction_service_group, terminal_status FROM terminal_evidence WHERE xid=?",
+                        (rs, row) -> new Evidence(rs.getString(1), rs.getString(2), rs.getInt(3)),
+                        xid);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
@@ -115,12 +122,14 @@ final class TerminalEvidenceAdapter {
         if (warehouse.isEmpty()) {
             return false;
         }
-        Integer status = business.query(
-                "SELECT status FROM tcc_fence_log WHERE xid=? AND action_name=?",
-                rs -> rs.next() ? rs.getInt(1) : null,
-                xid, BusinessBarrierProbe.resource(warehouse));
+        Integer status =
+                business.query(
+                        "SELECT status FROM tcc_fence_log WHERE xid=? AND action_name=?",
+                        rs -> rs.next() ? rs.getInt(1) : null,
+                        xid,
+                        BusinessBarrierProbe.resource(warehouse));
         return status != null && status == FENCE_COMMITTED;
     }
 
-    private record Evidence(String applicationId, String transactionGroup, int status) { }
+    private record Evidence(String applicationId, String transactionGroup, int status) {}
 }

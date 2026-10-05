@@ -10,11 +10,19 @@ import java.util.Map;
 public final class WarehouseQuantityFact {
     public static final int SCHEMA_VERSION = 1;
 
-    private WarehouseQuantityFact() {
-    }
+    private WarehouseQuantityFact() {}
 
-    public static Map<String, Object> onHand(String factId, String enterpriseId, String warehouseId, String ownerId,
-            String skuId, String lotId, String serialId, BigDecimal quantity, String unit, String cutoffId,
+    public static Map<String, Object> onHand(
+            String factId,
+            String enterpriseId,
+            String warehouseId,
+            String ownerId,
+            String skuId,
+            String lotId,
+            String serialId,
+            BigDecimal quantity,
+            String unit,
+            String cutoffId,
             String watermark) {
         Map<String, Object> fact = new LinkedHashMap<>();
         fact.put("factId", factId);

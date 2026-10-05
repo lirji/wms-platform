@@ -12,8 +12,10 @@ import java.util.regex.Pattern;
 public final class Quantity implements Comparable<Quantity> {
     public static final int MIN_SCALE = 0;
     public static final int MAX_SCALE = 6;
+
     /** DECIMAL(20,6) 整数部分最多 14 位。 */
     private static final BigDecimal MAX_ABS = new BigDecimal("100000000000000");
+
     private static final Pattern DECIMAL = Pattern.compile("^-?\\d+(\\.\\d+)?$");
 
     private final BigDecimal amount;

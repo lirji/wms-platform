@@ -1,4 +1,4 @@
-import { UserManager, WebStorageStateStore, type User } from "oidc-client-ts";
+import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts';
 
 let signinCallback: Promise<User> | undefined;
 
@@ -15,15 +15,15 @@ export function issuerConfigured(): boolean {
 export function createUserManager(): UserManager {
   const issuer = import.meta.env.VITE_OIDC_ISSUER;
   if (!issuer) {
-    throw new Error("未配置 VITE_OIDC_ISSUER");
+    throw new Error('未配置 VITE_OIDC_ISSUER');
   }
   return new UserManager({
     authority: issuer,
-    client_id: import.meta.env.VITE_OIDC_CLIENT_ID || "wms-platform",
+    client_id: import.meta.env.VITE_OIDC_CLIENT_ID || 'wms-platform',
     redirect_uri: `${window.location.origin}/callback`,
     post_logout_redirect_uri: window.location.origin,
-    response_type: "code",
-    scope: "openid profile",
-    userStore: new WebStorageStateStore({ store: window.sessionStorage })
+    response_type: 'code',
+    scope: 'openid profile',
+    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
   });
 }

@@ -44,3 +44,9 @@
 从[本地运行与验证](docs/implementation/S0_RUNBOOK.md)选择容器或本机开发路径，容器步骤见[部署目录说明](deploy/README.md)。配置前先看[基础设施与连接清单](docs/operations/INFRASTRUCTURE.md)：`.env.example` 是模板，完整启动还需要 OIDC 与序列号受信主体配置；默认消息、原生 RM 和自动履约执行关闭。inventory 默认只连接 Cell A。
 
 本仓库 CI 不含生产部署。本机隔离验证不操作共享 dev-infra。文档整理不代表重新启动过环境或重新完成业务验收；本次复用已发布代码的既有 CI 证据。
+
+## 代码格式
+
+Java 使用固定版本及摘要的 Google Java Format（JDK 21），XML 使用 `xmllint`；Linux 需要 `libxml2-utils`。执行 `python3 scripts/format-java.py --write`、`python3 scripts/format-xml.py --write`，前端在 `wms-console` 执行 `npm ci` 后运行 `npm run format`。对应 `--check` 和 `npm run format:check` 已接入 CI。
+
+Java 格式器不会重排中文 Javadoc 和长协议字面量，XML 格式器会核对 SQL 文本与 XML 语义。数据库迁移和按字节核对的中央目录生成副本不由人工格式器重写。[模块重构记录](docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md)包含包结构、兼容性和验证证据。

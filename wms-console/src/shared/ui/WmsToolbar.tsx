@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 /** 表顶工具条：左标题与条数，右操作。 */
 export function WmsToolbar({
   title,
   count,
-  extra
+  extra,
 }: {
   title: string;
   count?: string;

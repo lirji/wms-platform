@@ -1,14 +1,9 @@
 package com.lrj.wms.fulfillment;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -21,7 +16,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /** S4-06：恢复扫描同步观察并补齐 Outbox。不是真实 TC 查询、XXL admin 或二阶段。 */
 class AllocationRecoverySweepIT {
@@ -33,16 +36,25 @@ class AllocationRecoverySweepIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_fulfillment")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_fulfillment")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
-        Flyway.configure().dataSource(source).locations("classpath:db/migration/fulfillment").load().migrate();
+        Flyway.configure()
+                .dataSource(source)
+                .locations("classpath:db/migration/fulfillment")
+                .load()
+                .migrate();
         jdbc = new JdbcTemplate(source);
-        Configuration config = new Configuration(new Environment("sweep", new JdbcTransactionFactory(), source));
+        Configuration config =
+                new Configuration(new Environment("sweep", new JdbcTransactionFactory(), source));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(FulfillmentMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
@@ -64,78 +76,180 @@ class AllocationRecoverySweepIT {
             FulfillmentService service = new FulfillmentService(session, clock);
             pendingId = readyAttempt(service, "SO-PEND", "xid-pend", false);
             readyId = readyAttempt(service, "SO-SYNC", "xid-sync", true);
-            assertEquals(0, new AllocationRecoveryJob(
-                    new AllocationRecoverySweep(service, new UnavailableTcStatusPort()), "ENT-SW").execute()
-                    .newlyObserved());
+            assertEquals(
+                    0,
+                    new AllocationRecoveryJob(
+                                    new AllocationRecoverySweep(
+                                            service, new UnavailableTcStatusPort()),
+                                    "ENT-SW")
+                            .execute()
+                            .newlyObserved());
             session.commit();
         }
-        assertEquals("TCC_TRYING", jdbc.queryForObject(
-                "SELECT state FROM allocation_attempt WHERE id=?", String.class, pendingId));
-        assertEquals(0, jdbc.queryForObject(
-                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?", Integer.class, pendingId));
+        assertEquals(
+                "TCC_TRYING",
+                jdbc.queryForObject(
+                        "SELECT state FROM allocation_attempt WHERE id=?",
+                        String.class,
+                        pendingId));
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?",
+                        Integer.class,
+                        pendingId));
 
         try (SqlSession session = sessions.openSession(false)) {
             FulfillmentService service = new FulfillmentService(session, clock);
-            TcStatusPort port = xid -> "xid-pend".equals(xid)
-                    ? Optional.of(new TcStatusPort.Observation(FulfillmentService.TC_COMMITTED,
-                            "{\"xid\":\"xid-pend\",\"status\":9}"))
-                    : Optional.empty();
-            AllocationRecoverySweep.Report report = new AllocationRecoveryJob(
-                    new AllocationRecoverySweep(service, port), "ENT-SW").execute();
+            TcStatusPort port =
+                    xid ->
+                            "xid-pend".equals(xid)
+                                    ? Optional.of(
+                                            new TcStatusPort.Observation(
+                                                    FulfillmentService.TC_COMMITTED,
+                                                    "{\"xid\":\"xid-pend\",\"status\":9}"))
+                                    : Optional.empty();
+            AllocationRecoverySweep.Report report =
+                    new AllocationRecoveryJob(new AllocationRecoverySweep(service, port), "ENT-SW")
+                            .execute();
             assertTrue(report.newlyObserved() >= 1);
             assertEquals(1, report.recovered());
             assertThrows(IllegalStateException.class, AllocationRecoverySweep::refusePhaseTwo);
             session.commit();
         }
-        assertEquals("ALLOCATED", jdbc.queryForObject(
-                "SELECT state FROM allocation_attempt WHERE id=?", String.class, pendingId));
-        assertEquals("ALLOCATED", jdbc.queryForObject(
-                "SELECT state FROM allocation_attempt WHERE id=?", String.class, readyId));
-        assertEquals(5, jdbc.queryForObject(
-                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND status='PENDING'",
-                Integer.class, pendingId));
-        assertEquals(5, jdbc.queryForObject(
-                "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND status='PENDING'",
-                Integer.class, readyId));
-        System.out.println("S4_XXL_SWEEP: unavailable port leaves pending; stub observation backfills Outbox; "
-                + "no Confirm/Cancel");
+        assertEquals(
+                "ALLOCATED",
+                jdbc.queryForObject(
+                        "SELECT state FROM allocation_attempt WHERE id=?",
+                        String.class,
+                        pendingId));
+        assertEquals(
+                "ALLOCATED",
+                jdbc.queryForObject(
+                        "SELECT state FROM allocation_attempt WHERE id=?", String.class, readyId));
+        assertEquals(
+                5,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND status='PENDING'",
+                        Integer.class,
+                        pendingId));
+        assertEquals(
+                5,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND status='PENDING'",
+                        Integer.class,
+                        readyId));
+        System.out.println(
+                "S4_XXL_SWEEP: unavailable port leaves pending; stub observation backfills Outbox; "
+                        + "no Confirm/Cancel");
     }
 
     @Test
     void terminalNotificationCountCannotHideMissingExecutionAuthorization() {
         String id;
-        try(var session=sessions.openSession(false)) {
-            var service=new FulfillmentService(session,Clock.fixed(NOW,ZoneOffset.UTC));
-            id=readyAttempt(service,"NOTICE-COUNT","xid-notice-count",true);service.markAllocated("ENT-SW",id);session.commit();
+        try (var session = sessions.openSession(false)) {
+            var service = new FulfillmentService(session, Clock.fixed(NOW, ZoneOffset.UTC));
+            id = readyAttempt(service, "NOTICE-COUNT", "xid-notice-count", true);
+            service.markAllocated("ENT-SW", id);
+            session.commit();
         }
-        assertEquals(2,jdbc.update("DELETE FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",id));
-        assertEquals(2,jdbc.update("INSERT INTO fulfillment_outbox(event_id,enterprise_id,attempt_id,warehouse_id,event_type,operation_id,payload,status,version,created_at,updated_at) SELECT CONCAT('notice-',warehouse_id),enterprise_id,attempt_id,warehouse_id,'TcTerminalNoticeV1',CONCAT('notice-',warehouse_id),'{}','PENDING',0,created_at,updated_at FROM fulfillment_outbox WHERE attempt_id=? AND warehouse_id IN ('WH-A','WH-B')",id));
-        assertEquals(5,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?",Integer.class,id));
-        try(var session=sessions.openSession(false)) {
-            new FulfillmentService(session,Clock.fixed(NOW,ZoneOffset.UTC)).recoverReadyBarriers("ENT-SW");session.commit();
+        assertEquals(
+                2,
+                jdbc.update(
+                        "DELETE FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",
+                        id));
+        assertEquals(
+                2,
+                jdbc.update(
+                        "INSERT INTO fulfillment_outbox(event_id,enterprise_id,attempt_id,warehouse_id,event_type,operation_id,payload,status,version,created_at,updated_at) SELECT CONCAT('notice-',warehouse_id),enterprise_id,attempt_id,warehouse_id,'TcTerminalNoticeV1',CONCAT('notice-',warehouse_id),'{}','PENDING',0,created_at,updated_at FROM fulfillment_outbox WHERE attempt_id=? AND warehouse_id IN ('WH-A','WH-B')",
+                        id));
+        assertEquals(
+                5,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=?",
+                        Integer.class,
+                        id));
+        try (var session = sessions.openSession(false)) {
+            new FulfillmentService(session, Clock.fixed(NOW, ZoneOffset.UTC))
+                    .recoverReadyBarriers("ENT-SW");
+            session.commit();
         }
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",Integer.class,id));
+        assertEquals(
+                2,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM fulfillment_outbox WHERE attempt_id=? AND event_type='ExecutionAuthorizationRequested'",
+                        Integer.class,
+                        id));
     }
 
-    private static String readyAttempt(FulfillmentService service, String sourceOrderNo, String xid,
+    private static String readyAttempt(
+            FulfillmentService service,
+            String sourceOrderNo,
+            String xid,
             boolean observeCommitted) {
-        Map<String, Object> order = service.createOrder("ENT-SW", "OMS", sourceOrderNo, DIGEST,
-                List.of(Map.of("sourceLineId", "L1", "skuId", "SKU-1", "requestedQty", new BigDecimal("2"),
-                        "baseUnit", "EA")), 1);
-        String attemptId = String.valueOf(service.createAttempt("ENT-SW", String.valueOf(order.get("id")),
-                NOW.plusSeconds(60), List.of("WH-A", "WH-B"), List.of(
-                        Map.of("warehouseId", "WH-A", "orderLineId", "L1", "skuId", "SKU-1",
-                                "qty", new BigDecimal("1"), "baseUnit", "EA"),
-                        Map.of("warehouseId", "WH-B", "orderLineId", "L1", "skuId", "SKU-1",
-                                "qty", new BigDecimal("1"), "baseUnit", "EA"))).get("id"));
+        Map<String, Object> order =
+                service.createOrder(
+                        "ENT-SW",
+                        "OMS",
+                        sourceOrderNo,
+                        DIGEST,
+                        List.of(
+                                Map.of(
+                                        "sourceLineId",
+                                        "L1",
+                                        "skuId",
+                                        "SKU-1",
+                                        "requestedQty",
+                                        new BigDecimal("2"),
+                                        "baseUnit",
+                                        "EA")),
+                        1);
+        String attemptId =
+                String.valueOf(
+                        service.createAttempt(
+                                        "ENT-SW",
+                                        String.valueOf(order.get("id")),
+                                        NOW.plusSeconds(60),
+                                        List.of("WH-A", "WH-B"),
+                                        List.of(
+                                                Map.of(
+                                                        "warehouseId",
+                                                        "WH-A",
+                                                        "orderLineId",
+                                                        "L1",
+                                                        "skuId",
+                                                        "SKU-1",
+                                                        "qty",
+                                                        new BigDecimal("1"),
+                                                        "baseUnit",
+                                                        "EA"),
+                                                Map.of(
+                                                        "warehouseId",
+                                                        "WH-B",
+                                                        "orderLineId",
+                                                        "L1",
+                                                        "skuId",
+                                                        "SKU-1",
+                                                        "qty",
+                                                        new BigDecimal("1"),
+                                                        "baseUnit",
+                                                        "EA")))
+                                .get("id"));
         service.claimLaunch("ENT-SW", attemptId, "exec-1");
         service.bindXid("ENT-SW", attemptId, "exec-1", xid);
-        service.bindParticipant("ENT-SW", attemptId, "WH-A", xid, 11L, "ReservationTccAction", "res-A", 1, "TRIED");
-        service.observeParticipant("ENT-SW", attemptId, "WH-A", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
-        service.bindParticipant("ENT-SW", attemptId, "WH-B", xid, 12L, "ReservationTccAction", "res-B", 1, "TRIED");
-        service.observeParticipant("ENT-SW", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
+        service.bindParticipant(
+                "ENT-SW", attemptId, "WH-A", xid, 11L, "ReservationTccAction", "res-A", 1, "TRIED");
+        service.observeParticipant(
+                "ENT-SW", attemptId, "WH-A", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
+        service.bindParticipant(
+                "ENT-SW", attemptId, "WH-B", xid, 12L, "ReservationTccAction", "res-B", 1, "TRIED");
+        service.observeParticipant(
+                "ENT-SW", attemptId, "WH-B", FulfillmentService.PARTICIPANT_CONFIRMED, 1L);
         if (observeCommitted) {
-            service.observeTc("ENT-SW", attemptId, FulfillmentService.TC_COMMITTED,
+            service.observeTc(
+                    "ENT-SW",
+                    attemptId,
+                    FulfillmentService.TC_COMMITTED,
                     "{\"xid\":\"" + xid + "\",\"status\":9}");
         }
         return attemptId;

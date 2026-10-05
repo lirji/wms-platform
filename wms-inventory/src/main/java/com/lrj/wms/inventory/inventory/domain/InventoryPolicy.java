@@ -8,11 +8,11 @@ import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
  * 序列号可用量必须按合格 serial 计件，禁止用桶公式放行。
  */
 public final class InventoryPolicy {
-    private InventoryPolicy() {
-    }
+    private InventoryPolicy() {}
 
     /** 余额三量非负，且 reserved+freeClaim 不超过 onHand。 */
-    public static void requireBalanceInvariant(Quantity onHand, Quantity reserved, Quantity freeClaim) {
+    public static void requireBalanceInvariant(
+            Quantity onHand, Quantity reserved, Quantity freeClaim) {
         requireNonNegative("on_hand", onHand);
         requireNonNegative("reserved", reserved);
         requireNonNegative("free_execution_claim", freeClaim);
@@ -28,10 +28,19 @@ public final class InventoryPolicy {
     }
 
     /** 非序列号可分配量；任一资格失败返回 0，不抛成成功占用。 */
-    public static Quantity nonSerialAvailable(Quantity onHand, Quantity reserved, Quantity freeClaim,
-            boolean locationAllocable, String quality, boolean expirySatisfied, boolean frozen) {
+    public static Quantity nonSerialAvailable(
+            Quantity onHand,
+            Quantity reserved,
+            Quantity freeClaim,
+            boolean locationAllocable,
+            String quality,
+            boolean expirySatisfied,
+            boolean frozen) {
         requireBalanceInvariant(onHand, reserved, freeClaim);
-        if (!locationAllocable || frozen || !expirySatisfied || !InventoryCodes.allocatableQuality(quality)) {
+        if (!locationAllocable
+                || frozen
+                || !expirySatisfied
+                || !InventoryCodes.allocatableQuality(quality)) {
             return Quantity.zero(onHand.scale());
         }
         return onHand.minus(reserved).minus(freeClaim);
@@ -65,35 +74,49 @@ public final class InventoryPolicy {
 
     private static String decideOpen(String command) {
         return switch (command) {
-            case InventoryCodes.CMD_NEW_RESERVE, InventoryCodes.CMD_NEW_DISPATCH, InventoryCodes.CMD_NORMAL_MUTATION,
-                    InventoryCodes.CMD_INFLIGHT_CONFIRM, InventoryCodes.CMD_TCC_CANCEL, InventoryCodes.CMD_COUNT_OBSERVE ->
-                InventoryCodes.DECISION_ALLOW;
+            case InventoryCodes.CMD_NEW_RESERVE,
+                    InventoryCodes.CMD_NEW_DISPATCH,
+                    InventoryCodes.CMD_NORMAL_MUTATION,
+                    InventoryCodes.CMD_INFLIGHT_CONFIRM,
+                    InventoryCodes.CMD_TCC_CANCEL,
+                    InventoryCodes.CMD_COUNT_OBSERVE ->
+                    InventoryCodes.DECISION_ALLOW;
             default -> InventoryCodes.DECISION_DENY;
         };
     }
 
     private static String decideQuiescing(String command) {
         return switch (command) {
-            case InventoryCodes.CMD_NEW_RESERVE, InventoryCodes.CMD_NEW_DISPATCH, InventoryCodes.CMD_NORMAL_MUTATION ->
-                InventoryCodes.DECISION_DENY;
+            case InventoryCodes.CMD_NEW_RESERVE,
+                    InventoryCodes.CMD_NEW_DISPATCH,
+                    InventoryCodes.CMD_NORMAL_MUTATION ->
+                    InventoryCodes.DECISION_DENY;
             case InventoryCodes.CMD_INFLIGHT_CONFIRM -> InventoryCodes.DECISION_DRAIN;
-            case InventoryCodes.CMD_TCC_CANCEL, InventoryCodes.CMD_UNFREEZE -> InventoryCodes.DECISION_ALLOW;
-            case InventoryCodes.CMD_COUNT_OBSERVE, InventoryCodes.CMD_COUNT_ADJUST, InventoryCodes.CMD_ARBITRARY_RELEASE,
+            case InventoryCodes.CMD_TCC_CANCEL, InventoryCodes.CMD_UNFREEZE ->
+                    InventoryCodes.DECISION_ALLOW;
+            case InventoryCodes.CMD_COUNT_OBSERVE,
+                    InventoryCodes.CMD_COUNT_ADJUST,
+                    InventoryCodes.CMD_ARBITRARY_RELEASE,
                     InventoryCodes.CMD_MAINTENANCE ->
-                InventoryCodes.DECISION_DENY;
+                    InventoryCodes.DECISION_DENY;
             default -> throw new IllegalArgumentException("未知库存命令：" + command);
         };
     }
 
     private static String decideFrozen(String command) {
         return switch (command) {
-            case InventoryCodes.CMD_NEW_RESERVE, InventoryCodes.CMD_NEW_DISPATCH, InventoryCodes.CMD_NORMAL_MUTATION,
-                    InventoryCodes.CMD_ARBITRARY_RELEASE, InventoryCodes.CMD_MAINTENANCE ->
-                InventoryCodes.DECISION_DENY;
+            case InventoryCodes.CMD_NEW_RESERVE,
+                    InventoryCodes.CMD_NEW_DISPATCH,
+                    InventoryCodes.CMD_NORMAL_MUTATION,
+                    InventoryCodes.CMD_ARBITRARY_RELEASE,
+                    InventoryCodes.CMD_MAINTENANCE ->
+                    InventoryCodes.DECISION_DENY;
             case InventoryCodes.CMD_INFLIGHT_CONFIRM -> InventoryCodes.DECISION_ISOLATE;
-            case InventoryCodes.CMD_TCC_CANCEL, InventoryCodes.CMD_COUNT_OBSERVE, InventoryCodes.CMD_COUNT_ADJUST,
+            case InventoryCodes.CMD_TCC_CANCEL,
+                    InventoryCodes.CMD_COUNT_OBSERVE,
+                    InventoryCodes.CMD_COUNT_ADJUST,
                     InventoryCodes.CMD_UNFREEZE ->
-                InventoryCodes.DECISION_ALLOW;
+                    InventoryCodes.DECISION_ALLOW;
             default -> throw new IllegalArgumentException("未知库存命令：" + command);
         };
     }

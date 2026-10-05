@@ -3,6 +3,9 @@ package com.lrj.wms.inventory.masterdata;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
+
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -13,7 +16,6 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /**
  * 主数据写用例的 HTTP 应用层：幂等键、摘要冲突与回读。
@@ -30,90 +32,219 @@ public final class MasterdataCommandService {
         this.clock = clock;
     }
 
-    public Map<String, Object> createWarehouse(String enterpriseId, String code, String name, String timezone,
+    public Map<String, Object> createWarehouse(
+            String enterpriseId,
+            String code,
+            String name,
+            String timezone,
             String clientOperationId) {
         SkuPolicy.requireIanaTimezone(timezone);
         String warehouseId = MasterdataCodes.requireCode("仓编码", code);
         String digest = digest("warehouse", warehouseId, name, timezone);
-        return write(enterpriseId, ENTERPRISE_IDEMPOTENCY_WAREHOUSE, clientOperationId, digest, () -> {
-            MasterdataHttpMapper http = http();
-            Map<String, Object> existing = http.getWarehouseByCode(enterpriseId, warehouseId);
-            if (existing != null) {
-                throw new MasterdataException("DUPLICATE_DOCUMENT", "仓编码已存在");
-            }
-            writes().createWarehouse(warehouseId, enterpriseId, warehouseId, name, timezone);
-            return warehouseId;
-        }, () -> requireWarehouse(enterpriseId, warehouseId));
+        return write(
+                enterpriseId,
+                ENTERPRISE_IDEMPOTENCY_WAREHOUSE,
+                clientOperationId,
+                digest,
+                () -> {
+                    MasterdataHttpMapper http = http();
+                    Map<String, Object> existing =
+                            http.getWarehouseByCode(enterpriseId, warehouseId);
+                    if (existing != null) {
+                        throw new MasterdataException("DUPLICATE_DOCUMENT", "仓编码已存在");
+                    }
+                    writes().createWarehouse(
+                                    warehouseId, enterpriseId, warehouseId, name, timezone);
+                    return warehouseId;
+                },
+                () -> requireWarehouse(enterpriseId, warehouseId));
     }
 
-    public Map<String, Object> createLocation(String enterpriseId, String warehouseId, String code, String zoneCode,
-            String locationType, BigDecimal capacityQty, String capacityUnit, String clientOperationId) {
+    public Map<String, Object> createLocation(
+            String enterpriseId,
+            String warehouseId,
+            String code,
+            String zoneCode,
+            String locationType,
+            BigDecimal capacityQty,
+            String capacityUnit,
+            String clientOperationId) {
         String locationId = MasterdataCodes.requireCode("库位编码", code);
-        String digest = digest("location", warehouseId, locationId, zoneCode, locationType,
-                capacityQty == null ? "" : capacityQty.toPlainString(), blank(capacityUnit));
-        return write(enterpriseId, warehouseId, clientOperationId, digest, () -> {
-            if (http().getLocationByCode(enterpriseId, warehouseId, locationId) != null) {
-                throw new MasterdataException("DUPLICATE_DOCUMENT", "库位编码已存在");
-            }
-            writes().createLocation(locationId, "GATE-" + locationId, enterpriseId, warehouseId, locationId, zoneCode,
-                    locationType, capacityQty, blankToNull(capacityUnit));
-            return locationId;
-        }, () -> requireLocation(enterpriseId, warehouseId, locationId));
+        String digest =
+                digest(
+                        "location",
+                        warehouseId,
+                        locationId,
+                        zoneCode,
+                        locationType,
+                        capacityQty == null ? "" : capacityQty.toPlainString(),
+                        blank(capacityUnit));
+        return write(
+                enterpriseId,
+                warehouseId,
+                clientOperationId,
+                digest,
+                () -> {
+                    if (http().getLocationByCode(enterpriseId, warehouseId, locationId) != null) {
+                        throw new MasterdataException("DUPLICATE_DOCUMENT", "库位编码已存在");
+                    }
+                    writes().createLocation(
+                                    locationId,
+                                    "GATE-" + locationId,
+                                    enterpriseId,
+                                    warehouseId,
+                                    locationId,
+                                    zoneCode,
+                                    locationType,
+                                    capacityQty,
+                                    blankToNull(capacityUnit));
+                    return locationId;
+                },
+                () -> requireLocation(enterpriseId, warehouseId, locationId));
     }
 
-    public Map<String, Object> createSku(String enterpriseId, String code, String name, String baseUnit,
-            int quantityScale, boolean lotEnabled, boolean serialEnabled, boolean expiryEnabled,
+    public Map<String, Object> createSku(
+            String enterpriseId,
+            String code,
+            String name,
+            String baseUnit,
+            int quantityScale,
+            boolean lotEnabled,
+            boolean serialEnabled,
+            boolean expiryEnabled,
             String clientOperationId) {
         String skuId = MasterdataCodes.requireCode("商品编码", code);
-        String digest = digest("sku", skuId, name, baseUnit, String.valueOf(quantityScale), String.valueOf(lotEnabled),
-                String.valueOf(serialEnabled), String.valueOf(expiryEnabled));
-        return write(enterpriseId, ENTERPRISE_IDEMPOTENCY_WAREHOUSE, clientOperationId, digest, () -> {
-            if (http().getSkuByCode(enterpriseId, skuId) != null) {
-                throw new MasterdataException("DUPLICATE_DOCUMENT", "商品编码已存在");
-            }
-            SkuPolicy sku = SkuPolicy.create(skuId, enterpriseId, skuId, name, baseUnit, quantityScale, lotEnabled,
-                    serialEnabled, expiryEnabled, 1L, MasterdataCodes.STATE_ACTIVE);
-            writes().createSku(sku, skuId + "-" + baseUnit);
-            return skuId;
-        }, () -> requireSku(enterpriseId, skuId));
+        String digest =
+                digest(
+                        "sku",
+                        skuId,
+                        name,
+                        baseUnit,
+                        String.valueOf(quantityScale),
+                        String.valueOf(lotEnabled),
+                        String.valueOf(serialEnabled),
+                        String.valueOf(expiryEnabled));
+        return write(
+                enterpriseId,
+                ENTERPRISE_IDEMPOTENCY_WAREHOUSE,
+                clientOperationId,
+                digest,
+                () -> {
+                    if (http().getSkuByCode(enterpriseId, skuId) != null) {
+                        throw new MasterdataException("DUPLICATE_DOCUMENT", "商品编码已存在");
+                    }
+                    SkuPolicy sku =
+                            SkuPolicy.create(
+                                    skuId,
+                                    enterpriseId,
+                                    skuId,
+                                    name,
+                                    baseUnit,
+                                    quantityScale,
+                                    lotEnabled,
+                                    serialEnabled,
+                                    expiryEnabled,
+                                    1L,
+                                    MasterdataCodes.STATE_ACTIVE);
+                    writes().createSku(sku, skuId + "-" + baseUnit);
+                    return skuId;
+                },
+                () -> requireSku(enterpriseId, skuId));
     }
 
-    public Map<String, Object> addSkuUnit(String enterpriseId, String skuId, String unitCode, BigDecimal numerator,
-            BigDecimal denominator, BigDecimal sampleQuantity, String clientOperationId) {
+    public Map<String, Object> addSkuUnit(
+            String enterpriseId,
+            String skuId,
+            String unitCode,
+            BigDecimal numerator,
+            BigDecimal denominator,
+            BigDecimal sampleQuantity,
+            String clientOperationId) {
         SkuPolicy sku = skuPolicy(enterpriseId, requireSku(enterpriseId, skuId));
-        String digest = digest("sku-unit", skuId, unitCode, numerator.toPlainString(), denominator.toPlainString(),
-                sampleQuantity == null ? "" : sampleQuantity.toPlainString());
-        return write(enterpriseId, ENTERPRISE_IDEMPOTENCY_WAREHOUSE, clientOperationId, digest, () -> {
-            if (http().getSkuUnit(enterpriseId, skuId, unitCode) != null) {
-                throw new MasterdataException("DUPLICATE_DOCUMENT", "单位编码已存在");
-            }
-            writes().addSkuUnit(sku, skuId + "-" + unitCode, unitCode, numerator, denominator, sampleQuantity);
-            return skuId + "-" + unitCode;
-        }, () -> {
-            Map<String, Object> unit = http().getSkuUnit(enterpriseId, skuId, unitCode);
-            if (unit == null) {
-                throw new MasterdataException("RESOURCE_NOT_FOUND", "单位不存在");
-            }
-            return unit;
-        });
+        String digest =
+                digest(
+                        "sku-unit",
+                        skuId,
+                        unitCode,
+                        numerator.toPlainString(),
+                        denominator.toPlainString(),
+                        sampleQuantity == null ? "" : sampleQuantity.toPlainString());
+        return write(
+                enterpriseId,
+                ENTERPRISE_IDEMPOTENCY_WAREHOUSE,
+                clientOperationId,
+                digest,
+                () -> {
+                    if (http().getSkuUnit(enterpriseId, skuId, unitCode) != null) {
+                        throw new MasterdataException("DUPLICATE_DOCUMENT", "单位编码已存在");
+                    }
+                    writes().addSkuUnit(
+                                    sku,
+                                    skuId + "-" + unitCode,
+                                    unitCode,
+                                    numerator,
+                                    denominator,
+                                    sampleQuantity);
+                    return skuId + "-" + unitCode;
+                },
+                () -> {
+                    Map<String, Object> unit = http().getSkuUnit(enterpriseId, skuId, unitCode);
+                    if (unit == null) {
+                        throw new MasterdataException("RESOURCE_NOT_FOUND", "单位不存在");
+                    }
+                    return unit;
+                });
     }
 
-    public Map<String, Object> createLot(String enterpriseId, String warehouseId, String ownerId, String skuId,
-            String lotCode, String businessLotKey, Instant producedAt, Instant expiresAt, String sourceDate,
-            long expiryRuleVersion, String clientOperationId) {
+    public Map<String, Object> createLot(
+            String enterpriseId,
+            String warehouseId,
+            String ownerId,
+            String skuId,
+            String lotCode,
+            String businessLotKey,
+            Instant producedAt,
+            Instant expiresAt,
+            String sourceDate,
+            long expiryRuleVersion,
+            String clientOperationId) {
         SkuPolicy sku = skuPolicy(enterpriseId, requireSku(enterpriseId, skuId));
         String lotId = MasterdataCodes.requireCode("批次编码", lotCode);
-        String digest = digest("lot", warehouseId, ownerId, skuId, lotId, businessLotKey,
-                producedAt == null ? "" : producedAt.toString(), expiresAt == null ? "" : expiresAt.toString(),
-                blank(sourceDate), String.valueOf(expiryRuleVersion));
-        return write(enterpriseId, warehouseId, clientOperationId, digest, () -> {
-            if (http().getLot(enterpriseId, warehouseId, lotId) != null) {
-                throw new MasterdataException("DUPLICATE_DOCUMENT", "批次已存在");
-            }
-            writes().createLot(sku, lotId, warehouseId, ownerId, lotId, businessLotKey, producedAt, expiresAt,
-                    sourceDate, expiryRuleVersion);
-            return lotId;
-        }, () -> requireLot(enterpriseId, warehouseId, lotId));
+        String digest =
+                digest(
+                        "lot",
+                        warehouseId,
+                        ownerId,
+                        skuId,
+                        lotId,
+                        businessLotKey,
+                        producedAt == null ? "" : producedAt.toString(),
+                        expiresAt == null ? "" : expiresAt.toString(),
+                        blank(sourceDate),
+                        String.valueOf(expiryRuleVersion));
+        return write(
+                enterpriseId,
+                warehouseId,
+                clientOperationId,
+                digest,
+                () -> {
+                    if (http().getLot(enterpriseId, warehouseId, lotId) != null) {
+                        throw new MasterdataException("DUPLICATE_DOCUMENT", "批次已存在");
+                    }
+                    writes().createLot(
+                                    sku,
+                                    lotId,
+                                    warehouseId,
+                                    ownerId,
+                                    lotId,
+                                    businessLotKey,
+                                    producedAt,
+                                    expiresAt,
+                                    sourceDate,
+                                    expiryRuleVersion);
+                    return lotId;
+                },
+                () -> requireLot(enterpriseId, warehouseId, lotId));
     }
 
     public Map<String, Object> requireWarehouse(String enterpriseId, String warehouseId) {
@@ -124,7 +255,8 @@ public final class MasterdataCommandService {
         return row;
     }
 
-    public Map<String, Object> requireLocation(String enterpriseId, String warehouseId, String locationId) {
+    public Map<String, Object> requireLocation(
+            String enterpriseId, String warehouseId, String locationId) {
         Map<String, Object> row = http().getLocation(enterpriseId, warehouseId, locationId);
         if (row == null) {
             throw new MasterdataException("LOCATION_NOT_FOUND", "库位不存在");
@@ -132,7 +264,8 @@ public final class MasterdataCommandService {
         return row;
     }
 
-    public Map<String, Object> requireGate(String enterpriseId, String warehouseId, String locationId) {
+    public Map<String, Object> requireGate(
+            String enterpriseId, String warehouseId, String locationId) {
         Map<String, Object> row = http().getLocationGate(enterpriseId, warehouseId, locationId);
         if (row == null) {
             throw new MasterdataException("GATE_NOT_FOUND", "库位门禁不存在");
@@ -156,10 +289,16 @@ public final class MasterdataCommandService {
         return row;
     }
 
-    private Map<String, Object> write(String enterpriseId, String warehouseId, String clientOperationId, String digest,
-            Creator creator, Reader reader) {
+    private Map<String, Object> write(
+            String enterpriseId,
+            String warehouseId,
+            String clientOperationId,
+            String digest,
+            Creator creator,
+            Reader reader) {
         MasterdataHttpMapper http = http();
-        Map<String, Object> existing = http.getIdempotency(enterpriseId, warehouseId, clientOperationId);
+        Map<String, Object> existing =
+                http.getIdempotency(enterpriseId, warehouseId, clientOperationId);
         if (existing != null) {
             if (!digest.equals(String.valueOf(existing.get("request_digest")))) {
                 throw new MasterdataException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键异内容拒绝");
@@ -167,9 +306,16 @@ public final class MasterdataCommandService {
             return reader.read();
         }
         String resourceId = creator.create();
-        http.insertIdempotency(UUID.randomUUID().toString(), enterpriseId, warehouseId, clientOperationId, digest,
-                resourceId, Timestamp.from(clock.instant()));
-        Map<String, Object> replay = http.getIdempotency(enterpriseId, warehouseId, clientOperationId);
+        http.insertIdempotency(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                warehouseId,
+                clientOperationId,
+                digest,
+                resourceId,
+                Timestamp.from(clock.instant()));
+        Map<String, Object> replay =
+                http.getIdempotency(enterpriseId, warehouseId, clientOperationId);
         if (replay != null && !digest.equals(String.valueOf(replay.get("request_digest")))) {
             throw new MasterdataException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键异内容拒绝");
         }
@@ -185,10 +331,18 @@ public final class MasterdataCommandService {
     }
 
     static SkuPolicy skuPolicy(String enterpriseId, Map<String, Object> row) {
-        return SkuPolicy.create(text(row, "id"), enterpriseId, text(row, "code"), text(row, "name"),
-                text(row, "base_unit"), intValue(row.get("quantity_scale")), flag(row.get("lot_enabled")),
-                flag(row.get("serial_enabled")), flag(row.get("expiry_enabled")),
-                longValue(row.get("policy_version"), 1L), text(row, "state"));
+        return SkuPolicy.create(
+                text(row, "id"),
+                enterpriseId,
+                text(row, "code"),
+                text(row, "name"),
+                text(row, "base_unit"),
+                intValue(row.get("quantity_scale")),
+                flag(row.get("lot_enabled")),
+                flag(row.get("serial_enabled")),
+                flag(row.get("expiry_enabled")),
+                longValue(row.get("policy_version"), 1L),
+                text(row, "state"));
     }
 
     private static String text(Map<String, Object> row, String key) {

@@ -1,3 +1,45 @@
+# Codex Progress — WMS 全模块包结构/格式/代码规范优化 IN_PROGRESS
+
+## 任务目标
+
+权限接入之后按Claude SKILL细化项目每个模块的包结构、格式化、按规范优化并完整验证/正常Git交付。当前默认WMS，异步范围问题可纠正；完整目标未完成，不把只格式化当作完成。
+
+## 已完成
+
+- 读取Claude project-refactoring/backend-implementation/dev-standards，同Codex/Claude/ Cursor规范摘要一致。
+- 起点WMS远端main2efa151/完整CI37257041197 SUCCESS；当前全reactor package及93单测PASS；基线/测试保护Gate PASS。
+- 复用既有干净central-authorization工作树，建立refactor/module-packages-code-quality。518 Java/120 SQL/IAM摘要落盘，原WMS17048d5/55文件/Driver/历史pilot工作保持。
+- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00 DONE，R01进行中。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
+
+## 已修改文件
+
+- docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md、PLAN_METADATA.json。
+- scripts/format-java.py、.editorconfig、wms-console格式配置及package/lock（安装进行中）。
+- 本文件；.local/refactoring-module-packages/为忽略的基线/日志/后续证据。
+
+## 未完成
+
+- R01实际格式化及check/编译/相关测试；然后连续R02–R12覆盖全部正式模块、代码规范/优化/全量验证/正常main交付。
+- 原未提交Driver独立工作只能只读核对，不能混入当前任务Git；若需改动，先确定其范围/工作归属。
+
+## 当前问题
+
+- 本任务没有重部署授权；现有W07制品和数据保持。SQL迁移/权限与HTTP/事件契约不得因拆包改变。
+- 原WMSlocal main17048d5和55文件保护；不清理11旧工作树/镜像/卷/测试数据/证据，不强推。
+
+## 下一步建议
+
+1. 完成R01格式检查与编译/单测，保存原始结果并逻辑提交；按报告顺序逐批细化包及有证据的代码优化。
+2. 每批通过编译/相关真实测试/namespace检查/diff才继续；更新本文件，不等待继续。最终完整CI与兼容门禁再发布main。
+
+## 恢复 Prompt
+
+读取本文件及docs/refactoring/module-packages报告/PLAN_METADATA、.local/refactoring-module-packages当前日志和git状态，从R01/后续未完成切片继续。目标是每个模块的包结构+格式+规范优化全完成，不止格式化；保留原WMS和Driver未提交工作，不重做已完成Auth权限，不修改运行环境，不等待继续。
+
+---
+
+## 以下为已完成权限接入及历史上下文
+
 # Codex Progress
 
 ## 任务目标

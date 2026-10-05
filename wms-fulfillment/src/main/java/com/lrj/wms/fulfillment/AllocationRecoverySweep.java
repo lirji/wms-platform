@@ -14,8 +14,9 @@ public final class AllocationRecoverySweep {
     private final org.apache.ibatis.session.SqlSessionFactory sessions;
     private final TcEvidenceScope scope;
     private final java.time.Clock clock;
-    private final com.lrj.wms.runtime.web.AdmissionGate admission = new com.lrj.wms.runtime.web.AdmissionGate(
-            new com.lrj.wms.runtime.web.AdmissionBudget(4, 1, 8, 2));
+    private final com.lrj.wms.runtime.web.AdmissionGate admission =
+            new com.lrj.wms.runtime.web.AdmissionGate(
+                    new com.lrj.wms.runtime.web.AdmissionBudget(4, 1, 8, 2));
 
     public AllocationRecoverySweep(FulfillmentService fulfillment, TcStatusPort tcStatus) {
         this.sessions = null;
@@ -26,8 +27,11 @@ public final class AllocationRecoverySweep {
     }
 
     /** 生产入口逐项短事务；TC网络读取在业务会话外，检查点跨进程保存。 */
-    public AllocationRecoverySweep(org.apache.ibatis.session.SqlSessionFactory sessions,
-            TcStatusPort tcStatus, TcEvidenceScope scope, java.time.Clock clock) {
+    public AllocationRecoverySweep(
+            org.apache.ibatis.session.SqlSessionFactory sessions,
+            TcStatusPort tcStatus,
+            TcEvidenceScope scope,
+            java.time.Clock clock) {
         this.sessions = java.util.Objects.requireNonNull(sessions);
         this.tcStatus = java.util.Objects.requireNonNull(tcStatus);
         this.scope = java.util.Objects.requireNonNull(scope);
@@ -45,8 +49,10 @@ public final class AllocationRecoverySweep {
         int observed = 0;
         List<Map<String, Object>> open = fulfillment.listOpenBoundAttempts(enterpriseId);
         for (Map<String, Object> attempt : open) {
-            String evidence = attempt.get("tc_terminal_evidence") == null ? ""
-                    : String.valueOf(attempt.get("tc_terminal_evidence"));
+            String evidence =
+                    attempt.get("tc_terminal_evidence") == null
+                            ? ""
+                            : String.valueOf(attempt.get("tc_terminal_evidence"));
             if (!evidence.isBlank()) {
                 continue;
             }
@@ -55,7 +61,10 @@ public final class AllocationRecoverySweep {
             if (observation.isEmpty()) {
                 continue;
             }
-            fulfillment.observeTc(enterpriseId, String.valueOf(attempt.get("id")), observation.get().status(),
+            fulfillment.observeTc(
+                    enterpriseId,
+                    String.valueOf(attempt.get("id")),
+                    observation.get().status(),
                     observation.get().evidence());
             observed++;
         }
@@ -91,7 +100,9 @@ public final class AllocationRecoverySweep {
                 try {
                     Map<String, Object> binding;
                     try (var session = sessions.openSession()) {
-                        binding = session.getMapper(AllocationRecoveryMapper.class).binding(enterpriseId, id);
+                        binding =
+                                session.getMapper(AllocationRecoveryMapper.class)
+                                        .binding(enterpriseId, id);
                     }
                     requireBinding(snapshot, binding);
                     // 此时没有打开的业务事务；网络故障不能占用库存或履约行锁。
@@ -99,26 +110,46 @@ public final class AllocationRecoverySweep {
                     try (var session = sessions.openSession(false)) {
                         var mapper = session.getMapper(FulfillmentMapper.class);
                         var current = mapper.lockAttempt(enterpriseId, id);
-                        if (current == null || !java.util.Objects.equals(snapshot.get("xid"), current.get("xid"))
-                                || !java.util.Objects.equals(snapshot.get("launch_epoch"), current.get("launch_epoch"))
-                                || !java.util.Objects.equals(snapshot.get("participant_set_hash"), current.get("participant_set_hash"))) {
-                            throw new FulfillmentException("TC_OBSERVATION_STALE", "TC观察返回时attempt身份或代际已变化");
+                        if (current == null
+                                || !java.util.Objects.equals(
+                                        snapshot.get("xid"), current.get("xid"))
+                                || !java.util.Objects.equals(
+                                        snapshot.get("launch_epoch"), current.get("launch_epoch"))
+                                || !java.util.Objects.equals(
+                                        snapshot.get("participant_set_hash"),
+                                        current.get("participant_set_hash"))) {
+                            throw new FulfillmentException(
+                                    "TC_OBSERVATION_STALE", "TC观察返回时attempt身份或代际已变化");
                         }
                         var service = new FulfillmentService(session, clock);
                         boolean fresh = current.get("tc_terminal_evidence") == null;
                         int changed = 0;
                         if (observation.isPresent()) {
-                            service.observeTc(enterpriseId, id, observation.get().status(), observation.get().evidence());
-                            TcTerminalNotifications.enqueue(session,clock,enterpriseId,current,scope,observation.get());
+                            service.observeTc(
+                                    enterpriseId,
+                                    id,
+                                    observation.get().status(),
+                                    observation.get().evidence());
+                            TcTerminalNotifications.enqueue(
+                                    session,
+                                    clock,
+                                    enterpriseId,
+                                    current,
+                                    scope,
+                                    observation.get());
                             if ("Committed".equals(observation.get().status())) {
-                                try { service.markAllocated(enterpriseId, id); changed = 1; }
-                                catch (FulfillmentException pending) {
-                                    if (!FulfillmentService.isRecoveryPending(pending)) throw pending;
+                                try {
+                                    service.markAllocated(enterpriseId, id);
+                                    changed = 1;
+                                } catch (FulfillmentException pending) {
+                                    if (!FulfillmentService.isRecoveryPending(pending))
+                                        throw pending;
                                 }
                             }
                         }
-                        int advanced = session.getMapper(AllocationRecoveryMapper.class)
-                                .advance(enterpriseId, version, id, now());
+                        int advanced =
+                                session.getMapper(AllocationRecoveryMapper.class)
+                                        .advance(enterpriseId, version, id, now());
                         session.commit();
                         visited++;
                         if (fresh && observation.isPresent()) observed++;
@@ -140,29 +171,35 @@ public final class AllocationRecoverySweep {
     }
 
     private void requireBinding(Map<String, Object> snapshot, Map<String, Object> binding) {
-        if (binding == null || !scope.clusterId().equals(binding.get("cluster_id"))
+        if (binding == null
+                || !scope.clusterId().equals(binding.get("cluster_id"))
                 || !scope.applicationId().equals(binding.get("application_id"))
                 || !scope.transactionGroup().equals(binding.get("transaction_group"))
                 || !java.util.Objects.equals(snapshot.get("xid"), binding.get("xid"))
-                || !java.util.Objects.equals(snapshot.get("launch_epoch"), binding.get("launch_epoch"))) {
+                || !java.util.Objects.equals(
+                        snapshot.get("launch_epoch"), binding.get("launch_epoch"))) {
             throw new FulfillmentException("TC_BINDING_MISSING", "缺少匹配的持久化TC集群与TM来源，禁止猜测回填");
         }
     }
 
     private boolean advance(String enterpriseId, long version, String id) {
         try (var session = sessions.openSession(false)) {
-            int changed = session.getMapper(AllocationRecoveryMapper.class).advance(enterpriseId, version, id, now());
+            int changed =
+                    session.getMapper(AllocationRecoveryMapper.class)
+                            .advance(enterpriseId, version, id, now());
             session.commit();
             return changed == 1;
         }
     }
-    private java.sql.Timestamp now() { return java.sql.Timestamp.from(clock.instant()); }
+
+    private java.sql.Timestamp now() {
+        return java.sql.Timestamp.from(clock.instant());
+    }
 
     /** XXL 不得进入二阶段。 */
     public static void refusePhaseTwo() {
         throw new IllegalStateException("XXL不得Confirm或Cancel");
     }
 
-    public record Report(int openAttempts, int newlyObserved, int recovered) {
-    }
+    public record Report(int openAttempts, int newlyObserved, int recovered) {}
 }

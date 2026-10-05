@@ -6,6 +6,9 @@ import com.lrj.wms.inventory.inventory.domain.InventoryPolicy;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.infrastructure.FefoCandidateMapper;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -13,7 +16,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ibatis.session.SqlSession;
 
 /** 按 FEFO 列出当前可分配候选。过期、非存储位、冻结门禁不进入列表。 */
 public final class FefoCandidateService {
@@ -28,21 +30,29 @@ public final class FefoCandidateService {
         this.clock = clock;
     }
 
-    public List<Map<String, Object>> list(String enterpriseId, String warehouseId, String ownerId, String skuId,
-            String allocationPolicy, int limit) {
-        if (!InventoryCodes.ALLOC_FEFO.equals(InventoryCodes.requireAllocationPolicy(allocationPolicy))) {
+    public List<Map<String, Object>> list(
+            String enterpriseId,
+            String warehouseId,
+            String ownerId,
+            String skuId,
+            String allocationPolicy,
+            int limit) {
+        if (!InventoryCodes.ALLOC_FEFO.equals(
+                InventoryCodes.requireAllocationPolicy(allocationPolicy))) {
             throw new InventoryException("INVALID_ALLOCATION_POLICY", "本查询只接受 FEFO");
         }
         if (limit < 1 || limit > 64) {
             throw new InventoryException("INVALID_LIMIT", "FEFO 候选页大小必须在 1 到 64");
         }
         Instant now = clock.instant();
-        List<Map<String, Object>> rows = session.getMapper(FefoCandidateMapper.class)
-                .listGoodLots(enterpriseId, warehouseId, ownerId, skuId, limit);
+        List<Map<String, Object>> rows =
+                session.getMapper(FefoCandidateMapper.class)
+                        .listGoodLots(enterpriseId, warehouseId, ownerId, skuId, limit);
         List<Map<String, Object>> candidates = new ArrayList<>();
         for (Map<String, Object> row : rows) {
             if (!LOCATION_STORAGE.equals(String.valueOf(row.get("location_type")))
-                    || !MasterdataCodes.STATE_ACTIVE.equals(String.valueOf(row.get("location_state")))
+                    || !MasterdataCodes.STATE_ACTIVE.equals(
+                            String.valueOf(row.get("location_state")))
                     || !MasterdataCodes.GATE_OPEN.equals(String.valueOf(row.get("gate_state")))) {
                 continue;
             }
@@ -53,8 +63,15 @@ public final class FefoCandidateService {
             Quantity onHand = quantity(row.get("on_hand_qty"));
             Quantity reserved = quantity(row.get("reserved_qty"));
             Quantity claim = quantity(row.get("free_execution_claim_qty"));
-            Quantity available = InventoryPolicy.nonSerialAvailable(onHand, reserved, claim, true,
-                    InventoryCodes.QUALITY_GOOD, true, false);
+            Quantity available =
+                    InventoryPolicy.nonSerialAvailable(
+                            onHand,
+                            reserved,
+                            claim,
+                            true,
+                            InventoryCodes.QUALITY_GOOD,
+                            true,
+                            false);
             if (!available.isPositive()) {
                 continue;
             }

@@ -3,13 +3,7 @@ package com.lrj.wms.outbound.seed;
 import com.lrj.wms.outbound.order.OutboundOrderMapper;
 import com.lrj.wms.outbound.order.OutboundOrderService;
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.time.Clock;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-import javax.sql.DataSource;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -18,6 +12,15 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.flywaydb.core.Flyway;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+
+import javax.sql.DataSource;
+
 /**
  * 隔离测试库出库演示单。仓内 ALLOCATED 只表示单据状态，不是 TCC 整单成功。
  */
@@ -25,17 +28,19 @@ public final class SeedOutbound {
     public static final String ENTERPRISE = "ENT-DEMO";
     public static final String OWNER = "OWNER-SELF";
 
-    private SeedOutbound() {
-    }
+    private SeedOutbound() {}
 
     public static void main(String[] args) {
         Map<String, String> flags = flags(args);
         String jdbc = required(flags, "jdbc", "WMS_SEED_JDBC_URL");
         requireIsolated(jdbc);
-        var time = new com.lrj.wms.runtime.db.DatabaseTimePolicy(System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_STORAGE_ZONE", "UTC"),
-                System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE", ""));
+        var time =
+                new com.lrj.wms.runtime.db.DatabaseTimePolicy(
+                        System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_STORAGE_ZONE", "UTC"),
+                        System.getenv().getOrDefault("WMS_RUNTIME_DB_TIME_LEGACY_EVIDENCE", ""));
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(jdbc,time.storageZone()));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(jdbc, time.storageZone()));
         source.setUser(required(flags, "username", "WMS_SEED_DB_USER"));
         source.setPassword(optionalPassword(flags));
         Map<String, Integer> counts = seed(source, Clock.systemUTC(), time);
@@ -53,26 +58,63 @@ public final class SeedOutbound {
     }
 
     public static Map<String, Integer> seed(DataSource dataSource, Clock clock) {
-        return seed(dataSource,clock,new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", ""));
+        return seed(dataSource, clock, new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", ""));
     }
 
     /** 隔离库种子也验证时间来源，避免混入另一时区的演示数据。 */
-    public static Map<String, Integer> seed(DataSource dataSource, Clock clock, com.lrj.wms.runtime.db.DatabaseTimePolicy time) {
-        var migration = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        time.initialize(dataSource,migration::migrate);
+    public static Map<String, Integer> seed(
+            DataSource dataSource, Clock clock, com.lrj.wms.runtime.db.DatabaseTimePolicy time) {
+        var migration =
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations("classpath:db/migration")
+                        .load();
+        time.initialize(dataSource, migration::migrate);
         SqlSessionFactory sessions = sessions(dataSource);
         Timestamp now = Timestamp.from(clock.instant());
         try (SqlSession session = sessions.openSession(false)) {
             OutboundOrderMapper mapper = session.getMapper(OutboundOrderMapper.class);
             SeedOutboundMapper countsMapper = session.getMapper(SeedOutboundMapper.class);
-            mapper.insertOrderIgnore("OB-DEMO-ALLOC-A", ENTERPRISE, "WH-A", "FF-DEMO-PLANNED", "ATT-DEMO-PLANNED",
-                    OWNER, "AUTH-DEMO-A", OutboundOrderService.STATUS_ALLOCATED, now);
-            mapper.insertLineIgnore("OB-DEMO-ALLOC-A-L1", ENTERPRISE, "WH-A", "OB-DEMO-ALLOC-A", "FF-DEMO-PLANNED-L1",
-                    "SKU-STD", new BigDecimal("6"), "EA", now);
-            mapper.insertOrderIgnore("OB-DEMO-ALLOC-B", ENTERPRISE, "WH-B", "FF-DEMO-WHB", "ATT-DEMO-WHB", OWNER,
-                    "AUTH-DEMO-B", OutboundOrderService.STATUS_ALLOCATED, now);
-            mapper.insertLineIgnore("OB-DEMO-ALLOC-B-L1", ENTERPRISE, "WH-B", "OB-DEMO-ALLOC-B", "FF-DEMO-WHB-L1",
-                    "SKU-STD", new BigDecimal("10"), "EA", now);
+            mapper.insertOrderIgnore(
+                    "OB-DEMO-ALLOC-A",
+                    ENTERPRISE,
+                    "WH-A",
+                    "FF-DEMO-PLANNED",
+                    "ATT-DEMO-PLANNED",
+                    OWNER,
+                    "AUTH-DEMO-A",
+                    OutboundOrderService.STATUS_ALLOCATED,
+                    now);
+            mapper.insertLineIgnore(
+                    "OB-DEMO-ALLOC-A-L1",
+                    ENTERPRISE,
+                    "WH-A",
+                    "OB-DEMO-ALLOC-A",
+                    "FF-DEMO-PLANNED-L1",
+                    "SKU-STD",
+                    new BigDecimal("6"),
+                    "EA",
+                    now);
+            mapper.insertOrderIgnore(
+                    "OB-DEMO-ALLOC-B",
+                    ENTERPRISE,
+                    "WH-B",
+                    "FF-DEMO-WHB",
+                    "ATT-DEMO-WHB",
+                    OWNER,
+                    "AUTH-DEMO-B",
+                    OutboundOrderService.STATUS_ALLOCATED,
+                    now);
+            mapper.insertLineIgnore(
+                    "OB-DEMO-ALLOC-B-L1",
+                    ENTERPRISE,
+                    "WH-B",
+                    "OB-DEMO-ALLOC-B",
+                    "FF-DEMO-WHB-L1",
+                    "SKU-STD",
+                    new BigDecimal("10"),
+                    "EA",
+                    now);
             session.commit();
             Map<String, Integer> counts = new LinkedHashMap<>();
             counts.put("orders", countsMapper.countOrders(ENTERPRISE));
@@ -82,7 +124,9 @@ public final class SeedOutbound {
     }
 
     private static SqlSessionFactory sessions(DataSource dataSource) {
-        Configuration config = new Configuration(new Environment("seed", new JdbcTransactionFactory(), dataSource));
+        Configuration config =
+                new Configuration(
+                        new Environment("seed", new JdbcTransactionFactory(), dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(OutboundOrderMapper.class);
         config.addMapper(SeedOutboundMapper.class);

@@ -6,7 +6,10 @@ import java.util.*;
 /** 每次收货的完整身份观察；规范化后不可变，数量不能代替明确的序列号清单。 */
 public record SerialReceiptObservation(int schemaVersion, List<String> serialIds) {
     public SerialReceiptObservation {
-        if (schemaVersion != 1 || serialIds == null || serialIds.isEmpty() || serialIds.size() > 200)
+        if (schemaVersion != 1
+                || serialIds == null
+                || serialIds.isEmpty()
+                || serialIds.size() > 200)
             throw new IllegalArgumentException("序列号观察须为V1且包含1至200个身份");
         var canonical = new TreeSet<String>();
         for (String serial : serialIds) {

@@ -1,10 +1,11 @@
 package com.lrj.wms.runtime.messaging;
 
-import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
+
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /** 发布确认只证明broker接受；业务状态由消费库事务及回执决定。 */
 public final class KafkaMessagePublisher implements AutoCloseable {
@@ -30,7 +31,9 @@ public final class KafkaMessagePublisher implements AutoCloseable {
 
     /** 相同聚合使用相同分区键；数据库Outbox还必须防止同聚合多个发布者倒序发送。 */
     public void publish(String topic, String partitionKey, String json) {
-        if (json == null || json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES) {
+        if (json == null
+                || json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                        > MAX_PAYLOAD_BYTES) {
             throw new IllegalArgumentException("消息正文超出预算");
         }
         try {
@@ -38,10 +41,14 @@ public final class KafkaMessagePublisher implements AutoCloseable {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("发布中断，结果未知，需要按原事件身份恢复", interrupted);
-        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException unavailable) {
+        } catch (java.util.concurrent.ExecutionException
+                | java.util.concurrent.TimeoutException unavailable) {
             throw new IllegalStateException("发布未获确认，保留原事件重试", unavailable);
         }
     }
 
-    @Override public void close() { producer.close(Duration.ofSeconds(3)); }
+    @Override
+    public void close() {
+        producer.close(Duration.ofSeconds(3));
+    }
 }

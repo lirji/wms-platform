@@ -7,13 +7,15 @@ import com.lrj.wms.integration.wcs.WcsDispatchResult;
 import com.lrj.wms.integration.wcs.WcsReceipt;
 import com.lrj.wms.integration.wcs.WcsReceiptPort;
 import com.lrj.wms.integration.wcs.WcsReceiptResult;
+
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /**
  * 共享动作身份、STARTED 后派发、旧 worker 回执恢复。不写库存余额。
@@ -25,8 +27,12 @@ public final class OutboundDispatchService {
     private final WcsCommandPort commands;
     private final WcsReceiptPort receipts;
 
-    public OutboundDispatchService(SqlSession session, Clock clock, ExecutionAuthorizationPort authorizations,
-            WcsCommandPort commands, WcsReceiptPort receipts) {
+    public OutboundDispatchService(
+            SqlSession session,
+            Clock clock,
+            ExecutionAuthorizationPort authorizations,
+            WcsCommandPort commands,
+            WcsReceiptPort receipts) {
         this.session = session;
         this.clock = clock;
         this.authorizations = authorizations;
@@ -35,7 +41,8 @@ public final class OutboundDispatchService {
     }
 
     /** 领取或换主。已有 action/device 命令沿用，不得换号。 */
-    public Map<String, Object> claim(String enterpriseId, String warehouseId, String taskId, String workerId) {
+    public Map<String, Object> claim(
+            String enterpriseId, String warehouseId, String taskId, String workerId) {
         require(workerId, "INVALID_WORKER", "worker不能为空");
         Timestamp now = Timestamp.from(clock.instant());
         OutboundOrderMapper mapper = session.getMapper(OutboundOrderMapper.class);
@@ -43,7 +50,8 @@ public final class OutboundDispatchService {
         String actionId = firstNonBlank(task.get("action_id"), UUID.randomUUID().toString());
         String deviceCommandId = firstNonBlank(task.get("device_command_id"), actionId);
         long epoch = toLong(task.get("claim_epoch")) + 1;
-        mapper.claimTask(enterpriseId, warehouseId, taskId, workerId, epoch, actionId, deviceCommandId, now);
+        mapper.claimTask(
+                enterpriseId, warehouseId, taskId, workerId, epoch, actionId, deviceCommandId, now);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("taskId", taskId);
         body.put("workerId", workerId);
@@ -54,7 +62,11 @@ public final class OutboundDispatchService {
     }
 
     /** STARTED 授权后派发固定 deviceCommandId。旧 epoch 不能新派工。 */
-    public Map<String, Object> dispatch(String enterpriseId, String warehouseId, String taskId, String workerId,
+    public Map<String, Object> dispatch(
+            String enterpriseId,
+            String warehouseId,
+            String taskId,
+            String workerId,
             long claimEpoch) {
         OutboundOrderMapper mapper = session.getMapper(OutboundOrderMapper.class);
         String orderId = mapper.taskOrderId(enterpriseId, warehouseId, taskId);
@@ -65,12 +77,20 @@ public final class OutboundDispatchService {
         if (blank(task.get("device_command_id"))) {
             throw new OutboundException("ACTION_IDENTITY_MISSING", "派发前必须固定动作身份");
         }
-        new OutboundAuthorizationService(session, clock).requireExecutable(enterpriseId, warehouseId,
-                order);
+        new OutboundAuthorizationService(session, clock)
+                .requireExecutable(enterpriseId, warehouseId, order);
         BigDecimal qty = remain(task);
-        Map<String, Object> permit = authorizations.startPermit(enterpriseId, warehouseId,
-                String.valueOf(task.get("device_command_id")), taskId, claimEpoch,
-                String.valueOf(task.get("document_id")), taskId, String.valueOf(task.get("document_line_id")), qty);
+        Map<String, Object> permit =
+                authorizations.startPermit(
+                        enterpriseId,
+                        warehouseId,
+                        String.valueOf(task.get("device_command_id")),
+                        taskId,
+                        claimEpoch,
+                        String.valueOf(task.get("document_id")),
+                        taskId,
+                        String.valueOf(task.get("document_line_id")),
+                        qty);
         String permitState = String.valueOf(permit.get("permitState"));
         if ("UNKNOWN".equals(permitState)) {
             throw new OutboundException("DEVICE_UNKNOWN", "未知结果保持占用，不能新派工");
@@ -78,13 +98,29 @@ public final class OutboundDispatchService {
         if (!"STARTED".equals(permitState)) {
             throw new OutboundException("NOT_STARTED", "未取得STARTED不得派发");
         }
-        mapper.updateOrderStatus(enterpriseId, warehouseId, String.valueOf(task.get("document_id")),
-                OutboundOrderService.STATUS_PICKING, Timestamp.from(clock.instant()));
-        mapper.addTaskCompleted(enterpriseId, warehouseId, taskId, BigDecimal.ZERO, OutboundOrderService.TASK_STARTED,
+        mapper.updateOrderStatus(
+                enterpriseId,
+                warehouseId,
+                String.valueOf(task.get("document_id")),
+                OutboundOrderService.STATUS_PICKING,
                 Timestamp.from(clock.instant()));
-        WcsDispatchResult dispatched = commands.dispatch(new WcsCommand(enterpriseId, warehouseId,
-                String.valueOf(task.get("device_command_id")), "PICK", taskId, qty,
-                String.valueOf(task.get("device_command_id"))));
+        mapper.addTaskCompleted(
+                enterpriseId,
+                warehouseId,
+                taskId,
+                BigDecimal.ZERO,
+                OutboundOrderService.TASK_STARTED,
+                Timestamp.from(clock.instant()));
+        WcsDispatchResult dispatched =
+                commands.dispatch(
+                        new WcsCommand(
+                                enterpriseId,
+                                warehouseId,
+                                String.valueOf(task.get("device_command_id")),
+                                "PICK",
+                                taskId,
+                                qty,
+                                String.valueOf(task.get("device_command_id"))));
         Map<String, Object> body = new LinkedHashMap<>(permit);
         body.put("deviceCommandId", dispatched.deviceCommandId());
         body.put("dispatchState", dispatched.state());
@@ -94,29 +130,47 @@ public final class OutboundDispatchService {
     }
 
     /** 可信旧 worker 回执按原命令恢复，不授予新派工权。 */
-    public WcsReceiptResult recoverReceipt(String enterpriseId, String warehouseId, String taskId, String eventId,
-            String resultState, BigDecimal actualQty) {
-        Map<String, Object> task = requireTask(session.getMapper(OutboundOrderMapper.class), enterpriseId, warehouseId,
-                taskId);
+    public WcsReceiptResult recoverReceipt(
+            String enterpriseId,
+            String warehouseId,
+            String taskId,
+            String eventId,
+            String resultState,
+            BigDecimal actualQty) {
+        Map<String, Object> task =
+                requireTask(
+                        session.getMapper(OutboundOrderMapper.class),
+                        enterpriseId,
+                        warehouseId,
+                        taskId);
         if (blank(task.get("device_command_id"))) {
             throw new OutboundException("ACTION_IDENTITY_MISSING", "没有可恢复的设备命令");
         }
         if ("UNKNOWN".equals(resultState)) {
-            authorizations.markUnknown(enterpriseId, warehouseId, String.valueOf(task.get("device_command_id")));
+            authorizations.markUnknown(
+                    enterpriseId, warehouseId, String.valueOf(task.get("device_command_id")));
         }
-        return receipts.accept(new WcsReceipt(enterpriseId, warehouseId, String.valueOf(task.get("device_command_id")),
-                eventId, resultState, actualQty, clock.instant()));
+        return receipts.accept(
+                new WcsReceipt(
+                        enterpriseId,
+                        warehouseId,
+                        String.valueOf(task.get("device_command_id")),
+                        eventId,
+                        resultState,
+                        actualQty,
+                        clock.instant()));
     }
 
     private static void guardWorker(Map<String, Object> task, String workerId, long claimEpoch) {
-        if (blank(task.get("assignee_id")) || !workerId.equals(String.valueOf(task.get("assignee_id")))
+        if (blank(task.get("assignee_id"))
+                || !workerId.equals(String.valueOf(task.get("assignee_id")))
                 || toLong(task.get("claim_epoch")) != claimEpoch) {
             throw new OutboundException("WORKER_FENCED", "旧worker不能新派工");
         }
     }
 
-    private Map<String, Object> requireTask(OutboundOrderMapper mapper, String enterpriseId, String warehouseId,
-            String taskId) {
+    private Map<String, Object> requireTask(
+            OutboundOrderMapper mapper, String enterpriseId, String warehouseId, String taskId) {
         Map<String, Object> task = mapper.lockTask(enterpriseId, warehouseId, taskId);
         if (task == null) {
             throw new OutboundException("UNKNOWN_TASK", "拣货任务不存在");

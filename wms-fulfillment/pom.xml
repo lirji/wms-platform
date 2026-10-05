@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -8,8 +8,15 @@
   </parent>
   <artifactId>wms-fulfillment</artifactId>
   <dependencies>
-    <dependency><groupId>org.apache.seata</groupId><artifactId>seata-all</artifactId></dependency>
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
+    <dependency>
+      <groupId>org.apache.seata</groupId>
+      <artifactId>seata-all</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-runtime</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>
       <artifactId>wms-security</artifactId>
@@ -57,9 +64,18 @@
   </dependencies>
   <build>
     <testResources>
-      <testResource><directory>src/test/resources</directory></testResource>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
       <!-- 复用同版本TC候选迁移夹具，避免两份触发器语义漂移；仅进入测试类路径。 -->
-      <testResource><directory>../wms-test-support/src/test/resources</directory><includes><include>db/tc-probe/**</include><include>registry.conf</include><include>file.conf</include></includes></testResource>
+      <testResource>
+        <directory>../wms-test-support/src/test/resources</directory>
+        <includes>
+          <include>db/tc-probe/**</include>
+          <include>registry.conf</include>
+          <include>file.conf</include>
+        </includes>
+      </testResource>
     </testResources>
     <plugins>
       <plugin>

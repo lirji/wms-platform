@@ -1,11 +1,12 @@
 package com.lrj.wms.inventory.tcc;
 
-import java.util.Collection;
-import java.util.Properties;
 import org.apache.seata.rm.tcc.api.BusinessActionContextUtil;
 import org.apache.shardingsphere.sharding.api.sharding.standard.PreciseShardingValue;
 import org.apache.shardingsphere.sharding.api.sharding.standard.RangeShardingValue;
 import org.apache.shardingsphere.sharding.api.sharding.standard.StandardShardingAlgorithm;
+
+import java.util.Collection;
+import java.util.Properties;
 
 /** 单 Cell 分片：Fence/库存 SQL 必须带着匹配的仓上下文，禁止广播到另一物理库。 */
 public final class InventoryCellRouteAlgorithm implements StandardShardingAlgorithm<Comparable<?>> {
@@ -17,15 +18,19 @@ public final class InventoryCellRouteAlgorithm implements StandardShardingAlgori
     }
 
     @Override
-    public String doSharding(Collection<String> targets, PreciseShardingValue<Comparable<?>> value) {
+    public String doSharding(
+            Collection<String> targets, PreciseShardingValue<Comparable<?>> value) {
         var context = BusinessActionContextUtil.getContext();
-        if (context == null || !warehouse.equals(String.valueOf(context.getActionContext("warehouseId")))) {
+        if (context == null
+                || !warehouse.equals(String.valueOf(context.getActionContext("warehouseId")))) {
             throw new IllegalStateException("缺少或不匹配的仓路由上下文");
         }
-        if ("xid".equals(value.getColumnName()) && !context.getXid().equals(String.valueOf(value.getValue()))) {
+        if ("xid".equals(value.getColumnName())
+                && !context.getXid().equals(String.valueOf(value.getValue()))) {
             throw new IllegalStateException("Fence XID 与上下文不一致");
         }
-        if ("warehouse_id".equals(value.getColumnName()) && !warehouse.equals(String.valueOf(value.getValue()))) {
+        if ("warehouse_id".equals(value.getColumnName())
+                && !warehouse.equals(String.valueOf(value.getValue()))) {
             throw new IllegalStateException("仓库键与绑定 Cell 不一致");
         }
         if (targets.size() != 1 || !targets.contains("cell")) {
@@ -35,7 +40,8 @@ public final class InventoryCellRouteAlgorithm implements StandardShardingAlgori
     }
 
     @Override
-    public Collection<String> doSharding(Collection<String> targets, RangeShardingValue<Comparable<?>> value) {
+    public Collection<String> doSharding(
+            Collection<String> targets, RangeShardingValue<Comparable<?>> value) {
         throw new IllegalArgumentException("Cell 事务不允许范围路由");
     }
 

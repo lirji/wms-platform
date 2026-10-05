@@ -24,6 +24,5 @@ public final class StockCommandCodes {
 
     public static final String NO_SOURCE_EXECUTION = "NO_SOURCE_EXECUTION";
 
-    private StockCommandCodes() {
-    }
+    private StockCommandCodes() {}
 }

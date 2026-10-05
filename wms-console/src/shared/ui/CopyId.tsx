@@ -1,6 +1,14 @@
-import { App, Button, Typography } from "antd";
+import { App, Button, Typography } from 'antd';
 
-export function CopyId({ value, kind, hideValue }: { value: string; kind: string; hideValue?: boolean }) {
+export function CopyId({
+  value,
+  kind,
+  hideValue,
+}: {
+  value: string;
+  kind: string;
+  hideValue?: boolean;
+}) {
   const { message } = App.useApp();
   if (!value) {
     return <span>—</span>;
@@ -10,13 +18,16 @@ export function CopyId({ value, kind, hideValue }: { value: string; kind: string
       await navigator.clipboard.writeText(value);
       message.success(`已复制 ${kind}`);
     } catch {
-      message.error("无法复制，请手动选择");
+      message.error('无法复制，请手动选择');
     }
   }
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
       {hideValue ? null : (
-        <Typography.Text ellipsis={{ tooltip: value }} style={{ maxWidth: 148, fontVariantNumeric: "tabular-nums" }}>
+        <Typography.Text
+          ellipsis={{ tooltip: value }}
+          style={{ maxWidth: 148, fontVariantNumeric: 'tabular-nums' }}
+        >
           {value}
         </Typography.Text>
       )}

@@ -18,18 +18,18 @@ public final class WmsJobCatalog {
     public static final String ARCHIVE_PLANNER = "archivePlanner";
     public static final String JOB_LEASE_RECOVERY = "jobLeaseRecovery";
 
-    public static final List<String> HANDLERS = List.of(
-            TCC_RESERVATION_WATCH,
-            ALLOCATION_RECOVERY_SWEEP,
-            EXPIRY_ELIGIBILITY_SWEEP,
-            SERIAL_TRANSFER_RECOVERY,
-            DEVICE_UNKNOWN_RESULT_SWEEP,
-            STOCK_INTERNAL_RECONCILE,
-            EXTERNAL_RECONCILE_EXPORT,
-            COUNT_APPLY_RECOVERY,
-            ARCHIVE_PLANNER,
-            JOB_LEASE_RECOVERY);
+    public static final List<String> HANDLERS =
+            List.of(
+                    TCC_RESERVATION_WATCH,
+                    ALLOCATION_RECOVERY_SWEEP,
+                    EXPIRY_ELIGIBILITY_SWEEP,
+                    SERIAL_TRANSFER_RECOVERY,
+                    DEVICE_UNKNOWN_RESULT_SWEEP,
+                    STOCK_INTERNAL_RECONCILE,
+                    EXTERNAL_RECONCILE_EXPORT,
+                    COUNT_APPLY_RECOVERY,
+                    ARCHIVE_PLANNER,
+                    JOB_LEASE_RECOVERY);
 
-    private WmsJobCatalog() {
-    }
+    private WmsJobCatalog() {}
 }

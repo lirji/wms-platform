@@ -1,13 +1,9 @@
 package com.lrj.wms.probe;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.xxl.job.core.handler.IJobHandler;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
+
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -24,7 +20,14 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.kafka.KafkaContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 
 /** AC-44 行为探针：线程池与 Kafka 不得把 TCC XID 带进非预占链路。不是正式 Outbox 或履约服务。 */
 class ContextIsolationIT {
@@ -48,13 +51,15 @@ class ContextIsolationIT {
         try (var pool = Executors.newSingleThreadExecutor()) {
             pool.submit(() -> RootContext.bind("pool-leak-xid")).get();
             assertEquals("pool-leak-xid", pool.submit(RootContext::getXID).get());
-            pool.submit(() -> {
-                try {
-                    RootContext.bind("temporary-xid");
-                } finally {
-                    RootContext.unbind();
-                }
-            }).get();
+            pool.submit(
+                            () -> {
+                                try {
+                                    RootContext.bind("temporary-xid");
+                                } finally {
+                                    RootContext.unbind();
+                                }
+                            })
+                    .get();
             assertNull(pool.submit(RootContext::getXID).get());
         }
     }
@@ -64,23 +69,30 @@ class ContextIsolationIT {
     void kafkaConsumerDoesNotBindPayloadXid() throws Exception {
         var topic = "wms.probe.outbox";
         var bootstrap = kafka.getBootstrapServers();
-        try (var admin = AdminClient.create(java.util.Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap))) {
+        try (var admin =
+                AdminClient.create(
+                        java.util.Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap))) {
             admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1))).all().get();
         }
         var producerProps = new Properties();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProps.put(
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProps.put(
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
         try (var producer = new KafkaProducer<String, String>(producerProps)) {
-            producer.send(new ProducerRecord<>(topic, "warehouse-A", "xid=192.168.0.1:8091:999")).get();
+            producer.send(new ProducerRecord<>(topic, "warehouse-A", "xid=192.168.0.1:8091:999"))
+                    .get();
         }
         var consumerProps = new Properties();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "wms-probe-outbox");
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        consumerProps.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        consumerProps.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         var seen = new CopyOnWriteArrayList<String>();
         try (var consumer = new KafkaConsumer<String, String>(consumerProps)) {
@@ -103,14 +115,15 @@ class ContextIsolationIT {
     @Test
     void xxlHandlerMustNotDecideTcc() throws Exception {
         RootContext.bind("xxl-must-not-keep");
-        IJobHandler handler = new IJobHandler() {
-            @Override
-            public void execute() {
-                RootContext.unbind();
-                assertNull(RootContext.getXID());
-                assertNull(GlobalTransactionContext.getCurrent());
-            }
-        };
+        IJobHandler handler =
+                new IJobHandler() {
+                    @Override
+                    public void execute() {
+                        RootContext.unbind();
+                        assertNull(RootContext.getXID());
+                        assertNull(GlobalTransactionContext.getCurrent());
+                    }
+                };
         try {
             handler.execute();
         } finally {
@@ -129,12 +142,18 @@ class ContextIsolationIT {
         }
         var inventoryPom = Files.readString(Path.of("..", "wms-inventory", "pom.xml"));
         assertTrue(inventoryPom.contains("seata-all"), "inventory RM 需要 seata-all");
-        assertFalse(inventoryPom.contains("atomikos") || inventoryPom.contains("narayana"), "inventory 不应引入 XA");
-        var inventoryYml = Files.readString(Path.of("..", "wms-inventory", "src/main/resources/application.yml"));
+        assertFalse(
+                inventoryPom.contains("atomikos") || inventoryPom.contains("narayana"),
+                "inventory 不应引入 XA");
+        var inventoryYml =
+                Files.readString(
+                        Path.of("..", "wms-inventory", "src/main/resources/application.yml"));
         assertTrue(inventoryYml.contains("enable-auto-data-source-proxy: false"));
         assertFalse(inventoryYml.contains("enable-auto-data-source-proxy: true"));
-        assertTrue(Class.forName("org.apache.seata.rm.datasource.DataSourceProxy")
-                .getName().startsWith("org.apache.seata"));
+        assertTrue(
+                Class.forName("org.apache.seata.rm.datasource.DataSourceProxy")
+                        .getName()
+                        .startsWith("org.apache.seata"));
         assertNull(GlobalTransactionContext.getCurrent());
     }
 }

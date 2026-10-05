@@ -1,6 +1,5 @@
 package com.lrj.wms.inventory.tcc;
 
-import javax.sql.DataSource;
 import org.apache.seata.integration.tx.api.fence.DefaultCommonFenceHandler;
 import org.apache.seata.rm.datasource.DataSourceProxy;
 import org.apache.seata.rm.fence.SpringFenceHandler;
@@ -8,15 +7,17 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
+
 /**
  * 把官方 Fence 绑到库存物理库的 Spring 本地事务。禁止 AT DataSourceProxy。
  */
 public final class InventoryTccFence {
-    private InventoryTccFence() {
-    }
+    private InventoryTccFence() {}
 
     /** 同一 DataSource 上装配 Fence 与业务事务模板。 */
-    public static SpringFenceHandler bind(DataSource dataSource, PlatformTransactionManager transactionManager) {
+    public static SpringFenceHandler bind(
+            DataSource dataSource, PlatformTransactionManager transactionManager) {
         if (dataSource instanceof DataSourceProxy) {
             throw new IllegalStateException("库存 RM 禁止 Seata AT 数据源代理");
         }

@@ -1,11 +1,14 @@
 package com.lrj.wms.inventory.inventory.domain;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+
+import org.junit.jupiter.api.Test;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 /** S2-01：数量精度、桶键、预占状态与门禁策略均须封闭集合，未知码不得成功。 */
 class InventoryDomainTest {
@@ -31,14 +34,34 @@ class InventoryDomainTest {
 
     @Test
     void bucketKeyRejectsNullLotAndUnknownQuality() {
-        assertThrows(IllegalArgumentException.class,
-                () -> StockBucketKey.of("E", "W", "O", "L", "S", null, InventoryCodes.QUALITY_GOOD));
-        assertThrows(IllegalArgumentException.class,
-                () -> StockBucketKey.of("E", "W", "O", "L", "S", MasterdataCodes.NO_LOT, "AVAILABLE"));
-        StockBucketKey hold = StockBucketKey.of("E", "W", "O", "LOC-B", "S", MasterdataCodes.NO_LOT,
-                InventoryCodes.QUALITY_HOLD);
-        StockBucketKey good = StockBucketKey.of("E", "W", "O", "LOC-A", "S", MasterdataCodes.NO_LOT,
-                InventoryCodes.QUALITY_GOOD);
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        StockBucketKey.of(
+                                "E", "W", "O", "L", "S", null, InventoryCodes.QUALITY_GOOD));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        StockBucketKey.of(
+                                "E", "W", "O", "L", "S", MasterdataCodes.NO_LOT, "AVAILABLE"));
+        StockBucketKey hold =
+                StockBucketKey.of(
+                        "E",
+                        "W",
+                        "O",
+                        "LOC-B",
+                        "S",
+                        MasterdataCodes.NO_LOT,
+                        InventoryCodes.QUALITY_HOLD);
+        StockBucketKey good =
+                StockBucketKey.of(
+                        "E",
+                        "W",
+                        "O",
+                        "LOC-A",
+                        "S",
+                        MasterdataCodes.NO_LOT,
+                        InventoryCodes.QUALITY_GOOD);
         assertEquals(List.of(good, hold), StockBucketKey.lockOrder(List.of(hold, good, hold)));
     }
 
@@ -49,18 +72,35 @@ class InventoryDomainTest {
         assertTrue(ReservationState.occupiesReserved(ReservationState.TRIED));
         assertTrue(ReservationState.occupiesReserved(ReservationState.CONFIRMED));
         assertFalse(ReservationState.occupiesReserved(ReservationState.CANCELLED));
-        assertEquals(ReservationState.CONFIRMED, ReservationState.requireTransition(ReservationState.TRIED,
-                ReservationState.CONFIRMED, ReservationState.CAUSE_TCC_CONFIRM));
-        assertThrows(IllegalArgumentException.class, () -> ReservationState.requireTransition(ReservationState.CONFIRMED,
-                ReservationState.CANCELLED, ReservationState.CAUSE_TCC_CANCEL));
-        assertThrows(IllegalArgumentException.class, () -> ReservationState.requireTransition(ReservationState.TRIED,
-                ReservationState.RELEASED, ReservationState.CAUSE_BUSINESS_RELEASE_COMPLETE));
+        assertEquals(
+                ReservationState.CONFIRMED,
+                ReservationState.requireTransition(
+                        ReservationState.TRIED,
+                        ReservationState.CONFIRMED,
+                        ReservationState.CAUSE_TCC_CONFIRM));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        ReservationState.requireTransition(
+                                ReservationState.CONFIRMED,
+                                ReservationState.CANCELLED,
+                                ReservationState.CAUSE_TCC_CANCEL));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        ReservationState.requireTransition(
+                                ReservationState.TRIED,
+                                ReservationState.RELEASED,
+                                ReservationState.CAUSE_BUSINESS_RELEASE_COMPLETE));
     }
 
     @Test
     void allocationPolicyHasNoSilentDefault() {
-        assertThrows(IllegalArgumentException.class, () -> InventoryCodes.requireAllocationPolicy(null));
-        assertThrows(IllegalArgumentException.class, () -> InventoryCodes.requireAllocationPolicy("NONE"));
+        assertThrows(
+                IllegalArgumentException.class, () -> InventoryCodes.requireAllocationPolicy(null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> InventoryCodes.requireAllocationPolicy("NONE"));
         assertEquals(InventoryCodes.ALLOC_FEFO, InventoryCodes.requireAllocationPolicy("FEFO"));
     }
 
@@ -70,18 +110,32 @@ class InventoryDomainTest {
         Quantity four = Quantity.parse("4", 0);
         Quantity two = Quantity.parse("2", 0);
         InventoryPolicy.requireBalanceInvariant(ten, four, two);
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> InventoryPolicy.requireBalanceInvariant(ten, Quantity.parse("9", 0), two));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> InventoryPolicy.requireNonNegative("on_hand", Quantity.parse("-1", 0)));
-        assertEquals("4", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_GOOD, true,
-                false).toPlainString());
-        assertEquals("0", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_HOLD, true,
-                false).toPlainString());
-        assertEquals("0", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_GOOD, true,
-                true).toPlainString());
-        assertEquals("0", InventoryPolicy.nonSerialAvailable(ten, four, two, true, InventoryCodes.QUALITY_GOOD, false,
-                false).toPlainString());
+        assertEquals(
+                "4",
+                InventoryPolicy.nonSerialAvailable(
+                                ten, four, two, true, InventoryCodes.QUALITY_GOOD, true, false)
+                        .toPlainString());
+        assertEquals(
+                "0",
+                InventoryPolicy.nonSerialAvailable(
+                                ten, four, two, true, InventoryCodes.QUALITY_HOLD, true, false)
+                        .toPlainString());
+        assertEquals(
+                "0",
+                InventoryPolicy.nonSerialAvailable(
+                                ten, four, two, true, InventoryCodes.QUALITY_GOOD, true, true)
+                        .toPlainString());
+        assertEquals(
+                "0",
+                InventoryPolicy.nonSerialAvailable(
+                                ten, four, two, true, InventoryCodes.QUALITY_GOOD, false, false)
+                        .toPlainString());
         assertThrows(IllegalArgumentException.class, InventoryPolicy::rejectBucketFormulaForSerial);
     }
 
@@ -96,48 +150,90 @@ class InventoryDomainTest {
 
     @Test
     void gateMatrixMatchesDomain() {
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_NEW_RESERVE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_ARBITRARY_RELEASE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_NEW_RESERVE));
-        assertEquals(InventoryCodes.DECISION_DRAIN,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_INFLIGHT_CONFIRM));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_TCC_CANCEL));
-        assertEquals(InventoryCodes.DECISION_ISOLATE,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_INFLIGHT_CONFIRM));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_OBSERVE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_ADJUST));
-        assertEquals(InventoryCodes.DECISION_DENY,
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_NEW_RESERVE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_ARBITRARY_RELEASE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_NEW_RESERVE));
+        assertEquals(
+                InventoryCodes.DECISION_DRAIN,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_INFLIGHT_CONFIRM));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_TCC_CANCEL));
+        assertEquals(
+                InventoryCodes.DECISION_ISOLATE,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_INFLIGHT_CONFIRM));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
                 InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, InventoryCodes.CMD_UNFREEZE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_OBSERVE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_ADJUST));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_UNFREEZE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_ARBITRARY_RELEASE));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_OBSERVE));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_ADJUST));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_UNFREEZE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_ARBITRARY_RELEASE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_NEW_RESERVE));
-        assertEquals(InventoryCodes.DECISION_DENY,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_MAINTENANCE, InventoryCodes.CMD_NORMAL_MUTATION));
-        assertEquals(InventoryCodes.DECISION_ALLOW,
-                InventoryPolicy.decideGate(MasterdataCodes.GATE_MAINTENANCE, InventoryCodes.CMD_MAINTENANCE));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_UNFREEZE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_QUIESCING, InventoryCodes.CMD_ARBITRARY_RELEASE));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_OBSERVE));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_COUNT_ADJUST));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_UNFREEZE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_ARBITRARY_RELEASE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_FROZEN, InventoryCodes.CMD_NEW_RESERVE));
+        assertEquals(
+                InventoryCodes.DECISION_DENY,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_MAINTENANCE, InventoryCodes.CMD_NORMAL_MUTATION));
+        assertEquals(
+                InventoryCodes.DECISION_ALLOW,
+                InventoryPolicy.decideGate(
+                        MasterdataCodes.GATE_MAINTENANCE, InventoryCodes.CMD_MAINTENANCE));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> InventoryPolicy.decideGate(MasterdataCodes.GATE_OPEN, "POST"));
-        assertThrows(IllegalArgumentException.class, () -> InventoryPolicy.decideGate("CLOSED", InventoryCodes.CMD_NEW_RESERVE));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> InventoryPolicy.decideGate("CLOSED", InventoryCodes.CMD_NEW_RESERVE));
     }
 }

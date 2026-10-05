@@ -2,10 +2,12 @@ package com.lrj.wms.inventory.tcc;
 
 import com.lrj.wms.inventory.inventory.domain.ReservationState;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import java.util.List;
-import java.util.Map;
+
 import org.apache.ibatis.session.SqlSession;
 import org.apache.seata.core.context.RootContext;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 仓级预占巡检。只读 TRIED/CONFIRMED，禁止按 TTL 释放或自行 Confirm/Cancel。
@@ -23,11 +25,15 @@ public final class TccReservationWatch {
     /** 清理可能泄漏的 XID 后只读巡检。 */
     public Report inspect(String enterpriseId, String warehouseId) {
         RootContext.unbind();
-        if (enterpriseId == null || enterpriseId.isBlank() || warehouseId == null || warehouseId.isBlank()) {
+        if (enterpriseId == null
+                || enterpriseId.isBlank()
+                || warehouseId == null
+                || warehouseId.isBlank()) {
             throw new IllegalArgumentException("巡检必须带企业和仓");
         }
-        List<Map<String, Object>> rows = session.getMapper(InventoryMapper.class)
-                .listWatchReservations(enterpriseId, warehouseId, PAGE_LIMIT);
+        List<Map<String, Object>> rows =
+                session.getMapper(InventoryMapper.class)
+                        .listWatchReservations(enterpriseId, warehouseId, PAGE_LIMIT);
         int tried = 0;
         int confirmed = 0;
         for (Map<String, Object> row : rows) {
@@ -46,6 +52,5 @@ public final class TccReservationWatch {
         throw new IllegalStateException("XXL不得Confirm或Cancel");
     }
 
-    public record Report(int tried, int confirmed, int watched) {
-    }
+    public record Report(int tried, int confirmed, int watched) {}
 }

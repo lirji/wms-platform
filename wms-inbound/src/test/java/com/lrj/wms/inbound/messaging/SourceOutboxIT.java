@@ -1,14 +1,13 @@
 package com.lrj.wms.inbound.messaging;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.lrj.wms.inbound.protocol.SourceMapper;
 import com.lrj.wms.inbound.receipt.InboundReceiptMapper;
 import com.lrj.wms.inbound.receipt.InboundReceiptService;
 import com.lrj.wms.runtime.messaging.*;
 import com.lrj.wms.runtime.messaging.persistence.*;
-import java.math.BigDecimal;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
@@ -19,54 +18,121 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /** 实际T1/迁移/Mapper/发布器到真实Kafka，验证原始上下文及旧minimal隔离。尚不替代库存T2。 */
 class SourceOutboxIT {
-    @Test void publishesOriginalSourceFactAndIsolatesMissingLegacyContext() throws Exception {
-        try (var mysql = new MySQLContainer("mysql:8.4.11"); var kafka = new KafkaContainer("apache/kafka:3.8.0")) {
-            mysql.start(); kafka.start();
+    @Test
+    void publishesOriginalSourceFactAndIsolatesMissingLegacyContext() throws Exception {
+        try (var mysql = new MySQLContainer("mysql:8.4.11");
+                var kafka = new KafkaContainer("apache/kafka:3.8.0")) {
+            mysql.start();
+            kafka.start();
             var source = new com.mysql.cj.jdbc.MysqlDataSource();
-            source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC")); source.setUser(mysql.getUsername()); source.setPassword(mysql.getPassword());
-            Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
-            var config = new Configuration(new Environment("source", new JdbcTransactionFactory(), source));
-        com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
-            config.addMapper(SourceMapper.class); config.addMapper(InboundReceiptMapper.class);
+            source.setUrl(
+                    com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(
+                            mysql.getJdbcUrl(), "UTC"));
+            source.setUser(mysql.getUsername());
+            source.setPassword(mysql.getPassword());
+            Flyway.configure()
+                    .dataSource(source)
+                    .locations("classpath:db/migration")
+                    .load()
+                    .migrate();
+            var config =
+                    new Configuration(
+                            new Environment("source", new JdbcTransactionFactory(), source));
+            com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
+            config.addMapper(SourceMapper.class);
+            config.addMapper(InboundReceiptMapper.class);
             config.addMapper(MessageRecoveryMapper.class);
-            config.addMapper(SourceContextMapper.class); config.addMapper(SourceOutboxMapper.class);
+            config.addMapper(SourceContextMapper.class);
+            config.addMapper(SourceOutboxMapper.class);
             var sessions = new SqlSessionFactoryBuilder().build(config);
             Instant original = Instant.parse("2026-09-12T01:00:00Z");
             Clock clock = Clock.fixed(original, ZoneOffset.UTC);
             try (var session = sessions.openSession(false)) {
                 var service = new InboundReceiptService(session, clock);
                 for (String name : List.of("VALID", "LEGACY")) {
-                    service.createOrder("ENT", "WH", "ORDER-" + name, "ERP", name, "OWNER",
-                            List.of(Map.of("lineId", "LINE-" + name, "externalLineId", "L1", "skuId", "SKU", "expectedQty", new BigDecimal("3"), "unit", "EA")));
-                    var result = service.receive("ENT", "WH", "ORDER-" + name, "LINE-" + name, "CMD-" + name, "PART", "ORIGINAL-ACTOR", new BigDecimal("3"));
-                    if (name.equals("VALID")) service.bindReceiveContext("ENT", "WH", "ORDER-VALID", "LINE-VALID", result, "RECEIVING", "NO_LOT");
+                    service.createOrder(
+                            "ENT",
+                            "WH",
+                            "ORDER-" + name,
+                            "ERP",
+                            name,
+                            "OWNER",
+                            List.of(
+                                    Map.of(
+                                            "lineId",
+                                            "LINE-" + name,
+                                            "externalLineId",
+                                            "L1",
+                                            "skuId",
+                                            "SKU",
+                                            "expectedQty",
+                                            new BigDecimal("3"),
+                                            "unit",
+                                            "EA")));
+                    var result =
+                            service.receive(
+                                    "ENT",
+                                    "WH",
+                                    "ORDER-" + name,
+                                    "LINE-" + name,
+                                    "CMD-" + name,
+                                    "PART",
+                                    "ORIGINAL-ACTOR",
+                                    new BigDecimal("3"));
+                    if (name.equals("VALID"))
+                        service.bindReceiveContext(
+                                "ENT",
+                                "WH",
+                                "ORDER-VALID",
+                                "LINE-VALID",
+                                result,
+                                "RECEIVING",
+                                "NO_LOT");
                 }
                 session.commit();
             }
-            var settings = new KafkaSettings(true, kafka.getBootstrapServers(), "wms.it", "PLAINTEXT", "", "");
+            var settings =
+                    new KafkaSettings(
+                            true, kafka.getBootstrapServers(), "wms.it", "PLAINTEXT", "", "");
             String topic = "wms.it.inbound.commands";
             try (var admin = AdminClient.create(settings.connection())) {
-                admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1))).all().get(20, TimeUnit.SECONDS);
+                admin.createTopics(List.of(new NewTopic(topic, 1, (short) 1)))
+                        .all()
+                        .get(20, TimeUnit.SECONDS);
             }
             try (var sender = new KafkaMessagePublisher(settings, "source-test")) {
-                var outbox = new SourceOutboxPublisher(sessions, sender, "wms-inbound", "wms.it", Clock.offset(clock, Duration.ofHours(1)));
+                var outbox =
+                        new SourceOutboxPublisher(
+                                sessions,
+                                sender,
+                                "wms-inbound",
+                                "wms.it",
+                                Clock.offset(clock, Duration.ofHours(1)));
                 assertEquals(1, outbox.publishDue());
                 assertEquals(0, outbox.publishDue());
             }
             var properties = settings.connection();
-            properties.put("group.id", "test-" + UUID.randomUUID()); properties.put("auto.offset.reset", "earliest");
+            properties.put("group.id", "test-" + UUID.randomUUID());
+            properties.put("auto.offset.reset", "earliest");
             properties.put("enable.auto.commit", "false");
-            try (var consumer = new KafkaConsumer<String, String>(properties, new StringDeserializer(), new StringDeserializer())) {
+            try (var consumer =
+                    new KafkaConsumer<String, String>(
+                            properties, new StringDeserializer(), new StringDeserializer())) {
                 consumer.subscribe(List.of(topic));
                 RuntimeMessage found = null;
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
                 while (found == null && System.nanoTime() < deadline) {
                     for (var record : consumer.poll(Duration.ofMillis(250))) {
-                        assertNull(found); found = RuntimeMessage.parse(record.value());
+                        assertNull(found);
+                        found = RuntimeMessage.parse(record.value());
                     }
                 }
                 assertNotNull(found);
@@ -75,29 +141,86 @@ class SourceOutboxIT {
                 assertEquals("CMD-VALID", found.payload().path("commandId").asString());
                 assertEquals("ORIGINAL-ACTOR", found.payload().path("actorId").asString());
                 assertEquals("LINE-VALID", found.payload().path("factLineId").asString());
-                assertEquals("HOLD", found.payload().path("postingContext").path("qualityCode").asString());
-                assertEquals("ORDER-VALID", found.payload().path("postingContext").path("documentId").asString());
+                assertEquals(
+                        "HOLD",
+                        found.payload().path("postingContext").path("qualityCode").asString());
+                assertEquals(
+                        "ORDER-VALID",
+                        found.payload().path("postingContext").path("documentId").asString());
                 assertFalse(found.payload().path("sourceExecutionId").asString().isBlank());
             }
             var jdbc = new org.springframework.jdbc.core.JdbcTemplate(source);
-            assertEquals("ISOLATED", jdbc.queryForObject("SELECT status FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class));
-            assertEquals("LEGACY_COMMAND_CONTEXT_MISSING", jdbc.queryForObject("SELECT error_code FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class));
-            assertEquals("PUBLISHED", jdbc.queryForObject("SELECT status FROM source_outbox WHERE command_id='CMD-VALID'", String.class));
-            var recovery = new MessageRecoveryService(sessions, MessageQueueMetrics.Queue.SOURCE_OUTBOX,
-                    new RuntimeInbox(sessions, Map.of(), clock), clock);
-            String legacyId = jdbc.queryForObject("SELECT event_id FROM source_outbox WHERE command_id='CMD-LEGACY'", String.class);
-            assertEquals("MESSAGE_NOT_REPLAYABLE", assertThrows(MessageRecoveryException.class,
-                    () -> recovery.retry("ENT", "WH", "OUTBOX", legacyId, "RETRY-LEGACY", 1, "不能猜历史上下文", "OPS")).code());
-            String validId = jdbc.queryForObject("SELECT event_id FROM source_outbox WHERE command_id='CMD-VALID'", String.class);
-            jdbc.update("UPDATE source_outbox SET status='ISOLATED',claim_epoch=17,error_code='RETRY_EXHAUSTED' WHERE event_id=?", validId);
-            recovery.retry("ENT", "WH", "OUTBOX", validId, "RETRY-VALID", 17, "已核对原始上下文与broker恢复", "OPS");
+            assertEquals(
+                    "ISOLATED",
+                    jdbc.queryForObject(
+                            "SELECT status FROM source_outbox WHERE command_id='CMD-LEGACY'",
+                            String.class));
+            assertEquals(
+                    "LEGACY_COMMAND_CONTEXT_MISSING",
+                    jdbc.queryForObject(
+                            "SELECT error_code FROM source_outbox WHERE command_id='CMD-LEGACY'",
+                            String.class));
+            assertEquals(
+                    "PUBLISHED",
+                    jdbc.queryForObject(
+                            "SELECT status FROM source_outbox WHERE command_id='CMD-VALID'",
+                            String.class));
+            var recovery =
+                    new MessageRecoveryService(
+                            sessions,
+                            MessageQueueMetrics.Queue.SOURCE_OUTBOX,
+                            new RuntimeInbox(sessions, Map.of(), clock),
+                            clock);
+            String legacyId =
+                    jdbc.queryForObject(
+                            "SELECT event_id FROM source_outbox WHERE command_id='CMD-LEGACY'",
+                            String.class);
+            assertEquals(
+                    "MESSAGE_NOT_REPLAYABLE",
+                    assertThrows(
+                                    MessageRecoveryException.class,
+                                    () ->
+                                            recovery.retry(
+                                                    "ENT",
+                                                    "WH",
+                                                    "OUTBOX",
+                                                    legacyId,
+                                                    "RETRY-LEGACY",
+                                                    1,
+                                                    "不能猜历史上下文",
+                                                    "OPS"))
+                            .code());
+            String validId =
+                    jdbc.queryForObject(
+                            "SELECT event_id FROM source_outbox WHERE command_id='CMD-VALID'",
+                            String.class);
+            jdbc.update(
+                    "UPDATE source_outbox SET status='ISOLATED',claim_epoch=17,error_code='RETRY_EXHAUSTED' WHERE event_id=?",
+                    validId);
+            recovery.retry(
+                    "ENT", "WH", "OUTBOX", validId, "RETRY-VALID", 17, "已核对原始上下文与broker恢复", "OPS");
             try (var sender = new KafkaMessagePublisher(settings, "source-recovery-test")) {
-                assertEquals(1, new SourceOutboxPublisher(sessions, sender, "wms-inbound", "wms.it", clock).publishDue());
+                assertEquals(
+                        1,
+                        new SourceOutboxPublisher(sessions, sender, "wms-inbound", "wms.it", clock)
+                                .publishDue());
             }
-            assertEquals(18L, jdbc.queryForObject("SELECT claim_epoch FROM source_outbox WHERE event_id=?", Long.class, validId));
-            assertEquals(17L, jdbc.queryForObject("SELECT retry_base_epoch FROM source_outbox WHERE event_id=?", Long.class, validId));
-            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM message_recovery_audit", Integer.class));
-
+            assertEquals(
+                    18L,
+                    jdbc.queryForObject(
+                            "SELECT claim_epoch FROM source_outbox WHERE event_id=?",
+                            Long.class,
+                            validId));
+            assertEquals(
+                    17L,
+                    jdbc.queryForObject(
+                            "SELECT retry_base_epoch FROM source_outbox WHERE event_id=?",
+                            Long.class,
+                            validId));
+            assertEquals(
+                    1,
+                    jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM message_recovery_audit", Integer.class));
         }
     }
 }

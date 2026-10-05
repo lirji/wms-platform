@@ -18,12 +18,12 @@ public final class ReservationState {
     public static final String CAUSE_CONSUME_COMPLETE = "CONSUME_COMPLETE";
     public static final String CAUSE_BUSINESS_RELEASE_COMPLETE = "BUSINESS_RELEASE_COMPLETE";
 
-    private static final Set<String> STATES = Set.of(TRIED, CONFIRMED, CONSUMED, CANCELLED, RELEASED);
+    private static final Set<String> STATES =
+            Set.of(TRIED, CONFIRMED, CONSUMED, CANCELLED, RELEASED);
     private static final Set<String> TERMINAL = Set.of(CONSUMED, CANCELLED, RELEASED);
     private static final Set<String> OCCUPY_RESERVED = Set.of(TRIED, CONFIRMED);
 
-    private ReservationState() {
-    }
+    private ReservationState() {}
 
     /** 校验预占状态。 */
     public static String require(String code) {
@@ -55,10 +55,14 @@ public final class ReservationState {
         if (CAUSE_TCC_CANCEL.equals(cause) && TRIED.equals(current) && CANCELLED.equals(next)) {
             return next;
         }
-        if (CAUSE_CONSUME_COMPLETE.equals(cause) && CONFIRMED.equals(current) && CONSUMED.equals(next)) {
+        if (CAUSE_CONSUME_COMPLETE.equals(cause)
+                && CONFIRMED.equals(current)
+                && CONSUMED.equals(next)) {
             return next;
         }
-        if (CAUSE_BUSINESS_RELEASE_COMPLETE.equals(cause) && CONFIRMED.equals(current) && RELEASED.equals(next)) {
+        if (CAUSE_BUSINESS_RELEASE_COMPLETE.equals(cause)
+                && CONFIRMED.equals(current)
+                && RELEASED.equals(next)) {
             return next;
         }
         throw new IllegalArgumentException("非法预占迁移：" + current + " -> " + next + " / " + cause);

@@ -1,14 +1,15 @@
 package com.lrj.wms.security;
 
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 
 /**
  * 旧模式归一签名声明；中央模式只消费后端建立的单请求权限上下文。
@@ -18,8 +19,7 @@ public final class WmsJwtAuthorities {
     public static final String WAREHOUSE_PREFIX = "WAREHOUSE_";
     public static final String ENTERPRISE_PREFIX = "ENTERPRISE_";
 
-    private WmsJwtAuthorities() {
-    }
+    private WmsJwtAuthorities() {}
 
     /** 供资源服务器使用的转换器。 */
     public static JwtAuthenticationConverter converter() {
@@ -33,12 +33,14 @@ public final class WmsJwtAuthorities {
         Collection<GrantedAuthority> authorities = new ArrayList<>();
         for (String group : stringValues(jwt, "groups")) {
             int slash = group.lastIndexOf('/');
-            authorities.add(new SimpleGrantedAuthority(slash >= 0 ? group.substring(slash + 1) : group));
+            authorities.add(
+                    new SimpleGrantedAuthority(slash >= 0 ? group.substring(slash + 1) : group));
         }
         for (String scope : operationScopes(jwt)) {
             authorities.add(new SimpleGrantedAuthority(scope));
         }
-        String enterprise = firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
+        String enterprise =
+                firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
         if (enterprise != null) {
             authorities.add(new SimpleGrantedAuthority(ENTERPRISE_PREFIX + enterprise));
         }
@@ -66,7 +68,8 @@ public final class WmsJwtAuthorities {
     /** 企业标识，优先 enterprise_id，否则 owner。 */
     public static String enterpriseId(Jwt jwt) {
         if (jwt instanceof WmsCentralJwt central) return central.enterprise();
-        String enterprise = firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
+        String enterprise =
+                firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
         if (enterprise == null || enterprise.isBlank()) {
             throw new IllegalArgumentException("令牌缺少企业范围");
         }
@@ -75,7 +78,10 @@ public final class WmsJwtAuthorities {
 
     /** 校验调用仓必须在令牌仓列表中。 */
     public static void requireWarehouse(Jwt jwt, String warehouseId) {
-        if (jwt instanceof WmsCentralJwt central) { central.requireWarehouse(warehouseId); return; }
+        if (jwt instanceof WmsCentralJwt central) {
+            central.requireWarehouse(warehouseId);
+            return;
+        }
         if (!warehouses(jwt).contains(warehouseId)) {
             throw new WarehouseForbiddenException(warehouseId);
         }
@@ -86,7 +92,10 @@ public final class WmsJwtAuthorities {
         if (scope == null || scope.isBlank()) {
             throw new IllegalArgumentException("权限范围不能为空");
         }
-        if (jwt instanceof WmsCentralJwt central) { central.requireScope(scope); return; }
+        if (jwt instanceof WmsCentralJwt central) {
+            central.requireScope(scope);
+            return;
+        }
         boolean allowed = operationScopes(jwt).contains(scope);
         if (!allowed) {
             throw new ScopeForbiddenException(scope);

@@ -2,14 +2,16 @@ package com.lrj.wms.inventory.inventory;
 
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.ibatis.session.SqlSession;
-import org.apache.ibatis.session.SqlSessionFactory;
 
 /**
  * 按单个物理数据源领取、投递、重试或隔离 Outbox。
@@ -30,7 +32,11 @@ public final class OutboxPublisher {
     }
 
     /** 配置在启动时校验并作为一次执行的不可变快照。 */
-    public OutboxPublisher(SqlSessionFactory sessions, OutboxTransport transport, Clock clock, OutboxBudget budget) {
+    public OutboxPublisher(
+            SqlSessionFactory sessions,
+            OutboxTransport transport,
+            Clock clock,
+            OutboxBudget budget) {
         this.budget = budget;
         this.sessions = sessions;
         this.transport = transport;
@@ -67,10 +73,15 @@ public final class OutboxPublisher {
             OutboxMapper mapper = session.getMapper(OutboxMapper.class);
             for (Map<String, Object> row : mapper.lockDue(now, budget.batchSize())) {
                 long epoch = ((Number) row.get("claim_epoch")).longValue();
-                if (mapper.claim(String.valueOf(row.get("event_id")), epoch, leaseUntil, now) != 1) {
+                if (mapper.claim(String.valueOf(row.get("event_id")), epoch, leaseUntil, now)
+                        != 1) {
                     continue;
                 }
-                claimed.add(new Claimed(toRecord(row), epoch + 1, epoch + 1 - ((Number) row.get("retry_base_epoch")).longValue()));
+                claimed.add(
+                        new Claimed(
+                                toRecord(row),
+                                epoch + 1,
+                                epoch + 1 - ((Number) row.get("retry_base_epoch")).longValue()));
             }
             session.commit();
         }
@@ -87,7 +98,10 @@ public final class OutboxPublisher {
             } else if (InventoryCodes.OUTBOX_ISOLATED.equals(status)) {
                 updated = mapper.markIsolated(item.record().eventId(), item.claimEpoch(), now);
             } else {
-                Timestamp next = Timestamp.from(clock.instant().plus(retryDelay == null ? Duration.ZERO : retryDelay));
+                Timestamp next =
+                        Timestamp.from(
+                                clock.instant()
+                                        .plus(retryDelay == null ? Duration.ZERO : retryDelay));
                 updated = mapper.markRetry(item.record().eventId(), item.claimEpoch(), next, now);
             }
             if (updated != 1) {
@@ -100,13 +114,19 @@ public final class OutboxPublisher {
     }
 
     private static OutboxRecord toRecord(Map<String, Object> row) {
-        return new OutboxRecord(String.valueOf(row.get("event_id")), String.valueOf(row.get("enterprise_id")),
-                String.valueOf(row.get("warehouse_id")), String.valueOf(row.get("aggregate_type")),
-                String.valueOf(row.get("aggregate_id")), ((Number) row.get("aggregate_version")).longValue(),
-                String.valueOf(row.get("event_type")), String.valueOf(row.get("operation_id")),
-                String.valueOf(row.get("payload")), com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(row.get("created_at")));
+        return new OutboxRecord(
+                String.valueOf(row.get("event_id")),
+                String.valueOf(row.get("enterprise_id")),
+                String.valueOf(row.get("warehouse_id")),
+                String.valueOf(row.get("aggregate_type")),
+                String.valueOf(row.get("aggregate_id")),
+                ((Number) row.get("aggregate_version")).longValue(),
+                String.valueOf(row.get("event_type")),
+                String.valueOf(row.get("operation_id")),
+                String.valueOf(row.get("payload")),
+                com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(
+                        row.get("created_at")));
     }
 
-    private record Claimed(OutboxRecord record, long claimEpoch, long attempt) {
-    }
+    private record Claimed(OutboxRecord record, long claimEpoch, long attempt) {}
 }

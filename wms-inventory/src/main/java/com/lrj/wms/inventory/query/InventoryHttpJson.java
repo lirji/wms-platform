@@ -3,7 +3,6 @@ package com.lrj.wms.inventory.query;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,8 +10,7 @@ import java.util.Map;
 
 /** HTTP 数量用十进制字符串，避免 Jackson 把 DECIMAL 写成 JSON number。 */
 public final class InventoryHttpJson {
-    private InventoryHttpJson() {
-    }
+    private InventoryHttpJson() {}
 
     public static Map<String, Object> body(Map<String, Object> source) {
         Map<String, Object> item = new LinkedHashMap<>();

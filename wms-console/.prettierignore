@@ -1,0 +1,6 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+# 由 Owner 目录导出器生成并按字节核对，人工格式工具不重写该协议副本。
+src/auth/centralBindings.ts

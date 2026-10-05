@@ -5,13 +5,15 @@ import com.lrj.wms.inventory.inventory.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.query.InventoryHttpQueryMapper;
+
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /** 库存限制。占用 reserved，不复用盘点 location_gate。 */
 public final class StockHoldService {
@@ -26,8 +28,15 @@ public final class StockHoldService {
         this.clock = clock;
     }
 
-    public Map<String, Object> create(String enterpriseId, String warehouseId, String clientOperationId, String actorId,
-            String balanceId, BigDecimal qty, String reason, String evidenceRefs) {
+    public Map<String, Object> create(
+            String enterpriseId,
+            String warehouseId,
+            String clientOperationId,
+            String actorId,
+            String balanceId,
+            BigDecimal qty,
+            String reason,
+            String evidenceRefs) {
         require(clientOperationId, "INVALID_ARGUMENT", "命令键不能为空");
         require(balanceId, "INVALID_ARGUMENT", "限制必须指定库存桶");
         require(reason, "INVALID_ARGUMENT", "原因不能为空");
@@ -35,7 +44,8 @@ public final class StockHoldService {
             throw new InventoryException("INVALID_QUANTITY", "限制数量必须为正");
         }
         DomainCommandMapper docs = session.getMapper(DomainCommandMapper.class);
-        Map<String, Object> existing = docs.getHoldByKey(enterpriseId, warehouseId, clientOperationId);
+        Map<String, Object> existing =
+                docs.getHoldByKey(enterpriseId, warehouseId, clientOperationId);
         if (existing != null) {
             if (!balanceId.equals(String.valueOf(existing.get("balance_id")))
                     || qty.compareTo(decimal(existing.get("qty"))) != 0) {
@@ -43,22 +53,49 @@ public final class StockHoldService {
             }
             return view(existing);
         }
-        Map<String, Object> balance = session.getMapper(InventoryHttpQueryMapper.class)
-                .getBalance(enterpriseId, warehouseId, balanceId);
+        Map<String, Object> balance =
+                session.getMapper(InventoryHttpQueryMapper.class)
+                        .getBalance(enterpriseId, warehouseId, balanceId);
         if (balance == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "库存桶不存在");
         }
         Timestamp now = Timestamp.from(clock.instant());
-        new InventoryApplicationService(session, clock).hold(enterpriseId, warehouseId, clientOperationId,
-                clientOperationId, actorId, balanceId, quantity(qty));
-        docs.insertHoldIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, clientOperationId, balanceId,
-                String.valueOf(balance.get("location_id")), String.valueOf(balance.get("sku_id")),
-                String.valueOf(balance.get("lot_id")), qty, reason, evidenceRefs, actorId, clientOperationId, OPEN, now);
+        new InventoryApplicationService(session, clock)
+                .hold(
+                        enterpriseId,
+                        warehouseId,
+                        clientOperationId,
+                        clientOperationId,
+                        actorId,
+                        balanceId,
+                        quantity(qty));
+        docs.insertHoldIgnore(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                warehouseId,
+                clientOperationId,
+                balanceId,
+                String.valueOf(balance.get("location_id")),
+                String.valueOf(balance.get("sku_id")),
+                String.valueOf(balance.get("lot_id")),
+                qty,
+                reason,
+                evidenceRefs,
+                actorId,
+                clientOperationId,
+                OPEN,
+                now);
         return view(docs.getHoldByKey(enterpriseId, warehouseId, clientOperationId));
     }
 
-    public Map<String, Object> release(String enterpriseId, String warehouseId, String holdId, String clientOperationId,
-            String actorId, String reason, long expectedVersion) {
+    public Map<String, Object> release(
+            String enterpriseId,
+            String warehouseId,
+            String holdId,
+            String clientOperationId,
+            String actorId,
+            String reason,
+            long expectedVersion) {
         require(holdId, "INVALID_ARGUMENT", "限制标识不能为空");
         require(clientOperationId, "INVALID_ARGUMENT", "命令键不能为空");
         DomainCommandMapper docs = session.getMapper(DomainCommandMapper.class);
@@ -74,9 +111,25 @@ public final class StockHoldService {
         }
         Timestamp now = Timestamp.from(clock.instant());
         String releaseOp = clientOperationId;
-        new InventoryApplicationService(session, clock).releaseHold(enterpriseId, warehouseId, releaseOp, holdId, actorId,
-                String.valueOf(hold.get("balance_id")), quantity(decimal(hold.get("qty"))));
-        if (docs.casReleaseHold(enterpriseId, warehouseId, holdId, expectedVersion, actorId, reason, releaseOp, now) != 1) {
+        new InventoryApplicationService(session, clock)
+                .releaseHold(
+                        enterpriseId,
+                        warehouseId,
+                        releaseOp,
+                        holdId,
+                        actorId,
+                        String.valueOf(hold.get("balance_id")),
+                        quantity(decimal(hold.get("qty"))));
+        if (docs.casReleaseHold(
+                        enterpriseId,
+                        warehouseId,
+                        holdId,
+                        expectedVersion,
+                        actorId,
+                        reason,
+                        releaseOp,
+                        now)
+                != 1) {
             throw new InventoryException("HOLD_STATE_CONFLICT", "限制已变化，不能释放");
         }
         return view(docs.lockHold(enterpriseId, warehouseId, holdId));

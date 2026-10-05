@@ -1,5 +1,7 @@
 package com.lrj.wms.fulfillment;
 
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -7,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /**
  * 调拨总单与在途累计。源发出/目的接收按仓+动作+operationId 去重。
@@ -36,8 +37,12 @@ public final class TransferService {
     }
 
     /** 创建总单、源/目的子单与在途行。同 transferId 重放返回原单。 */
-    public Map<String, Object> create(String enterpriseId, String transferId, String sourceWarehouseId,
-            String targetWarehouseId, List<Map<String, Object>> lines) {
+    public Map<String, Object> create(
+            String enterpriseId,
+            String transferId,
+            String sourceWarehouseId,
+            String targetWarehouseId,
+            List<Map<String, Object>> lines) {
         require(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         require(transferId, "INVALID_TRANSFER", "调拨单不能为空");
         require(sourceWarehouseId, "INVALID_WAREHOUSE", "源仓不能为空");
@@ -50,7 +55,8 @@ public final class TransferService {
         }
         Timestamp now = now();
         TransferMapper mapper = mapper();
-        mapper.insertOrderIgnore(transferId, enterpriseId, sourceWarehouseId, targetWarehouseId, STATUS_OPEN, now);
+        mapper.insertOrderIgnore(
+                transferId, enterpriseId, sourceWarehouseId, targetWarehouseId, STATUS_OPEN, now);
         Map<String, Object> order = mapper.lockOrder(enterpriseId, transferId);
         if (order == null) {
             throw new TransferException("VERSION_CONFLICT", "调拨单创建竞争");
@@ -60,14 +66,31 @@ public final class TransferService {
             throw new TransferException("TRANSFER_CONFLICT", "同单调拨仓不一致");
         }
         if (mapper.listLines(enterpriseId, transferId).isEmpty()) {
-            mapper.insertLeg(UUID.randomUUID().toString(), enterpriseId, transferId, sourceWarehouseId, ROLE_SOURCE,
-                    STATUS_OPEN, now);
-            mapper.insertLeg(UUID.randomUUID().toString(), enterpriseId, transferId, targetWarehouseId, ROLE_TARGET,
-                    STATUS_OPEN, now);
+            mapper.insertLeg(
+                    UUID.randomUUID().toString(),
+                    enterpriseId,
+                    transferId,
+                    sourceWarehouseId,
+                    ROLE_SOURCE,
+                    STATUS_OPEN,
+                    now);
+            mapper.insertLeg(
+                    UUID.randomUUID().toString(),
+                    enterpriseId,
+                    transferId,
+                    targetWarehouseId,
+                    ROLE_TARGET,
+                    STATUS_OPEN,
+                    now);
             for (Map<String, Object> line : lines) {
-                mapper.insertLine(required(line, "lineId"), enterpriseId, transferId, required(line, "skuId"),
+                mapper.insertLine(
+                        required(line, "lineId"),
+                        enterpriseId,
+                        transferId,
+                        required(line, "skuId"),
                         String.valueOf(line.getOrDefault("businessLotKey", NO_LOT)),
-                        String.valueOf(line.getOrDefault("sourceLotId", NO_LOT)), requiredQty(line.get("plannedQty")),
+                        String.valueOf(line.getOrDefault("sourceLotId", NO_LOT)),
+                        requiredQty(line.get("plannedQty")),
                         now);
             }
         }
@@ -75,15 +98,23 @@ public final class TransferService {
     }
 
     /** 源仓发出。同操作键重放原事实，不二次加 issued。 */
-    public Map<String, Object> issue(String enterpriseId, String transferId, String lineId, String operationId,
+    public Map<String, Object> issue(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String operationId,
             BigDecimal qty) {
-        requireQuantityMode(enterpriseId,transferId,lineId);
+        requireQuantityMode(enterpriseId, transferId, lineId);
         return applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_ISSUE);
     }
 
     /** 申请目的接收额度。同 targetClientOperationId 重放原 token，不二次占额度。 */
-    public Map<String, Object> authorizeReceipt(String enterpriseId, String transferId, String lineId,
-            String targetClientOperationId, BigDecimal qty) {
+    public Map<String, Object> authorizeReceipt(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String targetClientOperationId,
+            BigDecimal qty) {
         require(targetClientOperationId, "INVALID_OPERATION", "目的客户端操作键不能为空");
         requireQty(qty);
         Timestamp now = now();
@@ -91,7 +122,8 @@ public final class TransferService {
         Map<String, Object> order = requireOrder(mapper, enterpriseId, transferId);
         requireLine(mapper, enterpriseId, transferId, lineId);
         String warehouseId = String.valueOf(order.get("target_warehouse_id"));
-        Map<String, Object> existing = mapper.lockAuthByClient(enterpriseId, lineId, targetClientOperationId);
+        Map<String, Object> existing =
+                mapper.lockAuthByClient(enterpriseId, lineId, targetClientOperationId);
         if (existing != null) {
             if (qty.compareTo(decimal(existing.get("quantity"))) != 0) {
                 throw new TransferException("OPERATION_CONFLICT", "同客户端操作额度不一致");
@@ -102,23 +134,53 @@ public final class TransferService {
             throw new TransferException("OVER_QUOTA", "接收额度超过在途可收量");
         }
         String authId = UUID.randomUUID().toString();
-        if (mapper.insertAuthIgnore(authId, enterpriseId, transferId, lineId, warehouseId, targetClientOperationId, qty,
-                now) != 1) {
+        if (mapper.insertAuthIgnore(
+                        authId,
+                        enterpriseId,
+                        transferId,
+                        lineId,
+                        warehouseId,
+                        targetClientOperationId,
+                        qty,
+                        now)
+                != 1) {
             throw new TransferException("VERSION_CONFLICT", "额度授权竞争");
         }
         return authView(mapper.lockAuth(enterpriseId, authId), false);
     }
 
     /** 目的仓凭 token 接收。同操作键重放原事实；消费与行锁同事务。 */
-    public Map<String, Object> receive(String enterpriseId, String transferId, String lineId, String operationId,
-            String authorizationId, long tokenVersion, BigDecimal qty, String targetLotId) {
-        requireQuantityMode(enterpriseId,transferId,lineId);
-        return receiveVerified(enterpriseId,transferId,lineId,operationId,authorizationId,tokenVersion,qty,targetLotId);
+    public Map<String, Object> receive(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String operationId,
+            String authorizationId,
+            long tokenVersion,
+            BigDecimal qty,
+            String targetLotId) {
+        requireQuantityMode(enterpriseId, transferId, lineId);
+        return receiveVerified(
+                enterpriseId,
+                transferId,
+                lineId,
+                operationId,
+                authorizationId,
+                tokenVersion,
+                qty,
+                targetLotId);
     }
 
     /** 仅由原库存完成回执调用；公开数量入口必须先经过模式门禁。 */
-    Map<String,Object> receiveVerified(String enterpriseId,String transferId,String lineId,String operationId,
-            String authorizationId,long tokenVersion,BigDecimal qty,String targetLotId) {
+    Map<String, Object> receiveVerified(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String operationId,
+            String authorizationId,
+            long tokenVersion,
+            BigDecimal qty,
+            String targetLotId) {
         require(authorizationId, "INVALID_AUTHORIZATION", "接收授权不能为空");
         TransferMapper mapper = mapper();
         requireOrder(mapper, enterpriseId, transferId);
@@ -127,7 +189,8 @@ public final class TransferService {
         if (auth == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "接收授权不存在");
         }
-        if(!transferId.equals(auth.get("transfer_id"))) throw new TransferException("TOKEN_MISMATCH","额度不属于原调拨单");
+        if (!transferId.equals(auth.get("transfer_id")))
+            throw new TransferException("TOKEN_MISMATCH", "额度不属于原调拨单");
         if (!lineId.equals(String.valueOf(auth.get("transfer_line_id")))
                 || qty.compareTo(decimal(auth.get("quantity"))) != 0
                 || tokenVersion != ((Number) auth.get("token_version")).longValue()) {
@@ -136,19 +199,29 @@ public final class TransferService {
         if (AUTH_CANCELLED.equals(String.valueOf(auth.get("state")))) {
             throw new TransferException("TOKEN_CANCELLED", "授权已取消");
         }
-        Map<String, Object> fact = applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_RECEIVE);
-        if (Boolean.TRUE.equals(fact.get("replayed")) || AUTH_CONSUMED.equals(String.valueOf(auth.get("state")))) {
+        Map<String, Object> fact =
+                applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_RECEIVE);
+        if (Boolean.TRUE.equals(fact.get("replayed"))
+                || AUTH_CONSUMED.equals(String.valueOf(auth.get("state")))) {
             return fact;
         }
         Timestamp now = now();
         if (mapper.consumeQuota(enterpriseId, transferId, lineId, qty, now) != 1) {
             throw new TransferException("OVER_RECEIVE", "接收超过授权额度");
         }
-        if (mapper.casAuthState(enterpriseId, authorizationId, AUTH_OPEN, AUTH_CONSUMED, tokenVersion, operationId,
-                now) != 1) {
+        if (mapper.casAuthState(
+                        enterpriseId,
+                        authorizationId,
+                        AUTH_OPEN,
+                        AUTH_CONSUMED,
+                        tokenVersion,
+                        operationId,
+                        now)
+                != 1) {
             throw new TransferException("VERSION_CONFLICT", "授权消费竞争");
         }
-        if (targetLotId != null && !targetLotId.isBlank()
+        if (targetLotId != null
+                && !targetLotId.isBlank()
                 && mapper.bindTargetLot(enterpriseId, transferId, lineId, targetLotId, now) != 1) {
             throw new TransferException("LOT_MAPPING_CONFLICT", "目的批次映射不一致");
         }
@@ -156,7 +229,8 @@ public final class TransferService {
     }
 
     /** 取消未消费 token，释放额度。已消费返回原接收事实，不回收。 */
-    public Map<String, Object> cancelAuthorization(String enterpriseId, String transferId, String authorizationId) {
+    public Map<String, Object> cancelAuthorization(
+            String enterpriseId, String transferId, String authorizationId) {
         Timestamp now = now();
         TransferMapper mapper = mapper();
         requireOrder(mapper, enterpriseId, transferId);
@@ -164,10 +238,16 @@ public final class TransferService {
         if (auth == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "接收授权不存在");
         }
-        if(!transferId.equals(auth.get("transfer_id"))) throw new TransferException("TOKEN_MISMATCH","额度不属于原调拨单");
-        var originalLine=requireLine(mapper,enterpriseId,transferId,(String)auth.get("transfer_line_id"));
-        if(SerialTransferService.serial(originalLine) && session.getMapper(SerialTransferMapper.class).authorizationCommand(enterpriseId,authorizationId)!=null)
-            throw new TransferException("RECEIPT_IN_PROGRESS","额度已绑定实物收货命令，不能按未执行取消");
+        if (!transferId.equals(auth.get("transfer_id")))
+            throw new TransferException("TOKEN_MISMATCH", "额度不属于原调拨单");
+        var originalLine =
+                requireLine(
+                        mapper, enterpriseId, transferId, (String) auth.get("transfer_line_id"));
+        if (SerialTransferService.serial(originalLine)
+                && session.getMapper(SerialTransferMapper.class)
+                                .authorizationCommand(enterpriseId, authorizationId)
+                        != null)
+            throw new TransferException("RECEIPT_IN_PROGRESS", "额度已绑定实物收货命令，不能按未执行取消");
         if (AUTH_CONSUMED.equals(String.valueOf(auth.get("state")))) {
             return authView(auth, true);
         }
@@ -179,26 +259,41 @@ public final class TransferService {
         if (mapper.releaseQuota(enterpriseId, transferId, lineId, qty, now) != 1) {
             throw new TransferException("VERSION_CONFLICT", "额度释放竞争");
         }
-        if (mapper.casAuthState(enterpriseId, authorizationId, AUTH_OPEN, AUTH_CANCELLED,
-                ((Number) auth.get("token_version")).longValue(), null, now) != 1) {
+        if (mapper.casAuthState(
+                        enterpriseId,
+                        authorizationId,
+                        AUTH_OPEN,
+                        AUTH_CANCELLED,
+                        ((Number) auth.get("token_version")).longValue(),
+                        null,
+                        now)
+                != 1) {
             throw new TransferException("VERSION_CONFLICT", "授权取消竞争");
         }
         return authView(mapper.lockAuth(enterpriseId, authorizationId), false);
     }
 
     /** 确认损耗，与接收额度竞争同一行锁。 */
-    public Map<String, Object> confirmLoss(String enterpriseId, String transferId, String lineId, String operationId,
+    public Map<String, Object> confirmLoss(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String operationId,
             BigDecimal qty) {
-        requireQuantityMode(enterpriseId,transferId,lineId);
+        requireQuantityMode(enterpriseId, transferId, lineId);
         TransferMapper mapper = mapper();
         requireOrder(mapper, enterpriseId, transferId);
         Map<String, Object> line = requireLine(mapper, enterpriseId, transferId, lineId);
-        if (decimal(line.get("received_qty")).add(decimal(line.get("loss_confirmed_qty")))
-                .add(decimal(line.get("active_receipt_quota"))).add(qty)
-                .compareTo(decimal(line.get("issued_qty"))) > 0) {
+        if (decimal(line.get("received_qty"))
+                        .add(decimal(line.get("loss_confirmed_qty")))
+                        .add(decimal(line.get("active_receipt_quota")))
+                        .add(qty)
+                        .compareTo(decimal(line.get("issued_qty")))
+                > 0) {
             throw new TransferException("OVER_LOSS", "损耗超过在途可定量");
         }
-        Map<String, Object> fact = applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_LOSS);
+        Map<String, Object> fact =
+                applyFact(enterpriseId, transferId, lineId, operationId, qty, ACTION_LOSS);
         if (Boolean.TRUE.equals(fact.get("replayed"))) {
             return fact;
         }
@@ -219,8 +314,13 @@ public final class TransferService {
         return mapper().listOrders(enterpriseId, limit);
     }
 
-    Map<String, Object> applyFact(String enterpriseId, String transferId, String lineId, String operationId,
-            BigDecimal qty, String action) {
+    Map<String, Object> applyFact(
+            String enterpriseId,
+            String transferId,
+            String lineId,
+            String operationId,
+            BigDecimal qty,
+            String action) {
         require(operationId, "INVALID_OPERATION", "操作键不能为空");
         requireQty(qty);
         Timestamp now = now();
@@ -233,9 +333,12 @@ public final class TransferService {
         if (line == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "调拨行不存在");
         }
-        String warehouseId = ACTION_ISSUE.equals(action) ? String.valueOf(order.get("source_warehouse_id"))
-                : String.valueOf(order.get("target_warehouse_id"));
-        Map<String, Object> existing = mapper.getFact(enterpriseId, warehouseId, action, operationId);
+        String warehouseId =
+                ACTION_ISSUE.equals(action)
+                        ? String.valueOf(order.get("source_warehouse_id"))
+                        : String.valueOf(order.get("target_warehouse_id"));
+        Map<String, Object> existing =
+                mapper.getFact(enterpriseId, warehouseId, action, operationId);
         if (existing != null) {
             if (!lineId.equals(String.valueOf(existing.get("line_id")))
                     || qty.compareTo(decimal(existing.get("quantity"))) != 0) {
@@ -244,13 +347,26 @@ public final class TransferService {
             return factView(existing, true);
         }
         if (ACTION_ISSUE.equals(action)
-                && decimal(line.get("issued_qty")).add(qty).compareTo(decimal(line.get("planned_qty"))) > 0) {
+                && decimal(line.get("issued_qty"))
+                                .add(qty)
+                                .compareTo(decimal(line.get("planned_qty")))
+                        > 0) {
             throw new TransferException("OVER_ISSUE", "发出超过计划数量");
         }
-        int inserted = mapper.insertFactIgnore(UUID.randomUUID().toString(), enterpriseId, transferId, lineId,
-                warehouseId, action, operationId, qty, now);
+        int inserted =
+                mapper.insertFactIgnore(
+                        UUID.randomUUID().toString(),
+                        enterpriseId,
+                        transferId,
+                        lineId,
+                        warehouseId,
+                        action,
+                        operationId,
+                        qty,
+                        now);
         if (inserted != 1) {
-            Map<String, Object> raced = mapper.getFact(enterpriseId, warehouseId, action, operationId);
+            Map<String, Object> raced =
+                    mapper.getFact(enterpriseId, warehouseId, action, operationId);
             if (raced == null) {
                 throw new TransferException("VERSION_CONFLICT", "调拨事实竞争");
             }
@@ -300,12 +416,15 @@ public final class TransferService {
     }
 
     /** 序列执行一旦固定，旧数量接口不得绕过真实身份完成回执。 */
-    private void requireQuantityMode(String e,String transfer,String line) {
-        var mapper=mapper();requireOrder(mapper,e,transfer);
-        if(SerialTransferService.serial(requireLine(mapper,e,transfer,line))) throw new TransferException("SERIAL_COMMAND_REQUIRED","序列调拨须使用原身份命令，数量接口不能代替实物证明");
+    private void requireQuantityMode(String e, String transfer, String line) {
+        var mapper = mapper();
+        requireOrder(mapper, e, transfer);
+        if (SerialTransferService.serial(requireLine(mapper, e, transfer, line)))
+            throw new TransferException("SERIAL_COMMAND_REQUIRED", "序列调拨须使用原身份命令，数量接口不能代替实物证明");
     }
 
-    private Map<String, Object> requireOrder(TransferMapper mapper, String enterpriseId, String transferId) {
+    private Map<String, Object> requireOrder(
+            TransferMapper mapper, String enterpriseId, String transferId) {
         Map<String, Object> order = mapper.lockOrder(enterpriseId, transferId);
         if (order == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "调拨单不存在");
@@ -313,8 +432,8 @@ public final class TransferService {
         return order;
     }
 
-    private Map<String, Object> requireLine(TransferMapper mapper, String enterpriseId, String transferId,
-            String lineId) {
+    private Map<String, Object> requireLine(
+            TransferMapper mapper, String enterpriseId, String transferId, String lineId) {
         Map<String, Object> line = mapper.lockLine(enterpriseId, transferId, lineId);
         if (line == null) {
             throw new TransferException("RESOURCE_NOT_FOUND", "调拨行不存在");

@@ -6,9 +6,24 @@ import java.util.Map;
 @FunctionalInterface
 public interface SerialReleaseRegistryPort {
     /** 公开调拨先保存本地封闭，随后以原意图准备登记；旧端口不得把未实现准备当作成功。 */
-    default Map<String,Object> prepare(String enterprise,String sku,String serial,String transfer,String sourceWarehouse,
-            String targetWarehouse,String operation,long fromEpoch) {
+    default Map<String, Object> prepare(
+            String enterprise,
+            String sku,
+            String serial,
+            String transfer,
+            String sourceWarehouse,
+            String targetWarehouse,
+            String operation,
+            long fromEpoch) {
         throw new SerialRegistryUnavailableException("未配置序列调拨准备端口");
     }
-    Map<String,Object> release(String enterprise,String sku,String serial,String transfer,String sourceWarehouse,String releaseRef,long fromEpoch);
+
+    Map<String, Object> release(
+            String enterprise,
+            String sku,
+            String serial,
+            String transfer,
+            String sourceWarehouse,
+            String releaseRef,
+            long fromEpoch);
 }

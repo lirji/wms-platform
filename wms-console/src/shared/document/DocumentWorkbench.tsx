@@ -1,36 +1,61 @@
-import { Children, Fragment, isValidElement, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { Button, Card, Descriptions, Space } from "antd";
-import { canOperation } from "../../auth/can";
-import { field, nestedRecords, type ItemRecord } from "../../api/envelope";
-import { CommandDrawer } from "../command/CommandDrawer";
-import { CopyId } from "../ui/CopyId";
-import { DataTable, type Column } from "../ui/DataTable";
-import { errorBanner } from "../ui/errorBanner";
-import { PageHead } from "../ui/PageHead";
-import { StatusBanner } from "../ui/StatusBanner";
-import { StatusChip } from "../ui/StatusChip";
-import { useWorkspace, type WorkspaceValue } from "../../shell/WorkspaceContext";
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Link } from 'react-router-dom';
+import { Button, Card, Descriptions, Space } from 'antd';
+import { canOperation } from '../../auth/can';
+import { field, nestedRecords, type ItemRecord } from '../../api/envelope';
+import { CommandDrawer } from '../command/CommandDrawer';
+import { CopyId } from '../ui/CopyId';
+import { DataTable, type Column } from '../ui/DataTable';
+import { errorBanner } from '../ui/errorBanner';
+import { PageHead } from '../ui/PageHead';
+import { StatusBanner } from '../ui/StatusBanner';
+import { StatusChip } from '../ui/StatusChip';
+import { useWorkspace, type WorkspaceValue } from '../../shell/WorkspaceContext';
 
 export type HeaderField = {
   key: string;
   label: string;
   keys?: string[];
-  kind?: "id" | "status" | "text";
+  kind?: 'id' | 'status' | 'text';
   copyKind?: string;
 };
 
 const DEFAULT_HEADER: HeaderField[] = [
-  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-  { key: "id", label: "标识", keys: ["orderId", "id", "fulfillmentId", "transferId"], kind: "id", copyKind: "单据" },
-  { key: "version", label: "版本", keys: ["version"] }
+  { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+  {
+    key: 'id',
+    label: '标识',
+    keys: ['orderId', 'id', 'fulfillmentId', 'transferId'],
+    kind: 'id',
+    copyKind: '单据',
+  },
+  { key: 'version', label: '版本', keys: ['version'] },
 ];
 
 const LINE_COLUMNS: Column[] = [
-  { key: "id", label: "行", keys: ["id", "lineId", "orderLineId", "source_line_id", "external_line_id"], kind: "id", copyKind: "行" },
-  { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-  { key: "qty", label: "数量", qty: true, keys: ["expected_qty", "allocated_qty", "planned_qty", "requested_qty", "qty"] }
+  {
+    key: 'id',
+    label: '行',
+    keys: ['id', 'lineId', 'orderLineId', 'source_line_id', 'external_line_id'],
+    kind: 'id',
+    copyKind: '行',
+  },
+  { key: 'skuId', label: 'SKU', keys: ['skuId', 'sku_id'], kind: 'id', copyKind: 'SKU' },
+  { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+  {
+    key: 'qty',
+    label: '数量',
+    qty: true,
+    keys: ['expected_qty', 'allocated_qty', 'planned_qty', 'requested_qty', 'qty'],
+  },
 ];
 
 type CommandTab = { key: string; label: string; children: ReactNode };
@@ -38,25 +63,38 @@ type CommandTab = { key: string; label: string; children: ReactNode };
 type CommandColProps = {
   title: string;
   requireScope?: string | string[];
-  resourceType?: "warehouse" | "enterprise";
+  resourceType?: 'warehouse' | 'enterprise';
   warehouseId?: string;
   children: ReactNode;
 };
 
-export function collectCommandTabs(node: ReactNode, scopes: string[] | undefined, workspace: WorkspaceValue = { warehouseId: "", scopes }): CommandTab[] {
+export function collectCommandTabs(
+  node: ReactNode,
+  scopes: string[] | undefined,
+  workspace: WorkspaceValue = { warehouseId: '', scopes },
+): CommandTab[] {
   return Children.toArray(node).flatMap((child) => {
     if (!isValidElement(child)) {
       return [];
     }
     if (child.type === Fragment) {
-      return collectCommandTabs((child.props as { children?: ReactNode }).children, scopes, workspace);
+      return collectCommandTabs(
+        (child.props as { children?: ReactNode }).children,
+        scopes,
+        workspace,
+      );
     }
     if (child.type !== CommandCol) {
       return [];
     }
     const props = child.props as CommandColProps;
     // 中央提示属于当前作业仓；跨仓单据的动作必须先切换到Owner指定的源仓/目的仓。
-    if (workspace.mode === "CENTRAL" && props.warehouseId !== undefined && props.warehouseId !== workspace.warehouseId) return [];
+    if (
+      workspace.mode === 'CENTRAL' &&
+      props.warehouseId !== undefined &&
+      props.warehouseId !== workspace.warehouseId
+    )
+      return [];
     if (!canOperation(workspace, props.requireScope, props.resourceType)) {
       return [];
     }
@@ -65,10 +103,10 @@ export function collectCommandTabs(node: ReactNode, scopes: string[] | undefined
 }
 
 function CommandTabs({ items }: { items: CommandTab[] }) {
-  const [active, setActive] = useState(items[0]?.key ?? "");
+  const [active, setActive] = useState(items[0]?.key ?? '');
   useEffect(() => {
     if (!items.some((item) => item.key === active)) {
-      setActive(items[0]?.key ?? "");
+      setActive(items[0]?.key ?? '');
     }
   }, [active, items]);
   const current = items.find((item) => item.key === active) ?? items[0];
@@ -77,24 +115,32 @@ function CommandTabs({ items }: { items: CommandTab[] }) {
   }
   return (
     <div>
-      <div role="tablist" aria-label="作业命令" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+      <div
+        role="tablist"
+        aria-label="作业命令"
+        style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}
+      >
         {items.map((item) => (
           <button
             key={item.key}
             type="button"
             role="tab"
             aria-selected={item.key === current.key}
-            className={item.key === current.key ? "ant-btn ant-btn-primary ant-btn-sm" : "ant-btn ant-btn-default ant-btn-sm"}
+            className={
+              item.key === current.key
+                ? 'ant-btn ant-btn-primary ant-btn-sm'
+                : 'ant-btn ant-btn-default ant-btn-sm'
+            }
             style={{
-              display: "inline-flex",
-              alignItems: "center",
+              display: 'inline-flex',
+              alignItems: 'center',
               height: 24,
-              padding: "0 8px",
-              border: item.key === current.key ? "1px solid #1677FF" : "1px solid #91CAFF",
+              padding: '0 8px',
+              border: item.key === current.key ? '1px solid #1677FF' : '1px solid #91CAFF',
               borderRadius: 6,
-              background: item.key === current.key ? "#1677FF" : "#E6F4FF",
-              color: item.key === current.key ? "#fff" : "#1677FF",
-              cursor: "pointer"
+              background: item.key === current.key ? '#1677FF' : '#E6F4FF',
+              color: item.key === current.key ? '#fff' : '#1677FF',
+              cursor: 'pointer',
             }}
             onClick={() => setActive(item.key)}
           >
@@ -107,12 +153,12 @@ function CommandTabs({ items }: { items: CommandTab[] }) {
   );
 }
 
-export function CommandCol({
-  title,
-  requireScope,
-  children
-}: CommandColProps) {
-  return <div data-command={title} data-scope={String(requireScope ?? "")}>{children}</div>;
+export function CommandCol({ title, requireScope, children }: CommandColProps) {
+  return (
+    <div data-command={title} data-scope={String(requireScope ?? '')}>
+      {children}
+    </div>
+  );
 }
 
 export function DocumentWorkbench({
@@ -123,12 +169,12 @@ export function DocumentWorkbench({
   loading,
   error,
   record,
-  lineKeys = ["lines"],
+  lineKeys = ['lines'],
   headerFields = DEFAULT_HEADER,
   lineColumns,
   extraColumns,
   commands,
-  extra
+  extra,
 }: {
   backTo: string;
   backLabel: string;
@@ -149,17 +195,20 @@ export function DocumentWorkbench({
   const [tick, setTick] = useState(0);
   const lines = nestedRecords(record, ...lineKeys);
   const columns = lineColumns ?? [...LINE_COLUMNS, ...(extraColumns ?? [])];
-  const tabs = useMemo(() => collectCommandTabs(commands, scopes, workspace), [commands, scopes, workspace]);
+  const tabs = useMemo(
+    () => collectCommandTabs(commands, scopes, workspace),
+    [commands, scopes, workspace],
+  );
   void tick;
 
   return (
-    <Space orientation="vertical" size={16} style={{ display: "flex" }}>
+    <Space orientation="vertical" size={16} style={{ display: 'flex' }}>
       <PageHead
         breadcrumb={[{ label: backLabel, to: backTo }, { label: title }]}
         title={title}
-        status={field(record, "status", "state")}
+        status={field(record, 'status', 'state')}
         sub={sub}
-        extra={(
+        extra={
           <Space>
             {tabs.length > 0 ? (
               <CommandDrawer
@@ -172,22 +221,24 @@ export function DocumentWorkbench({
                 <CommandTabs items={tabs} />
               </CommandDrawer>
             ) : null}
-            <Link to={backTo}><Button>{backLabel}</Button></Link>
+            <Link to={backTo}>
+              <Button>{backLabel}</Button>
+            </Link>
           </Space>
-        )}
+        }
       />
       {loading ? <StatusBanner kind="loading" title="加载单据，命令暂不可重复提交" /> : null}
       {error ? errorBanner(error) : null}
-      {field(record, "stockSyncStatus") === "PENDING" ? (
+      {field(record, 'stockSyncStatus') === 'PENDING' ? (
         <StatusBanner
           kind="sync-pending"
           title="货已执行，库存待同步"
-          operationId={field(record, "operationId", "commandId")}
+          operationId={field(record, 'operationId', 'commandId')}
           detail="禁止当作业务已成功，也不要新开实物命令。"
         />
       ) : null}
-      {/HOLD|CLAIMED|TRANSFER/.test(field(record, "serialState", "qualityCode", "quality_code")) ? (
-        <StatusBanner kind="serial-hold" title={field(record, "serialState", "qualityCode")} />
+      {/HOLD|CLAIMED|TRANSFER/.test(field(record, 'serialState', 'qualityCode', 'quality_code')) ? (
+        <StatusBanner kind="serial-hold" title={field(record, 'serialState', 'qualityCode')} />
       ) : null}
       <Card title="单据">
         <Descriptions
@@ -195,10 +246,10 @@ export function DocumentWorkbench({
           column={2}
           items={headerFields.map((item) => {
             const value = field(record, ...(item.keys ?? [item.key]));
-            let children: ReactNode = value || "—";
-            if (item.kind === "status" && value) {
+            let children: ReactNode = value || '—';
+            if (item.kind === 'status' && value) {
               children = <StatusChip value={value} />;
-            } else if (item.kind === "id" && value) {
+            } else if (item.kind === 'id' && value) {
               children = <CopyId value={value} kind={item.copyKind || item.label} />;
             }
             return { key: item.key, label: item.label, children };
@@ -207,12 +258,7 @@ export function DocumentWorkbench({
       </Card>
       {columns.length > 0 ? (
         <Card title="明细">
-          <DataTable
-            caption="单据明细"
-            rows={lines}
-            columns={columns}
-            emptyText="这张单还没有行"
-          />
+          <DataTable caption="单据明细" rows={lines} columns={columns} emptyText="这张单还没有行" />
         </Card>
       ) : null}
       {extra}

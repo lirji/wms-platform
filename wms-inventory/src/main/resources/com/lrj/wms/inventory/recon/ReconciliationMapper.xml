@@ -1,34 +1,30 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.recon.ReconciliationMapper">
-
-    <!-- upsertCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="upsertCutoff">
+  <!-- upsertCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="upsertCutoff">
         INSERT INTO reconciliation_cutoff (id, enterprise_id, warehouse_id, cutoff_id, closed_at, source_watermark, posting_watermark, receipt_watermark, watermarks_complete, state, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cutoffId}, #{closedAt}, #{sourceWatermark}, #{postingWatermark}, #{receiptWatermark}, #{complete}, 'CLOSED', 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE id=id
     </insert>
-
-    <!-- lockCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockCutoff" resultType="map">
+  <!-- lockCutoff：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockCutoff" resultType="map">
         SELECT c.*, EXISTS(SELECT 1 FROM reconciliation_history_guard g
             WHERE g.enterprise_id=c.enterprise_id AND g.warehouse_id=c.warehouse_id
-              AND g.closed_before >= c.closed_at) AS history_frozen
+              AND g.closed_before &gt;= c.closed_at) AS history_frozen
         FROM reconciliation_cutoff c
         WHERE c.enterprise_id=#{enterpriseId}
         AND c.warehouse_id=#{warehouseId}
         AND c.cutoff_id=#{cutoffId} FOR UPDATE
     </select>
-
-    <!-- insertFactIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertFactIgnore">
+  <!-- insertFactIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertFactIgnore">
         INSERT INTO source_execution_fact (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, fact_kind, quantity, occurred_at, watermark_token, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectKey}, #{factKind}, #{quantity}, #{occurredAt}, #{watermark}, 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
-
-    <!-- 单页一致性快照：当前余额与同一事务看到的最新流水、预占及序列号比较，不冒充全仓历史快照。 -->
-    <select id="balancePage" resultType="map">
+  <!-- 单页一致性快照：当前余额与同一事务看到的最新流水、预占及序列号比较，不冒充全仓历史快照。 -->
+  <select id="balancePage" resultType="map">
         SELECT b.id, b.sku_id, b.on_hand_qty, b.reserved_qty, k.serial_enabled,
             COALESCE((SELECT l.on_hand_after FROM stock_ledger l
                 WHERE l.enterprise_id=b.enterprise_id AND l.warehouse_id=b.warehouse_id AND l.balance_id=b.id
@@ -44,8 +40,8 @@
         <if test="cursor != null">AND b.id &gt; #{cursor}</if>
         ORDER BY b.id LIMIT #{limit}
     </select>
-    <!-- 只匹配 PHYSICAL 来源事实，不能让同命令的 POSTED 投影覆盖物理事实。 -->
-    <select id="factPage" resultType="map">
+  <!-- 只匹配 PHYSICAL 来源事实，不能让同命令的 POSTED 投影覆盖物理事实。 -->
+  <select id="factPage" resultType="map">
         SELECT f.id, f.source_service, f.command_id, f.quantity, f.occurred_at, p.id AS other_id, p.quantity AS other_qty
         FROM source_execution_fact f LEFT JOIN stock_posting p ON p.enterprise_id=f.enterprise_id AND p.warehouse_id=f.warehouse_id
             AND p.source_service=f.source_service AND p.command_id=f.command_id AND p.created_at &lt; #{cutoff}
@@ -53,7 +49,7 @@
         <if test="cursor != null">AND f.id &gt; #{cursor}</if>
         ORDER BY f.id LIMIT #{limit}
     </select>
-    <select id="postingPage" resultType="map">
+  <select id="postingPage" resultType="map">
         SELECT p.id, p.source_service, p.command_id, p.quantity, f.id AS other_id
         FROM stock_posting p LEFT JOIN source_execution_fact f ON f.enterprise_id=p.enterprise_id AND f.warehouse_id=p.warehouse_id
             AND f.source_service=p.source_service AND f.command_id=p.command_id AND f.fact_kind='PHYSICAL' AND f.occurred_at &lt; #{cutoff}
@@ -61,22 +57,21 @@
         <if test="cursor != null">AND p.id &gt; #{cursor}</if>
         ORDER BY p.id LIMIT #{limit}
     </select>
-    <insert id="insertScan">
+  <insert id="insertScan">
         INSERT INTO reconciliation_scan (id,enterprise_id,warehouse_id,cutoff_id,created_at,updated_at)
         VALUES (#{id},#{enterpriseId},#{warehouseId},#{cutoffId},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id
     </insert>
-    <select id="lockScan" resultType="map">
+  <select id="lockScan" resultType="map">
         SELECT * FROM reconciliation_scan WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND cutoff_id=#{cutoffId} FOR UPDATE
     </select>
-    <update id="checkpoint">
+  <update id="checkpoint">
         UPDATE reconciliation_scan SET balance_cursor=#{scan.balance_cursor},fact_cursor=#{scan.fact_cursor},posting_cursor=#{scan.posting_cursor},
             balance_done=#{scan.balance_done},fact_done=#{scan.fact_done},posting_done=#{scan.posting_done},
             completed_cycles=completed_cycles+#{completed},version=version+1,updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND cutoff_id=#{cutoffId} AND version=#{scan.version}
     </update>
-
-    <!-- insertCaseIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertCaseIgnore">
+  <!-- insertCaseIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertCaseIgnore">
         INSERT INTO reconciliation_case (id, enterprise_id, warehouse_id, cutoff_id, case_type, discrepancy_code, scope_id, sku_id, expected_qty, actual_qty, state, evidence_ref, remediation_operation_id, approved_by, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cutoffId}, #{caseType}, #{code}, #{scopeId}, #{skuId}, #{expected}, #{actual}, 'OPEN', #{evidence}, NULL, NULL, 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE
@@ -84,9 +79,8 @@
             state=IF(state='CLOSED','OPEN',state), discrepancy_code=VALUES(discrepancy_code), expected_qty=VALUES(expected_qty),
             actual_qty=VALUES(actual_qty), evidence_ref=VALUES(evidence_ref), updated_at=#{now}, version=version+1
     </insert>
-
-    <!-- listCases：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listCases" resultType="map">
+  <!-- listCases：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listCases" resultType="map">
         SELECT *
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}
@@ -94,8 +88,7 @@
         AND cutoff_id=#{cutoffId}
         ORDER BY case_type, scope_id LIMIT 200
     </select>
-
-    <select id="listCasesPage" resultType="map">
+  <select id="listCasesPage" resultType="map">
         SELECT *
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}
@@ -104,18 +97,16 @@
         <if test="page.id != null">AND id &gt; #{page.id}</if>
         ORDER BY id LIMIT #{page.fetchLimit}
     </select>
-
-    <!-- lockCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockCase" resultType="map">
+  <!-- lockCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockCase" resultType="map">
         SELECT *
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{id} FOR UPDATE
     </select>
-
-    <!-- findCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="findCase" resultType="map">
+  <!-- findCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="findCase" resultType="map">
         SELECT *
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}
@@ -124,9 +115,8 @@
         AND case_type=#{caseType}
         AND scope_id=#{scopeId}
     </select>
-
-    <!-- casCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casCase">
+  <!-- casCase：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casCase">
         UPDATE reconciliation_case
         SET state=#{toState}, approved_by=#{approvedBy}, remediation_operation_id=#{operationId}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -135,9 +125,8 @@
         AND version=#{expected}
         AND state=#{fromState}
     </update>
-
-    <!-- listRepairing：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listRepairing" resultType="map">
+  <!-- listRepairing：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listRepairing" resultType="map">
         SELECT id, version, case_type, scope_id, state, approved_by, remediation_operation_id
         FROM reconciliation_case
         WHERE enterprise_id=#{enterpriseId}

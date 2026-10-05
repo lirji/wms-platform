@@ -1,12 +1,13 @@
 package com.lrj.wms.inbound.receipt;
 
+import org.apache.ibatis.session.SqlSession;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ibatis.session.SqlSession;
 
 /** 入库仓任务列表、详情与领取。仅 PUTAWAY 属于本域。 */
 public final class InboundTaskService {
@@ -21,11 +22,12 @@ public final class InboundTaskService {
         this.clock = clock;
     }
 
-    public Map<String, Object> list(String enterpriseId, String warehouseId, String taskType, String cursor, int limit) {
+    public Map<String, Object> list(
+            String enterpriseId, String warehouseId, String taskType, String cursor, int limit) {
         requireType(taskType);
         int size = pageSize(limit);
-        List<Map<String, Object>> items = mapper().listTasks(enterpriseId, warehouseId, taskType, blankToNull(cursor),
-                size);
+        List<Map<String, Object>> items =
+                mapper().listTasks(enterpriseId, warehouseId, taskType, blankToNull(cursor), size);
         return page(items, size);
     }
 
@@ -37,7 +39,11 @@ public final class InboundTaskService {
         return task;
     }
 
-    public Map<String, Object> claim(String enterpriseId, String warehouseId, String taskId, String workerId,
+    public Map<String, Object> claim(
+            String enterpriseId,
+            String warehouseId,
+            String taskId,
+            String workerId,
             long expectedVersion) {
         if (workerId == null || workerId.isBlank()) {
             throw new InboundException("INVALID_WORKER", "worker不能为空");
@@ -54,8 +60,15 @@ public final class InboundTaskService {
             throw new InboundException("VERSION_CONFLICT", "任务版本冲突");
         }
         long epoch = asLong(task.get("claim_epoch")) + 1;
-        if (mapper.claimTask(enterpriseId, warehouseId, taskId, workerId, epoch, expectedVersion,
-                Timestamp.from(clock.instant())) != 1) {
+        if (mapper.claimTask(
+                        enterpriseId,
+                        warehouseId,
+                        taskId,
+                        workerId,
+                        epoch,
+                        expectedVersion,
+                        Timestamp.from(clock.instant()))
+                != 1) {
             throw new InboundException("VERSION_CONFLICT", "任务版本冲突");
         }
         Map<String, Object> body = new LinkedHashMap<>(get(enterpriseId, warehouseId, taskId));

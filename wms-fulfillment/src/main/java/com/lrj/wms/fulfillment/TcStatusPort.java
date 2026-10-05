@@ -6,6 +6,5 @@ import java.util.Optional;
 public interface TcStatusPort {
     Optional<Observation> read(String xid);
 
-    record Observation(String status, String evidence) {
-    }
+    record Observation(String status, String evidence) {}
 }

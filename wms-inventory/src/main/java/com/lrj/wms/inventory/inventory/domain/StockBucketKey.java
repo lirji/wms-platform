@@ -1,6 +1,7 @@
 package com.lrj.wms.inventory.inventory.domain;
 
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -10,14 +11,14 @@ import java.util.Objects;
  * 容器不纳入首期余额维度。锁顺序按稳定键排序。
  */
 public final class StockBucketKey implements Comparable<StockBucketKey> {
-    private static final Comparator<StockBucketKey> ORDER = Comparator
-            .comparing(StockBucketKey::enterpriseId)
-            .thenComparing(StockBucketKey::warehouseId)
-            .thenComparing(StockBucketKey::ownerId)
-            .thenComparing(StockBucketKey::locationId)
-            .thenComparing(StockBucketKey::skuId)
-            .thenComparing(StockBucketKey::lotId)
-            .thenComparing(StockBucketKey::qualityCode);
+    private static final Comparator<StockBucketKey> ORDER =
+            Comparator.comparing(StockBucketKey::enterpriseId)
+                    .thenComparing(StockBucketKey::warehouseId)
+                    .thenComparing(StockBucketKey::ownerId)
+                    .thenComparing(StockBucketKey::locationId)
+                    .thenComparing(StockBucketKey::skuId)
+                    .thenComparing(StockBucketKey::lotId)
+                    .thenComparing(StockBucketKey::qualityCode);
 
     private final String enterpriseId;
     private final String warehouseId;
@@ -27,8 +28,14 @@ public final class StockBucketKey implements Comparable<StockBucketKey> {
     private final String lotId;
     private final String qualityCode;
 
-    private StockBucketKey(String enterpriseId, String warehouseId, String ownerId, String locationId, String skuId,
-            String lotId, String qualityCode) {
+    private StockBucketKey(
+            String enterpriseId,
+            String warehouseId,
+            String ownerId,
+            String locationId,
+            String skuId,
+            String lotId,
+            String qualityCode) {
         this.enterpriseId = enterpriseId;
         this.warehouseId = warehouseId;
         this.ownerId = ownerId;
@@ -39,8 +46,14 @@ public final class StockBucketKey implements Comparable<StockBucketKey> {
     }
 
     /** 创建桶键；lot 不得为空，质量必须是封闭集合。 */
-    public static StockBucketKey of(String enterpriseId, String warehouseId, String ownerId, String locationId,
-            String skuId, String lotId, String qualityCode) {
+    public static StockBucketKey of(
+            String enterpriseId,
+            String warehouseId,
+            String ownerId,
+            String locationId,
+            String skuId,
+            String lotId,
+            String qualityCode) {
         return new StockBucketKey(
                 MasterdataCodes.requireCode("企业标识", enterpriseId),
                 MasterdataCodes.requireCode("仓库标识", warehouseId),
@@ -108,6 +121,7 @@ public final class StockBucketKey implements Comparable<StockBucketKey> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(enterpriseId, warehouseId, ownerId, locationId, skuId, lotId, qualityCode);
+        return Objects.hash(
+                enterpriseId, warehouseId, ownerId, locationId, skuId, lotId, qualityCode);
     }
 }

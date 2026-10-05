@@ -1,5 +1,5 @@
-import { Descriptions } from "antd";
-import { StatusChip } from "./StatusChip";
+import { Descriptions } from 'antd';
+import { StatusChip } from './StatusChip';
 
 export function QueryMeta({
   warehouseId,
@@ -7,7 +7,7 @@ export function QueryMeta({
   asOf,
   lagSeconds,
   stale,
-  rowCount
+  rowCount,
 }: {
   warehouseId?: string;
   warehouseName?: string;
@@ -18,12 +18,16 @@ export function QueryMeta({
 }) {
   return (
     <Descriptions size="small" bordered column={rowCount ? 4 : 3} className="query-meta">
-      {warehouseId ? <Descriptions.Item label="当前仓">{warehouseName || warehouseId}</Descriptions.Item> : null}
+      {warehouseId ? (
+        <Descriptions.Item label="当前仓">{warehouseName || warehouseId}</Descriptions.Item>
+      ) : null}
       <Descriptions.Item label="asOf">
-        {stale ? <StatusChip value="STALE" /> : (asOf || "接口未返回")}
+        {stale ? <StatusChip value="STALE" /> : asOf || '接口未返回'}
       </Descriptions.Item>
-      <Descriptions.Item label="lagSeconds">{lagSeconds || "—"}</Descriptions.Item>
-      {rowCount !== undefined ? <Descriptions.Item label="行数">{rowCount}</Descriptions.Item> : null}
+      <Descriptions.Item label="lagSeconds">{lagSeconds || '—'}</Descriptions.Item>
+      {rowCount !== undefined ? (
+        <Descriptions.Item label="行数">{rowCount}</Descriptions.Item>
+      ) : null}
     </Descriptions>
   );
 }

@@ -70,24 +70,41 @@ def bind_operations(source_text, bindings_text):
 
 
 def read_navigation(text):
-    """只解析本项目当前有限声明形式；源码结构变化时要求显式更新导出器。"""
-    if "export const NAV_GROUPS: NavGroup[] = [" not in text:
+    """解析有限的静态菜单声明；引号和换行不影响事实，动态表达式仍失败拒绝。"""
+    declaration = re.search(r"export\s+const\s+NAV_GROUPS:\s*NavGroup\[\]\s*=\s*\[(.*?)\];", text, re.S)
+    if declaration is None:
         raise ValueError("控制台导航声明缺失")
-    source = text.split("export const NAV_GROUPS: NavGroup[] = [", 1)[1]
-    groups, current = [], None
-    for line in source.splitlines():
-        title = re.search(r'title: "([^"\n]+)"', line)
-        if title:
-            current = {"title": title.group(1), "items": []}
-            groups.append(current)
-        item = re.search(r'\{ to: "([^"\n]*)", label: "([^"\n]+)"([^}]*)\}', line)
-        if item:
-            if current is None:
-                raise ValueError("菜单缺少分组")
-            current["items"].append({"to": item.group(1), "label": item.group(2),
-                                     "pda": bool(re.search(r"\bpda: true\b", item.group(3)))})
-        elif re.search(r'\bto:\s*"', line):
+    group_pattern = re.compile(
+        r"\{\s*title:\s*(['\"])([^'\"\r\n]+)\1\s*,\s*items:\s*\[(.*?)\]\s*,?\s*\}", re.S)
+    item_pattern = re.compile(
+        r"\{\s*to:\s*(['\"])([^'\"\r\n]*)\1\s*,\s*label:\s*(['\"])([^'\"\r\n]+)\3\s*,\s*([^{}]*?)\}", re.S)
+    # 不忽略无法解析的残余内容，否则条件菜单、重复字段或动态授权入口会被静默丢弃。
+    def matches(pattern, source):
+        result, offset = [], 0
+        for match in pattern.finditer(source):
+            if source[offset:match.start()].strip(" \t\r\n,"):
+                raise ValueError("导航声明格式变化，必须更新导出器")
+            result.append(match)
+            offset = match.end()
+        if source[offset:].strip(" \t\r\n,"):
             raise ValueError("导航声明格式变化，必须更新导出器")
+        return result
+
+    groups = []
+    for group in matches(group_pattern, declaration.group(1)):
+        current = {"title": group.group(2), "items": []}
+        for item in matches(item_pattern, group.group(3)):
+            extra = item.group(5)
+            fields = re.findall(r"(end|pda|icon)\s*:\s*(true|false|<[A-Za-z][A-Za-z0-9]*\s*/>)\s*,?", extra)
+            residue = re.sub(r"(end|pda|icon)\s*:\s*(true|false|<[A-Za-z][A-Za-z0-9]*\s*/>)\s*,?", "", extra)
+            if residue.strip() or len(fields) != len(dict(fields)) or "icon" not in dict(fields):
+                raise ValueError("菜单字段不符合静态声明契约")
+            values = dict(fields)
+            if not values["icon"].startswith("<") or any(values[key] not in {"true", "false"} for key in values if key != "icon"):
+                raise ValueError("菜单字段类型无效")
+            current["items"].append({"to": item.group(2), "label": item.group(4),
+                                     "pda": values.get("pda") == "true"})
+        groups.append(current)
     routes = [item["to"] for group in groups for item in group["items"]]
     if len(groups) != len(GROUP_IDS) or set(routes) != set(MENU_SCOPES) or len(routes) != len(set(routes)):
         raise ValueError("控制台菜单与中央菜单绑定不一致")

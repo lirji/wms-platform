@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext } from 'react';
 
 export const DirtyFormContext = createContext<(dirty: boolean) => void>(() => undefined);
 
@@ -6,7 +6,7 @@ export const DirtyFormContext = createContext<(dirty: boolean) => void>(() => un
 export const CommandDialogContext = createContext({
   submitted: () => undefined as void,
   setBusy: (_busy: boolean) => undefined as void,
-  close: () => undefined as void
+  close: () => undefined as void,
 });
 
 export function useCommandDialog() {

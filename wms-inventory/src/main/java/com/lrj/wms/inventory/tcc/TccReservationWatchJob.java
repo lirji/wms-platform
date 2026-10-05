@@ -8,7 +8,8 @@ public final class TccReservationWatchJob {
     private final String enterpriseId;
     private final String warehouseId;
 
-    public TccReservationWatchJob(TccReservationWatch watch, String enterpriseId, String warehouseId) {
+    public TccReservationWatchJob(
+            TccReservationWatch watch, String enterpriseId, String warehouseId) {
         this.watch = watch;
         this.enterpriseId = enterpriseId;
         this.warehouseId = warehouseId;

@@ -53,15 +53,25 @@ public final class InventoryCodes {
     public static final String DECISION_DRAIN = "DRAIN";
     public static final String DECISION_ISOLATE = "ISOLATE";
 
-    private static final Set<String> QUALITIES = Set.of(QUALITY_HOLD, QUALITY_GOOD, QUALITY_REJECTED);
+    private static final Set<String> QUALITIES =
+            Set.of(QUALITY_HOLD, QUALITY_GOOD, QUALITY_REJECTED);
     private static final Set<String> ALLOCATIONS = Set.of(ALLOC_FIFO, ALLOC_FEFO);
-    private static final Set<String> COMMANDS = Set.of(CMD_NEW_RESERVE, CMD_NEW_DISPATCH, CMD_NORMAL_MUTATION,
-            CMD_INFLIGHT_CONFIRM, CMD_TCC_CANCEL, CMD_ARBITRARY_RELEASE, CMD_COUNT_OBSERVE, CMD_COUNT_ADJUST,
-            CMD_UNFREEZE, CMD_MAINTENANCE);
-    private static final Set<String> DECISIONS = Set.of(DECISION_ALLOW, DECISION_DENY, DECISION_DRAIN, DECISION_ISOLATE);
+    private static final Set<String> COMMANDS =
+            Set.of(
+                    CMD_NEW_RESERVE,
+                    CMD_NEW_DISPATCH,
+                    CMD_NORMAL_MUTATION,
+                    CMD_INFLIGHT_CONFIRM,
+                    CMD_TCC_CANCEL,
+                    CMD_ARBITRARY_RELEASE,
+                    CMD_COUNT_OBSERVE,
+                    CMD_COUNT_ADJUST,
+                    CMD_UNFREEZE,
+                    CMD_MAINTENANCE);
+    private static final Set<String> DECISIONS =
+            Set.of(DECISION_ALLOW, DECISION_DENY, DECISION_DRAIN, DECISION_ISOLATE);
 
-    private InventoryCodes() {
-    }
+    private InventoryCodes() {}
 
     /** 校验质量桶；未知不得当作 GOOD。 */
     public static String requireQuality(String code) {

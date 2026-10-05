@@ -1,52 +1,45 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.migrate.infrastructure.MigrationCopyMapper">
-    <!-- 标识符来自固定允许列表或校验过的数据库元数据；业务值全部参数绑定。 -->
-    <select id="columns" resultType="map">
+  <!-- 标识符来自固定允许列表或校验过的数据库元数据；业务值全部参数绑定。 -->
+  <select id="columns" resultType="map">
         SELECT COLUMN_NAME AS column_name, DATA_TYPE AS data_type FROM information_schema.COLUMNS
         <!-- DEFAULT_GENERATED仍是可复制的普通列；只排除实际计算生成列。 -->
         WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=#{table} AND GENERATION_EXPRESSION=''
         ORDER BY ORDINAL_POSITION
     </select>
-    <select id="page" resultType="map">
+  <select id="page" resultType="map">
         SELECT <foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>
         FROM `${table}` WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
         <if test="since != null">AND `${watermark}` &gt;= #{since}</if>
         <if test="cursor != null">AND `${key}` &gt; #{cursor}</if>
         ORDER BY `${key}` LIMIT 200
     </select>
-    <select id="byKey" resultType="map">
+  <select id="byKey" resultType="map">
         SELECT <foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>
         FROM `${table}` WHERE `${key}`=#{id} FOR UPDATE
     </select>
-    <insert id="upsert">
+  <insert id="upsert">
         INSERT INTO `${table}`
         (<foreach collection="columns" item="column" separator=",">`${column.name}`</foreach>)
-        VALUES (<foreach collection="columns" item="column" separator=",">
-            <choose><when test="column.json">CAST(#{row.${column.name}} AS JSON)</when>
-                <otherwise>#{row.${column.name}}</otherwise></choose>
-        </foreach>)
+        VALUES (<foreach collection="columns" item="column" separator=","><choose><when test="column.json">CAST(#{row.${column.name}} AS JSON)</when><otherwise>#{row.${column.name}}</otherwise></choose></foreach>)
         <if test="immutable">ON DUPLICATE KEY UPDATE id=id</if>
         <if test="!immutable">
             AS incoming ON DUPLICATE KEY UPDATE
-            <trim suffixOverrides=",">
-                <foreach collection="columns" item="column">
-                    <if test="column.name != 'id' and column.name != 'event_id'">
+            <trim suffixOverrides=","><foreach collection="columns" item="column"><if test="column.name != 'id' and column.name != 'event_id'">
                         `${column.name}`=incoming.`${column.name}`,
-                    </if>
-                </foreach>
-            </trim>
+                    </if></foreach></trim>
         </if>
     </insert>
-    <select id="count" resultType="long">
+  <select id="count" resultType="long">
         SELECT COUNT(*) FROM `${table}` WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
     </select>
-    <select id="quantities" resultType="map">
+  <select id="quantities" resultType="map">
         SELECT COALESCE(SUM(on_hand_qty),0) on_hand, COALESCE(SUM(reserved_qty),0) reserved,
             COALESCE(SUM(free_execution_claim_qty),0) claimed FROM stock_balance
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
     </select>
-    <select id="terminalFences" resultType="map">
+  <select id="terminalFences" resultType="map">
         SELECT i.id,f.xid,f.branch_id,f.action_name,f.status,f.gmt_create,f.gmt_modified
         FROM inventory_tcc_intent i JOIN inventory_tcc_terminal t ON t.id=i.id AND t.xid=i.xid AND t.branch_id=i.branch_id
         JOIN tcc_fence_log f ON f.xid=i.xid AND f.branch_id=i.branch_id AND f.action_name=i.action_name
@@ -54,8 +47,8 @@
         <if test="after != null">AND i.id&gt;#{after}</if>
         ORDER BY i.id LIMIT 200
     </select>
-    <select id="fence" resultType="map">SELECT * FROM tcc_fence_log WHERE xid=#{xid} AND branch_id=#{branch} FOR UPDATE</select>
-    <insert id="insertFence">
+  <select id="fence" resultType="map">SELECT * FROM tcc_fence_log WHERE xid=#{xid} AND branch_id=#{branch} FOR UPDATE</select>
+  <insert id="insertFence">
         INSERT INTO tcc_fence_log(xid,branch_id,action_name,status,gmt_create,gmt_modified)
         VALUES(#{f.xid},#{f.branch_id},#{f.action_name},#{f.status},#{f.gmt_create},#{f.gmt_modified})
         ON DUPLICATE KEY UPDATE xid=xid

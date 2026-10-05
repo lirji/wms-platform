@@ -4,16 +4,17 @@ import com.lrj.wms.inventory.compat.CompatibilityGate;
 import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.jobs.JobRunException;
+
+import org.apache.ibatis.session.SqlSession;
+import org.apache.seata.core.context.RootContext;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
-import org.apache.seata.core.context.RootContext;
 
 /**
  * 按 eventId 去重、按 aggregateVersion 顺序更新投影。乱序先入 inbox，缺口不覆盖。
@@ -31,23 +32,55 @@ public final class InventoryProjectionService {
         this.clock = clock;
     }
 
-    public Map<String, Object> apply(String enterpriseId, String warehouseId, String eventId, String aggregateId,
-            long aggregateVersion, String eventType, String payload, Timestamp occurredAt, String ownerId,
-            String locationId, String skuId, String lotId, String qualityCode) {
+    public Map<String, Object> apply(
+            String enterpriseId,
+            String warehouseId,
+            String eventId,
+            String aggregateId,
+            long aggregateVersion,
+            String eventType,
+            String payload,
+            Timestamp occurredAt,
+            String ownerId,
+            String locationId,
+            String skuId,
+            String lotId,
+            String qualityCode) {
         RootContext.unbind();
         require(enterpriseId, warehouseId, eventId, aggregateId);
         ProjectionMapper views = session.getMapper(ProjectionMapper.class);
         Timestamp now = Timestamp.from(clock.instant());
         ensureCheckpoint(views, enterpriseId, warehouseId, now);
         int existed = views.countInbox(enterpriseId, warehouseId, CONSUMER, eventId);
-        views.insertInboxIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, CONSUMER, eventId, aggregateId,
-                aggregateVersion, eventType, payload == null ? "{}" : payload, occurredAt == null ? now : occurredAt, now);
+        views.insertInboxIgnore(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                warehouseId,
+                CONSUMER,
+                eventId,
+                aggregateId,
+                aggregateVersion,
+                eventType,
+                payload == null ? "{}" : payload,
+                occurredAt == null ? now : occurredAt,
+                now);
         if (existed > 0) {
             return Map.of("replayed", true, "applied", false);
         }
         long generation = liveGeneration(views, enterpriseId, warehouseId);
-        boolean applied = drain(views, enterpriseId, warehouseId, generation, aggregateId, ownerId, locationId, skuId,
-                lotId, qualityCode, now);
+        boolean applied =
+                drain(
+                        views,
+                        enterpriseId,
+                        warehouseId,
+                        generation,
+                        aggregateId,
+                        ownerId,
+                        locationId,
+                        skuId,
+                        lotId,
+                        qualityCode,
+                        now);
         return Map.of("replayed", false, "applied", applied, "generation", generation);
     }
 
@@ -61,8 +94,16 @@ public final class InventoryProjectionService {
         Map<String, Object> checkpoint = views.lockCheckpoint(enterpriseId, warehouseId, NAME);
         long live = asLong(checkpoint.get("live_generation"));
         long next = live + 1;
-        views.casCheckpoint(enterpriseId, warehouseId, NAME, live, next, string(checkpoint.get("last_event_id")),
-                timestampOf(checkpoint.get("last_event_time")), asLong(checkpoint.get("version")), now);
+        views.casCheckpoint(
+                enterpriseId,
+                warehouseId,
+                NAME,
+                live,
+                next,
+                string(checkpoint.get("last_event_id")),
+                timestampOf(checkpoint.get("last_event_time")),
+                asLong(checkpoint.get("version")),
+                now);
         views.copyBalances(enterpriseId, warehouseId, next, now);
         Long rebuildWater = views.highWater(enterpriseId, warehouseId, next);
         Long liveWater = views.highWater(enterpriseId, warehouseId, live);
@@ -70,51 +111,88 @@ public final class InventoryProjectionService {
             throw new JobRunException("REBUILD_LAG", "重建未追平当前投影，拒绝切换");
         }
         Map<String, Object> after = views.lockCheckpoint(enterpriseId, warehouseId, NAME);
-        if (views.casCheckpoint(enterpriseId, warehouseId, NAME, next, null, string(after.get("last_event_id")),
-                timestampOf(after.get("last_event_time")), asLong(after.get("version")), now) != 1) {
+        if (views.casCheckpoint(
+                        enterpriseId,
+                        warehouseId,
+                        NAME,
+                        next,
+                        null,
+                        string(after.get("last_event_id")),
+                        timestampOf(after.get("last_event_time")),
+                        asLong(after.get("version")),
+                        now)
+                != 1) {
             throw new JobRunException("CONFLICT", "投影切换冲突");
         }
         return Map.of("liveGeneration", next, "switched", true);
     }
 
     /** 兼容内部第一页查询。 */
-    public Map<String, Object> query(String enterpriseId, String warehouseId, String skuId, int limit) {
+    public Map<String, Object> query(
+            String enterpriseId, String warehouseId, String skuId, int limit) {
         return query(enterpriseId, warehouseId, skuId, limit, null);
     }
 
     /** 游标绑定筛选与投影世代，重建切换后要求调用方重新读取。 */
-    public Map<String, Object> query(String enterpriseId, String warehouseId, String skuId, int limit, String cursor) {
+    public Map<String, Object> query(
+            String enterpriseId, String warehouseId, String skuId, int limit, String cursor) {
         RootContext.unbind();
         require(enterpriseId, warehouseId, "x", "x");
         ProjectionMapper views = session.getMapper(ProjectionMapper.class);
         Timestamp now = Timestamp.from(clock.instant());
         ensureCheckpoint(views, enterpriseId, warehouseId, now);
         long generation = liveGeneration(views, enterpriseId, warehouseId);
-        var page = com.lrj.wms.runtime.web.CursorPage.parse(limit, cursor,
-                com.lrj.wms.runtime.web.CursorPage.scope("inventory", enterpriseId, warehouseId, blankToNull(skuId), generation));
-        List<Map<String, Object>> items = views.listView(enterpriseId, warehouseId, generation, blankToNull(skuId),
-                page);
+        var page =
+                com.lrj.wms.runtime.web.CursorPage.parse(
+                        limit,
+                        cursor,
+                        com.lrj.wms.runtime.web.CursorPage.scope(
+                                "inventory",
+                                enterpriseId,
+                                warehouseId,
+                                blankToNull(skuId),
+                                generation));
+        List<Map<String, Object>> items =
+                views.listView(enterpriseId, warehouseId, generation, blankToNull(skuId), page);
         Timestamp asOf = timestampOf(views.maxAsOf(enterpriseId, warehouseId, generation));
         Map<String, Object> body = page.result(items, false);
         body.put("asOf", asOf == null ? null : asOf.toInstant().toString());
-        body.put("lagSeconds", asOf == null ? 0 : Math.max(0, Duration.between(asOf.toInstant(), clock.instant()).toSeconds()));
+        body.put(
+                "lagSeconds",
+                asOf == null
+                        ? 0
+                        : Math.max(
+                                0,
+                                Duration.between(asOf.toInstant(), clock.instant()).toSeconds()));
         body.put("generation", generation);
         return body;
     }
 
-    private boolean drain(ProjectionMapper views, String enterpriseId, String warehouseId, long generation,
-            String aggregateId, String ownerId, String locationId, String skuId, String lotId, String qualityCode,
+    private boolean drain(
+            ProjectionMapper views,
+            String enterpriseId,
+            String warehouseId,
+            long generation,
+            String aggregateId,
+            String ownerId,
+            String locationId,
+            String skuId,
+            String lotId,
+            String qualityCode,
             Timestamp now) {
         boolean applied = false;
         while (true) {
-            Map<String, Object> current = views.lockView(enterpriseId, warehouseId, generation, aggregateId);
+            Map<String, Object> current =
+                    views.lockView(enterpriseId, warehouseId, generation, aggregateId);
             long expected = current == null ? 0L : asLong(current.get("source_version"));
-            Map<String, Object> next = views.findInboxVersion(enterpriseId, warehouseId, CONSUMER, aggregateId,
-                    expected + 1);
+            Map<String, Object> next =
+                    views.findInboxVersion(
+                            enterpriseId, warehouseId, CONSUMER, aggregateId, expected + 1);
             if (next == null) {
                 return applied;
             }
-            if (!InventoryCodes.EVENT_BALANCE_CHANGED.equals(String.valueOf(next.get("event_type")))) {
+            if (!InventoryCodes.EVENT_BALANCE_CHANGED.equals(
+                    String.valueOf(next.get("event_type")))) {
                 return applied;
             }
             String payload = String.valueOf(next.get("payload"));
@@ -124,18 +202,44 @@ public final class InventoryProjectionService {
             Timestamp asOf = timestampOf(next.get("occurred_at"));
             long version = asLong(next.get("aggregate_version"));
             if (current == null) {
-                views.insertView(aggregateId, enterpriseId, warehouseId, generation, ownerId, locationId, skuId, lotId,
-                        qualityCode, onHand, reserved, BigDecimal.ZERO, version, asOf, now);
-            } else if (views.casView(enterpriseId, warehouseId, generation, aggregateId, onHand, reserved, version,
-                    expected, asOf, now) != 1) {
+                views.insertView(
+                        aggregateId,
+                        enterpriseId,
+                        warehouseId,
+                        generation,
+                        ownerId,
+                        locationId,
+                        skuId,
+                        lotId,
+                        qualityCode,
+                        onHand,
+                        reserved,
+                        BigDecimal.ZERO,
+                        version,
+                        asOf,
+                        now);
+            } else if (views.casView(
+                            enterpriseId,
+                            warehouseId,
+                            generation,
+                            aggregateId,
+                            onHand,
+                            reserved,
+                            version,
+                            expected,
+                            asOf,
+                            now)
+                    != 1) {
                 return applied;
             }
             applied = true;
         }
     }
 
-    private void ensureCheckpoint(ProjectionMapper views, String enterpriseId, String warehouseId, Timestamp now) {
-        views.insertCheckpointIgnore(UUID.randomUUID().toString(), enterpriseId, warehouseId, NAME, now);
+    private void ensureCheckpoint(
+            ProjectionMapper views, String enterpriseId, String warehouseId, Timestamp now) {
+        views.insertCheckpointIgnore(
+                UUID.randomUUID().toString(), enterpriseId, warehouseId, NAME, now);
     }
 
     private long liveGeneration(ProjectionMapper views, String enterpriseId, String warehouseId) {
@@ -143,9 +247,16 @@ public final class InventoryProjectionService {
         return checkpoint == null ? 0L : asLong(checkpoint.get("live_generation"));
     }
 
-    private static void require(String enterpriseId, String warehouseId, String eventId, String aggregateId) {
-        if (enterpriseId == null || enterpriseId.isBlank() || warehouseId == null || warehouseId.isBlank()
-                || eventId == null || eventId.isBlank() || aggregateId == null || aggregateId.isBlank()) {
+    private static void require(
+            String enterpriseId, String warehouseId, String eventId, String aggregateId) {
+        if (enterpriseId == null
+                || enterpriseId.isBlank()
+                || warehouseId == null
+                || warehouseId.isBlank()
+                || eventId == null
+                || eventId.isBlank()
+                || aggregateId == null
+                || aggregateId.isBlank()) {
             throw new JobRunException("INVALID_SCOPE", "投影必须带企业/仓/事件");
         }
     }
@@ -171,5 +282,4 @@ public final class InventoryProjectionService {
         }
         return Timestamp.from(ExpiryPolicy.instantOf(value));
     }
-
 }

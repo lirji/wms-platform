@@ -1,6 +1,8 @@
-@import "./design/tokens.css";
+@import './design/tokens.css';
 
-html, body, #root {
+html,
+body,
+#root {
   min-height: 100%;
 }
 
@@ -42,10 +44,23 @@ body {
   color: #fff;
 }
 
-.brand-mark svg { width: 18px; height: 18px; }
-.brand strong, .brand small { display: block; }
-.brand strong { color: var(--ink); font-size: 15px; font-weight: 600; }
-.brand small { color: var(--assist); font-size: 12px; }
+.brand-mark svg {
+  width: 18px;
+  height: 18px;
+}
+.brand strong,
+.brand small {
+  display: block;
+}
+.brand strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.brand small {
+  color: var(--assist);
+  font-size: 12px;
+}
 
 .side-foot {
   display: block;
@@ -70,14 +85,20 @@ body {
 }
 
 /* 窄桌面的顶栏应随分组换行增高，避免文字挤成竖排并遮住页面入口。 */
-.app-header-row { flex-wrap: wrap; }
-.workspace-switcher { flex-shrink: 0; }
+.app-header-row {
+  flex-wrap: wrap;
+}
+.workspace-switcher {
+  flex-shrink: 0;
+}
 .workspace-actions {
   max-width: 100%;
   margin-inline-start: auto;
   justify-content: flex-end;
 }
-.workspace-actions .ant-space-item { white-space: nowrap; }
+.workspace-actions .ant-space-item {
+  white-space: nowrap;
+}
 .workspace-user {
   display: block;
   max-width: 180px;
@@ -108,7 +129,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -120,8 +143,12 @@ body {
   background: var(--card);
 }
 
-a { color: var(--accent); }
-a:hover { color: var(--accent-hover); }
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
 
 .command-dialog-hint {
   color: var(--muted);

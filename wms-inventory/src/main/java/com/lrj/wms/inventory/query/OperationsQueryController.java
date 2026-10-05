@@ -6,16 +6,7 @@ import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.jobs.JobRunMapper;
 import com.lrj.wms.security.WarehouseForbiddenException;
 import com.lrj.wms.security.WmsJwtAuthorities;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -30,6 +21,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /** 任务与盘点只读查询，供控制台展示进度与冻结状态。 */
 @RestController
 @RequestMapping("/api/wms/v1")
@@ -42,79 +42,118 @@ public class OperationsQueryController {
     }
 
     @GetMapping("/jobs")
-    public Map<String, Object> jobs(@AuthenticationPrincipal Jwt jwt, @RequestParam(name = "warehouseId") String warehouseId,
+    public Map<String, Object> jobs(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "warehouseId") String warehouseId,
             @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
-                com.lrj.wms.runtime.web.CursorPage.scope("jobs", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
+        var page =
+                com.lrj.wms.runtime.web.CursorPage.chronological(
+                        limit,
+                        cursor,
+                        com.lrj.wms.runtime.web.CursorPage.scope(
+                                "jobs", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
         try (SqlSession session = sessions.openSession()) {
-            return InventoryHttpJson.body(page.result(session.getMapper(JobRunMapper.class)
-                    .listRunsPage(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), true));
+            return InventoryHttpJson.body(
+                    page.result(
+                            session.getMapper(JobRunMapper.class)
+                                    .listRunsPage(
+                                            WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page),
+                            true));
         }
     }
 
     @GetMapping("/jobs/{jobId}")
-    public Map<String, Object> job(@AuthenticationPrincipal Jwt jwt, @PathVariable String jobId,
+    public Map<String, Object> job(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId,
             @RequestParam(name = "warehouseId") String warehouseId) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
             JobRunMapper mapper = session.getMapper(JobRunMapper.class);
-            Map<String, Object> run = mapper.lockRunById(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, jobId);
+            Map<String, Object> run =
+                    mapper.lockRunById(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, jobId);
             if (run == null) {
                 throw new IllegalArgumentException("任务不存在");
             }
             Map<String, Object> body = row(run);
-            body.put("shards", jsonValue(mapper.listShards(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, jobId)));
+            body.put(
+                    "shards",
+                    jsonValue(
+                            mapper.listShards(
+                                    WmsJwtAuthorities.enterpriseId(jwt), warehouseId, jobId)));
             return body;
         }
     }
 
     @GetMapping("/warehouses/{warehouseId}/count-plans")
-    public Map<String, Object> counts(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+    public Map<String, Object> counts(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String warehouseId,
             @RequestParam(name = "cursor", required = false) String cursor,
             @RequestParam(name = "limit", required = false) Integer limit) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
-        var page = com.lrj.wms.runtime.web.CursorPage.chronological(limit, cursor,
-                com.lrj.wms.runtime.web.CursorPage.scope("counts", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
+        var page =
+                com.lrj.wms.runtime.web.CursorPage.chronological(
+                        limit,
+                        cursor,
+                        com.lrj.wms.runtime.web.CursorPage.scope(
+                                "counts", WmsJwtAuthorities.enterpriseId(jwt), warehouseId));
         try (SqlSession session = sessions.openSession()) {
-            return InventoryHttpJson.body(page.result(session.getMapper(CountMapper.class)
-                    .listPlansPage(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page), true));
+            return InventoryHttpJson.body(
+                    page.result(
+                            session.getMapper(CountMapper.class)
+                                    .listPlansPage(
+                                            WmsJwtAuthorities.enterpriseId(jwt), warehouseId, page),
+                            true));
         }
     }
 
     @GetMapping("/operations/{operationId}")
-    public Map<String, Object> operation(@AuthenticationPrincipal Jwt jwt, @PathVariable String operationId) {
+    public Map<String, Object> operation(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable String operationId) {
         try (SqlSession session = sessions.openSession()) {
-            return InventoryHttpJson.body(new InventoryAuditService(session).getOperation(
-                    WmsJwtAuthorities.enterpriseId(jwt), operationId,
-                    new ArrayList<>(WmsJwtAuthorities.warehouses(jwt))));
+            return InventoryHttpJson.body(
+                    new InventoryAuditService(session)
+                            .getOperation(
+                                    WmsJwtAuthorities.enterpriseId(jwt),
+                                    operationId,
+                                    new ArrayList<>(WmsJwtAuthorities.warehouses(jwt))));
         }
     }
 
     @GetMapping("/warehouses/{warehouseId}/count-plans/{countPlanId}")
-    public Map<String, Object> count(@AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId,
+    public Map<String, Object> count(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String warehouseId,
             @PathVariable String countPlanId) {
         WmsJwtAuthorities.requireWarehouse(jwt, warehouseId);
         try (SqlSession session = sessions.openSession()) {
-            return row(new CountService(session, Clock.systemUTC())
-                    .get(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId));
+            return row(
+                    new CountService(session, Clock.systemUTC())
+                            .get(WmsJwtAuthorities.enterpriseId(jwt), warehouseId, countPlanId));
         }
     }
 
     @ExceptionHandler(WarehouseForbiddenException.class)
     ResponseEntity<Map<String, Object>> forbidden(WarehouseForbiddenException error) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("WAREHOUSE_FORBIDDEN", "无权访问该仓"));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(errorBody("WAREHOUSE_FORBIDDEN", "无权访问该仓"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Map<String, Object>> missing(IllegalArgumentException error) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("RESOURCE_NOT_FOUND", error.getMessage()));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(errorBody("RESOURCE_NOT_FOUND", error.getMessage()));
     }
 
     @ExceptionHandler(InventoryException.class)
     ResponseEntity<Map<String, Object>> inventory(InventoryException error) {
-        return ResponseEntity.status(error.code().contains("NOT_FOUND") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(
+                        error.code().contains("NOT_FOUND")
+                                ? HttpStatus.NOT_FOUND
+                                : HttpStatus.BAD_REQUEST)
                 .body(errorBody(error.code(), error.getMessage()));
     }
 
@@ -163,7 +202,9 @@ public class OperationsQueryController {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
+        body.put(
+                "requestId",
+                com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
         body.put("retryable", false);
         return body;
     }

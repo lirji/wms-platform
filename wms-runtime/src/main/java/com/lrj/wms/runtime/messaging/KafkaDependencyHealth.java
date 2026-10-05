@@ -1,12 +1,14 @@
 package com.lrj.wms.runtime.messaging;
 
 import com.lrj.wms.runtime.observability.RuntimeDependencyCheck;
-import java.time.Duration;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
+
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterOptions;
 import org.springframework.boot.health.contributor.Health;
+
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 /** 使用真实broker请求而非本地进程状态；探针结果缓存5秒，避免无认证健康请求放大网络负载。 */
 public final class KafkaDependencyHealth implements RuntimeDependencyCheck, AutoCloseable {
@@ -23,18 +25,31 @@ public final class KafkaDependencyHealth implements RuntimeDependencyCheck, Auto
         this.workersReady = workersReady;
     }
 
-    @Override public synchronized Health health() {
+    @Override
+    public synchronized Health health() {
         long now = System.nanoTime();
         if (checkedAt != 0 && now - checkedAt < TimeUnit.SECONDS.toNanos(5)) return cached;
         try {
-            var nodes = admin.describeCluster(new DescribeClusterOptions().timeoutMs(1000)).nodes().get(1500, TimeUnit.MILLISECONDS);
-            cached = !nodes.isEmpty() && workersReady.getAsBoolean() ? Health.up().build() : Health.down().build();
+            var nodes =
+                    admin.describeCluster(new DescribeClusterOptions().timeoutMs(1000))
+                            .nodes()
+                            .get(1500, TimeUnit.MILLISECONDS);
+            cached =
+                    !nodes.isEmpty() && workersReady.getAsBoolean()
+                            ? Health.up().build()
+                            : Health.down().build();
         } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt(); cached = Health.down().build();
-        } catch (Exception unavailable) { cached = Health.down().build(); }
+            Thread.currentThread().interrupt();
+            cached = Health.down().build();
+        } catch (Exception unavailable) {
+            cached = Health.down().build();
+        }
         checkedAt = System.nanoTime();
         return cached;
     }
 
-    @Override public void close() { admin.close(Duration.ofSeconds(2)); }
+    @Override
+    public void close() {
+        admin.close(Duration.ofSeconds(2));
+    }
 }

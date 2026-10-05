@@ -4,8 +4,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /** 设备回执。同一 eventId 重放不得产生第二次业务效果。 */
-public record WcsReceipt(String enterpriseId, String warehouseId, String deviceCommandId, String eventId,
-        String resultState, BigDecimal actualQty, Instant observedAt) {
+public record WcsReceipt(
+        String enterpriseId,
+        String warehouseId,
+        String deviceCommandId,
+        String eventId,
+        String resultState,
+        BigDecimal actualQty,
+        Instant observedAt) {
     public WcsReceipt {
         require(enterpriseId, "enterpriseId");
         require(warehouseId, "warehouseId");

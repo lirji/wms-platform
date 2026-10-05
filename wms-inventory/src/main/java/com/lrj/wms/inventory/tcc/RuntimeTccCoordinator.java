@@ -8,10 +8,6 @@ import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
-import java.lang.reflect.Method;
-import java.time.Clock;
-import java.util.*;
-
 import org.apache.seata.common.Constants;
 import org.apache.seata.common.executor.Callback;
 import org.apache.seata.core.context.RootContext;
@@ -21,6 +17,10 @@ import org.apache.seata.rm.tcc.api.BusinessActionContext;
 import org.apache.seata.rm.tcc.api.BusinessActionContextUtil;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.lang.reflect.Method;
+import java.time.Clock;
+import java.util.*;
 
 /**
  * 正式RM用例。登记意图、网络、Fence事务分开；只有TC资源回调进入二阶段。
@@ -36,14 +36,22 @@ public final class RuntimeTccCoordinator implements FenceHandler {
     private final SpringFenceHandler fence;
     private final Clock clock;
     private final String cellId, actionName;
-    private final com.lrj.wms.runtime.web.AdmissionGate admission = new com.lrj.wms.runtime.web.AdmissionGate(
-            new com.lrj.wms.runtime.web.AdmissionBudget(4, 2, 32, 16));
+    private final com.lrj.wms.runtime.web.AdmissionGate admission =
+            new com.lrj.wms.runtime.web.AdmissionGate(
+                    new com.lrj.wms.runtime.web.AdmissionBudget(4, 2, 32, 16));
 
-    public RuntimeTccCoordinator(SqlSessionTemplate sessions, TransactionTemplate transactions, SpringFenceHandler fence,
-                                 Clock clock, String cellId, String actionName) {
+    public RuntimeTccCoordinator(
+            SqlSessionTemplate sessions,
+            TransactionTemplate transactions,
+            SpringFenceHandler fence,
+            Clock clock,
+            String cellId,
+            String actionName) {
         this.sessions = sessions;
         // 外层事务为官方Fence和业务统一设置10秒预算，不随200行逐语句累加到无界时长。
-        this.transactions = new TransactionTemplate(java.util.Objects.requireNonNull(transactions.getTransactionManager()));
+        this.transactions =
+                new TransactionTemplate(
+                        java.util.Objects.requireNonNull(transactions.getTransactionManager()));
         this.transactions.setTimeout(10);
         this.fence = fence;
         this.clock = clock;
@@ -67,10 +75,11 @@ public final class RuntimeTccCoordinator implements FenceHandler {
     /**
      * HTTP重放沿用原branch；REGISTERING表示结果未知，永远不据租约再次登记。
      */
-    public WarehouseTryResult tryReserve(WarehouseTryRequest request, String xid, Registration registration) {
+    public WarehouseTryResult tryReserve(
+            WarehouseTryRequest request, String xid, Registration registration) {
         if (xid == null || xid.isBlank() || xid.length() > 128) throw failure("XID_REQUIRED");
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
-            throw failure("TCC_NETWORK_IN_TRANSACTION_FORBIDDEN");
+        if (org.springframework.transaction.support.TransactionSynchronizationManager
+                .isActualTransactionActive()) throw failure("TCC_NETWORK_IN_TRANSACTION_FORBIDDEN");
         if (RootContext.getXID() != null || BusinessActionContextUtil.getContext() != null)
             throw failure("TCC_CONTEXT_ALREADY_BOUND");
         var permit = admission.acquire(request.enterpriseId());
@@ -79,15 +88,24 @@ public final class RuntimeTccCoordinator implements FenceHandler {
             String payload = RuntimeMessage.JSON.writeValueAsString(request);
             if (payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 60000)
                 throw failure("TCC_REQUEST_TOO_LARGE");
-            String digest = CommandDigest.v1Parts("runtime-try-v1", payload), id = UUID.randomUUID().toString();
-            Map<String, Object> intent = transactions.execute(status -> {
-                requireRoute(request.enterpriseId(), request.warehouseId(), request.cellId(), request.routeEpoch());
-                mapper().insert(id, request, xid, actionName, digest, payload);
-                var row = lock(request);
-                if (!xid.equals(row.get("xid")) || !digest.equals(row.get("request_digest")) || !actionName.equals(row.get("action_name")))
-                    throw failure("TCC_OWNER_CONFLICT");
-                return row;
-            });
+            String digest = CommandDigest.v1Parts("runtime-try-v1", payload),
+                    id = UUID.randomUUID().toString();
+            Map<String, Object> intent =
+                    transactions.execute(
+                            status -> {
+                                requireRoute(
+                                        request.enterpriseId(),
+                                        request.warehouseId(),
+                                        request.cellId(),
+                                        request.routeEpoch());
+                                mapper().insert(id, request, xid, actionName, digest, payload);
+                                var row = lock(request);
+                                if (!xid.equals(row.get("xid"))
+                                        || !digest.equals(row.get("request_digest"))
+                                        || !actionName.equals(row.get("action_name")))
+                                    throw failure("TCC_OWNER_CONFLICT");
+                                return row;
+                            });
             if ("CANCELLED".equals(intent.get("state"))) throw failure("TCC_ALREADY_CANCELLED");
             if (intent.get("reservation_id") != null) return result(intent);
             String data = applicationData(intent);
@@ -95,39 +113,70 @@ public final class RuntimeTccCoordinator implements FenceHandler {
                 // 意图已提交；如果进程在此调用前后消失，重试只能观察原XID，不能再登记。
                 long branch = registration.register(xid, data);
                 if (branch <= 0) throw failure("TCC_REGISTRATION_UNKNOWN");
-                intent = transactions.execute(status -> {
-                    requireRoute(request.enterpriseId(), request.warehouseId(), request.cellId(), request.routeEpoch());
-                    var row = lock(request);
-                    bindBranch(row, branch);
-                    return lock(request);
-                });
+                intent =
+                        transactions.execute(
+                                status -> {
+                                    requireRoute(
+                                            request.enterpriseId(),
+                                            request.warehouseId(),
+                                            request.cellId(),
+                                            request.routeEpoch());
+                                    var row = lock(request);
+                                    bindBranch(row, branch);
+                                    return lock(request);
+                                });
             }
             if (intent.get("branch_id") == null) throw failure("TCC_REGISTRATION_UNKNOWN");
             if ("CANCELLED".equals(intent.get("state"))) throw failure("TCC_ALREADY_CANCELLED");
             long branch = ((Number) intent.get("branch_id")).longValue();
-            var context = BusinessActionContextUtil.getBusinessActionContext(xid, branch, actionName, data);
+            var context =
+                    BusinessActionContextUtil.getBusinessActionContext(
+                            xid, branch, actionName, data);
             BusinessActionContextUtil.setContext(context);
             try {
-                Object prepared = prepareFence(xid, branch, actionName, () -> {
-                    var row = guard(context, xid, branch);
-                    if (!"REGISTERED".equals(row.get("state"))) throw failure("TCC_TRY_STATE_CONFLICT");
-                    var lines = reservationLines(request);
-                    String reservation = inventory().reserveTried(request.enterpriseId(), request.warehouseId(),
-                            operation("try", context), request.allocationId(), actionName, request.allocationId(), request.attemptId(),
-                            xid, branch, actionName, request.routeEpoch(), digest, lines);
-                    if (mapper().tried(String.valueOf(row.get("id")), branch, reservation) != 1)
-                        throw failure("TCC_TRY_STATE_CONFLICT");
-                    return true;
-                });
+                Object prepared =
+                        prepareFence(
+                                xid,
+                                branch,
+                                actionName,
+                                () -> {
+                                    var row = guard(context, xid, branch);
+                                    if (!"REGISTERED".equals(row.get("state")))
+                                        throw failure("TCC_TRY_STATE_CONFLICT");
+                                    var lines = reservationLines(request);
+                                    String reservation =
+                                            inventory()
+                                                    .reserveTried(
+                                                            request.enterpriseId(),
+                                                            request.warehouseId(),
+                                                            operation("try", context),
+                                                            request.allocationId(),
+                                                            actionName,
+                                                            request.allocationId(),
+                                                            request.attemptId(),
+                                                            xid,
+                                                            branch,
+                                                            actionName,
+                                                            request.routeEpoch(),
+                                                            digest,
+                                                            lines);
+                                    if (mapper().tried(
+                                                            String.valueOf(row.get("id")),
+                                                            branch,
+                                                            reservation)
+                                            != 1) throw failure("TCC_TRY_STATE_CONFLICT");
+                                    return true;
+                                });
                 if (!Boolean.TRUE.equals(prepared)) throw failure("TCC_TRY_REJECTED");
             } finally {
                 BusinessActionContextUtil.clear();
             }
-            return transactions.execute(status -> {
-                var row = lock(request);
-                if (row.get("reservation_id") == null) throw failure("TCC_TRY_REJECTED");
-                return result(row);
-            });
+            return transactions.execute(
+                    status -> {
+                        var row = lock(request);
+                        if (row.get("reservation_id") == null) throw failure("TCC_TRY_REJECTED");
+                        return result(row);
+                    });
         }
     }
 
@@ -143,8 +192,18 @@ public final class RuntimeTccCoordinator implements FenceHandler {
      */
     public boolean confirm(BusinessActionContext context) {
         var row = guard(context, context.getXid(), context.getBranchId());
-        inventory().confirmTried(text(row, "enterprise_id"), text(row, "warehouse_id"), operation("confirm", context),
-                text(row, "allocation_id"), actionName, text(row, "allocation_id"), text(row, "attempt_id"), context.getXid(), context.getBranchId(), actionName);
+        inventory()
+                .confirmTried(
+                        text(row, "enterprise_id"),
+                        text(row, "warehouse_id"),
+                        operation("confirm", context),
+                        text(row, "allocation_id"),
+                        actionName,
+                        text(row, "allocation_id"),
+                        text(row, "attempt_id"),
+                        context.getXid(),
+                        context.getBranchId(),
+                        actionName);
         return true;
     }
 
@@ -153,8 +212,18 @@ public final class RuntimeTccCoordinator implements FenceHandler {
      */
     public boolean cancel(BusinessActionContext context) {
         var row = guard(context, context.getXid(), context.getBranchId());
-        inventory().cancelTried(text(row, "enterprise_id"), text(row, "warehouse_id"), operation("cancel", context),
-                text(row, "allocation_id"), actionName, text(row, "allocation_id"), text(row, "attempt_id"), context.getXid(), context.getBranchId(), actionName);
+        inventory()
+                .cancelTried(
+                        text(row, "enterprise_id"),
+                        text(row, "warehouse_id"),
+                        operation("cancel", context),
+                        text(row, "allocation_id"),
+                        actionName,
+                        text(row, "allocation_id"),
+                        text(row, "attempt_id"),
+                        context.getXid(),
+                        context.getBranchId(),
+                        actionName);
         return true;
     }
 
@@ -164,47 +233,82 @@ public final class RuntimeTccCoordinator implements FenceHandler {
     @Override
     public Object prepareFence(String xid, Long branch, String action, Callback<Object> callback) {
         if (!actionName.equals(action)) throw failure("TCC_RESOURCE_MISMATCH");
-        return transactions.execute(status -> {
-            guard(BusinessActionContextUtil.getContext(), xid, branch);
-            return fence.prepareFence(xid, branch, action, callback);
-        });
+        return transactions.execute(
+                status -> {
+                    guard(BusinessActionContextUtil.getContext(), xid, branch);
+                    return fence.prepareFence(xid, branch, action, callback);
+                });
     }
 
     @Override
-    public boolean commitFence(Method method, Object target, String xid, Long branch, Object[] args) {
-        String action = args != null && args.length == 1 && args[0] instanceof BusinessActionContext context ? context.getActionName() : null;
+    public boolean commitFence(
+            Method method, Object target, String xid, Long branch, Object[] args) {
+        String action =
+                args != null && args.length == 1 && args[0] instanceof BusinessActionContext context
+                        ? context.getActionName()
+                        : null;
         return finishFence(true, method, target, xid, branch, args, action);
     }
 
     @Override
-    public boolean rollbackFence(Method method, Object target, String xid, Long branch, Object[] args, String action) {
+    public boolean rollbackFence(
+            Method method, Object target, String xid, Long branch, Object[] args, String action) {
         return finishFence(false, method, target, xid, branch, args, action);
     }
 
-    private boolean finishFence(boolean commit, Method method, Object target, String xid, Long branch, Object[] args, String action) {
-        if (target != this || args == null || args.length != 1 || !(args[0] instanceof BusinessActionContext context)
+    private boolean finishFence(
+            boolean commit,
+            Method method,
+            Object target,
+            String xid,
+            Long branch,
+            Object[] args,
+            String action) {
+        if (target != this
+                || args == null
+                || args.length != 1
+                || !(args[0] instanceof BusinessActionContext context)
                 || !Objects.equals(action, context.getActionName()))
             throw failure("TCC_RESOURCE_MISMATCH");
-        return Boolean.TRUE.equals(transactions.execute(status -> {
-            if (terminalReplay(commit, context, xid, branch)) return true;
-            if (!actionName.equals(action)) throw failure("TCC_RESOURCE_MISMATCH");
-            var row = guard(context, xid, branch);
-            boolean done = commit ? fence.commitFence(method, target, xid, branch, args) : fence.rollbackFence(method, target, xid, branch, args, action);
-            if (done && mapper().finished(text(row, "id"), branch, commit ? "CONFIRMED" : "CANCELLED") != 1)
-                throw failure("TCC_TERMINAL_CONFLICT");
-            return done;
-        }));
+        return Boolean.TRUE.equals(
+                transactions.execute(
+                        status -> {
+                            if (terminalReplay(commit, context, xid, branch)) return true;
+                            if (!actionName.equals(action)) throw failure("TCC_RESOURCE_MISMATCH");
+                            var row = guard(context, xid, branch);
+                            boolean done =
+                                    commit
+                                            ? fence.commitFence(method, target, xid, branch, args)
+                                            : fence.rollbackFence(
+                                                    method, target, xid, branch, args, action);
+                            if (done
+                                    && mapper().finished(
+                                                            text(row, "id"),
+                                                            branch,
+                                                            commit ? "CONFIRMED" : "CANCELLED")
+                                            != 1) throw failure("TCC_TERMINAL_CONFLICT");
+                            return done;
+                        }));
     }
 
     /**
      * 迁移后的历史回调只返回原证明结果；不重新调用库存业务、不更新原Fence时间。
      */
-    private boolean terminalReplay(boolean commit, BusinessActionContext context, String xid, Long branch) {
-        if (branch == null || branch <= 0 || !Objects.equals(xid, context.getXid()) || context.getBranchId() != branch)
-            throw failure("TCC_CONTEXT_MISMATCH");
-        String enterprise = value(context, "enterpriseId"), warehouse = value(context, "warehouseId");
+    private boolean terminalReplay(
+            boolean commit, BusinessActionContext context, String xid, Long branch) {
+        if (branch == null
+                || branch <= 0
+                || !Objects.equals(xid, context.getXid())
+                || context.getBranchId() != branch) throw failure("TCC_CONTEXT_MISMATCH");
+        String enterprise = value(context, "enterpriseId"),
+                warehouse = value(context, "warehouseId");
         var route = sessions.getMapper(WarehouseRouteMapper.class).lock(enterprise, warehouse);
-        var row = mapper().lock(enterprise, warehouse, value(context, "allocationId"), value(context, "attemptId"));
+        var row =
+                mapper().lock(
+                                enterprise,
+                                warehouse,
+                                value(context, "allocationId"),
+                                value(context, "attemptId"));
         if (row == null) throw failure("TCC_CONTEXT_MISMATCH");
         var proof = mapper().proof(text(row, "id"));
         if (proof == null) return false;
@@ -214,18 +318,31 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         } catch (RuntimeException invalid) {
             throw failure("TCC_CONTEXT_MISMATCH");
         }
-        if (route == null || !cellId.equals(route.get("cell_id")) || !Set.of("ACTIVE", "QUIESCING", "RETIRED").contains(route.get("state"))
-                || !xid.equals(row.get("xid")) || !Objects.equals(branch, row.get("branch_id"))
-                || !context.getActionName().equals(row.get("action_name")) || !value(context, "intentId").equals(row.get("id"))
-                || !value(context, "requestDigest").equals(row.get("request_digest")) || !value(context, "cellId").equals(row.get("cell_id"))
-                || epoch != ((Number) row.get("route_epoch")).longValue()) throw failure("TCC_CONTEXT_MISMATCH");
-        var notice = RuntimeMessage.JSON.readValue(text(proof, "proof_json"), com.lrj.wms.contract.messaging.TcTerminalNotice.class);
+        if (route == null
+                || !cellId.equals(route.get("cell_id"))
+                || !Set.of("ACTIVE", "QUIESCING", "RETIRED").contains(route.get("state"))
+                || !xid.equals(row.get("xid"))
+                || !Objects.equals(branch, row.get("branch_id"))
+                || !context.getActionName().equals(row.get("action_name"))
+                || !value(context, "intentId").equals(row.get("id"))
+                || !value(context, "requestDigest").equals(row.get("request_digest"))
+                || !value(context, "cellId").equals(row.get("cell_id"))
+                || epoch != ((Number) row.get("route_epoch")).longValue())
+            throw failure("TCC_CONTEXT_MISMATCH");
+        var notice =
+                RuntimeMessage.JSON.readValue(
+                        text(proof, "proof_json"),
+                        com.lrj.wms.contract.messaging.TcTerminalNotice.class);
         if (!TcTerminalService.resource(notice.clusterId(), cellId).equals(actionName)
-                || !TcTerminalService.resource(notice.clusterId(), text(row, "cell_id")).equals(context.getActionName())
-                || !xid.equals(proof.get("xid")) || !Objects.equals(branch, proof.get("branch_id"))
-                || !context.getActionName().equals(proof.get("action_name"))) throw failure("TCC_RESOURCE_MISMATCH");
+                || !TcTerminalService.resource(notice.clusterId(), text(row, "cell_id"))
+                        .equals(context.getActionName())
+                || !xid.equals(proof.get("xid"))
+                || !Objects.equals(branch, proof.get("branch_id"))
+                || !context.getActionName().equals(proof.get("action_name")))
+            throw failure("TCC_RESOURCE_MISMATCH");
         int terminal = ((Number) proof.get("terminal_status")).intValue();
-        if (commit != (terminal == 9) || !TcTerminalService.matches(row, mapper().fence(xid, branch), terminal))
+        if (commit != (terminal == 9)
+                || !TcTerminalService.matches(row, mapper().fence(xid, branch), terminal))
             throw failure("TCC_TERMINAL_CONFLICT");
         return true;
     }
@@ -239,9 +356,15 @@ public final class RuntimeTccCoordinator implements FenceHandler {
     }
 
     private Map<String, Object> guard(BusinessActionContext context, String xid, Long branch) {
-        if (context == null || branch == null || branch <= 0 || !Objects.equals(xid, context.getXid()) || context.getBranchId() != branch
-                || !actionName.equals(context.getActionName())) throw failure("TCC_CONTEXT_MISMATCH");
-        String enterprise = value(context, "enterpriseId"), warehouse = value(context, "warehouseId");
+        if (context == null
+                || branch == null
+                || branch <= 0
+                || !Objects.equals(xid, context.getXid())
+                || context.getBranchId() != branch
+                || !actionName.equals(context.getActionName()))
+            throw failure("TCC_CONTEXT_MISMATCH");
+        String enterprise = value(context, "enterpriseId"),
+                warehouse = value(context, "warehouseId");
         long epoch;
         try {
             epoch = new java.math.BigDecimal(value(context, "routeEpoch")).longValueExact();
@@ -249,10 +372,19 @@ public final class RuntimeTccCoordinator implements FenceHandler {
             throw failure("TCC_CONTEXT_MISMATCH");
         }
         requireRoute(enterprise, warehouse, value(context, "cellId"), epoch);
-        var row = mapper().lock(enterprise, warehouse, value(context, "allocationId"), value(context, "attemptId"));
-        if (row == null || !xid.equals(row.get("xid")) || !actionName.equals(row.get("action_name"))
-                || !value(context, "intentId").equals(row.get("id")) || !value(context, "requestDigest").equals(row.get("request_digest"))
-                || !cellId.equals(row.get("cell_id")) || epoch != ((Number) row.get("route_epoch")).longValue())
+        var row =
+                mapper().lock(
+                                enterprise,
+                                warehouse,
+                                value(context, "allocationId"),
+                                value(context, "attemptId"));
+        if (row == null
+                || !xid.equals(row.get("xid"))
+                || !actionName.equals(row.get("action_name"))
+                || !value(context, "intentId").equals(row.get("id"))
+                || !value(context, "requestDigest").equals(row.get("request_digest"))
+                || !cellId.equals(row.get("cell_id"))
+                || epoch != ((Number) row.get("route_epoch")).longValue())
             throw failure("TCC_CONTEXT_MISMATCH");
         bindBranch(row, branch);
         return row;
@@ -260,16 +392,22 @@ public final class RuntimeTccCoordinator implements FenceHandler {
 
     private void bindBranch(Map<String, Object> row, long branch) {
         if (row.get("branch_id") == null) {
-            if (mapper().bindBranch(text(row, "id"), branch) != 1) throw failure("TCC_BRANCH_CONFLICT");
+            if (mapper().bindBranch(text(row, "id"), branch) != 1)
+                throw failure("TCC_BRANCH_CONFLICT");
             row.put("branch_id", branch);
             row.put("state", "REGISTERED");
-        } else if (((Number) row.get("branch_id")).longValue() != branch) throw failure("TCC_BRANCH_CONFLICT");
+        } else if (((Number) row.get("branch_id")).longValue() != branch)
+            throw failure("TCC_BRANCH_CONFLICT");
     }
 
     private void requireRoute(String enterprise, String warehouse, String cell, long epoch) {
         var route = sessions.getMapper(WarehouseRouteMapper.class).lock(enterprise, warehouse);
-        if (!cellId.equals(cell) || route == null || !"ACTIVE".equals(route.get("state")) || !cellId.equals(route.get("cell_id"))
-                || epoch != ((Number) route.get("route_epoch")).longValue()) throw failure("STALE_ROUTE");
+        if (!cellId.equals(cell)
+                || route == null
+                || !"ACTIVE".equals(route.get("state"))
+                || !cellId.equals(route.get("cell_id"))
+                || epoch != ((Number) route.get("route_epoch")).longValue())
+            throw failure("STALE_ROUTE");
     }
 
     private List<ReservationLineInput> reservationLines(WarehouseTryRequest r) {
@@ -277,35 +415,83 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         var lines = new ArrayList<ReservationLineInput>();
         for (var line : r.lines()) {
             var sku = master.getSku(r.enterpriseId(), line.skuId());
-            if (sku == null || !"ACTIVE".equals(sku.get("state")) || !line.baseUnit().equals(sku.get("base_unit")))
+            if (sku == null
+                    || !"ACTIVE".equals(sku.get("state"))
+                    || !line.baseUnit().equals(sku.get("base_unit")))
                 throw failure("TCC_SKU_MISMATCH");
             boolean lotEnabled = ((Number) sku.get("lot_enabled")).intValue() != 0;
             if (lotEnabled) {
                 var lot = master.getLot(r.enterpriseId(), r.warehouseId(), line.lotId());
-                if (lot == null || !r.ownerId().equals(lot.get("owner_id")) || !line.skuId().equals(lot.get("sku_id")))
+                if (lot == null
+                        || !r.ownerId().equals(lot.get("owner_id"))
+                        || !line.skuId().equals(lot.get("sku_id")))
                     throw failure("TCC_LOT_MISMATCH");
-                if (line.minRemainingDays() > 0 || ((Number) sku.get("expiry_enabled")).intValue() != 0) {
+                if (line.minRemainingDays() > 0
+                        || ((Number) sku.get("expiry_enabled")).intValue() != 0) {
                     var expiry = lot.get("expires_at");
-                    if (expiry == null || !com.lrj.wms.runtime.db.DatabaseInstants.require(expiry).isAfter(clock.instant().plus(java.time.Duration.ofDays(line.minRemainingDays()))))
+                    if (expiry == null
+                            || !com.lrj.wms.runtime.db.DatabaseInstants.require(expiry)
+                                    .isAfter(
+                                            clock.instant()
+                                                    .plus(
+                                                            java.time.Duration.ofDays(
+                                                                    line.minRemainingDays()))))
                         throw failure("TCC_EXPIRY_REJECTED");
                 }
-            } else if (!"NO_LOT".equals(line.lotId()) || line.minRemainingDays() > 0) throw failure("TCC_LOT_MISMATCH");
-            lines.add(new ReservationLineInput(StockBucketKey.of(r.enterpriseId(), r.warehouseId(), r.ownerId(), line.sourceLocationId(),
-                    line.skuId(), line.lotId(), "GOOD"), Quantity.of(line.qty(), ((Number) sku.get("quantity_scale")).intValue()), line.orderLineId()));
+            } else if (!"NO_LOT".equals(line.lotId()) || line.minRemainingDays() > 0)
+                throw failure("TCC_LOT_MISMATCH");
+            lines.add(
+                    new ReservationLineInput(
+                            StockBucketKey.of(
+                                    r.enterpriseId(),
+                                    r.warehouseId(),
+                                    r.ownerId(),
+                                    line.sourceLocationId(),
+                                    line.skuId(),
+                                    line.lotId(),
+                                    "GOOD"),
+                            Quantity.of(
+                                    line.qty(), ((Number) sku.get("quantity_scale")).intValue()),
+                            line.orderLineId()));
         }
         return lines;
     }
 
     private String applicationData(Map<String, Object> row) {
-        return RuntimeMessage.JSON.writeValueAsString(Map.of(Constants.TX_ACTION_CONTEXT, Map.of(
-                "enterpriseId", row.get("enterprise_id"), "warehouseId", row.get("warehouse_id"), "allocationId", row.get("allocation_id"),
-                "attemptId", row.get("attempt_id"), "intentId", row.get("id"), "requestDigest", row.get("request_digest"),
-                "cellId", cellId, "routeEpoch", row.get("route_epoch"), Constants.USE_COMMON_FENCE, true)));
+        return RuntimeMessage.JSON.writeValueAsString(
+                Map.of(
+                        Constants.TX_ACTION_CONTEXT,
+                        Map.of(
+                                "enterpriseId",
+                                row.get("enterprise_id"),
+                                "warehouseId",
+                                row.get("warehouse_id"),
+                                "allocationId",
+                                row.get("allocation_id"),
+                                "attemptId",
+                                row.get("attempt_id"),
+                                "intentId",
+                                row.get("id"),
+                                "requestDigest",
+                                row.get("request_digest"),
+                                "cellId",
+                                cellId,
+                                "routeEpoch",
+                                row.get("route_epoch"),
+                                Constants.USE_COMMON_FENCE,
+                                true)));
     }
 
     private WarehouseTryResult result(Map<String, Object> row) {
-        return new WarehouseTryResult(text(row, "xid"), ((Number) row.get("branch_id")).longValue(), text(row, "action_name"),
-                text(row, "reservation_id"), ((Number) row.get("route_epoch")).longValue(), text(row, "allocation_id"), text(row, "attempt_id"), text(row, "state"));
+        return new WarehouseTryResult(
+                text(row, "xid"),
+                ((Number) row.get("branch_id")).longValue(),
+                text(row, "action_name"),
+                text(row, "reservation_id"),
+                ((Number) row.get("route_epoch")).longValue(),
+                text(row, "allocation_id"),
+                text(row, "attempt_id"),
+                text(row, "state"));
     }
 
     private RuntimeTccMapper mapper() {
@@ -321,7 +507,8 @@ public final class RuntimeTccCoordinator implements FenceHandler {
     }
 
     private static String operation(String phase, BusinessActionContext c) {
-        return CommandDigest.v1Parts("runtime-tcc-" + phase, c.getXid(), Long.toString(c.getBranchId()));
+        return CommandDigest.v1Parts(
+                "runtime-tcc-" + phase, c.getXid(), Long.toString(c.getBranchId()));
     }
 
     private static String text(Map<String, Object> row, String key) {

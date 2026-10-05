@@ -2,12 +2,14 @@ package com.lrj.wms.inventory.compat;
 
 import com.lrj.wms.inventory.jobs.JobRunException;
 import com.lrj.wms.inventory.recon.WarehouseQuantityFact;
-import java.util.Map;
-import java.math.BigDecimal;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
+
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.math.BigDecimal;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -15,9 +17,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 观察开关只计数，不改变接受或拒绝。
  */
 public final class CompatibilityGate {
-    private static final JsonMapper JSON = JsonMapper.builder()
-            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
+    private static final JsonMapper JSON =
+            JsonMapper.builder()
+                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .build();
     public static final int CURRENT_EVENT_SCHEMA = 1;
     public static final String OBSERVE_PROPERTY = "wms.compat.observe";
 
@@ -31,8 +35,7 @@ public final class CompatibilityGate {
     private static final AtomicInteger ACCEPTED_N1 = new AtomicInteger();
     private static final AtomicInteger REJECTED = new AtomicInteger();
 
-    private CompatibilityGate() {
-    }
+    private CompatibilityGate() {}
 
     public static void resetObservation() {
         ACCEPTED_CURRENT.set(0);
@@ -78,8 +81,11 @@ public final class CompatibilityGate {
         if (!fact.containsKey("schemaVersion")) {
             return record(Decision.ACCEPT_N_MINUS_1);
         }
-        try { return decideSnapshot(version(JSON.valueToTree(fact.get("schemaVersion")))); }
-        catch (RuntimeException invalid) { return record(Decision.REJECT_UNKNOWN); }
+        try {
+            return decideSnapshot(version(JSON.valueToTree(fact.get("schemaVersion"))));
+        } catch (RuntimeException invalid) {
+            return record(Decision.REJECT_UNKNOWN);
+        }
     }
 
     public static void requireQuantityFact(Map<String, Object> fact) {
@@ -88,7 +94,8 @@ public final class CompatibilityGate {
         }
         Decision decision = decideSnapshotFact(fact);
         if (decision == Decision.REJECT_UNKNOWN) {
-            throw new JobRunException("SCHEMA_UNSUPPORTED", "未知快照 schemaVersion：" + fact.get("schemaVersion"));
+            throw new JobRunException(
+                    "SCHEMA_UNSUPPORTED", "未知快照 schemaVersion：" + fact.get("schemaVersion"));
         }
         if (fact.containsKey("currency") || fact.containsKey("amountMinor")) {
             throw new JobRunException("QUANTITY_NOT_MONEY", "数量事实禁止 currency/amountMinor");
@@ -97,8 +104,11 @@ public final class CompatibilityGate {
         if (!(quantity instanceof String) || ((String) quantity).isBlank()) {
             throw new JobRunException("INVALID_QUANTITY", "数量必须是十进制字符串");
         }
-        try { new BigDecimal((String) quantity); }
-        catch (NumberFormatException invalid) { throw new JobRunException("INVALID_QUANTITY", "数量必须是十进制字符串"); }
+        try {
+            new BigDecimal((String) quantity);
+        } catch (NumberFormatException invalid) {
+            throw new JobRunException("INVALID_QUANTITY", "数量必须是十进制字符串");
+        }
         Object unit = fact.get("unit");
         if (unit == null || String.valueOf(unit).isBlank()) {
             throw new JobRunException("INVALID_UNIT", "数量事实必须带单位");
@@ -130,8 +140,10 @@ public final class CompatibilityGate {
             throw new JobRunException("INVALID_EVENT_PAYLOAD", "库存事件缺少有效数量字段：" + name);
         }
         try {
-            BigDecimal value = node.isNumber() ? node.decimalValue() : new BigDecimal(node.asString());
-            if (value.scale() > 6 || value.precision() - value.scale() > 14) throw new NumberFormatException();
+            BigDecimal value =
+                    node.isNumber() ? node.decimalValue() : new BigDecimal(node.asString());
+            if (value.scale() > 6 || value.precision() - value.scale() > 14)
+                throw new NumberFormatException();
             return value;
         } catch (RuntimeException invalid) {
             throw new JobRunException("INVALID_EVENT_PAYLOAD", "库存事件数量格式无效：" + name);
@@ -177,5 +189,4 @@ public final class CompatibilityGate {
         }
         return decision;
     }
-
 }

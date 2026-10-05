@@ -1,11 +1,11 @@
-import { afterEach } from "vitest";
-import { cleanup } from "@testing-library/react";
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 afterEach(() => {
   cleanup();
 });
 
-Object.defineProperty(window, "matchMedia", {
+Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
     matches: false,
@@ -15,8 +15,8 @@ Object.defineProperty(window, "matchMedia", {
     removeListener: () => undefined,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
-    dispatchEvent: () => false
-  })
+    dispatchEvent: () => false,
+  }),
 });
 
 class ResizeObserverStub {
@@ -25,15 +25,16 @@ class ResizeObserverStub {
   disconnect() {}
 }
 
-Object.defineProperty(navigator, "clipboard", {
+Object.defineProperty(navigator, 'clipboard', {
   configurable: true,
-  value: { writeText: async () => undefined }
+  value: { writeText: async () => undefined },
 });
 
-Object.defineProperty(window, "ResizeObserver", {
+Object.defineProperty(window, 'ResizeObserver', {
   writable: true,
-  value: ResizeObserverStub
+  value: ResizeObserverStub,
 });
 
 const computedStyle = window.getComputedStyle.bind(window);
-window.getComputedStyle = ((element: Element) => computedStyle(element)) as typeof window.getComputedStyle;
+window.getComputedStyle = ((element: Element) =>
+  computedStyle(element)) as typeof window.getComputedStyle;

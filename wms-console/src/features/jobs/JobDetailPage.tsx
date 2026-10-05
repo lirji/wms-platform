@@ -1,24 +1,25 @@
-import { useState } from "react";
-import { Form, Input } from "antd";
-import { useParams } from "react-router-dom";
-import { api } from "../../api/client";
-import { nestedRecords } from "../../api/envelope";
-import { CommandCard } from "../../shared/command/CommandCard";
-import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
-import { DataTable } from "../../shared/ui/DataTable";
-import { useDocument } from "../../shared/useDocument";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { useState } from 'react';
+import { Form, Input } from 'antd';
+import { useParams } from 'react-router-dom';
+import { api } from '../../api/client';
+import { nestedRecords } from '../../api/envelope';
+import { CommandCard } from '../../shared/command/CommandCard';
+import { CommandCol, DocumentWorkbench } from '../../shared/document/DocumentWorkbench';
+import { DataTable } from '../../shared/ui/DataTable';
+import { useDocument } from '../../shared/useDocument';
+import { useWorkspace } from '../../shell/WorkspaceContext';
 
 export function JobDetailPage() {
-  const { warehouseId = "", jobId = "" } = useParams();
+  const { warehouseId = '', jobId = '' } = useParams();
   const { token } = useWorkspace();
   const [tick, setTick] = useState(0);
-  const path = warehouseId && jobId
-    ? `/api/wms/v1/jobs/${jobId}?warehouseId=${encodeURIComponent(warehouseId)}`
-    : undefined;
+  const path =
+    warehouseId && jobId
+      ? `/api/wms/v1/jobs/${jobId}?warehouseId=${encodeURIComponent(warehouseId)}`
+      : undefined;
   const { record, error, loading } = useDocument(token, path, tick);
   const reload = () => setTick((current) => current + 1);
-  const shards = nestedRecords(record, "shards");
+  const shards = nestedRecords(record, 'shards');
 
   return (
     <DocumentWorkbench
@@ -30,24 +31,24 @@ export function JobDetailPage() {
       error={error}
       record={record}
       headerFields={[
-        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-        { key: "id", label: "任务", keys: ["id", "jobId"], kind: "id", copyKind: "任务" },
-        { key: "version", label: "版本", keys: ["version"] }
+        { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+        { key: 'id', label: '任务', keys: ['id', 'jobId'], kind: 'id', copyKind: '任务' },
+        { key: 'version', label: '版本', keys: ['version'] },
       ]}
       lineColumns={[]}
-      extra={(
+      extra={
         <DataTable
           rows={shards}
           emptyText="没有分片"
           columns={[
-            { key: "id", label: "分片", keys: ["id", "shardId"] },
-            { key: "status", label: "状态", keys: ["state", "status"] },
-            { key: "owner", label: "租约", keys: ["lease_owner", "leaseOwner"] },
-            { key: "error", label: "错误", keys: ["last_error", "lastError"] }
+            { key: 'id', label: '分片', keys: ['id', 'shardId'] },
+            { key: 'status', label: '状态', keys: ['state', 'status'] },
+            { key: 'owner', label: '租约', keys: ['lease_owner', 'leaseOwner'] },
+            { key: 'error', label: '错误', keys: ['last_error', 'lastError'] },
           ]}
         />
-      )}
-      commands={(
+      }
+      commands={
         <>
           <CommandCol title="回收过期租约" requireScope="job.retry">
             <CommandCard
@@ -60,12 +61,20 @@ export function JobDetailPage() {
               submitLabel="回收租约"
               disabled={!token}
               onDone={reload}
-              onRun={(_key, values) => api(`/api/wms/v1/jobs/${jobId}/retries?warehouseId=${encodeURIComponent(warehouseId)}`, token, {
-                method: "POST",
-                body: { action: "RECLAIM", reason: values.reason || "lease-expired" }
-              })}
+              onRun={(_key, values) =>
+                api(
+                  `/api/wms/v1/jobs/${jobId}/retries?warehouseId=${encodeURIComponent(warehouseId)}`,
+                  token,
+                  {
+                    method: 'POST',
+                    body: { action: 'RECLAIM', reason: values.reason || 'lease-expired' },
+                  },
+                )
+              }
             >
-              <Form.Item label="原因" name="reason" initialValue="lease-expired"><Input /></Form.Item>
+              <Form.Item label="原因" name="reason" initialValue="lease-expired">
+                <Input />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="领取就绪分片" requireScope="task.claim">
@@ -79,16 +88,24 @@ export function JobDetailPage() {
               submitLabel="领取分片"
               disabled={!token}
               onDone={reload}
-              onRun={(_key, values) => api(`/api/wms/v1/jobs/${jobId}/retries?warehouseId=${encodeURIComponent(warehouseId)}`, token, {
-                method: "POST",
-                body: { action: "TAKEOVER", reason: values.reason || "manual-claim" }
-              })}
+              onRun={(_key, values) =>
+                api(
+                  `/api/wms/v1/jobs/${jobId}/retries?warehouseId=${encodeURIComponent(warehouseId)}`,
+                  token,
+                  {
+                    method: 'POST',
+                    body: { action: 'TAKEOVER', reason: values.reason || 'manual-claim' },
+                  },
+                )
+              }
             >
-              <Form.Item label="原因" name="reason" initialValue="manual-claim"><Input /></Form.Item>
+              <Form.Item label="原因" name="reason" initialValue="manual-claim">
+                <Input />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
         </>
-      )}
+      }
     />
   );
 }

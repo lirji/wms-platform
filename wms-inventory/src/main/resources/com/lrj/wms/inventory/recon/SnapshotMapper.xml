@@ -1,23 +1,21 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.recon.SnapshotMapper">
-    <select id="verifiedWindow" resultType="map">
+  <select id="verifiedWindow" resultType="map">
         SELECT c.closed_at,c.source_watermark,c.posting_watermark,c.receipt_watermark
         FROM reconciliation_cutoff c JOIN reconciliation_history_guard g
           ON g.enterprise_id=c.enterprise_id AND g.warehouse_id=c.warehouse_id
         WHERE c.enterprise_id=#{enterpriseId} AND c.warehouse_id=#{warehouseId} AND c.cutoff_id=#{cutoffId}
           AND c.evidence_version=1 AND c.watermarks_complete=1 AND g.closed_before &gt;= c.closed_at
     </select>
-
-    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertIgnore">
+  <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertIgnore">
         INSERT INTO reconciliation_snapshot (id, enterprise_id, warehouse_id, scenario_code, cutoff_id, closed_at, scope_digest, scope_json, source_watermarks, schema_version, state, manifest_json, completed_at, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{scenario}, #{cutoffId}, #{closedAt}, #{digest}, #{scopeJson}, #{watermarks}, #{schemaVersion}, 'EXPORTING', NULL, NULL, 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
-
-    <!-- lockByKey：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockByKey" resultType="map">
+  <!-- lockByKey：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockByKey" resultType="map">
         SELECT *
         FROM reconciliation_snapshot
         WHERE enterprise_id=#{enterpriseId}
@@ -26,18 +24,16 @@
         AND cutoff_id=#{cutoffId}
         AND scope_digest=#{digest} FOR UPDATE
     </select>
-
-    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="get" resultType="map">
+  <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="get" resultType="map">
         SELECT *
         FROM reconciliation_snapshot
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{id}
     </select>
-
-    <!-- casComplete：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casComplete">
+  <!-- casComplete：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casComplete">
         UPDATE reconciliation_snapshot
         SET state=#{state}, manifest_json=#{manifest}, completed_at=#{completedAt}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -45,16 +41,14 @@
         AND id=#{id}
         AND state='EXPORTING'
     </update>
-
-    <!-- insertPartIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertPartIgnore">
+  <!-- insertPartIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertPartIgnore">
         INSERT INTO snapshot_part (id, enterprise_id, warehouse_id, snapshot_id, part_no, payload, row_count, sha256, state, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{snapshotId}, #{partNo}, #{payload}, #{rowCount}, #{sha256}, 'READY', 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
-
-    <!-- listParts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listParts" resultType="map">
+  <!-- listParts：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listParts" resultType="map">
         SELECT part_no, row_count, sha256, payload
         FROM snapshot_part
         WHERE enterprise_id=#{enterpriseId}
@@ -64,9 +58,8 @@
         ORDER BY part_no
         LIMIT 2
     </select>
-
-    <!-- listBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listBalances" resultType="map">
+  <!-- listBalances：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listBalances" resultType="map">
         SELECT b.id, b.owner_id, b.sku_id, b.lot_id, l.on_hand_after AS on_hand_qty, k.base_unit
         FROM stock_balance b
         LEFT JOIN sku k ON k.enterprise_id=b.enterprise_id AND k.id=b.sku_id
@@ -85,13 +78,13 @@
         <if test="afterId != null">AND b.id &gt; #{afterId}</if>
         ORDER BY b.id LIMIT #{limit}
     </select>
-    <update id="checkpoint">
+  <update id="checkpoint">
         UPDATE reconciliation_snapshot SET last_balance_id=#{afterId}, part_count=#{parts}, total_rows=#{rows},
           units_json=#{units}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{id}
           AND state='EXPORTING' AND version=#{version}
     </update>
-    <select id="nextExporting" resultType="map">
+  <select id="nextExporting" resultType="map">
         SELECT cutoff_id, closed_at, source_watermarks FROM reconciliation_snapshot
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND state='EXPORTING'
         ORDER BY updated_at, id LIMIT 1 FOR UPDATE SKIP LOCKED

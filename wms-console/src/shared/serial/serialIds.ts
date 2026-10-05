@@ -12,7 +12,7 @@ export function parseSerialIds(text: string, options?: { allowEmpty?: boolean })
   const seen = new Set<string>();
   const serialIds: string[] = [];
   for (const raw of text.split(/[\n,;]+/)) {
-    const serial = raw.trim().toLocaleUpperCase("en-US");
+    const serial = raw.trim().toLocaleUpperCase('en-US');
     if (!serial) {
       continue;
     }
@@ -38,7 +38,9 @@ export function countText(serialIds: string[]): string {
   return String(serialIds.length);
 }
 
-export function receiptObservation(text: string): { schemaVersion: 1; serialIds: string[] } | undefined {
+export function receiptObservation(
+  text: string,
+): { schemaVersion: 1; serialIds: string[] } | undefined {
   const parsed = parseSerialIds(text);
   if (parsed.error) {
     throw new Error(parsed.error);
@@ -49,13 +51,16 @@ export function receiptObservation(text: string): { schemaVersion: 1; serialIds:
   return { schemaVersion: SERIAL_SCHEMA_VERSION, serialIds: parsed.serialIds };
 }
 
-export function stockSelection(text: string): { schemaVersion: 1; serialIds: string[] } | undefined {
+export function stockSelection(
+  text: string,
+): { schemaVersion: 1; serialIds: string[] } | undefined {
   return receiptObservation(text);
 }
 
-export function qualityObservation(acceptedText: string, rejectedText: string):
-  | { schemaVersion: 1; acceptedSerials: string[]; rejectedSerials: string[] }
-  | undefined {
+export function qualityObservation(
+  acceptedText: string,
+  rejectedText: string,
+): { schemaVersion: 1; acceptedSerials: string[]; rejectedSerials: string[] } | undefined {
   const accepted = parseSerialIds(acceptedText);
   const rejected = parseSerialIds(rejectedText);
   if (accepted.error) {
@@ -77,13 +82,14 @@ export function qualityObservation(acceptedText: string, rejectedText: string):
   return {
     schemaVersion: SERIAL_SCHEMA_VERSION,
     acceptedSerials: accepted.serialIds,
-    rejectedSerials: rejected.serialIds
+    rejectedSerials: rejected.serialIds,
   };
 }
 
-export function countObservation(text: string, allMissing: boolean):
-  | { schemaVersion: 1; serialIds: string[] }
-  | undefined {
+export function countObservation(
+  text: string,
+  allMissing: boolean,
+): { schemaVersion: 1; serialIds: string[] } | undefined {
   if (!allMissing && !text.trim()) {
     return undefined;
   }
@@ -92,7 +98,7 @@ export function countObservation(text: string, allMissing: boolean):
     throw new Error(parsed.error);
   }
   if (allMissing && parsed.serialIds.length > 0) {
-    throw new Error("全部未见时不要再填写实见身份");
+    throw new Error('全部未见时不要再填写实见身份');
   }
   return { schemaVersion: SERIAL_SCHEMA_VERSION, serialIds: allMissing ? [] : parsed.serialIds };
 }
@@ -123,9 +129,12 @@ export function parseSerialExecution(text: string): SerialExecutionParse {
     }
     const match = line.match(/^(\S+)(?:[:\s,]+)(\d+)$/);
     if (!match) {
-      return { identities: [], error: `每行必须是「序列号 当前ownerEpoch」，不能默认代际：${line}` };
+      return {
+        identities: [],
+        error: `每行必须是「序列号 当前ownerEpoch」，不能默认代际：${line}`,
+      };
     }
-    const serial = match[1].toLocaleUpperCase("en-US");
+    const serial = match[1].toLocaleUpperCase('en-US');
     if (serial.length > 64) {
       return { identities: [], error: `序列号超过 64 字符：${serial.slice(0, 16)}…` };
     }
@@ -142,7 +151,7 @@ export function parseSerialExecution(text: string): SerialExecutionParse {
   if (identities.length > SERIAL_MAX) {
     return { identities: [], error: `一次最多 ${SERIAL_MAX} 个身份，当前 ${identities.length}` };
   }
-  identities.sort((left, right) => left.serialId.localeCompare(right.serialId, "en"));
+  identities.sort((left, right) => left.serialId.localeCompare(right.serialId, 'en'));
   return { identities };
 }
 

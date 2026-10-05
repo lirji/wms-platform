@@ -1,15 +1,17 @@
 package com.lrj.wms.probe;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Container;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 故障注入只允许本测试登记过的容器；拒绝按名字误杀共享 dev-infra。
@@ -83,8 +85,10 @@ final class OwnedContainerGuard {
 
     private static boolean shared(Container container) {
         String names = container.getNames() == null ? "" : String.join(",", container.getNames());
-        String project = container.getLabels() == null ? ""
-                : container.getLabels().getOrDefault("com.docker.compose.project", "");
+        String project =
+                container.getLabels() == null
+                        ? ""
+                        : container.getLabels().getOrDefault("com.docker.compose.project", "");
         String haystack = (names + " " + project).toLowerCase(Locale.ROOT);
         return haystack.contains("dev-infra") || haystack.contains("dev_infra");
     }

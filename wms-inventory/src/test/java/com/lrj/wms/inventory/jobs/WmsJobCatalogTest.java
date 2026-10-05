@@ -1,11 +1,14 @@
 package com.lrj.wms.inventory.jobs;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.lrj.wms.fulfillment.AllocationRecoverySweep;
 import com.lrj.wms.inventory.tcc.TccReservationWatch;
 import com.lrj.wms.outbound.jobs.DeviceUnknownResultSweep;
-import java.util.HashSet;
+
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.HashSet;
 
 /** S7-01：目录名与各服务 handler 对齐。 */
 class WmsJobCatalogTest {

@@ -1,5 +1,7 @@
 package com.lrj.wms.outbound.order;
 
+import org.apache.ibatis.session.SqlSession;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
@@ -7,12 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /** 出库仓任务列表、详情与领取。仅 PICK/RESTOCK 属于本域。 */
 public final class OutboundTaskService {
-    private static final Set<String> TYPES = Set.of(OutboundOrderService.TASK_PICK, OutboundOrderService.TASK_RESTOCK);
-    private static final Set<String> TERMINAL = Set.of(OutboundOrderService.TASK_COMPLETED, "CANCELLED");
+    private static final Set<String> TYPES =
+            Set.of(OutboundOrderService.TASK_PICK, OutboundOrderService.TASK_RESTOCK);
+    private static final Set<String> TERMINAL =
+            Set.of(OutboundOrderService.TASK_COMPLETED, "CANCELLED");
 
     private final SqlSession session;
     private final Clock clock;
@@ -22,11 +25,12 @@ public final class OutboundTaskService {
         this.clock = clock;
     }
 
-    public Map<String, Object> list(String enterpriseId, String warehouseId, String taskType, String cursor, int limit) {
+    public Map<String, Object> list(
+            String enterpriseId, String warehouseId, String taskType, String cursor, int limit) {
         requireType(taskType);
         int size = pageSize(limit);
-        List<Map<String, Object>> items = queries().listTasks(enterpriseId, warehouseId, taskType, blankToNull(cursor),
-                size);
+        List<Map<String, Object>> items =
+                queries().listTasks(enterpriseId, warehouseId, taskType, blankToNull(cursor), size);
         return page(items, size);
     }
 
@@ -38,7 +42,11 @@ public final class OutboundTaskService {
         return task;
     }
 
-    public Map<String, Object> claim(String enterpriseId, String warehouseId, String taskId, String workerId,
+    public Map<String, Object> claim(
+            String enterpriseId,
+            String warehouseId,
+            String taskId,
+            String workerId,
             long expectedVersion) {
         if (workerId == null || workerId.isBlank()) {
             throw new OutboundException("INVALID_WORKER", "worker不能为空");
@@ -57,7 +65,14 @@ public final class OutboundTaskService {
         String actionId = firstNonBlank(task.get("action_id"), UUID.randomUUID().toString());
         String deviceCommandId = firstNonBlank(task.get("device_command_id"), actionId);
         long epoch = asLong(task.get("claim_epoch")) + 1;
-        writes.claimTask(enterpriseId, warehouseId, taskId, workerId, epoch, actionId, deviceCommandId,
+        writes.claimTask(
+                enterpriseId,
+                warehouseId,
+                taskId,
+                workerId,
+                epoch,
+                actionId,
+                deviceCommandId,
                 Timestamp.from(clock.instant()));
         Map<String, Object> body = new LinkedHashMap<>(get(enterpriseId, warehouseId, taskId));
         body.put("taskId", taskId);
@@ -103,7 +118,9 @@ public final class OutboundTaskService {
     }
 
     private static String firstNonBlank(Object current, String generated) {
-        return current == null || String.valueOf(current).isBlank() ? generated : String.valueOf(current);
+        return current == null || String.valueOf(current).isBlank()
+                ? generated
+                : String.valueOf(current);
     }
 
     private static long asLong(Object value) {

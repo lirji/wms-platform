@@ -1,32 +1,28 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.migrate.WarehouseRouteMapper">
-
-    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertIgnore">
+  <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertIgnore">
         INSERT INTO warehouse_route (id, enterprise_id, warehouse_id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{cellId}, #{targetCellId}, #{epoch}, #{state}, #{cutoff}, 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
-
-    <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="get" resultType="map">
+  <!-- get：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="get" resultType="map">
         SELECT id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version
         FROM warehouse_route
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
     </select>
-
-    <!-- lock：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lock" resultType="map">
+  <!-- lock：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lock" resultType="map">
         SELECT id, cell_id, target_cell_id, route_epoch, state, cutoff_at, version
         FROM warehouse_route
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId} FOR UPDATE
     </select>
-
-    <!-- casState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casState">
+  <!-- casState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casState">
         UPDATE warehouse_route
         SET state=#{state}, target_cell_id=#{targetCellId}, cutoff_at=#{cutoff}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -34,35 +30,30 @@
         AND version=#{expected}
         AND state=#{fromState}
     </update>
-
-    <!-- casSwitch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casSwitch">
+  <!-- casSwitch：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casSwitch">
         UPDATE warehouse_route
         SET route_epoch=#{epoch}, state=#{state}, cell_id=#{cellId}, target_cell_id=#{targetCellId}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND version=#{expected}
     </update>
-
-    <!-- markGates：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="markGates">
+  <!-- markGates：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="markGates">
         UPDATE location_gate
         SET state=#{state}, reason_code=#{reason}, fence_epoch=fence_epoch+1, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
-        <choose>
-            <when test="state == 'MAINTENANCE'">AND state='OPEN'</when>
-            <otherwise>AND state='MAINTENANCE' AND reason_code='WAREHOUSE_MIGRATION'</otherwise>
-        </choose>
+        <choose><when test="state == 'MAINTENANCE'">AND state='OPEN'</when><otherwise>AND state='MAINTENANCE' AND reason_code='WAREHOUSE_MIGRATION'</otherwise></choose>
     </update>
-    <select id="nonOpenGates" resultType="int">
+  <select id="nonOpenGates" resultType="int">
         SELECT COUNT(*) FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND state&lt;&gt;'OPEN'
     </select>
-    <select id="foreignBlockedGates" resultType="int">
+  <select id="foreignBlockedGates" resultType="int">
         SELECT COUNT(*) FROM location_gate WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
-          AND state&lt;&gt;'OPEN' AND NOT(state='MAINTENANCE' AND reason_code &lt;=> 'WAREHOUSE_MIGRATION')
+          AND state&lt;&gt;'OPEN' AND NOT(state='MAINTENANCE' AND reason_code &lt;=&gt; 'WAREHOUSE_MIGRATION')
     </select>
-    <select id="runtimeTccIntents" resultType="int">
+  <select id="runtimeTccIntents" resultType="int">
         SELECT EXISTS(SELECT 1 FROM inventory_tcc_intent i
           LEFT JOIN inventory_tcc_terminal t ON t.id=i.id AND t.enterprise_id=i.enterprise_id AND t.warehouse_id=i.warehouse_id
             AND t.xid=i.xid AND t.branch_id=i.branch_id AND t.action_name=i.action_name

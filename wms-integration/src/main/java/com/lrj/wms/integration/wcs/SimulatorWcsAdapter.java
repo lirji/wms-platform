@@ -44,7 +44,8 @@ public final class SimulatorWcsAdapter implements WcsCommandPort, WcsQueryPort, 
     }
 
     @Override
-    public Optional<WcsCommandView> query(String enterpriseId, String warehouseId, String deviceCommandId) {
+    public Optional<WcsCommandView> query(
+            String enterpriseId, String warehouseId, String deviceCommandId) {
         if (enterpriseId == null || warehouseId == null || deviceCommandId == null) {
             return Optional.empty();
         }
@@ -53,8 +54,15 @@ public final class SimulatorWcsAdapter implements WcsCommandPort, WcsQueryPort, 
         if (stored == null) {
             return Optional.empty();
         }
-        return Optional.of(new WcsCommandView(stored.command.deviceCommandId(), stored.state, stored.command.action(),
-                stored.command.sourceTaskId(), stored.command.qty(), stored.receiptEventId, stored.updatedAt));
+        return Optional.of(
+                new WcsCommandView(
+                        stored.command.deviceCommandId(),
+                        stored.state,
+                        stored.command.action(),
+                        stored.command.sourceTaskId(),
+                        stored.command.qty(),
+                        stored.receiptEventId,
+                        stored.updatedAt));
     }
 
     @Override
@@ -70,17 +78,21 @@ public final class SimulatorWcsAdapter implements WcsCommandPort, WcsQueryPort, 
                     || previous.actualQty().compareTo(receipt.actualQty()) != 0) {
                 throw new WcsAdapterException("RECEIPT_CONFLICT", "同eventId不能改内容重放");
             }
-            return new WcsReceiptResult(stored.command.deviceCommandId(), previous.eventId(), stored.state, true);
+            return new WcsReceiptResult(
+                    stored.command.deviceCommandId(), previous.eventId(), stored.state, true);
         }
-        String nextState = switch (receipt.resultState()) {
-            case "FAILED" -> STATE_FAILED;
-            case "UNKNOWN" -> STATE_UNKNOWN;
-            case "COMPLETED" -> STATE_COMPLETED;
-            default -> throw new WcsAdapterException("INVALID_RECEIPT", "不支持的回执状态");
-        };
-        StoredCommand updated = new StoredCommand(stored.command, nextState, receipt.eventId(), clock.instant());
+        String nextState =
+                switch (receipt.resultState()) {
+                    case "FAILED" -> STATE_FAILED;
+                    case "UNKNOWN" -> STATE_UNKNOWN;
+                    case "COMPLETED" -> STATE_COMPLETED;
+                    default -> throw new WcsAdapterException("INVALID_RECEIPT", "不支持的回执状态");
+                };
+        StoredCommand updated =
+                new StoredCommand(stored.command, nextState, receipt.eventId(), clock.instant());
         commands.put(receipt.identityKey(), updated);
-        return new WcsReceiptResult(updated.command.deviceCommandId(), receipt.eventId(), nextState, false);
+        return new WcsReceiptResult(
+                updated.command.deviceCommandId(), receipt.eventId(), nextState, false);
     }
 
     private static final class StoredCommand {
@@ -89,7 +101,8 @@ public final class SimulatorWcsAdapter implements WcsCommandPort, WcsQueryPort, 
         private final String receiptEventId;
         private final Instant updatedAt;
 
-        private StoredCommand(WcsCommand command, String state, String receiptEventId, Instant updatedAt) {
+        private StoredCommand(
+                WcsCommand command, String state, String receiptEventId, Instant updatedAt) {
             this.command = command;
             this.state = state;
             this.receiptEventId = receiptEventId;

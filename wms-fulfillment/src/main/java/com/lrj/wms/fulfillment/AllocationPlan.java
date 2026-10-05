@@ -18,26 +18,34 @@ import java.util.Map;
 public final class AllocationPlan {
     public static final int DIGEST_VERSION = 1;
 
-    private AllocationPlan() {
-    }
+    private AllocationPlan() {}
 
     /** 规范摘要：仓、履约行、SKU、数量、单位。顺序固定。 */
     public static String digest(List<Map<String, Object>> participantLines) {
         List<Map<String, Object>> rows = new ArrayList<>(participantLines);
-        rows.sort(Comparator
-                .comparing((Map<String, Object> row) -> String.valueOf(row.get("warehouseId")))
-                .thenComparing(row -> String.valueOf(row.get("orderLineId")))
-                .thenComparing(row -> String.valueOf(row.get("skuId"))));
+        rows.sort(
+                Comparator.comparing(
+                                (Map<String, Object> row) -> String.valueOf(row.get("warehouseId")))
+                        .thenComparing(row -> String.valueOf(row.get("orderLineId")))
+                        .thenComparing(row -> String.valueOf(row.get("skuId"))));
         StringBuilder canonical = new StringBuilder("alloc-v").append(DIGEST_VERSION);
         for (Map<String, Object> row : rows) {
-            canonical.append('\u001f').append(row.get("warehouseId"))
-                    .append('\u001f').append(row.get("orderLineId"))
-                    .append('\u001f').append(row.get("skuId"))
-                    .append('\u001f').append(plainQty(row.get("qty")))
-                    .append('\u001f').append(row.get("baseUnit"));
+            canonical
+                    .append('\u001f')
+                    .append(row.get("warehouseId"))
+                    .append('\u001f')
+                    .append(row.get("orderLineId"))
+                    .append('\u001f')
+                    .append(row.get("skuId"))
+                    .append('\u001f')
+                    .append(plainQty(row.get("qty")))
+                    .append('\u001f')
+                    .append(row.get("baseUnit"));
         }
         try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] hash =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
@@ -45,7 +53,10 @@ public final class AllocationPlan {
     }
 
     static String plainQty(Object value) {
-        BigDecimal qty = value instanceof BigDecimal decimal ? decimal : new BigDecimal(String.valueOf(value));
+        BigDecimal qty =
+                value instanceof BigDecimal decimal
+                        ? decimal
+                        : new BigDecimal(String.valueOf(value));
         return qty.stripTrailingZeros().toPlainString().toLowerCase(Locale.ROOT);
     }
 }

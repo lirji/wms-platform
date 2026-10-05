@@ -1,15 +1,13 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper">
-
-    <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertIgnore">
+  <!-- insertIgnore：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertIgnore">
         INSERT IGNORE INTO stock_command (id, enterprise_id, warehouse_id, source_service, command_id, action, business_effect_key, execution_attempt_id, attempt_no, previous_command_id, payload_digest, digest_version, state, settlement_digest, result_json, compensates_command_id, safe_close_id, safe_close_version, safe_close_evidence, version, created_at, updated_at)
         VALUES (UUID(), #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{action}, #{effectId}, #{attemptId}, #{attemptNo}, #{previousCommandId}, #{digest}, #{digestVersion}, #{state}, NULL, NULL, NULL, NULL, 0, NULL, 0, #{now}, #{now})
     </insert>
-
-    <!-- lockByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockByCommand" resultType="map">
+  <!-- lockByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockByCommand" resultType="map">
         SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, digest_version, state, safe_close_id, previous_command_id
         FROM stock_command
         WHERE enterprise_id=#{enterpriseId}
@@ -17,9 +15,8 @@
         AND source_service=#{sourceService}
         AND command_id=#{commandId} FOR UPDATE
     </select>
-
-    <!-- getByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="getByCommand" resultType="map">
+  <!-- getByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="getByCommand" resultType="map">
         SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, digest_version, state, safe_close_id, previous_command_id
         FROM stock_command
         WHERE enterprise_id=#{enterpriseId}
@@ -27,9 +24,8 @@
         AND source_service=#{sourceService}
         AND command_id=#{commandId}
     </select>
-
-    <!-- findLatestByEffect：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="findLatestByEffect" resultType="map">
+  <!-- findLatestByEffect：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="findLatestByEffect" resultType="map">
         SELECT command_id, action, business_effect_key, execution_attempt_id, attempt_no, payload_digest, digest_version, state
         FROM stock_command
         WHERE enterprise_id=#{enterpriseId}
@@ -40,9 +36,8 @@
         ORDER BY attempt_no DESC
         LIMIT 1
     </select>
-
-    <!-- markSafeClose：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="markSafeClose">
+  <!-- markSafeClose：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="markSafeClose">
         UPDATE stock_command
         SET safe_close_id=#{closeId}, safe_close_version=safe_close_version+1, safe_close_evidence=CAST(#{evidence} AS JSON), updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -50,15 +45,13 @@
         AND source_service=#{sourceService}
         AND command_id=#{commandId}
     </update>
-
-    <!-- insertCompensationPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertCompensationPosting">
+  <!-- insertCompensationPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertCompensationPosting">
         INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, #{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, CAST(#{manifest} AS JSON), 1, #{originalPostingId}, 0, 0, #{now}, #{now})
     </insert>
-
-    <!-- casState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casState">
+  <!-- casState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casState">
         UPDATE stock_command
         SET state=#{toState}, result_json=CAST(#{resultJson} AS JSON), version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -67,21 +60,18 @@
         AND command_id=#{commandId}
         AND state=#{fromState}
     </update>
-
-    <!-- insertPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="appendPosting">
+  <!-- insertPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="appendPosting">
         INSERT INTO stock_posting (id, enterprise_id, warehouse_id, source_service, command_id, business_effect_key, action, execution_attempt_id, posting_type, quantity, source_execution_id, source_document_id, ledger_manifest, result_version, original_posting_id, reversed_qty, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{commandId}, #{effectId}, #{action}, #{attemptId}, #{postingType}, #{quantity}, #{sourceExecutionId}, #{sourceDocumentId}, CAST(#{manifest} AS JSON), 1, NULL, 0, 0, #{now}, #{now})
     </insert>
-
-    <!-- insertPermit：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertPermit">
+  <!-- insertPermit：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertPermit">
         INSERT IGNORE INTO execution_permit (id, enterprise_id, warehouse_id, source_service, permit_id, command_id, business_effect_key, execution_attempt_id, attempt_no, source_task_id, source_task_epoch, gate_epoch, action, payload_digest, quantity, actual_qty, not_executed_qty, settlement_digest, state, started_at, posted_at, version, created_at, updated_at)
         VALUES (#{permitId}, #{enterpriseId}, #{warehouseId}, #{sourceService}, #{permitId}, #{commandId}, #{effectId}, #{attemptId}, #{attemptNo}, #{taskId}, #{taskEpoch}, 0, #{action}, #{digest}, #{quantity}, #{actualQty}, #{notExecutedQty}, NULL, #{state}, #{startedAt}, #{postedAt}, 0, #{now}, #{now})
     </insert>
-
-    <!-- lockPermitByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockPermitByCommand" resultType="map">
+  <!-- lockPermitByCommand：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockPermitByCommand" resultType="map">
         SELECT permit_id, command_id, state, quantity, source_task_id, source_task_epoch
         FROM execution_permit
         WHERE enterprise_id=#{enterpriseId}
@@ -89,9 +79,8 @@
         AND source_service=#{sourceService}
         AND command_id=#{commandId} FOR UPDATE
     </select>
-
-    <!-- casPermitState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casPermitState">
+  <!-- casPermitState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casPermitState">
         UPDATE execution_permit
         SET state=#{toState}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -100,18 +89,16 @@
         AND command_id=#{commandId}
         AND state=#{fromState}
     </update>
-
-    <!-- lockPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockPosting" resultType="map">
+  <!-- lockPosting：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockPosting" resultType="map">
         SELECT id, quantity, reversed_qty, command_id
         FROM stock_posting
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{id} FOR UPDATE
     </select>
-
-    <!-- addReversed：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="addReversed">
+  <!-- addReversed：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="addReversed">
         UPDATE stock_posting
         SET reversed_qty=reversed_qty+#{qty}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -119,30 +106,30 @@
         AND id=#{id}
         AND reversed_qty+#{qty}&lt;=quantity
     </update>
-    <select id="postingByCommand" resultType="map">
+  <select id="postingByCommand" resultType="map">
         SELECT id, quantity, source_execution_id, source_document_id, action, created_at
         FROM stock_posting WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
           AND source_service=#{sourceService} AND command_id=#{commandId}
     </select>
-    <insert id="ensureHistoryGuard">
+  <insert id="ensureHistoryGuard">
         INSERT INTO reconciliation_history_guard(id,enterprise_id,warehouse_id) VALUES(#{guardId},#{enterpriseId},#{warehouseId})
         ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
     </insert>
-    <select id="lockHistoryGuard" resultType="map" timeout="3">
+  <select id="lockHistoryGuard" resultType="map" timeout="3">
         SELECT id,closed_before FROM reconciliation_history_guard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} FOR SHARE
     </select>
-    <insert id="ensureCancellationGuard">
+  <insert id="ensureCancellationGuard">
         INSERT INTO outbound_cancellation_guard(id,enterprise_id,warehouse_id,document_id,created_at,updated_at)
         VALUES(SHA2(JSON_ARRAY(#{e},#{w},#{o}),256),#{e},#{w},#{o},UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)) ON DUPLICATE KEY UPDATE document_id=document_id
     </insert>
-    <select id="lockCancellationGuard" resultType="map">
+  <select id="lockCancellationGuard" resultType="map">
         SELECT document_id,cancellation_id FROM outbound_cancellation_guard WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_id=#{o} FOR UPDATE
     </select>
-    <update id="stopCancellationGuard">
+  <update id="stopCancellationGuard">
         UPDATE outbound_cancellation_guard SET cancellation_id=#{id},version=version+1,updated_at=UTC_TIMESTAMP(6)
         WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND document_id=#{o} AND cancellation_id IS NULL
     </update>
-    <select id="unresolvedOutboundPermits" resultType="int">
+  <select id="unresolvedOutboundPermits" resultType="int">
         SELECT EXISTS(SELECT 1 FROM stock_effect f JOIN execution_permit p ON p.enterprise_id=f.enterprise_id
           AND p.warehouse_id=f.warehouse_id AND p.business_effect_key=f.id
           WHERE f.enterprise_id=#{e} AND f.warehouse_id=#{w} AND f.source_service='wms-outbound' AND f.fact_parent_id=#{o}

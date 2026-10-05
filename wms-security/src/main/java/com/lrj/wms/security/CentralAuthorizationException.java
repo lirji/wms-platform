@@ -10,10 +10,19 @@ final class CentralAuthorizationException extends RuntimeException {
         final String code;
         final String message;
         final boolean retryable;
+
         Reason(int status, String code, String message, boolean retryable) {
-            this.status = status; this.code = code; this.message = message; this.retryable = retryable;
+            this.status = status;
+            this.code = code;
+            this.message = message;
+            this.retryable = retryable;
         }
     }
+
     final Reason reason;
-    CentralAuthorizationException(Reason reason) { super(reason.code); this.reason = reason; }
+
+    CentralAuthorizationException(Reason reason) {
+        super(reason.code);
+        this.reason = reason;
+    }
 }

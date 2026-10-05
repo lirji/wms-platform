@@ -1,9 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.outbound.order.OutboundTaskMapper">
-
-    <select id="listTasks" resultType="map">
+  <select id="listTasks" resultType="map">
         SELECT id, task_type, document_id, document_line_id, source_location_id, target_location_id, planned_qty,
                completed_qty, state, assignee_id, claim_epoch, action_id, device_command_id, version
         FROM outbound_task
@@ -16,8 +14,7 @@
         ORDER BY id
         LIMIT #{limit}
     </select>
-
-    <select id="getTask" resultType="map">
+  <select id="getTask" resultType="map">
         SELECT id, task_type, document_id, document_line_id, source_location_id, target_location_id, planned_qty,
                completed_qty, state, assignee_id, claim_epoch, action_id, device_command_id, version
         FROM outbound_task

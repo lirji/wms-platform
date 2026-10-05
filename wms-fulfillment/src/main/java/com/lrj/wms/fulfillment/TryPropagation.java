@@ -12,8 +12,7 @@ public final class TryPropagation {
     public static final String TM_HEADER = "X-Wms-Tm";
     public static final String TM_IDENTITY = "wms-fulfillment";
 
-    private TryPropagation() {
-    }
+    private TryPropagation() {}
 
     /** 仅在 attempt 已绑定 XID 时生成下游请求头。 */
     public static Map<String, String> headers(String xid) {

@@ -34,12 +34,20 @@
   color: #fff;
 }
 
-.login-mark-svg { width: 20px; height: 20px; }
+.login-mark-svg {
+  width: 20px;
+  height: 20px;
+}
 
 .login-brand strong,
-.login-brand small { display: block; }
+.login-brand small {
+  display: block;
+}
 
-.login-brand strong { font-size: 15px; font-weight: 600; }
+.login-brand strong {
+  font-size: 15px;
+  font-weight: 600;
+}
 .login-brand small {
   margin-top: 2px;
   color: #86909c;
@@ -68,11 +76,14 @@
 }
 
 .login-card code {
-  font-family: "SFMono-Regular", ui-monospace, Consolas, monospace;
+  font-family: 'SFMono-Regular', ui-monospace, Consolas, monospace;
   font-size: 12px;
   padding: 1px 5px;
   border-radius: 4px;
   background: #f2f3f5;
 }
 
-.login-note { margin: 16px 0 0; font-size: 12px; }
+.login-note {
+  margin: 16px 0 0;
+  font-size: 12px;
+}

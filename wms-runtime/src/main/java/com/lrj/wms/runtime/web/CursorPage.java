@@ -5,7 +5,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,13 +12,16 @@ import java.util.Map;
 
 /** 有界键集分页。游标绑定资源和身份范围，不能被误用于另一筛选；授权仍由 SQL 范围保证。 */
 public record CursorPage(int limit, String id, Timestamp time, String scope) {
-    private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+    private static final tools.jackson.databind.json.JsonMapper JSON =
+            tools.jackson.databind.json.JsonMapper.builder().build();
 
     /** 长度与类型由 JSON 数组编码，避免标识符含冒号时产生查询范围碰撞。 */
     public static String scope(Object... parts) {
         try {
-            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(JSON.writeValueAsBytes(parts)));
+            return java.util.HexFormat.of()
+                    .formatHex(
+                            java.security.MessageDigest.getInstance("SHA-256")
+                                    .digest(JSON.writeValueAsBytes(parts)));
         } catch (java.security.NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
@@ -40,7 +42,9 @@ public record CursorPage(int limit, String id, Timestamp time, String scope) {
         if (cursor.length() > 2048) {
             throw new InvalidPageException("游标过长");
         }
-        try (var in = new DataInputStream(new ByteArrayInputStream(Base64.getUrlDecoder().decode(cursor)))) {
+        try (var in =
+                new DataInputStream(
+                        new ByteArrayInputStream(Base64.getUrlDecoder().decode(cursor)))) {
             int version = in.readUnsignedByte();
             if ((version != 1 && version != 2) || !scope.equals(in.readUTF())) {
                 throw new InvalidPageException("游标不属于当前查询范围");
@@ -50,8 +54,13 @@ public record CursorPage(int limit, String id, Timestamp time, String scope) {
             if (id.isBlank() || id.length() > 64 || in.available() != 0) {
                 throw new InvalidPageException("游标无效");
             }
-            if (version == 1 && !time.isEmpty()) throw new InvalidPageException("旧时间游标已失效，请重新从首页查询");
-            return new CursorPage(size, id, time.isEmpty() ? null : Timestamp.from(java.time.Instant.parse(time)), scope);
+            if (version == 1 && !time.isEmpty())
+                throw new InvalidPageException("旧时间游标已失效，请重新从首页查询");
+            return new CursorPage(
+                    size,
+                    id,
+                    time.isEmpty() ? null : Timestamp.from(java.time.Instant.parse(time)),
+                    scope);
         } catch (InvalidPageException error) {
             throw error;
         } catch (Exception error) {
@@ -80,14 +89,18 @@ public record CursorPage(int limit, String id, Timestamp time, String scope) {
 
     /** 输入按 SQL 顺序排列；单据以 created_at + id 倒序，主数据以 id 升序。 */
     public Map<String, Object> result(List<Map<String, Object>> fetched, boolean chronological) {
-        List<Map<String, Object>> items = List.copyOf(fetched.subList(0, Math.min(limit, fetched.size())));
+        List<Map<String, Object>> items =
+                List.copyOf(fetched.subList(0, Math.min(limit, fetched.size())));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("items", items);
         result.put("limit", limit);
         if (fetched.size() > limit) {
             Map<String, Object> last = items.getLast();
             Object raw = chronological ? last.get("created_at") : null;
-            String time = raw == null ? "" : com.lrj.wms.runtime.db.DatabaseInstants.require(raw).toString();
+            String time =
+                    raw == null
+                            ? ""
+                            : com.lrj.wms.runtime.db.DatabaseInstants.require(raw).toString();
             result.put("nextCursor", encode(String.valueOf(last.get("id")), time));
         }
         return result;

@@ -1,23 +1,24 @@
-import { useState } from "react";
-import { Checkbox, Form, Input } from "antd";
-import { useParams } from "react-router-dom";
-import { api } from "../../api/client";
-import { nestedRecords } from "../../api/envelope";
-import { CommandCard } from "../../shared/command/CommandCard";
-import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
-import { SerialIdsField } from "../../shared/serial/SerialIdsField";
-import { countObservation, countText } from "../../shared/serial/serialIds";
-import { DataTable } from "../../shared/ui/DataTable";
-import { useDocument } from "../../shared/useDocument";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { useState } from 'react';
+import { Checkbox, Form, Input } from 'antd';
+import { useParams } from 'react-router-dom';
+import { api } from '../../api/client';
+import { nestedRecords } from '../../api/envelope';
+import { CommandCard } from '../../shared/command/CommandCard';
+import { CommandCol, DocumentWorkbench } from '../../shared/document/DocumentWorkbench';
+import { SerialIdsField } from '../../shared/serial/SerialIdsField';
+import { countObservation, countText } from '../../shared/serial/serialIds';
+import { DataTable } from '../../shared/ui/DataTable';
+import { useDocument } from '../../shared/useDocument';
+import { useWorkspace } from '../../shell/WorkspaceContext';
 
 export function CountDetailPage() {
-  const { warehouseId = "", countPlanId = "" } = useParams();
+  const { warehouseId = '', countPlanId = '' } = useParams();
   const { token } = useWorkspace();
   const [tick, setTick] = useState(0);
-  const path = warehouseId && countPlanId
-    ? `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}`
-    : undefined;
+  const path =
+    warehouseId && countPlanId
+      ? `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}`
+      : undefined;
   const { record, error, loading } = useDocument(token, path, tick);
   const reload = () => setTick((current) => current + 1);
 
@@ -31,33 +32,57 @@ export function CountDetailPage() {
       error={error}
       record={record}
       headerFields={[
-        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-        { key: "id", label: "盘点计划", keys: ["id", "planId"], kind: "id", copyKind: "盘点计划" },
-        { key: "reason", label: "原因", keys: ["reasonCode", "reason_code"] },
-        { key: "approval", label: "审批", keys: ["approvalId", "approval_id"], kind: "id", copyKind: "审批" },
-        { key: "version", label: "版本", keys: ["version"] }
+        { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+        { key: 'id', label: '盘点计划', keys: ['id', 'planId'], kind: 'id', copyKind: '盘点计划' },
+        { key: 'reason', label: '原因', keys: ['reasonCode', 'reason_code'] },
+        {
+          key: 'approval',
+          label: '审批',
+          keys: ['approvalId', 'approval_id'],
+          kind: 'id',
+          copyKind: '审批',
+        },
+        { key: 'version', label: '版本', keys: ['version'] },
       ]}
       lineColumns={[
-        { key: "id", label: "行", keys: ["id", "lineId"], kind: "id", copyKind: "行" },
-        { key: "location", label: "库位", keys: ["locationId", "location_id"], kind: "id", copyKind: "库位" },
-        { key: "balance", label: "余额", keys: ["balanceId", "balance_id"], kind: "id", copyKind: "余额" },
-        { key: "snapshot", label: "快照", qty: true, keys: ["snapshotQty", "snapshot_qty"] },
-        { key: "reserved", label: "预占", qty: true, keys: ["reservedQty", "reserved_qty"] },
-        { key: "counted", label: "点数", qty: true, keys: ["countedQty", "counted_qty"] },
-        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" }
+        { key: 'id', label: '行', keys: ['id', 'lineId'], kind: 'id', copyKind: '行' },
+        {
+          key: 'location',
+          label: '库位',
+          keys: ['locationId', 'location_id'],
+          kind: 'id',
+          copyKind: '库位',
+        },
+        {
+          key: 'balance',
+          label: '余额',
+          keys: ['balanceId', 'balance_id'],
+          kind: 'id',
+          copyKind: '余额',
+        },
+        { key: 'snapshot', label: '快照', qty: true, keys: ['snapshotQty', 'snapshot_qty'] },
+        { key: 'reserved', label: '预占', qty: true, keys: ['reservedQty', 'reserved_qty'] },
+        { key: 'counted', label: '点数', qty: true, keys: ['countedQty', 'counted_qty'] },
+        { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
       ]}
-      extra={(
+      extra={
         <DataTable
           caption="盘点范围"
-          rows={nestedRecords(record, "locations", "scopes")}
+          rows={nestedRecords(record, 'locations', 'scopes')}
           emptyText="还没有范围库位"
           columns={[
-            { key: "location", label: "库位", keys: ["locationId", "location_id"], kind: "id", copyKind: "库位" },
-            { key: "epoch", label: "围栏世代", keys: ["gateEpoch", "gate_epoch"] }
+            {
+              key: 'location',
+              label: '库位',
+              keys: ['locationId', 'location_id'],
+              kind: 'id',
+              copyKind: '库位',
+            },
+            { key: 'epoch', label: '围栏世代', keys: ['gateEpoch', 'gate_epoch'] },
           ]}
         />
-      )}
-      commands={(
+      }
+      commands={
         <>
           <CommandCol title="排空 / 冻结" requireScope="count.freeze">
             <CommandCard
@@ -70,12 +95,20 @@ export function CountDetailPage() {
               submitLabel="推进冻结"
               disabled={!token}
               onDone={reload}
-              onRun={(_key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/freeze-requests`, token, {
-                method: "POST",
-                body: { phase: values.phase || undefined }
-              })}
+              onRun={(_key, values) =>
+                api(
+                  `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/freeze-requests`,
+                  token,
+                  {
+                    method: 'POST',
+                    body: { phase: values.phase || undefined },
+                  },
+                )
+              }
             >
-              <Form.Item label="阶段" name="phase"><Input placeholder="空=按当前状态推进，QUIESCE 或 FREEZE" /></Form.Item>
+              <Form.Item label="阶段" name="phase">
+                <Input placeholder="空=按当前状态推进，QUIESCE 或 FREEZE" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="点数" requireScope="count.record">
@@ -90,27 +123,53 @@ export function CountDetailPage() {
               disabled={!token}
               onDone={reload}
               onRun={(key, values) => {
-                const serialObservation = countObservation(values.serialIds || "", values.allMissing === "true");
-                return api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/observations`, token, {
-                  method: "POST",
-                  idempotencyKey: key,
-                  body: {
-                    lineId: values.lineId,
-                    observationId: key,
-                    qty: serialObservation ? countText(serialObservation.serialIds) : values.qty,
-                    roundNo: Number(values.roundNo || "1"),
-                    ...(serialObservation ? { serialObservation } : {})
-                  }
-                });
+                const serialObservation = countObservation(
+                  values.serialIds || '',
+                  values.allMissing === 'true',
+                );
+                return api(
+                  `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/observations`,
+                  token,
+                  {
+                    method: 'POST',
+                    idempotencyKey: key,
+                    body: {
+                      lineId: values.lineId,
+                      observationId: key,
+                      qty: serialObservation ? countText(serialObservation.serialIds) : values.qty,
+                      roundNo: Number(values.roundNo || '1'),
+                      ...(serialObservation ? { serialObservation } : {}),
+                    },
+                  },
+                );
               }}
             >
-              <Form.Item label="快照行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" extra="身份观察时按实见个数提交；全部未见提交 0。" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
-              <Form.Item label="轮次" name="roundNo" initialValue="1"><Input /></Form.Item>
-              <Form.Item name="allMissing" valuePropName="checked" getValueFromEvent={(event) => event.target.checked ? "true" : "false"}>
+              <Form.Item label="快照行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="数量"
+                name="qty"
+                extra="身份观察时按实见个数提交；全部未见提交 0。"
+                rules={[{ required: true }]}
+              >
+                <Input inputMode="decimal" />
+              </Form.Item>
+              <Form.Item label="轮次" name="roundNo" initialValue="1">
+                <Input />
+              </Form.Item>
+              <Form.Item
+                name="allMissing"
+                valuePropName="checked"
+                getValueFromEvent={(event) => (event.target.checked ? 'true' : 'false')}
+              >
                 <Checkbox>序列号行全部未见（空集合）</Checkbox>
               </Form.Item>
-              <SerialIdsField name="serialIds" label="实见身份" extra="序列号行填写完整实见清单。勾选全部未见时不要再填。" />
+              <SerialIdsField
+                name="serialIds"
+                label="实见身份"
+                extra="序列号行填写完整实见清单。勾选全部未见时不要再填。"
+              />
             </CommandCard>
           </CommandCol>
           <CommandCol title="复盘" requireScope="count.record">
@@ -124,12 +183,20 @@ export function CountDetailPage() {
               submitLabel="提交复盘"
               disabled={!token}
               onDone={reload}
-              onRun={() => api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/reviews`, token, {
-                method: "POST",
-                body: {}
-              })}
+              onRun={() =>
+                api(
+                  `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/reviews`,
+                  token,
+                  {
+                    method: 'POST',
+                    body: {},
+                  },
+                )
+              }
             >
-              <Form.Item label="确认"><Input disabled value="提交当前计划进入复盘" /></Form.Item>
+              <Form.Item label="确认">
+                <Input disabled value="提交当前计划进入复盘" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="审批" requireScope="adjustment.approve">
@@ -143,13 +210,21 @@ export function CountDetailPage() {
               submitLabel="批准调整"
               disabled={!token}
               onDone={reload}
-              onRun={(key) => api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/approvals`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { approvalId: key }
-              })}
+              onRun={(key) =>
+                api(
+                  `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/approvals`,
+                  token,
+                  {
+                    method: 'POST',
+                    idempotencyKey: key,
+                    body: { approvalId: key },
+                  },
+                )
+              }
             >
-              <Form.Item label="确认"><Input disabled value="以当前操作者为审批人" /></Form.Item>
+              <Form.Item label="确认">
+                <Input disabled value="以当前操作者为审批人" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="按行调整" requireScope="adjustment.apply">
@@ -163,17 +238,25 @@ export function CountDetailPage() {
               submitLabel="应用行调整"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/applications`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { lineId: values.lineId, clientOperationId: key }
-              })}
+              onRun={(key, values) =>
+                api(
+                  `/api/wms/v1/warehouses/${warehouseId}/count-plans/${countPlanId}/applications`,
+                  token,
+                  {
+                    method: 'POST',
+                    idempotencyKey: key,
+                    body: { lineId: values.lineId, clientOperationId: key },
+                  },
+                )
+              }
             >
-              <Form.Item label="快照行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
+              <Form.Item label="快照行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
         </>
-      )}
+      }
     />
   );
 }

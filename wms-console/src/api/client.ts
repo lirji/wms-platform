@@ -14,19 +14,19 @@ export type RequestOptions = {
 };
 
 const PREFIX = {
-  inbound: "/inbound-api",
-  outbound: "/outbound-api",
-  inventory: "/inventory-api",
-  fulfillment: "/fulfillment-api"
+  inbound: '/inbound-api',
+  outbound: '/outbound-api',
+  inventory: '/inventory-api',
+  fulfillment: '/fulfillment-api',
 } as const;
 
 function queryValue(path: string, key: string): string | undefined {
-  const query = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
+  const query = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
   return new URLSearchParams(query).get(key) ?? undefined;
 }
 
 function stripQuery(path: string, key: string): string {
-  const cut = path.indexOf("?");
+  const cut = path.indexOf('?');
   if (cut < 0) {
     return path;
   }
@@ -37,30 +37,47 @@ function stripQuery(path: string, key: string): string {
 }
 
 export function routeFor(path: string): string {
-  const serviceHint = queryValue(path, "service");
-  const cleaned = stripQuery(path, "service");
-  if (cleaned.includes("/serial-recoveries") || cleaned.includes("/operations/")) {
+  const serviceHint = queryValue(path, 'service');
+  const cleaned = stripQuery(path, 'service');
+  if (cleaned.includes('/serial-recoveries') || cleaned.includes('/operations/')) {
     return PREFIX.inventory + cleaned;
   }
-  if (cleaned.includes("/message-queues") && serviceHint && serviceHint in PREFIX) {
+  if (cleaned.includes('/message-queues') && serviceHint && serviceHint in PREFIX) {
     return PREFIX[serviceHint as keyof typeof PREFIX] + cleaned;
   }
-  if (cleaned.includes("/action-effects")) {
+  if (cleaned.includes('/action-effects')) {
     return PREFIX.inventory + cleaned;
   }
-  const taskType = queryValue(cleaned, "taskType");
-  if (cleaned.includes("/inbound-orders") || cleaned.includes("/quality-inspections") || cleaned.includes("/putaways")
-    || taskType === "PUTAWAY") {
+  const taskType = queryValue(cleaned, 'taskType');
+  if (
+    cleaned.includes('/inbound-orders') ||
+    cleaned.includes('/quality-inspections') ||
+    cleaned.includes('/putaways') ||
+    taskType === 'PUTAWAY'
+  ) {
     return PREFIX.inbound + cleaned;
   }
-  if (cleaned.includes("/outbound-orders") || cleaned.includes("/picks") || cleaned.includes("/packings") || cleaned.includes("/shipments")
-    || taskType === "PICK" || taskType === "RESTOCK") {
+  if (
+    cleaned.includes('/outbound-orders') ||
+    cleaned.includes('/picks') ||
+    cleaned.includes('/packings') ||
+    cleaned.includes('/shipments') ||
+    taskType === 'PICK' ||
+    taskType === 'RESTOCK'
+  ) {
     return PREFIX.outbound + cleaned;
   }
-  if (cleaned.includes("/serial-transfer-receipts") || cleaned.includes("/transfer-receipts") || cleaned.includes("/receipt-authorizations")) {
+  if (
+    cleaned.includes('/serial-transfer-receipts') ||
+    cleaned.includes('/transfer-receipts') ||
+    cleaned.includes('/receipt-authorizations')
+  ) {
     return PREFIX.fulfillment + cleaned;
   }
-  if (cleaned.startsWith("/api/wms/v1/fulfillments") || cleaned.startsWith("/api/wms/v1/transfers")) {
+  if (
+    cleaned.startsWith('/api/wms/v1/fulfillments') ||
+    cleaned.startsWith('/api/wms/v1/transfers')
+  ) {
     return PREFIX.fulfillment + cleaned;
   }
   return PREFIX.inventory + cleaned;
@@ -69,68 +86,80 @@ export function routeFor(path: string): string {
 export function serviceFor(path: string): keyof typeof PREFIX {
   const routed = routeFor(path);
   if (routed.startsWith(PREFIX.inbound)) {
-    return "inbound";
+    return 'inbound';
   }
   if (routed.startsWith(PREFIX.outbound)) {
-    return "outbound";
+    return 'outbound';
   }
   if (routed.startsWith(PREFIX.fulfillment)) {
-    return "fulfillment";
+    return 'fulfillment';
   }
-  return "inventory";
+  return 'inventory';
 }
 
-export async function api(path: string, token: string | undefined, options: RequestOptions = {}): Promise<unknown> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+export async function api(
+  path: string,
+  token: string | undefined,
+  options: RequestOptions = {},
+): Promise<unknown> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
   if (options.body !== undefined) {
-    headers["Content-Type"] = "application/json";
+    headers['Content-Type'] = 'application/json';
   }
   if (options.idempotencyKey) {
-    headers["Idempotency-Key"] = options.idempotencyKey;
+    headers['Idempotency-Key'] = options.idempotencyKey;
   }
   const response = await fetch(routeFor(path), {
-    method: options.method ?? "GET",
+    method: options.method ?? 'GET',
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
   const text = await response.text();
   const parsed = text ? safeJson(text) : {};
   if (!response.ok) {
     const error: ApiError = {
       status: response.status,
-      code: typeof parsed === "object" && parsed && "code" in parsed ? String((parsed as { code: string }).code) : undefined,
+      code:
+        typeof parsed === 'object' && parsed && 'code' in parsed
+          ? String((parsed as { code: string }).code)
+          : undefined,
       message: messageOf(parsed, response.statusText),
-      retryable: typeof parsed === "object" && parsed && "retryable" in parsed
-        ? Boolean((parsed as { retryable: boolean }).retryable)
-        : response.status === 202,
-      body: parsed
+      retryable:
+        typeof parsed === 'object' && parsed && 'retryable' in parsed
+          ? Boolean((parsed as { retryable: boolean }).retryable)
+          : response.status === 202,
+      body: parsed,
     };
-    if (!path.startsWith("/api/wms/v1/me/access") && (response.status === 401 || ([403, 503].includes(response.status)
-        && ["CENTRAL_ACCESS_DENIED", "AUTHORIZATION_UNAVAILABLE"].includes(error.code ?? "")))) {
-      window.dispatchEvent(new CustomEvent("wms:access-invalidated", { detail: error }));
+    if (
+      !path.startsWith('/api/wms/v1/me/access') &&
+      (response.status === 401 ||
+        ([403, 503].includes(response.status) &&
+          ['CENTRAL_ACCESS_DENIED', 'AUTHORIZATION_UNAVAILABLE'].includes(error.code ?? '')))
+    ) {
+      window.dispatchEvent(new CustomEvent('wms:access-invalidated', { detail: error }));
     }
     throw error;
   }
-  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     (parsed as { __httpStatus?: number }).__httpStatus = response.status;
   }
   return parsed;
 }
 
 function messageOf(parsed: unknown, fallback: string): string {
-  if (parsed && typeof parsed === "object") {
+  if (parsed && typeof parsed === 'object') {
     const body = parsed as { message?: unknown; error?: unknown };
-    if (typeof body.message === "string" && body.message) {
+    if (typeof body.message === 'string' && body.message) {
       return body.message;
     }
-    if (typeof body.error === "string" && body.error) {
+    if (typeof body.error === 'string' && body.error) {
       return body.error;
     }
   }
-  return fallback || "请求失败";
+  return fallback || '请求失败';
 }
 
 function safeJson(text: string): unknown {

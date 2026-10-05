@@ -1,10 +1,9 @@
 package com.lrj.wms.probe;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import javax.sql.DataSource;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
@@ -28,7 +27,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.sql.DataSource;
 
 /** 用真实TC branchRegister观察重复Try会换branchId；业务键拒绝改绑。不是HTTP网关或正式预占服务。 */
 final class DuplicateTryProbe {
@@ -49,15 +53,24 @@ final class DuplicateTryProbe {
         admin.execute("CREATE DATABASE s0_retry");
         admin.execute("CREATE USER 's0_retry'@'%' IDENTIFIED BY '" + mysql.getPassword() + "'");
         admin.execute("GRANT SELECT,INSERT,UPDATE,DELETE ON s0_retry.* TO 's0_retry'@'%'");
-        Flyway.configure().dataSource(source(mysql, "s0_retry", "root"))
-                .locations("classpath:db/probe", "classpath:db/tcc-warehouse", "classpath:db/retry-probe").load().migrate();
+        Flyway.configure()
+                .dataSource(source(mysql, "s0_retry", "root"))
+                .locations(
+                        "classpath:db/probe",
+                        "classpath:db/tcc-warehouse",
+                        "classpath:db/retry-probe")
+                .load()
+                .migrate();
         var ds = source(mysql, "s0_retry", "s0_retry");
         stock = new JdbcTemplate(ds);
         stock.update("INSERT INTO stock_probe VALUES (?, 'sku',100,0,0)", WAREHOUSE);
         SpringFenceHandler.setDataSource(ds);
-        SpringFenceHandler.setTransactionTemplate(new TransactionTemplate(new DataSourceTransactionManager(ds)));
+        SpringFenceHandler.setTransactionTemplate(
+                new TransactionTemplate(new DataSourceTransactionManager(ds)));
         DefaultCommonFenceHandler.get().setFenceHandler(fence);
-        var configuration = new Configuration(new Environment("retry", new SpringManagedTransactionFactory(), ds));
+        var configuration =
+                new Configuration(
+                        new Environment("retry", new SpringManagedTransactionFactory(), ds));
         configuration.addMapper(StockProbeMapper.class);
         configuration.addMapper(TccProbeMapper.class);
         configuration.addMapper(ReservationProbeMapper.class);
@@ -72,10 +85,10 @@ final class DuplicateTryProbe {
         resource.setPrepareMethod(Callback.class.getMethod("prepare", BusinessActionContext.class));
         resource.setCommitMethod(Callback.class.getMethod("confirm", BusinessActionContext.class));
         resource.setRollbackMethod(Callback.class.getMethod("cancel", BusinessActionContext.class));
-        resource.setCommitArgsClasses(new Class<?>[]{BusinessActionContext.class});
-        resource.setRollbackArgsClasses(new Class<?>[]{BusinessActionContext.class});
-        resource.setPhaseTwoCommitKeys(new String[]{"context"});
-        resource.setPhaseTwoRollbackKeys(new String[]{"context"});
+        resource.setCommitArgsClasses(new Class<?>[] {BusinessActionContext.class});
+        resource.setRollbackArgsClasses(new Class<?>[] {BusinessActionContext.class});
+        resource.setPhaseTwoCommitKeys(new String[] {"context"});
+        resource.setPhaseTwoRollbackKeys(new String[] {"context"});
         DefaultResourceManager.get().registerResource(resource);
     }
 
@@ -93,8 +106,12 @@ final class DuplicateTryProbe {
         // 2.6对同xid/branch再次prepareFence会DuplicateKey，并异步清理原Tried记录；主路径禁止重放，否则后续Cancel会变成空回滚。
         long branch2 = register(xid);
         assertNotEquals(branch1, branch2, "真实branchRegister重试会得到新branchId，不能假设SDK复用原分支");
-        assertEquals(2, tcDatabase.queryForObject("SELECT COUNT(*) FROM branch_table WHERE xid=?", Integer.class, xid));
-        var ownerConflict = assertThrows(OwnerConflict.class, () -> tryReserve(xid, branch2, DIGEST));
+        assertEquals(
+                2,
+                tcDatabase.queryForObject(
+                        "SELECT COUNT(*) FROM branch_table WHERE xid=?", Integer.class, xid));
+        var ownerConflict =
+                assertThrows(OwnerConflict.class, () -> tryReserve(xid, branch2, DIGEST));
         assertTrue(causedBy(ownerConflict, "TCC_OWNER_CONFLICT"));
         assertEquals(30L, reserved());
         assertEquals(Long.valueOf(branch1), ownerBranch());
@@ -110,38 +127,93 @@ final class DuplicateTryProbe {
         assertEquals(30L, reserved());
         assertEquals(xid, reservations().ownerXid(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT));
         foreign.rollback();
-        await(() -> stock.queryForObject("SELECT COUNT(*) FROM tcc_fence_log WHERE xid=? AND status=4", Integer.class, foreignXid) == 1);
+        await(
+                () ->
+                        stock.queryForObject(
+                                        "SELECT COUNT(*) FROM tcc_fence_log WHERE xid=? AND status=4",
+                                        Integer.class,
+                                        foreignXid)
+                                == 1);
         assertEquals(30L, reserved());
         assertEquals(Long.valueOf(branch1), ownerBranch());
         transaction.rollback();
-        await(() -> reserved() == 0L && stock.queryForObject("SELECT COUNT(*) FROM reservation_probe", Integer.class) == 0);
-        System.out.println("DUPLICATE_TRY_PROBE: branchRegister retry allocated new branchId; owner conflict rejected; foreign cancel left original reservation; original cancel released once");
+        await(
+                () ->
+                        reserved() == 0L
+                                && stock.queryForObject(
+                                                "SELECT COUNT(*) FROM reservation_probe",
+                                                Integer.class)
+                                        == 0);
+        System.out.println(
+                "DUPLICATE_TRY_PROBE: branchRegister retry allocated new branchId; owner conflict rejected; foreign cancel left original reservation; original cancel released once");
     }
 
     private boolean tryReserve(String xid, long branch, String digest) {
-        String data = JsonUtil.toJSONString(Map.of(Constants.TX_ACTION_CONTEXT,
-                Map.of("warehouse", WAREHOUSE, Constants.USE_COMMON_FENCE, true)));
-        var context = BusinessActionContextUtil.getBusinessActionContext(xid, branch, RESOURCE, data);
+        String data =
+                JsonUtil.toJSONString(
+                        Map.of(
+                                Constants.TX_ACTION_CONTEXT,
+                                Map.of("warehouse", WAREHOUSE, Constants.USE_COMMON_FENCE, true)));
+        var context =
+                BusinessActionContextUtil.getBusinessActionContext(xid, branch, RESOURCE, data);
         BusinessActionContextUtil.setContext(context);
         try {
             // 2.6 Fence 回调返回 Object，不能按原始 boolean 直接作为方法结果。
-            Object prepared = fence.prepareFence(xid, branch, RESOURCE, () -> {
-                businessTries.incrementAndGet();
-                try {
-                    assertEquals(1, reservations().insert(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT, xid, branch, RESOURCE, digest, 30));
-                } catch (DuplicateKeyException duplicate) {
-                    if (xid.equals(reservations().ownerXid(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT))
-                            && branch == reservations().ownerBranch(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT)) {
-                        if (!digest.equals(reservations().digest(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT))) {
-                            throw new IllegalStateException("TCC_CONTEXT_MISMATCH");
-                        }
-                        return true;
-                    }
-                    throw new IllegalStateException("TCC_OWNER_CONFLICT");
-                }
-                assertEquals(1, sessions.getMapper(StockProbeMapper.class).reserve(WAREHOUSE, "sku", 30));
-                return true;
-            });
+            Object prepared =
+                    fence.prepareFence(
+                            xid,
+                            branch,
+                            RESOURCE,
+                            () -> {
+                                businessTries.incrementAndGet();
+                                try {
+                                    assertEquals(
+                                            1,
+                                            reservations()
+                                                    .insert(
+                                                            TENANT,
+                                                            WAREHOUSE,
+                                                            ALLOCATION,
+                                                            ATTEMPT,
+                                                            xid,
+                                                            branch,
+                                                            RESOURCE,
+                                                            digest,
+                                                            30));
+                                } catch (DuplicateKeyException duplicate) {
+                                    if (xid.equals(
+                                                    reservations()
+                                                            .ownerXid(
+                                                                    TENANT,
+                                                                    WAREHOUSE,
+                                                                    ALLOCATION,
+                                                                    ATTEMPT))
+                                            && branch
+                                                    == reservations()
+                                                            .ownerBranch(
+                                                                    TENANT,
+                                                                    WAREHOUSE,
+                                                                    ALLOCATION,
+                                                                    ATTEMPT)) {
+                                        if (!digest.equals(
+                                                reservations()
+                                                        .digest(
+                                                                TENANT,
+                                                                WAREHOUSE,
+                                                                ALLOCATION,
+                                                                ATTEMPT))) {
+                                            throw new IllegalStateException("TCC_CONTEXT_MISMATCH");
+                                        }
+                                        return true;
+                                    }
+                                    throw new IllegalStateException("TCC_OWNER_CONFLICT");
+                                }
+                                assertEquals(
+                                        1,
+                                        sessions.getMapper(StockProbeMapper.class)
+                                                .reserve(WAREHOUSE, "sku", 30));
+                                return true;
+                            });
             return Boolean.TRUE.equals(prepared);
         } catch (RuntimeException failure) {
             if (causedBy(failure, "TCC_OWNER_CONFLICT")) throw new OwnerConflict(failure);
@@ -152,23 +224,45 @@ final class DuplicateTryProbe {
     }
 
     private long register(String xid) throws Exception {
-        String data = JsonUtil.toJSONString(Map.of(Constants.TX_ACTION_CONTEXT,
-                Map.of("warehouse", WAREHOUSE, Constants.USE_COMMON_FENCE, true)));
-        return DefaultResourceManager.get().branchRegister(BranchType.TCC, RESOURCE, null, xid, data, null);
+        String data =
+                JsonUtil.toJSONString(
+                        Map.of(
+                                Constants.TX_ACTION_CONTEXT,
+                                Map.of("warehouse", WAREHOUSE, Constants.USE_COMMON_FENCE, true)));
+        return DefaultResourceManager.get()
+                .branchRegister(BranchType.TCC, RESOURCE, null, xid, data, null);
     }
 
     /** TC反射回调；非所有者Cancel必须直接返回，禁止释放他人预占。 */
     public static final class Callback {
         private final DuplicateTryProbe probe;
-        Callback(DuplicateTryProbe probe) { this.probe = probe; }
-        public boolean prepare(BusinessActionContext context) { throw new UnsupportedOperationException("探针显式prepare"); }
+
+        Callback(DuplicateTryProbe probe) {
+            this.probe = probe;
+        }
+
+        public boolean prepare(BusinessActionContext context) {
+            throw new UnsupportedOperationException("探针显式prepare");
+        }
+
         public boolean confirm(BusinessActionContext context) {
-            probe.sessions.getMapper(TccProbeMapper.class).effect(context.getXid(), context.getBranchId(), "CONFIRM");
+            probe.sessions
+                    .getMapper(TccProbeMapper.class)
+                    .effect(context.getXid(), context.getBranchId(), "CONFIRM");
             return true;
         }
+
         public boolean cancel(BusinessActionContext context) {
-            int owned = probe.reservations().deleteOwner(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT,
-                    context.getXid(), context.getBranchId(), RESOURCE);
+            int owned =
+                    probe.reservations()
+                            .deleteOwner(
+                                    TENANT,
+                                    WAREHOUSE,
+                                    ALLOCATION,
+                                    ATTEMPT,
+                                    context.getXid(),
+                                    context.getBranchId(),
+                                    RESOURCE);
             if (owned != 1) return true;
             var mapper = probe.sessions.getMapper(TccProbeMapper.class);
             assertEquals(1, mapper.effect(context.getXid(), context.getBranchId(), "CANCEL"));
@@ -177,26 +271,53 @@ final class DuplicateTryProbe {
         }
     }
 
-    private ReservationProbeMapper reservations() { return sessions.getMapper(ReservationProbeMapper.class); }
-    private long reserved() { return stock.queryForObject("SELECT reserved FROM stock_probe WHERE warehouse_id=?", Long.class, WAREHOUSE); }
-    private Long ownerBranch() { return reservations().ownerBranch(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT); }
-    private int fenceRows(String xid, long branch) {
-        return stock.queryForObject("SELECT COUNT(*) FROM tcc_fence_log WHERE xid=? AND branch_id=?", Integer.class, xid, branch);
+    private ReservationProbeMapper reservations() {
+        return sessions.getMapper(ReservationProbeMapper.class);
     }
+
+    private long reserved() {
+        return stock.queryForObject(
+                "SELECT reserved FROM stock_probe WHERE warehouse_id=?", Long.class, WAREHOUSE);
+    }
+
+    private Long ownerBranch() {
+        return reservations().ownerBranch(TENANT, WAREHOUSE, ALLOCATION, ATTEMPT);
+    }
+
+    private int fenceRows(String xid, long branch) {
+        return stock.queryForObject(
+                "SELECT COUNT(*) FROM tcc_fence_log WHERE xid=? AND branch_id=?",
+                Integer.class,
+                xid,
+                branch);
+    }
+
     private static boolean causedBy(Throwable failure, String token) {
         for (int depth = 0; failure != null && depth < 10; depth++, failure = failure.getCause()) {
             if (failure.getMessage() != null && failure.getMessage().contains(token)) return true;
         }
         return false;
     }
+
     private static void await(java.util.function.BooleanSupplier condition) throws Exception {
         long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
-        do { if (condition.getAsBoolean()) return; Thread.sleep(100); } while (System.nanoTime() < deadline);
+        do {
+            if (condition.getAsBoolean()) return;
+            Thread.sleep(100);
+        } while (System.nanoTime() < deadline);
         fail("重复Try探针在30秒内未收敛");
     }
+
     private static DataSource source(MySQLContainer mysql, String database, String user) {
         var source = new MysqlDataSource();
-        source.setURL("jdbc:mysql://" + mysql.getHost() + ":" + mysql.getMappedPort(3306) + "/" + database + "?allowPublicKeyRetrieval=true&useSSL=false");
+        source.setURL(
+                "jdbc:mysql://"
+                        + mysql.getHost()
+                        + ":"
+                        + mysql.getMappedPort(3306)
+                        + "/"
+                        + database
+                        + "?allowPublicKeyRetrieval=true&useSSL=false");
         source.setUser(user);
         source.setPassword(mysql.getPassword());
         return source;
@@ -204,6 +325,8 @@ final class DuplicateTryProbe {
 
     /** 新所有者冲突是预期业务拒绝，不能当成Fence或系统失败。 */
     static final class OwnerConflict extends RuntimeException {
-        OwnerConflict(Throwable cause) { super("重复Try所有者冲突", cause); }
+        OwnerConflict(Throwable cause) {
+            super("重复Try所有者冲突", cause);
+        }
     }
 }

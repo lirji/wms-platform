@@ -1,8 +1,8 @@
-import { ReactNode, useState } from "react";
-import { Button, Modal } from "antd";
-import { canOperation } from "../../auth/can";
-import { useWorkspace } from "../../shell/WorkspaceContext";
-import { CommandDialogContext, DirtyFormContext } from "./dirtyForm";
+import { ReactNode, useState } from 'react';
+import { Button, Modal } from 'antd';
+import { canOperation } from '../../auth/can';
+import { useWorkspace } from '../../shell/WorkspaceContext';
+import { CommandDialogContext, DirtyFormContext } from './dirtyForm';
 
 /** 命令入口仍叫 Drawer，实际是居中弹层，避免右侧挤占密表。 */
 export function CommandDrawer({
@@ -13,9 +13,9 @@ export function CommandDrawer({
   width = 560,
   requireScope,
   resourceType,
-  triggerType = "primary",
+  triggerType = 'primary',
   onSubmitted,
-  children
+  children,
 }: {
   triggerLabel: string;
   title: string;
@@ -23,8 +23,8 @@ export function CommandDrawer({
   disabled?: boolean;
   width?: number;
   requireScope?: string | string[];
-  resourceType?: "warehouse" | "enterprise";
-  triggerType?: "primary" | "default";
+  resourceType?: 'warehouse' | 'enterprise';
+  triggerType?: 'primary' | 'default';
   onSubmitted?: () => void;
   children: ReactNode;
 }) {
@@ -47,23 +47,28 @@ export function CommandDrawer({
       return;
     }
     modal.confirm({
-      title: "放弃未提交的内容？",
-      content: "已填写的内容尚未成功提交。放弃后会清空本次输入。",
-      okText: "放弃",
-      cancelText: "继续编辑",
+      title: '放弃未提交的内容？',
+      content: '已填写的内容尚未成功提交。放弃后会清空本次输入。',
+      okText: '放弃',
+      cancelText: '继续编辑',
       centered: true,
       onOk: () => {
         setDirty(false);
         setOpen(false);
         setContentVersion((current) => current + 1);
-      }
+      },
     });
   }
 
   return (
     <>
       {modalContext}
-      <Button className="list-action" type={triggerType} disabled={disabled} onClick={() => setOpen(true)}>
+      <Button
+        className="list-action"
+        type={triggerType}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+      >
         {triggerLabel}
       </Button>
       <Modal
@@ -77,16 +82,18 @@ export function CommandDrawer({
         centered
         width={width}
         destroyOnHidden={false}
-        styles={{ body: { maxHeight: "70vh", overflow: "auto" } }}
+        styles={{ body: { maxHeight: '70vh', overflow: 'auto' } }}
       >
         {hint ? <p className="command-dialog-hint">{hint}</p> : null}
         {busy ? <p role="status">正在提交，请等待服务端结果后再关闭。</p> : null}
         <DirtyFormContext.Provider value={setDirty}>
-          <CommandDialogContext.Provider value={{
-            submitted: () => onSubmitted?.(),
-            setBusy,
-            close: requestClose
-          }}>
+          <CommandDialogContext.Provider
+            value={{
+              submitted: () => onSubmitted?.(),
+              setBusy,
+              close: requestClose,
+            }}
+          >
             <div key={contentVersion}>{children}</div>
           </CommandDialogContext.Provider>
         </DirtyFormContext.Provider>

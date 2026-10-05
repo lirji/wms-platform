@@ -1,5 +1,7 @@
 package com.lrj.wms.inventory.inventory;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
@@ -10,12 +12,7 @@ import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.UUID;
-import javax.sql.DataSource;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -28,7 +25,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.UUID;
+
+import javax.sql.DataSource;
 
 /** AC-04：同键重试一次入账，同键异内容拒绝。 */
 class IdempotencyRecoveryIT {
@@ -39,17 +43,27 @@ class IdempotencyRecoveryIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_inventory")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_inventory")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         DataSource dataSource = source;
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
         jdbc = new JdbcTemplate(dataSource);
-        Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
+        Configuration config =
+                new Configuration(
+                        new Environment("inventory", new JdbcTransactionFactory(), dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
@@ -60,7 +74,15 @@ class IdempotencyRecoveryIT {
         try (SqlSession session = sessions.openSession(false)) {
             MasterdataService masterdata = new MasterdataService(session, clock);
             masterdata.createWarehouse("WH-A", "ENT-1", "SHA", "上海仓", "Asia/Shanghai");
-            masterdata.createLocation("LOC-1", "GATE-1", "ENT-1", "WH-A", "A-01", "A", "STORAGE", new BigDecimal("100"),
+            masterdata.createLocation(
+                    "LOC-1",
+                    "GATE-1",
+                    "ENT-1",
+                    "WH-A",
+                    "A-01",
+                    "A",
+                    "STORAGE",
+                    new BigDecimal("100"),
                     "EA");
             session.commit();
         }
@@ -75,31 +97,61 @@ class IdempotencyRecoveryIT {
 
     @Test
     void lostResponseRetryAndConflict() {
-        StockBucketKey bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", "SKU-ID", MasterdataCodes.NO_LOT,
-                InventoryCodes.QUALITY_GOOD);
+        StockBucketKey bucket =
+                StockBucketKey.of(
+                        "ENT-1",
+                        "WH-A",
+                        "OWNER-1",
+                        "LOC-1",
+                        "SKU-ID",
+                        MasterdataCodes.NO_LOT,
+                        InventoryCodes.QUALITY_GOOD);
         Quantity qty = Quantity.parse("5", 0);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
-            new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "OP-LOST", "DOC-1", "ACTOR", bucket,
-                    qty);
+            new InventoryApplicationService(session, clock)
+                    .receive("ENT-1", "WH-A", "OP-LOST", "DOC-1", "ACTOR", bucket, qty);
             session.commit();
         }
         try (SqlSession session = sessions.openSession(false)) {
-            assertEquals("OP-LOST", new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "OP-LOST",
-                    "DOC-1", "ACTOR", bucket, qty));
+            assertEquals(
+                    "OP-LOST",
+                    new InventoryApplicationService(session, clock)
+                            .receive("ENT-1", "WH-A", "OP-LOST", "DOC-1", "ACTOR", bucket, qty));
             session.commit();
         }
-        InventoryException conflict = assertThrows(InventoryException.class, () -> {
-            try (SqlSession session = sessions.openSession(false)) {
-                new InventoryApplicationService(session, clock).receive("ENT-1", "WH-A", "OP-LOST", "DOC-OTHER", "ACTOR",
-                        bucket, qty);
-            }
-        });
+        InventoryException conflict =
+                assertThrows(
+                        InventoryException.class,
+                        () -> {
+                            try (SqlSession session = sessions.openSession(false)) {
+                                new InventoryApplicationService(session, clock)
+                                        .receive(
+                                                "ENT-1",
+                                                "WH-A",
+                                                "OP-LOST",
+                                                "DOC-OTHER",
+                                                "ACTOR",
+                                                bucket,
+                                                qty);
+                            }
+                        });
         assertEquals("COMMAND_CONFLICT", conflict.code());
-        assertEquals(0, jdbc.queryForObject("SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-ID'", BigDecimal.class)
-                .compareTo(new BigDecimal("5.000000")));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-LOST'", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM command_dedup WHERE client_operation_id='OP-LOST'",
-                Integer.class));
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                                "SELECT on_hand_qty FROM stock_balance WHERE sku_id='SKU-ID'",
+                                BigDecimal.class)
+                        .compareTo(new BigDecimal("5.000000")));
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM stock_ledger WHERE operation_id='OP-LOST'",
+                        Integer.class));
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM command_dedup WHERE client_operation_id='OP-LOST'",
+                        Integer.class));
     }
 }

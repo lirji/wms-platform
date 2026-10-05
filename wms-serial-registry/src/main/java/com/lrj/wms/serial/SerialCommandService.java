@@ -2,28 +2,51 @@ package com.lrj.wms.serial;
 
 import com.lrj.wms.runtime.command.CommandKeys;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
-import org.apache.ibatis.session.SqlSessionFactory;
 
 /** 内部命令的本地事务边界；跨动作共享幂等审计，领域服务只执行登记规则。 */
 public final class SerialCommandService {
     private final SqlSessionFactory sessions;
     private final Clock clock;
-    public SerialCommandService(SqlSessionFactory sessions, Clock clock) { this.sessions = sessions; this.clock = clock; }
+
+    public SerialCommandService(SqlSessionFactory sessions, Clock clock) {
+        this.sessions = sessions;
+        this.clock = clock;
+    }
 
     /** HTTP命令键与原收货operation引用含义不同，两者都固定，防止网络重试变成新认领。 */
-    public Map<String, Object> execute(String enterprise, String warehouse, String command, String actor,
-            String action, Object request, Function<SerialRegistryService, Map<String, Object>> operation) {
+    public Map<String, Object> execute(
+            String enterprise,
+            String warehouse,
+            String command,
+            String actor,
+            String action,
+            Object request,
+            Function<SerialRegistryService, Map<String, Object>> operation) {
         CommandKeys.resolve(command, null);
-        String hash = RuntimeMessage.hash(RuntimeMessage.JSON.writeValueAsString(List.of(enterprise, warehouse, actor, action, request)));
+        String hash =
+                RuntimeMessage.hash(
+                        RuntimeMessage.JSON.writeValueAsString(
+                                List.of(enterprise, warehouse, actor, action, request)));
         try (var session = sessions.openSession(false)) {
             var mapper = session.getMapper(SerialHttpCommandMapper.class);
-            mapper.insert(UUID.randomUUID().toString(), enterprise, warehouse, command, hash, action, actor, Timestamp.from(clock.instant()));
+            mapper.insert(
+                    UUID.randomUUID().toString(),
+                    enterprise,
+                    warehouse,
+                    command,
+                    hash,
+                    action,
+                    actor,
+                    Timestamp.from(clock.instant()));
             var stored = mapper.lock(enterprise, command);
             if (stored == null || !hash.equals(stored.get("request_hash"))) {
                 throw new SerialRegistryException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同命令键的动作或参数不同");
@@ -31,10 +54,16 @@ public final class SerialCommandService {
             if (stored.get("result") != null) {
                 // MISSING返回的是原盘亏事实确认，不授予持有权；后续盘盈不能使已提交盘亏失去恢复凭证。
                 // CLAIM/ACTIVATE等授权动作仍执行下方实时状态校验，不能复用旧ACTIVE授权。
-                if("MISSING".equals(action)) {
-                    @SuppressWarnings("unchecked") var original=(Map<String,Object>)RuntimeMessage.JSON.readValue(stored.get("result").toString(),Map.class);
-                    if(!"MISSING".equals(original.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","原盘亏审计缺少准确终态");
-                    session.commit();return original;
+                if ("MISSING".equals(action)) {
+                    @SuppressWarnings("unchecked")
+                    var original =
+                            (Map<String, Object>)
+                                    RuntimeMessage.JSON.readValue(
+                                            stored.get("result").toString(), Map.class);
+                    if (!"MISSING".equals(original.get("state")))
+                        throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "原盘亏审计缺少准确终态");
+                    session.commit();
+                    return original;
                 }
                 // 登记响应涉及授权，旧ACTIVE审计不能覆盖后续MISSING或转移；领域动作本身必须可幂等重放。
                 var current = operation.apply(new SerialRegistryService(session, clock));
@@ -42,7 +71,8 @@ public final class SerialCommandService {
                 return current;
             }
             var result = operation.apply(new SerialRegistryService(session, clock));
-            if (mapper.finish(enterprise, command, RuntimeMessage.JSON.writeValueAsString(result)) != 1) {
+            if (mapper.finish(enterprise, command, RuntimeMessage.JSON.writeValueAsString(result))
+                    != 1) {
                 throw new SerialRegistryException("VERSION_CONFLICT", "登记命令结果写入竞争");
             }
             session.commit();

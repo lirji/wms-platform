@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
-import { asRecord, type ItemRecord } from "../api/envelope";
-import { canQuery, queryPermissionError } from "../auth/can";
-import { useWorkspace } from "../shell/WorkspaceContext";
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
+import { asRecord, type ItemRecord } from '../api/envelope';
+import { canQuery, queryPermissionError } from '../auth/can';
+import { useWorkspace } from '../shell/WorkspaceContext';
 
 export function useDocument(token: string | undefined, path: string | undefined, tick = 0) {
   const workspace = useWorkspace();
@@ -14,7 +14,11 @@ export function useDocument(token: string | undefined, path: string | undefined,
   useEffect(() => {
     setRecord({});
     setError(undefined);
-    if (!allowed) { setError(queryPermissionError()); setLoading(false); return; }
+    if (!allowed) {
+      setError(queryPermissionError());
+      setLoading(false);
+      return;
+    }
     if (!token || !path) {
       setRecord({});
       setLoading(false);

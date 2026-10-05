@@ -1,7 +1,7 @@
 name: verify
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**']
+    branches: [main, 'feat/**', 'fix/**', 'refactor/**']
   pull_request:
 permissions:
   contents: read
@@ -40,6 +40,9 @@ jobs:
       - run: ./mvnw -B -ntp -pl auth-platform-sdk -am install -DskipTests
         working-directory: .local/auth-sdk-source
       - run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - run: python3 scripts/format-java.py --check
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+      - run: python3 scripts/format-xml.py --check
       - run: python3 scripts/export-auth-catalog.py --check
       - run: python3 scripts/check-docs.py
       - run: ./scripts/verify-contracts.sh
@@ -85,6 +88,8 @@ jobs:
           cache: npm
           cache-dependency-path: wms-console/package-lock.json
       - run: npm ci
+        working-directory: wms-console
+      - run: npm run format:check
         working-directory: wms-console
       - run: npm run typecheck
         working-directory: wms-console

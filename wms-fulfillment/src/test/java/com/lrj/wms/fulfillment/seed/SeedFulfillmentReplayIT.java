@@ -1,17 +1,21 @@
 package com.lrj.wms.fulfillment.seed;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.mysql.cj.jdbc.MysqlDataSource;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.mysql.MySQLContainer;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
+
 import javax.sql.DataSource;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** 履约/调拨演示单复跑不新增行，attempt 保持 PLANNED。 */
 class SeedFulfillmentReplayIT {
@@ -20,11 +24,15 @@ class SeedFulfillmentReplayIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_fulfillment")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_fulfillment")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         dataSource = source;

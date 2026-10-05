@@ -1,14 +1,14 @@
-import { Button, Space } from "antd";
+import { Button, Space } from 'antd';
 
 /** 游标翻页放表底右侧。不编造页码。下一页是本区唯一 Primary。 */
 export function ListPager({
-  prevLabel = "首页",
-  nextLabel = "下一页",
+  prevLabel = '首页',
+  nextLabel = '下一页',
   prevDisabled,
   nextDisabled,
   countLabel,
   onPrev,
-  onNext
+  onNext,
 }: {
   prevLabel?: string;
   nextLabel?: string;
@@ -25,7 +25,12 @@ export function ListPager({
         <Button type="default" autoInsertSpace={false} disabled={prevDisabled} onClick={onPrev}>
           {prevLabel}
         </Button>
-        <Button type={nextDisabled ? "default" : "primary"} autoInsertSpace={false} disabled={nextDisabled} onClick={onNext}>
+        <Button
+          type={nextDisabled ? 'default' : 'primary'}
+          autoInsertSpace={false}
+          disabled={nextDisabled}
+          onClick={onNext}
+        >
           {nextLabel}
         </Button>
       </Space>

@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -9,13 +9,42 @@
   <artifactId>wms-inventory</artifactId>
   <dependencies>
     <!-- 收货和可信水位进程验收必须使用当前源码的入库Jar，不能复用target里的旧协议包。 -->
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-inbound</artifactId><version>${project.version}</version><scope>test</scope></dependency>
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-outbound</artifactId><version>${project.version}</version><scope>test</scope></dependency>
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-fulfillment</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-inbound</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-outbound</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-fulfillment</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
     <!-- 真实登记进程测试需要本次构建的可执行Jar；声明依赖确保干净reactor也按正确顺序打包。 -->
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-serial-registry</artifactId><version>${project.version}</version><scope>test</scope></dependency>
-    <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-kafka</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
-    <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-serial-registry</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-kafka</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.lrj.wms</groupId>
+      <artifactId>wms-runtime</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.lrj.wms</groupId>
       <artifactId>wms-security</artifactId>
@@ -114,10 +143,27 @@
   <build>
     <!-- 跨服务黑盒夹具编译了来源服务代码，必须同时携带其 XML；不混入其他服务迁移。 -->
     <testResources>
-      <testResource><directory>src/test/resources</directory></testResource>
-      <testResource><directory>../wms-inbound/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
-      <testResource><directory>../wms-outbound/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
-      <testResource><directory>../wms-fulfillment/src/main/resources</directory><includes><include>com/**/*.xml</include></includes></testResource>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <testResource>
+        <directory>../wms-inbound/src/main/resources</directory>
+        <includes>
+          <include>com/**/*.xml</include>
+        </includes>
+      </testResource>
+      <testResource>
+        <directory>../wms-outbound/src/main/resources</directory>
+        <includes>
+          <include>com/**/*.xml</include>
+        </includes>
+      </testResource>
+      <testResource>
+        <directory>../wms-fulfillment/src/main/resources</directory>
+        <includes>
+          <include>com/**/*.xml</include>
+        </includes>
+      </testResource>
     </testResources>
     <plugins>
       <plugin>
@@ -174,7 +220,6 @@
     <profile>
       <id>tc-it</id>
       <build>
-
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>

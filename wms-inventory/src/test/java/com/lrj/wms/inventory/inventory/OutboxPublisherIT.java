@@ -1,5 +1,7 @@
 package com.lrj.wms.inventory.inventory;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
@@ -10,17 +12,7 @@ import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
-import javax.sql.DataSource;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -33,7 +25,19 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.sql.DataSource;
 
 /** S2-04 领取/发布/重试/隔离。不是 Kafka 投递或 AC-05 崩溃注入。 */
 class OutboxPublisherIT {
@@ -45,17 +49,27 @@ class OutboxPublisherIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_inventory")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_inventory")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         DataSource dataSource = source;
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
         jdbc = new JdbcTemplate(dataSource);
-        Configuration config = new Configuration(new Environment("inventory", new JdbcTransactionFactory(), dataSource));
+        Configuration config =
+                new Configuration(
+                        new Environment("inventory", new JdbcTransactionFactory(), dataSource));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(MasterdataMapper.class);
         config.addMapper(InventoryMapper.class);
@@ -64,9 +78,18 @@ class OutboxPublisherIT {
         config.addMapper(CommandDedupMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
         try (SqlSession session = sessions.openSession(false)) {
-            MasterdataService masterdata = new MasterdataService(session, Clock.fixed(NOW, ZoneOffset.UTC));
+            MasterdataService masterdata =
+                    new MasterdataService(session, Clock.fixed(NOW, ZoneOffset.UTC));
             masterdata.createWarehouse("WH-A", "ENT-1", "SHA", "上海仓", "Asia/Shanghai");
-            masterdata.createLocation("LOC-1", "GATE-1", "ENT-1", "WH-A", "A-01", "A", "STORAGE", new BigDecimal("100"),
+            masterdata.createLocation(
+                    "LOC-1",
+                    "GATE-1",
+                    "ENT-1",
+                    "WH-A",
+                    "A-01",
+                    "A",
+                    "STORAGE",
+                    new BigDecimal("100"),
                     "EA");
             session.commit();
         }
@@ -83,78 +106,141 @@ class OutboxPublisherIT {
     void publishRetryIsolateAndReclaimExpiredLease() {
         receive("OP-PUB", "SKU-PUB");
         List<OutboxRecord> sent = new ArrayList<>();
-        OutboxPublisher publisher = new OutboxPublisher(sessions, sent::add, Clock.fixed(NOW, ZoneOffset.UTC));
+        OutboxPublisher publisher =
+                new OutboxPublisher(sessions, sent::add, Clock.fixed(NOW, ZoneOffset.UTC));
         assertEquals(1, publisher.publishDue());
         assertEquals(1, sent.size());
         assertEquals(InventoryCodes.EVENT_BALANCE_CHANGED, sent.getFirst().eventType());
-        assertEquals(InventoryCodes.OUTBOX_PUBLISHED,
-                jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-PUB'", String.class));
+        assertEquals(
+                InventoryCodes.OUTBOX_PUBLISHED,
+                jdbc.queryForObject(
+                        "SELECT status FROM outbox_event WHERE operation_id='OP-PUB'",
+                        String.class));
         assertEquals(0, publisher.publishDue());
 
         receive("OP-RETRY", "SKU-RETRY");
         AtomicInteger attempts = new AtomicInteger();
         MutableClock clock = new MutableClock(NOW);
-        OutboxPublisher failing = new OutboxPublisher(sessions, record -> {
-            if (attempts.incrementAndGet() == 1) {
-                throw new IllegalStateException("broker unavailable");
-            }
-        }, clock);
+        OutboxPublisher failing =
+                new OutboxPublisher(
+                        sessions,
+                        record -> {
+                            if (attempts.incrementAndGet() == 1) {
+                                throw new IllegalStateException("broker unavailable");
+                            }
+                        },
+                        clock);
         assertEquals(0, failing.publishDue());
-        assertEquals(InventoryCodes.OUTBOX_PENDING,
-                jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-RETRY'", String.class));
+        assertEquals(
+                InventoryCodes.OUTBOX_PENDING,
+                jdbc.queryForObject(
+                        "SELECT status FROM outbox_event WHERE operation_id='OP-RETRY'",
+                        String.class));
         assertEquals(0, failing.publishDue());
         clock.advance(Duration.ofSeconds(3));
         assertEquals(1, failing.publishDue());
-        assertEquals(InventoryCodes.OUTBOX_PUBLISHED,
-                jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-RETRY'", String.class));
+        assertEquals(
+                InventoryCodes.OUTBOX_PUBLISHED,
+                jdbc.queryForObject(
+                        "SELECT status FROM outbox_event WHERE operation_id='OP-RETRY'",
+                        String.class));
 
         receive("OP-ISO", "SKU-ISO");
-        OutboxPublisher isolating = new OutboxPublisher(sessions,
-                record -> {
-                    throw new OutboxIsolateException("poison");
-                }, Clock.fixed(NOW, ZoneOffset.UTC));
+        OutboxPublisher isolating =
+                new OutboxPublisher(
+                        sessions,
+                        record -> {
+                            throw new OutboxIsolateException("poison");
+                        },
+                        Clock.fixed(NOW, ZoneOffset.UTC));
         assertEquals(0, isolating.publishDue());
-        assertEquals(InventoryCodes.OUTBOX_ISOLATED,
-                jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-ISO'", String.class));
+        assertEquals(
+                InventoryCodes.OUTBOX_ISOLATED,
+                jdbc.queryForObject(
+                        "SELECT status FROM outbox_event WHERE operation_id='OP-ISO'",
+                        String.class));
         assertEquals(0, isolating.publishDue());
 
         receive("OP-LEASE", "SKU-LEASE");
-        jdbc.update("UPDATE outbox_event SET status='CLAIMED', claim_epoch=1, "
-                + "lease_until=TIMESTAMP '2026-09-11 00:59:00' WHERE operation_id='OP-LEASE'");
+        jdbc.update(
+                "UPDATE outbox_event SET status='CLAIMED', claim_epoch=1, "
+                        + "lease_until=TIMESTAMP '2026-09-11 00:59:00' WHERE operation_id='OP-LEASE'");
         List<OutboxRecord> reclaimed = new ArrayList<>();
-        OutboxPublisher reclaim = new OutboxPublisher(sessions, reclaimed::add, Clock.fixed(NOW, ZoneOffset.UTC));
+        OutboxPublisher reclaim =
+                new OutboxPublisher(sessions, reclaimed::add, Clock.fixed(NOW, ZoneOffset.UTC));
         assertEquals(1, reclaim.publishDue());
         assertEquals(1, reclaimed.size());
-        assertEquals(InventoryCodes.OUTBOX_PUBLISHED,
-                jdbc.queryForObject("SELECT status FROM outbox_event WHERE operation_id='OP-LEASE'", String.class));
+        assertEquals(
+                InventoryCodes.OUTBOX_PUBLISHED,
+                jdbc.queryForObject(
+                        "SELECT status FROM outbox_event WHERE operation_id='OP-LEASE'",
+                        String.class));
         // 人工重试恢复预算基线，原claim_epoch和事件身份都保留，旧发布器不能误标完成。
         jdbc.update("UPDATE outbox_event SET claim_epoch=12 WHERE operation_id='OP-ISO'");
-        String eventId = jdbc.queryForObject("SELECT event_id FROM outbox_event WHERE operation_id='OP-ISO'", String.class);
+        String eventId =
+                jdbc.queryForObject(
+                        "SELECT event_id FROM outbox_event WHERE operation_id='OP-ISO'",
+                        String.class);
         var recoveryClock = Clock.fixed(NOW, ZoneOffset.UTC);
-        var recovery = new com.lrj.wms.runtime.messaging.MessageRecoveryService(sessions,
-                com.lrj.wms.runtime.messaging.MessageQueueMetrics.Queue.INVENTORY_OUTBOX,
-                new com.lrj.wms.runtime.messaging.RuntimeInbox(sessions, java.util.Map.of(), recoveryClock), recoveryClock);
+        var recovery =
+                new com.lrj.wms.runtime.messaging.MessageRecoveryService(
+                        sessions,
+                        com.lrj.wms.runtime.messaging.MessageQueueMetrics.Queue.INVENTORY_OUTBOX,
+                        new com.lrj.wms.runtime.messaging.RuntimeInbox(
+                                sessions, java.util.Map.of(), recoveryClock),
+                        recoveryClock);
         recovery.retry("ENT-1", "WH-A", "OUTBOX", eventId, "RETRY-ISO", 12, "已核对投递适配修复", "OPS");
         try (var session = sessions.openSession(false)) {
-            assertEquals(0, session.getMapper(OutboxMapper.class).markPublished(eventId, 12, Timestamp.from(NOW)));
+            assertEquals(
+                    0,
+                    session.getMapper(OutboxMapper.class)
+                            .markPublished(eventId, 12, Timestamp.from(NOW)));
             session.commit();
         }
         assertEquals(1, publisher.publishDue());
         assertEquals(eventId, sent.getLast().eventId());
-        assertEquals(13L, jdbc.queryForObject("SELECT claim_epoch FROM outbox_event WHERE event_id=?", Long.class, eventId));
-        assertEquals(12L, jdbc.queryForObject("SELECT retry_base_epoch FROM outbox_event WHERE event_id=?", Long.class, eventId));
-        assertEquals(true, recovery.retry("ENT-1", "WH-A", "OUTBOX", eventId, "RETRY-ISO", 12, "已核对投递适配修复", "OPS").get("replayed"));
+        assertEquals(
+                13L,
+                jdbc.queryForObject(
+                        "SELECT claim_epoch FROM outbox_event WHERE event_id=?",
+                        Long.class,
+                        eventId));
+        assertEquals(
+                12L,
+                jdbc.queryForObject(
+                        "SELECT retry_base_epoch FROM outbox_event WHERE event_id=?",
+                        Long.class,
+                        eventId));
+        assertEquals(
+                true,
+                recovery.retry(
+                                "ENT-1",
+                                "WH-A",
+                                "OUTBOX",
+                                eventId,
+                                "RETRY-ISO",
+                                12,
+                                "已核对投递适配修复",
+                                "OPS")
+                        .get("replayed"));
         assertEquals(0, publisher.publishDue());
-
     }
 
     private void receive(String operationId, String skuId) {
-        StockBucketKey bucket = StockBucketKey.of("ENT-1", "WH-A", "OWNER-1", "LOC-1", skuId, MasterdataCodes.NO_LOT,
-                InventoryCodes.QUALITY_GOOD);
+        StockBucketKey bucket =
+                StockBucketKey.of(
+                        "ENT-1",
+                        "WH-A",
+                        "OWNER-1",
+                        "LOC-1",
+                        skuId,
+                        MasterdataCodes.NO_LOT,
+                        InventoryCodes.QUALITY_GOOD);
         try (SqlSession session = sessions.openSession(false)) {
-            InventoryApplicationService service = new InventoryApplicationService(session,
-                    Clock.fixed(NOW, ZoneOffset.UTC));
-            service.receive("ENT-1", "WH-A", operationId, "DOC", "ACTOR", bucket, Quantity.parse("1", 0));
+            InventoryApplicationService service =
+                    new InventoryApplicationService(session, Clock.fixed(NOW, ZoneOffset.UTC));
+            service.receive(
+                    "ENT-1", "WH-A", operationId, "DOC", "ACTOR", bucket, Quantity.parse("1", 0));
             session.commit();
         }
     }

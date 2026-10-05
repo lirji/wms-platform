@@ -1,11 +1,12 @@
 package com.lrj.wms.serial;
 
+import org.apache.ibatis.session.SqlSession;
+
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 
 /** 按企业+SKU+规范化序列号认领唯一身份。仓只是归属，不是唯一维。 */
 public final class SerialRegistryService {
@@ -31,19 +32,32 @@ public final class SerialRegistryService {
     }
 
     /** 首次认领写入 CLAIMED；同操作重放；他仓/他操作冲突拒绝。 */
-    public Map<String, Object> claim(String enterpriseId, String skuId, String serial, String warehouseId,
+    public Map<String, Object> claim(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String warehouseId,
             String operationId) {
         String normalized = normalize(serial);
         int bucket = routeBucket(enterpriseId, skuId, normalized);
         Timestamp now = Timestamp.from(clock.instant());
         SerialRegistryMapper mapper = session.getMapper(SerialRegistryMapper.class);
-        mapper.insertIgnore(UUID.randomUUID().toString(), enterpriseId, skuId, normalized, STATE_CLAIMED, warehouseId,
-                operationId, bucket, now);
+        mapper.insertIgnore(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                skuId,
+                normalized,
+                STATE_CLAIMED,
+                warehouseId,
+                operationId,
+                bucket,
+                now);
         Map<String, Object> row = mapper.lockIdentity(enterpriseId, skuId, normalized);
         if (row == null) {
             throw new SerialRegistryException("VERSION_CONFLICT", "登记认领竞争");
         }
-        if ("SHIPPED".equals(row.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","已发运身份不能按原收货重新认领或激活");
+        if ("SHIPPED".equals(row.get("state")))
+            throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "已发运身份不能按原收货重新认领或激活");
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按首次认领占用");
         }
@@ -53,12 +67,18 @@ public final class SerialRegistryService {
         if (!warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "认领仓与原操作归属不一致");
         }
-        if(STATE_ACTIVE.equals(row.get("state"))) return activeReceipt(mapper,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
+        if (STATE_ACTIVE.equals(row.get("state")))
+            return activeReceipt(
+                    mapper, enterpriseId, skuId, normalized, warehouseId, operationId, row, now);
         return view(row);
     }
 
     /** CLAIMED 核实收货后激活。同仓重放保持 ACTIVE，他仓或非认领态拒绝。 */
-    public Map<String, Object> activate(String enterpriseId, String skuId, String serial, String warehouseId,
+    public Map<String, Object> activate(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String warehouseId,
             String operationId) {
         String normalized = normalize(serial);
         Timestamp now = Timestamp.from(clock.instant());
@@ -67,7 +87,8 @@ public final class SerialRegistryService {
         if (row == null) {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未认领");
         }
-        if ("SHIPPED".equals(row.get("state"))) throw new SerialRegistryException("SERIAL_STATE_CONFLICT","已发运身份不能按原收货重新认领或激活");
+        if ("SHIPPED".equals(row.get("state")))
+            throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "已发运身份不能按原收货重新认领或激活");
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_MISSING", "失踪序列号不能按原认领激活");
         }
@@ -79,7 +100,8 @@ public final class SerialRegistryService {
         }
         String state = String.valueOf(row.get("state"));
         if (STATE_ACTIVE.equals(state)) {
-            return activeReceipt(mapper,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
+            return activeReceipt(
+                    mapper, enterpriseId, skuId, normalized, warehouseId, operationId, row, now);
         }
         if (!STATE_CLAIMED.equals(state)) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能激活");
@@ -91,40 +113,99 @@ public final class SerialRegistryService {
     }
 
     /** ACTIVE必须携带原收货凭证，旧记录仅在原始认领且从未转移的情况下修复。 */
-    private Map<String,Object> activeReceipt(SerialRegistryMapper mapper,String e,String sku,String serial,String wh,String op,Map<String,Object> row,Timestamp now) {
-        if(op.equals(row.get("receipt_operation_id"))) return view(row);
-        if(row.get("receipt_operation_id")==null && row.get("transfer_id")==null
-                && mapper.repairActiveReceipt(e,sku,serial,wh,op,now)==1) return view(mapper.lockIdentity(e,sku,serial));
-        throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","有效授权不属于本次收货操作");
+    private Map<String, Object> activeReceipt(
+            SerialRegistryMapper mapper,
+            String e,
+            String sku,
+            String serial,
+            String wh,
+            String op,
+            Map<String, Object> row,
+            Timestamp now) {
+        if (op.equals(row.get("receipt_operation_id"))) return view(row);
+        if (row.get("receipt_operation_id") == null
+                && row.get("transfer_id") == null
+                && mapper.repairActiveReceipt(e, sku, serial, wh, op, now) == 1)
+            return view(mapper.lockIdentity(e, sku, serial));
+        throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "有效授权不属于本次收货操作");
     }
 
     /** 发运是独立终态；原事实可重放，但不能授予可用身份或伪装成盘亏。 */
-    public Map<String,Object> ship(String e,String sku,String serial,String warehouse,String fact,long epoch) {
-        requireId(fact,"INVALID_SHIPMENT","发运事实不能为空");
-        String normalized=normalize(serial);var mapper=session.getMapper(SerialRegistryMapper.class);
-        var identity=requireIdentity(mapper,e,sku,normalized);
-        var original=mapper.lockShipment(e,sku,normalized,fact);
-        if(original==null) {
-            if(epoch!=asLong(identity.get("owner_epoch"))) throw staleEpoch(identity,epoch);
-            if(!warehouse.equals(identity.get("owner_warehouse_id")) || !STATE_ACTIVE.equals(identity.get("state")))
-                throw new SerialRegistryException("SERIAL_STATE_CONFLICT","发运只可消费原仓原代际的有效身份");
-            var now=Timestamp.from(clock.instant());
-            String id=com.lrj.wms.runtime.messaging.RuntimeMessage.hash(com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(java.util.List.of(e,sku,normalized,fact)));
-            if(mapper.insertShipment(Map.of("id",id,"e",e,"sku",sku,"serial",normalized,"w",warehouse,"epoch",epoch,"ref",fact,"now",now))!=1
-                    || mapper.casShipped(e,sku,normalized,warehouse,epoch,asLong(identity.get("version")),now)!=1)
-                throw new SerialRegistryException("VERSION_CONFLICT","原发运证明与身份终态必须同时提交");
-            original=mapper.lockShipment(e,sku,normalized,fact);
+    public Map<String, Object> ship(
+            String e, String sku, String serial, String warehouse, String fact, long epoch) {
+        requireId(fact, "INVALID_SHIPMENT", "发运事实不能为空");
+        String normalized = normalize(serial);
+        var mapper = session.getMapper(SerialRegistryMapper.class);
+        var identity = requireIdentity(mapper, e, sku, normalized);
+        var original = mapper.lockShipment(e, sku, normalized, fact);
+        if (original == null) {
+            if (epoch != asLong(identity.get("owner_epoch"))) throw staleEpoch(identity, epoch);
+            if (!warehouse.equals(identity.get("owner_warehouse_id"))
+                    || !STATE_ACTIVE.equals(identity.get("state")))
+                throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "发运只可消费原仓原代际的有效身份");
+            var now = Timestamp.from(clock.instant());
+            String id =
+                    com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                            com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.writeValueAsString(
+                                    java.util.List.of(e, sku, normalized, fact)));
+            if (mapper.insertShipment(
+                                    Map.of(
+                                            "id",
+                                            id,
+                                            "e",
+                                            e,
+                                            "sku",
+                                            sku,
+                                            "serial",
+                                            normalized,
+                                            "w",
+                                            warehouse,
+                                            "epoch",
+                                            epoch,
+                                            "ref",
+                                            fact,
+                                            "now",
+                                            now))
+                            != 1
+                    || mapper.casShipped(
+                                    e,
+                                    sku,
+                                    normalized,
+                                    warehouse,
+                                    epoch,
+                                    asLong(identity.get("version")),
+                                    now)
+                            != 1)
+                throw new SerialRegistryException("VERSION_CONFLICT", "原发运证明与身份终态必须同时提交");
+            original = mapper.lockShipment(e, sku, normalized, fact);
         }
-        if(!warehouse.equals(original.get("warehouse_id")) || epoch!=asLong(original.get("owner_epoch")))
-            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","原发运不能更换仓或代际");
-        return Map.of("shipment",Map.of("schemaVersion",1,"enterpriseId",e,"warehouseId",warehouse,"skuId",sku,"normalizedSerial",normalized,
-                "ownerEpoch",epoch,"shipmentRef",fact));
+        if (!warehouse.equals(original.get("warehouse_id"))
+                || epoch != asLong(original.get("owner_epoch")))
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "原发运不能更换仓或代际");
+        return Map.of(
+                "shipment",
+                Map.of(
+                        "schemaVersion",
+                        1,
+                        "enterpriseId",
+                        e,
+                        "warehouseId",
+                        warehouse,
+                        "skuId",
+                        sku,
+                        "normalizedSerial",
+                        normalized,
+                        "ownerEpoch",
+                        epoch,
+                        "shipmentRef",
+                        fact));
     }
 
     /** 恢复查询，不加锁。不存在则业务码拒绝。 */
     public Map<String, Object> get(String enterpriseId, String skuId, String serial) {
-        Map<String, Object> row = session.getMapper(SerialRegistryMapper.class)
-                .getIdentity(enterpriseId, skuId, normalize(serial));
+        Map<String, Object> row =
+                session.getMapper(SerialRegistryMapper.class)
+                        .getIdentity(enterpriseId, skuId, normalize(serial));
         if (row == null) {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未登记");
         }
@@ -136,30 +217,78 @@ public final class SerialRegistryService {
      * 同操作重放；旧 epoch 或进行中的其他转移拒绝。
      */
     /** 新客户端恢复核对不可变准备事实；当前已在途、到达或开始下一转移均不使旧准备事实失效。 */
-    public Map<String,Object> prepareTransferWithProof(String enterpriseId,String skuId,String serial,String sourceWarehouseId,
-            String targetWarehouseId,String transferId,long expectedEpoch,String operationId) {
-        requireId(transferId,"INVALID_TRANSFER","转移标识不能为空");requireId(operationId,"INVALID_OPERATION","准备操作不能为空");
-        requireId(sourceWarehouseId,"INVALID_WAREHOUSE","源仓不能为空");requireId(targetWarehouseId,"INVALID_WAREHOUSE","目的仓不能为空");
-        String normalized=normalize(serial);
-        var identities=session.getMapper(SerialRegistryMapper.class);var transfers=session.getMapper(SerialTransferMapper.class);
-        var identity=requireIdentity(identities,enterpriseId,skuId,normalized);
-        var original=transfers.lock(enterpriseId,skuId,normalized,transferId);
-        if(original==null) {
-            prepareTransfer(enterpriseId,skuId,normalized,sourceWarehouseId,targetWarehouseId,transferId,expectedEpoch,operationId);
-            original=transfers.lock(enterpriseId,skuId,normalized,transferId);identity=identities.lockIdentity(enterpriseId,skuId,normalized);
+    public Map<String, Object> prepareTransferWithProof(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String sourceWarehouseId,
+            String targetWarehouseId,
+            String transferId,
+            long expectedEpoch,
+            String operationId) {
+        requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
+        requireId(operationId, "INVALID_OPERATION", "准备操作不能为空");
+        requireId(sourceWarehouseId, "INVALID_WAREHOUSE", "源仓不能为空");
+        requireId(targetWarehouseId, "INVALID_WAREHOUSE", "目的仓不能为空");
+        String normalized = normalize(serial);
+        var identities = session.getMapper(SerialRegistryMapper.class);
+        var transfers = session.getMapper(SerialTransferMapper.class);
+        var identity = requireIdentity(identities, enterpriseId, skuId, normalized);
+        var original = transfers.lock(enterpriseId, skuId, normalized, transferId);
+        if (original == null) {
+            prepareTransfer(
+                    enterpriseId,
+                    skuId,
+                    normalized,
+                    sourceWarehouseId,
+                    targetWarehouseId,
+                    transferId,
+                    expectedEpoch,
+                    operationId);
+            original = transfers.lock(enterpriseId, skuId, normalized, transferId);
+            identity = identities.lockIdentity(enterpriseId, skuId, normalized);
         }
-        if(original==null || !operationId.equals(original.get("prepare_operation_id")) || !sourceWarehouseId.equals(original.get("source_warehouse_id"))
-                || !targetWarehouseId.equals(original.get("target_warehouse_id")) || expectedEpoch!=asLong(original.get("from_epoch")))
-            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH","原准备事实的引用、两仓或代际不一致");
-        var result=view(identity);
-        result.put("transferPreparation",Map.of("schemaVersion",1,"enterpriseId",enterpriseId,"skuId",skuId,"normalizedSerial",normalized,
-                "transferId",transferId,"sourceWarehouseId",sourceWarehouseId,"targetWarehouseId",targetWarehouseId,"prepareOperationId",operationId,"fromEpoch",expectedEpoch));
+        if (original == null
+                || !operationId.equals(original.get("prepare_operation_id"))
+                || !sourceWarehouseId.equals(original.get("source_warehouse_id"))
+                || !targetWarehouseId.equals(original.get("target_warehouse_id"))
+                || expectedEpoch != asLong(original.get("from_epoch")))
+            throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "原准备事实的引用、两仓或代际不一致");
+        var result = view(identity);
+        result.put(
+                "transferPreparation",
+                Map.of(
+                        "schemaVersion",
+                        1,
+                        "enterpriseId",
+                        enterpriseId,
+                        "skuId",
+                        skuId,
+                        "normalizedSerial",
+                        normalized,
+                        "transferId",
+                        transferId,
+                        "sourceWarehouseId",
+                        sourceWarehouseId,
+                        "targetWarehouseId",
+                        targetWarehouseId,
+                        "prepareOperationId",
+                        operationId,
+                        "fromEpoch",
+                        expectedEpoch));
         return result;
     }
 
     /** 旧客户端沿用当前身份状态校验，不把历史准备响应当作新的库存授权。 */
-    public Map<String, Object> prepareTransfer(String enterpriseId, String skuId, String serial, String sourceWarehouseId,
-            String targetWarehouseId, String transferId, long expectedEpoch, String operationId) {
+    public Map<String, Object> prepareTransfer(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String sourceWarehouseId,
+            String targetWarehouseId,
+            String transferId,
+            long expectedEpoch,
+            String operationId) {
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         requireId(operationId, "INVALID_OPERATION", "准备操作不能为空");
         requireId(sourceWarehouseId, "INVALID_WAREHOUSE", "源仓不能为空");
@@ -176,8 +305,13 @@ public final class SerialRegistryService {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未登记");
         }
         if (sameTransfer(row, transferId) && inFlight(String.valueOf(row.get("state")))) {
-            return replayPrepared(row, lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId),
-                    operationId, sourceWarehouseId, targetWarehouseId, expectedEpoch);
+            return replayPrepared(
+                    row,
+                    lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId),
+                    operationId,
+                    sourceWarehouseId,
+                    targetWarehouseId,
+                    expectedEpoch);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch"))) {
             throw staleEpoch(row, expectedEpoch);
@@ -188,8 +322,19 @@ public final class SerialRegistryService {
         if (!sourceWarehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "准备仓与登记归属不一致");
         }
-        transfers.insertIgnore(UUID.randomUUID().toString(), enterpriseId, skuId, normalized, String.valueOf(row.get("id")),
-                transferId, sourceWarehouseId, targetWarehouseId, expectedEpoch, TRANSFER_PREPARED, operationId, now);
+        transfers.insertIgnore(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                skuId,
+                normalized,
+                String.valueOf(row.get("id")),
+                transferId,
+                sourceWarehouseId,
+                targetWarehouseId,
+                expectedEpoch,
+                TRANSFER_PREPARED,
+                operationId,
+                now);
         Map<String, Object> transfer = transfers.lock(enterpriseId, skuId, normalized, transferId);
         if (transfer == null) {
             throw new SerialRegistryException("VERSION_CONFLICT", "转移准备竞争");
@@ -202,8 +347,16 @@ public final class SerialRegistryService {
                 || expectedEpoch != asLong(transfer.get("from_epoch"))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "转移仓或代际与已记录不一致");
         }
-        if (identities.casTransferState(enterpriseId, skuId, normalized, STATE_ACTIVE, STATE_TRANSFER_PREPARED,
-                transferId, expectedEpoch, now) != 1) {
+        if (identities.casTransferState(
+                        enterpriseId,
+                        skuId,
+                        normalized,
+                        STATE_ACTIVE,
+                        STATE_TRANSFER_PREPARED,
+                        transferId,
+                        expectedEpoch,
+                        now)
+                != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "转移准备竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
@@ -213,8 +366,13 @@ public final class SerialRegistryService {
      * 观察到源仓已持久化释放后进入 IN_TRANSIT。登记未见到释放事实前不能授予目的仓。
      * 同释放引用重放；旧 epoch 覆盖拒绝。
      */
-    public Map<String, Object> observeSourceRelease(String enterpriseId, String skuId, String serial, String transferId,
-            String sourceReleaseRef, long expectedEpoch) {
+    public Map<String, Object> observeSourceRelease(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String transferId,
+            String sourceReleaseRef,
+            long expectedEpoch) {
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         requireId(sourceReleaseRef, "INVALID_RELEASE", "源仓释放引用不能为空");
         String normalized = normalize(serial);
@@ -222,36 +380,78 @@ public final class SerialRegistryService {
         SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
         SerialTransferMapper transfers = session.getMapper(SerialTransferMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
-        Map<String, Object> transfer = lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
+        Map<String, Object> transfer =
+                lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
         if (sameRef(transfer.get("source_release_ref"), sourceReleaseRef)
                 && expectedEpoch == asLong(transfer.get("from_epoch"))) {
-            return releasedView(row,transfer,enterpriseId,skuId,normalized);
+            return releasedView(row, transfer, enterpriseId, skuId, normalized);
         }
-        if (expectedEpoch != asLong(row.get("owner_epoch")) || expectedEpoch != asLong(transfer.get("from_epoch"))) {
+        if (expectedEpoch != asLong(row.get("owner_epoch"))
+                || expectedEpoch != asLong(transfer.get("from_epoch"))) {
             throw staleEpoch(row, expectedEpoch);
         }
         if (transfer.get("source_release_ref") != null) {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "源仓释放引用与已记录不一致");
         }
-        if (!STATE_TRANSFER_PREPARED.equals(String.valueOf(row.get("state"))) || !sameTransfer(row, transferId)) {
+        if (!STATE_TRANSFER_PREPARED.equals(String.valueOf(row.get("state")))
+                || !sameTransfer(row, transferId)) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能确认源仓释放");
         }
-        if (transfers.casRelease(enterpriseId, skuId, normalized, transferId, TRANSFER_PREPARED, TRANSFER_IN_TRANSIT,
-                sourceReleaseRef, now) != 1
-                || identities.casTransferState(enterpriseId, skuId, normalized, STATE_TRANSFER_PREPARED,
-                        STATE_IN_TRANSIT, transferId, expectedEpoch, now) != 1) {
+        if (transfers.casRelease(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                transferId,
+                                TRANSFER_PREPARED,
+                                TRANSFER_IN_TRANSIT,
+                                sourceReleaseRef,
+                                now)
+                        != 1
+                || identities.casTransferState(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                STATE_TRANSFER_PREPARED,
+                                STATE_IN_TRANSIT,
+                                transferId,
+                                expectedEpoch,
+                                now)
+                        != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "源仓释放确认竞争");
         }
-        return releasedView(identities.lockIdentity(enterpriseId, skuId, normalized),
-                lockExistingTransfer(transfers,enterpriseId,skuId,normalized,transferId),enterpriseId,skuId,normalized);
+        return releasedView(
+                identities.lockIdentity(enterpriseId, skuId, normalized),
+                lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId),
+                enterpriseId,
+                skuId,
+                normalized);
     }
 
     /** 历史事实与当前授权分开返回：跨后续转移重放不会恢复旧仓授权或改写新归属。 */
-    private static Map<String,Object> releasedView(Map<String,Object> identity,Map<String,Object> transfer,String enterprise,String sku,String serial) {
-        var result=view(identity);
-        result.put("sourceRelease",Map.of("enterpriseId",enterprise,"skuId",sku,"normalizedSerial",serial,
-                "sourceWarehouseId",transfer.get("source_warehouse_id"),"transferId",transfer.get("transfer_id"),
-                "sourceReleaseRef",transfer.get("source_release_ref"),"fromEpoch",transfer.get("from_epoch")));
+    private static Map<String, Object> releasedView(
+            Map<String, Object> identity,
+            Map<String, Object> transfer,
+            String enterprise,
+            String sku,
+            String serial) {
+        var result = view(identity);
+        result.put(
+                "sourceRelease",
+                Map.of(
+                        "enterpriseId",
+                        enterprise,
+                        "skuId",
+                        sku,
+                        "normalizedSerial",
+                        serial,
+                        "sourceWarehouseId",
+                        transfer.get("source_warehouse_id"),
+                        "transferId",
+                        transfer.get("transfer_id"),
+                        "sourceReleaseRef",
+                        transfer.get("source_release_ref"),
+                        "fromEpoch",
+                        transfer.get("from_epoch")));
         return result;
     }
 
@@ -259,8 +459,14 @@ public final class SerialRegistryService {
      * 目的仓开始接收。必须已 IN_TRANSIT。同接收引用重放；旧事件拒绝。
      * 未见到源仓释放前不得进入 RECEIVING。
      */
-    public Map<String, Object> startReceiving(String enterpriseId, String skuId, String serial, String transferId,
-            String targetWarehouseId, String targetReceiptRef, long expectedFromEpoch) {
+    public Map<String, Object> startReceiving(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String transferId,
+            String targetWarehouseId,
+            String targetReceiptRef,
+            long expectedFromEpoch) {
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         requireId(targetReceiptRef, "INVALID_RECEIPT", "目的接收引用不能为空");
         requireId(targetWarehouseId, "INVALID_WAREHOUSE", "目的仓不能为空");
@@ -269,11 +475,13 @@ public final class SerialRegistryService {
         SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
         SerialTransferMapper transfers = session.getMapper(SerialTransferMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
-        Map<String, Object> transfer = lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
+        Map<String, Object> transfer =
+                lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
         if (!targetWarehouseId.equals(String.valueOf(transfer.get("target_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "接收仓与转移目的仓不一致");
         }
-        if (sameRef(transfer.get("target_receipt_ref"), targetReceiptRef) && sameTransfer(row, transferId)
+        if (sameRef(transfer.get("target_receipt_ref"), targetReceiptRef)
+                && sameTransfer(row, transferId)
                 && expectedFromEpoch == asLong(transfer.get("from_epoch"))
                 && (STATE_RECEIVING.equals(String.valueOf(row.get("state")))
                         || STATE_ACTIVE.equals(String.valueOf(row.get("state"))))) {
@@ -286,21 +494,43 @@ public final class SerialRegistryService {
         if (transfer.get("target_receipt_ref") != null) {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "目的接收引用与已记录不一致");
         }
-        if (!STATE_IN_TRANSIT.equals(String.valueOf(row.get("state"))) || !sameTransfer(row, transferId)) {
+        if (!STATE_IN_TRANSIT.equals(String.valueOf(row.get("state")))
+                || !sameTransfer(row, transferId)) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "登记未在途，不能授予目的仓接收");
         }
-        if (transfers.casReceiving(enterpriseId, skuId, normalized, transferId, TRANSFER_IN_TRANSIT, TRANSFER_RECEIVING,
-                targetReceiptRef, now) != 1
-                || identities.casTransferState(enterpriseId, skuId, normalized, STATE_IN_TRANSIT, STATE_RECEIVING,
-                        transferId, expectedFromEpoch, now) != 1) {
+        if (transfers.casReceiving(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                transferId,
+                                TRANSFER_IN_TRANSIT,
+                                TRANSFER_RECEIVING,
+                                targetReceiptRef,
+                                now)
+                        != 1
+                || identities.casTransferState(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                STATE_IN_TRANSIT,
+                                STATE_RECEIVING,
+                                transferId,
+                                expectedFromEpoch,
+                                now)
+                        != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "目的接收竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
     }
 
     /** 核实目的库存凭证后切换 ACTIVE 并递增 owner_epoch。同接收引用重放，不二次改归属。 */
-    public Map<String, Object> confirmDestination(String enterpriseId, String skuId, String serial, String transferId,
-            String targetWarehouseId, String targetReceiptRef) {
+    public Map<String, Object> confirmDestination(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String transferId,
+            String targetWarehouseId,
+            String targetReceiptRef) {
         requireId(transferId, "INVALID_TRANSFER", "转移标识不能为空");
         requireId(targetReceiptRef, "INVALID_RECEIPT", "目的接收引用不能为空");
         requireId(targetWarehouseId, "INVALID_WAREHOUSE", "目的仓不能为空");
@@ -309,8 +539,10 @@ public final class SerialRegistryService {
         SerialRegistryMapper identities = session.getMapper(SerialRegistryMapper.class);
         SerialTransferMapper transfers = session.getMapper(SerialTransferMapper.class);
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
-        Map<String, Object> transfer = lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
-        if (STATE_ACTIVE.equals(String.valueOf(row.get("state"))) && sameTransfer(row, transferId)
+        Map<String, Object> transfer =
+                lockExistingTransfer(transfers, enterpriseId, skuId, normalized, transferId);
+        if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))
+                && sameTransfer(row, transferId)
                 && targetWarehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))
                 && sameRef(row.get("receipt_operation_id"), targetReceiptRef)) {
             return view(row);
@@ -318,10 +550,12 @@ public final class SerialRegistryService {
         if (!targetWarehouseId.equals(String.valueOf(transfer.get("target_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "确认仓与转移目的仓不一致");
         }
-        if (transfer.get("target_receipt_ref") != null && !sameRef(transfer.get("target_receipt_ref"), targetReceiptRef)) {
+        if (transfer.get("target_receipt_ref") != null
+                && !sameRef(transfer.get("target_receipt_ref"), targetReceiptRef)) {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "目的接收引用与已记录不一致");
         }
-        if (!STATE_RECEIVING.equals(String.valueOf(row.get("state"))) || !sameTransfer(row, transferId)) {
+        if (!STATE_RECEIVING.equals(String.valueOf(row.get("state")))
+                || !sameTransfer(row, transferId)) {
             if (asLong(row.get("owner_epoch")) > asLong(transfer.get("from_epoch"))) {
                 throw staleEpoch(row, asLong(transfer.get("from_epoch")));
             }
@@ -331,17 +565,38 @@ public final class SerialRegistryService {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "目的接收引用与已记录不一致");
         }
         long toEpoch = asLong(transfer.get("from_epoch")) + 1;
-        if (transfers.casComplete(enterpriseId, skuId, normalized, transferId, targetReceiptRef, toEpoch, now) != 1
-                || identities.casConfirmDestination(enterpriseId, skuId, normalized, targetWarehouseId, transferId,
-                        targetReceiptRef, toEpoch, now) != 1) {
+        if (transfers.casComplete(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                transferId,
+                                targetReceiptRef,
+                                toEpoch,
+                                now)
+                        != 1
+                || identities.casConfirmDestination(
+                                enterpriseId,
+                                skuId,
+                                normalized,
+                                targetWarehouseId,
+                                transferId,
+                                targetReceiptRef,
+                                toEpoch,
+                                now)
+                        != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "目的确认竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
     }
 
     /** 盘亏事实到达后标 MISSING，禁止再授权。同事实重放。 */
-    public Map<String, Object> markMissing(String enterpriseId, String skuId, String serial, String warehouseId,
-            String factRef, long expectedEpoch) {
+    public Map<String, Object> markMissing(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String warehouseId,
+            String factRef,
+            long expectedEpoch) {
         requireId(factRef, "INVALID_RELEASE", "失踪事实不能为空");
         requireId(warehouseId, "INVALID_WAREHOUSE", "仓不能为空");
         String normalized = normalize(serial);
@@ -350,7 +605,8 @@ public final class SerialRegistryService {
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         if (STATE_MISSING.equals(String.valueOf(row.get("state")))
                 && sameRef(row.get("receipt_operation_id"), factRef)
-                && warehouseId.equals(row.get("owner_warehouse_id")) && expectedEpoch == asLong(row.get("owner_epoch"))) {
+                && warehouseId.equals(row.get("owner_warehouse_id"))
+                && expectedEpoch == asLong(row.get("owner_epoch"))) {
             return view(row);
         }
         if (expectedEpoch != asLong(row.get("owner_epoch"))) {
@@ -360,14 +616,20 @@ public final class SerialRegistryService {
                 || !warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能标失踪");
         }
-        if (identities.casMissing(enterpriseId, skuId, normalized, warehouseId, factRef, expectedEpoch, now) != 1) {
+        if (identities.casMissing(
+                        enterpriseId, skuId, normalized, warehouseId, factRef, expectedEpoch, now)
+                != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "失踪登记竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
     }
 
     /** 盘盈：失踪身份走 FOUND_CLAIMED；全新身份走 CLAIMED。 */
-    public Map<String, Object> claimFound(String enterpriseId, String skuId, String serial, String warehouseId,
+    public Map<String, Object> claimFound(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String warehouseId,
             String operationId) {
         requireId(operationId, "INVALID_OPERATION", "盘盈操作不能为空");
         requireId(warehouseId, "INVALID_WAREHOUSE", "仓不能为空");
@@ -384,11 +646,21 @@ public final class SerialRegistryService {
                 && warehouseId.equals(row.get("owner_warehouse_id"))) {
             return view(row);
         }
-        if (STATE_ACTIVE.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
+        if (STATE_ACTIVE.equals(row.get("state"))
+                && warehouseId.equals(row.get("owner_warehouse_id"))
                 && operationId.equals(row.get("claim_operation_id")))
-            return activeReceipt(identities,enterpriseId,skuId,normalized,warehouseId,operationId,row,now);
+            return activeReceipt(
+                    identities,
+                    enterpriseId,
+                    skuId,
+                    normalized,
+                    warehouseId,
+                    operationId,
+                    row,
+                    now);
         // 全新盘盈认领的回执丢失后仍停在CLAIMED，按原操作继续激活。
-        if (STATE_CLAIMED.equals(row.get("state")) && warehouseId.equals(row.get("owner_warehouse_id"))
+        if (STATE_CLAIMED.equals(row.get("state"))
+                && warehouseId.equals(row.get("owner_warehouse_id"))
                 && operationId.equals(row.get("claim_operation_id"))) return view(row);
         if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_ALREADY_CLAIMED", "序列号仍是有效授权，不能盘盈认领");
@@ -396,14 +668,19 @@ public final class SerialRegistryService {
         if (!STATE_MISSING.equals(String.valueOf(row.get("state")))) {
             throw new SerialRegistryException("SERIAL_STATE_CONFLICT", "当前登记状态不能盘盈认领");
         }
-        if (identities.casFound(enterpriseId, skuId, normalized, warehouseId, operationId, now) != 1) {
+        if (identities.casFound(enterpriseId, skuId, normalized, warehouseId, operationId, now)
+                != 1) {
             throw new SerialRegistryException("VERSION_CONFLICT", "盘盈认领竞争");
         }
         return view(identities.lockIdentity(enterpriseId, skuId, normalized));
     }
 
     /** FOUND_CLAIMED 核实后激活。同操作重放。 */
-    public Map<String, Object> activateFound(String enterpriseId, String skuId, String serial, String warehouseId,
+    public Map<String, Object> activateFound(
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String warehouseId,
             String operationId) {
         String normalized = normalize(serial);
         Timestamp now = Timestamp.from(clock.instant());
@@ -411,7 +688,8 @@ public final class SerialRegistryService {
         Map<String, Object> row = requireIdentity(identities, enterpriseId, skuId, normalized);
         if (STATE_ACTIVE.equals(String.valueOf(row.get("state")))
                 && warehouseId.equals(String.valueOf(row.get("owner_warehouse_id")))
-                && operationId.equals(row.get("receipt_operation_id")) && operationId.equals(row.get("claim_operation_id"))) {
+                && operationId.equals(row.get("receipt_operation_id"))
+                && operationId.equals(row.get("claim_operation_id"))) {
             return view(row);
         }
         if (!STATE_FOUND_CLAIMED.equals(String.valueOf(row.get("state")))) {
@@ -430,9 +708,11 @@ public final class SerialRegistryService {
     }
 
     /** 转移审计恢复查询，不加锁。 */
-    public Map<String, Object> getTransfer(String enterpriseId, String skuId, String serial, String transferId) {
-        Map<String, Object> transfer = session.getMapper(SerialTransferMapper.class).get(enterpriseId, skuId,
-                normalize(serial), transferId);
+    public Map<String, Object> getTransfer(
+            String enterpriseId, String skuId, String serial, String transferId) {
+        Map<String, Object> transfer =
+                session.getMapper(SerialTransferMapper.class)
+                        .get(enterpriseId, skuId, normalize(serial), transferId);
         if (transfer == null) {
             throw new SerialRegistryException("SERIAL_TRANSFER_NOT_FOUND", "没有该序列号转移");
         }
@@ -480,8 +760,13 @@ public final class SerialRegistryService {
         return body;
     }
 
-    private Map<String, Object> replayPrepared(Map<String, Object> row, Map<String, Object> transfer, String operationId,
-            String sourceWarehouseId, String targetWarehouseId, long expectedEpoch) {
+    private Map<String, Object> replayPrepared(
+            Map<String, Object> row,
+            Map<String, Object> transfer,
+            String operationId,
+            String sourceWarehouseId,
+            String targetWarehouseId,
+            long expectedEpoch) {
         if (!operationId.equals(String.valueOf(transfer.get("prepare_operation_id")))) {
             throw new SerialRegistryException("SERIAL_OPERATION_MISMATCH", "准备操作与已记录不一致");
         }
@@ -489,12 +774,13 @@ public final class SerialRegistryService {
                 || !targetWarehouseId.equals(String.valueOf(transfer.get("target_warehouse_id")))) {
             throw new SerialRegistryException("SERIAL_OWNER_MISMATCH", "转移仓与已记录不一致");
         }
-        if (expectedEpoch != asLong(transfer.get("from_epoch"))) throw staleEpoch(row, expectedEpoch);
+        if (expectedEpoch != asLong(transfer.get("from_epoch")))
+            throw staleEpoch(row, expectedEpoch);
         return view(row);
     }
 
-    private static Map<String, Object> requireIdentity(SerialRegistryMapper identities, String enterpriseId,
-            String skuId, String serial) {
+    private static Map<String, Object> requireIdentity(
+            SerialRegistryMapper identities, String enterpriseId, String skuId, String serial) {
         Map<String, Object> row = identities.lockIdentity(enterpriseId, skuId, serial);
         if (row == null) {
             throw new SerialRegistryException("SERIAL_NOT_FOUND", "序列号尚未登记");
@@ -502,8 +788,12 @@ public final class SerialRegistryService {
         return row;
     }
 
-    private Map<String, Object> lockExistingTransfer(SerialTransferMapper transfers, String enterpriseId, String skuId,
-            String serial, String transferId) {
+    private Map<String, Object> lockExistingTransfer(
+            SerialTransferMapper transfers,
+            String enterpriseId,
+            String skuId,
+            String serial,
+            String transferId) {
         Map<String, Object> transfer = transfers.lock(enterpriseId, skuId, serial, transferId);
         if (transfer == null) {
             throw new SerialRegistryException("SERIAL_TRANSFER_NOT_FOUND", "没有该序列号转移");
@@ -527,7 +817,8 @@ public final class SerialRegistryService {
     }
 
     private static boolean inFlight(String state) {
-        return STATE_TRANSFER_PREPARED.equals(state) || STATE_IN_TRANSIT.equals(state)
+        return STATE_TRANSFER_PREPARED.equals(state)
+                || STATE_IN_TRANSIT.equals(state)
                 || STATE_RECEIVING.equals(state);
     }
 

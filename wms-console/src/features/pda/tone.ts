@@ -3,7 +3,7 @@ export function playScanTone(ok: boolean) {
     const context = new AudioContext();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    oscillator.type = "square";
+    oscillator.type = 'square';
     oscillator.frequency.value = ok ? 880 : 220;
     gain.gain.value = 0.04;
     oscillator.connect(gain);

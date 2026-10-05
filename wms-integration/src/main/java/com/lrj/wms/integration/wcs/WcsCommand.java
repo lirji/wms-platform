@@ -4,8 +4,14 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 /** 一次设备动作命令。deviceCommandId 在派发前固定，崩溃后不得换号重派。 */
-public record WcsCommand(String enterpriseId, String warehouseId, String deviceCommandId, String action,
-        String sourceTaskId, BigDecimal qty, String digest) {
+public record WcsCommand(
+        String enterpriseId,
+        String warehouseId,
+        String deviceCommandId,
+        String action,
+        String sourceTaskId,
+        BigDecimal qty,
+        String digest) {
     public WcsCommand {
         require(enterpriseId, "enterpriseId");
         require(warehouseId, "warehouseId");
@@ -29,7 +35,9 @@ public record WcsCommand(String enterpriseId, String warehouseId, String deviceC
     }
 
     public boolean samePayload(WcsCommand other) {
-        return Objects.equals(action, other.action) && Objects.equals(sourceTaskId, other.sourceTaskId)
-                && qty.compareTo(other.qty) == 0 && Objects.equals(digest, other.digest);
+        return Objects.equals(action, other.action)
+                && Objects.equals(sourceTaskId, other.sourceTaskId)
+                && qty.compareTo(other.qty) == 0
+                && Objects.equals(digest, other.digest);
     }
 }

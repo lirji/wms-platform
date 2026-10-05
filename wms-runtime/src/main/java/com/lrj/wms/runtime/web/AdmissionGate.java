@@ -2,6 +2,7 @@ package com.lrj.wms.runtime.web;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -10,8 +11,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class AdmissionGate {
     private final AdmissionBudget budget;
     private final Bucket global;
-    private final Cache<String, Bucket> tenants = Caffeine.newBuilder().maximumSize(10000)
-            .expireAfterAccess(Duration.ofMinutes(5)).build();
+    private final Cache<String, Bucket> tenants =
+            Caffeine.newBuilder()
+                    .maximumSize(10000)
+                    .expireAfterAccess(Duration.ofMinutes(5))
+                    .build();
 
     public AdmissionGate(AdmissionBudget budget) {
         this.budget = budget;
@@ -20,7 +24,13 @@ public final class AdmissionGate {
 
     /** 返回许可证时必须在请求完成或异常后释放；被拒绝的请求不访问业务数据库。 */
     public Permit acquire(String tenant) {
-        Bucket bucket = tenants.get(tenant, key -> new Bucket(budget.tenantConcurrency(), budget.tenantRequestsPerSecond()));
+        Bucket bucket =
+                tenants.get(
+                        tenant,
+                        key ->
+                                new Bucket(
+                                        budget.tenantConcurrency(),
+                                        budget.tenantRequestsPerSecond()));
         if (!bucket.acquire()) return null;
         if (!global.acquire()) {
             bucket.concurrent.release();
@@ -33,9 +43,18 @@ public final class AdmissionGate {
         private final Semaphore global;
         private final Semaphore tenant;
         private final AtomicBoolean closed = new AtomicBoolean();
-        private Permit(Semaphore global, Semaphore tenant) { this.global = global; this.tenant = tenant; }
-        @Override public void close() {
-            if (closed.compareAndSet(false, true)) { global.release(); tenant.release(); }
+
+        private Permit(Semaphore global, Semaphore tenant) {
+            this.global = global;
+            this.tenant = tenant;
+        }
+
+        @Override
+        public void close() {
+            if (closed.compareAndSet(false, true)) {
+                global.release();
+                tenant.release();
+            }
         }
     }
 
@@ -44,9 +63,13 @@ public final class AdmissionGate {
         private final int rate;
         private double tokens;
         private long refreshed = System.nanoTime();
+
         private Bucket(int concurrent, int rate) {
-            this.concurrent = new Semaphore(concurrent); this.rate = rate; this.tokens = rate;
+            this.concurrent = new Semaphore(concurrent);
+            this.rate = rate;
+            this.tokens = rate;
         }
+
         private synchronized boolean acquire() {
             long now = System.nanoTime();
             tokens = Math.min(rate, tokens + (now - refreshed) / 1_000_000_000d * rate);

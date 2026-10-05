@@ -1,21 +1,19 @@
 package com.lrj.wms.inventory.masterdata;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 /** 主数据 HTTP 信封与错误体。 */
 final class MasterdataHttp {
-    private MasterdataHttp() {
-    }
+    private MasterdataHttp() {}
 
     static Map<String, Object> page(List<Map<String, Object>> items) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -44,18 +42,29 @@ final class MasterdataHttp {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
-        body.put("retryable", "VERSION_CONFLICT".equals(code) || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(code));
+        body.put(
+                "requestId",
+                com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
+        body.put(
+                "retryable",
+                "VERSION_CONFLICT".equals(code) || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(code));
         return body;
     }
 
     static ResponseEntity<Map<String, Object>> statusOf(MasterdataException error) {
-        HttpStatus status = switch (error.code()) {
-            case "WAREHOUSE_NOT_FOUND", "LOCATION_NOT_FOUND", "GATE_NOT_FOUND", "SKU_NOT_FOUND", "LOT_NOT_FOUND",
-                    "RESOURCE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "DUPLICATE_DOCUMENT", "IDEMPOTENCY_PAYLOAD_MISMATCH", "VERSION_CONFLICT" -> HttpStatus.CONFLICT;
-            default -> HttpStatus.BAD_REQUEST;
-        };
+        HttpStatus status =
+                switch (error.code()) {
+                    case "WAREHOUSE_NOT_FOUND",
+                            "LOCATION_NOT_FOUND",
+                            "GATE_NOT_FOUND",
+                            "SKU_NOT_FOUND",
+                            "LOT_NOT_FOUND",
+                            "RESOURCE_NOT_FOUND" ->
+                            HttpStatus.NOT_FOUND;
+                    case "DUPLICATE_DOCUMENT", "IDEMPOTENCY_PAYLOAD_MISMATCH", "VERSION_CONFLICT" ->
+                            HttpStatus.CONFLICT;
+                    default -> HttpStatus.BAD_REQUEST;
+                };
         return ResponseEntity.status(status).body(error(error.code(), error.getMessage()));
     }
 

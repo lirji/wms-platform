@@ -1,13 +1,13 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Form } from "antd";
-import { canOperation } from "../../auth/can";
-import { api, clearKey, rememberKey } from "../../api/client";
-import { asRecord, field, type ItemRecord } from "../../api/envelope";
-import { useWorkspace } from "../../shell/WorkspaceContext";
-import { errorBanner } from "../ui/errorBanner";
-import { StatusBanner } from "../ui/StatusBanner";
-import { useCommandDialog, useMarkDirty } from "./dirtyForm";
-import { httpStatusOf, isSyncPending, isTerminalSuccess } from "./accepted";
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Card, Form } from 'antd';
+import { canOperation } from '../../auth/can';
+import { api, clearKey, rememberKey } from '../../api/client';
+import { asRecord, field, type ItemRecord } from '../../api/envelope';
+import { useWorkspace } from '../../shell/WorkspaceContext';
+import { errorBanner } from '../ui/errorBanner';
+import { StatusBanner } from '../ui/StatusBanner';
+import { useCommandDialog, useMarkDirty } from './dirtyForm';
+import { httpStatusOf, isSyncPending, isTerminalSuccess } from './accepted';
 
 export function CommandCard({
   title,
@@ -24,7 +24,7 @@ export function CommandCard({
   onRun,
   onDone,
   confirmResult,
-  renderSuccess
+  renderSuccess,
 }: {
   title: string;
   hint: string;
@@ -33,7 +33,7 @@ export function CommandCard({
   disabled?: boolean;
   embedded?: boolean;
   requireScope?: string | string[];
-  resourceType?: "warehouse" | "enterprise";
+  resourceType?: 'warehouse' | 'enterprise';
   danger?: boolean;
   /** 仅库存域 GET /operations/{id} 存在。入出库/履约 202 不要拿库存去猜。 */
   pollOperation?: boolean;
@@ -58,7 +58,7 @@ export function CommandCard({
   const [result, setResult] = useState<ItemRecord | null>(null);
   const [error, setError] = useState<unknown>();
   const errorFeedback = useRef<HTMLDivElement>(null);
-  const pollId = result && isSyncPending(result) ? field(result, "operationId", "commandId") : "";
+  const pollId = result && isSyncPending(result) ? field(result, 'operationId', 'commandId') : '';
 
   useEffect(() => {
     // 同一组件切换作业时，旧请求失效；新作业不能继承忙碌状态和旧表单。
@@ -71,7 +71,9 @@ export function CommandCard({
     form.resetFields();
     markDirty(false);
     dialog.setBusy(false);
-    return () => { requestVersion.current += 1; };
+    return () => {
+      requestVersion.current += 1;
+    };
   }, [operation]);
 
   useEffect(() => {
@@ -81,9 +83,10 @@ export function CommandCard({
     }
     // 长表单在底部提交时，拒绝原因必须进入当前弹层视区；不滚动外层工作台。
     feedback.focus({ preventScroll: true });
-    const modalBody = feedback.closest<HTMLElement>(".ant-modal-body");
+    const modalBody = feedback.closest<HTMLElement>('.ant-modal-body');
     if (modalBody) {
-      modalBody.scrollTop += feedback.getBoundingClientRect().top - modalBody.getBoundingClientRect().top;
+      modalBody.scrollTop +=
+        feedback.getBoundingClientRect().top - modalBody.getBoundingClientRect().top;
     }
   }, [error]);
 
@@ -149,7 +152,7 @@ export function CommandCard({
         return;
       }
       if (confirmResult && !confirmResult(body)) {
-        throw new Error("创建回执不完整，结果待确认。请先检查列表，避免重复创建。");
+        throw new Error('创建回执不完整，结果待确认。请先检查列表，避免重复创建。');
       }
       setResult(body);
       setError(undefined);
@@ -190,46 +193,75 @@ export function CommandCard({
   }
 
   const pending = Boolean(result && isSyncPending(result));
-  const accepted = Boolean(result && (result.physicalStatus || result.stockSyncStatus || result.operationId || pending));
-  const successContent = result && isTerminalSuccess(result) && renderSuccess ? renderSuccess(result, startNext) : null;
+  const accepted = Boolean(
+    result && (result.physicalStatus || result.stockSyncStatus || result.operationId || pending),
+  );
+  const successContent =
+    result && isTerminalSuccess(result) && renderSuccess ? renderSuccess(result, startNext) : null;
   const body = (
     <>
       {embedded ? <h3 style={{ marginTop: 0, fontSize: 14 }}>{title}</h3> : null}
-      <p style={{ color: "rgba(0,0,0,0.45)", marginTop: 0 }}>{hint}</p>
-      {error ? <div ref={errorFeedback} className="command-error-feedback" tabIndex={-1} role="group" aria-label="提交未完成" aria-live="assertive">
-        {errorBanner(error)}
-      </div> : null}
-      {successContent || (accepted ? (
-        <StatusBanner
-          kind={pending ? "sync-pending" : "accepted"}
-          title={field(result ?? {}, "physicalStatus") || "命令已受理"}
-          operationId={field(result ?? {}, "operationId", "commandId", "taskId")}
-          detail={field(result ?? {}, "stockSyncStatus") ? `stockSyncStatus=${field(result ?? {}, "stockSyncStatus")}` : undefined}
-        />
-      ) : result ? (
-        <StatusBanner kind="success" title="已返回最新记录" detail={field(result, "status", "state")} />
-      ) : null)}
-      {!successContent ? <Form
-        form={form}
-        layout="vertical"
-        size="small"
-        requiredMark="optional"
-        onValuesChange={() => markDirty(true)}
-        onFinish={(values) => void submit(values as Record<string, string>)}
-        disabled={disabled || busy}
-      >
-        {children}
-        <Button
-          type="primary"
-          danger={danger}
-          htmlType="submit"
-          loading={busy}
-          disabled={disabled || rateLimited || busy}
+      <p style={{ color: 'rgba(0,0,0,0.45)', marginTop: 0 }}>{hint}</p>
+      {error ? (
+        <div
+          ref={errorFeedback}
+          className="command-error-feedback"
+          tabIndex={-1}
+          role="group"
+          aria-label="提交未完成"
+          aria-live="assertive"
         >
-          {submitLabel}
-        </Button>
-      </Form> : null}
+          {errorBanner(error)}
+        </div>
+      ) : null}
+      {successContent ||
+        (accepted ? (
+          <StatusBanner
+            kind={pending ? 'sync-pending' : 'accepted'}
+            title={field(result ?? {}, 'physicalStatus') || '命令已受理'}
+            operationId={field(result ?? {}, 'operationId', 'commandId', 'taskId')}
+            detail={
+              field(result ?? {}, 'stockSyncStatus')
+                ? `stockSyncStatus=${field(result ?? {}, 'stockSyncStatus')}`
+                : undefined
+            }
+          />
+        ) : result ? (
+          <StatusBanner
+            kind="success"
+            title="已返回最新记录"
+            detail={field(result, 'status', 'state')}
+          />
+        ) : null)}
+      {!successContent ? (
+        <Form
+          form={form}
+          layout="vertical"
+          size="small"
+          requiredMark="optional"
+          onValuesChange={() => markDirty(true)}
+          onFinish={(values) => void submit(values as Record<string, string>)}
+          disabled={disabled || busy}
+        >
+          {children}
+          <Button
+            type="primary"
+            danger={danger}
+            htmlType="submit"
+            loading={busy}
+            disabled={disabled || rateLimited || busy}
+          >
+            {submitLabel}
+          </Button>
+        </Form>
+      ) : null}
     </>
   );
-  return embedded ? <div>{body}</div> : <Card title={title} size="small">{body}</Card>;
+  return embedded ? (
+    <div>{body}</div>
+  ) : (
+    <Card title={title} size="small">
+      {body}
+    </Card>
+  );
 }

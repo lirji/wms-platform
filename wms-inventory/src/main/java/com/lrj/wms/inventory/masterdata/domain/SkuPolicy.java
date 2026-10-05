@@ -21,9 +21,18 @@ public final class SkuPolicy {
     private final long policyVersion;
     private final String state;
 
-    private SkuPolicy(String skuId, String enterpriseId, String code, String name, String baseUnit,
-            int quantityScale, boolean lotEnabled, boolean serialEnabled, boolean expiryEnabled,
-            long policyVersion, String state) {
+    private SkuPolicy(
+            String skuId,
+            String enterpriseId,
+            String code,
+            String name,
+            String baseUnit,
+            int quantityScale,
+            boolean lotEnabled,
+            boolean serialEnabled,
+            boolean expiryEnabled,
+            long policyVersion,
+            String state) {
         this.skuId = skuId;
         this.enterpriseId = enterpriseId;
         this.code = code;
@@ -38,9 +47,18 @@ public final class SkuPolicy {
     }
 
     /** 创建商品策略；序列号商品基础单位必须为整数精度。 */
-    public static SkuPolicy create(String skuId, String enterpriseId, String code, String name, String baseUnit,
-            int quantityScale, boolean lotEnabled, boolean serialEnabled, boolean expiryEnabled,
-            long policyVersion, String state) {
+    public static SkuPolicy create(
+            String skuId,
+            String enterpriseId,
+            String code,
+            String name,
+            String baseUnit,
+            int quantityScale,
+            boolean lotEnabled,
+            boolean serialEnabled,
+            boolean expiryEnabled,
+            long policyVersion,
+            String state) {
         if (quantityScale < 0 || quantityScale > 6) {
             throw new IllegalArgumentException("数量精度必须在0到6之间");
         }
@@ -65,18 +83,22 @@ public final class SkuPolicy {
     }
 
     /** 把来源单位数量精确换算为基础单位，禁止截断凑数。 */
-    public BigDecimal toBaseQuantity(BigDecimal quantity, BigDecimal numerator, BigDecimal denominator) {
+    public BigDecimal toBaseQuantity(
+            BigDecimal quantity, BigDecimal numerator, BigDecimal denominator) {
         if (quantity == null || quantity.signum() < 0) {
             throw new IllegalArgumentException("数量必须为非负十进制");
         }
-        if (numerator == null || denominator == null
-                || numerator.signum() <= 0 || denominator.signum() <= 0
+        if (numerator == null
+                || denominator == null
+                || numerator.signum() <= 0
+                || denominator.signum() <= 0
                 || numerator.stripTrailingZeros().scale() > 0
                 || denominator.stripTrailingZeros().scale() > 0) {
             throw new IllegalArgumentException("单位换算必须是正整数比");
         }
         try {
-            return quantity.multiply(numerator).divide(denominator, quantityScale, RoundingMode.UNNECESSARY);
+            return quantity.multiply(numerator)
+                    .divide(denominator, quantityScale, RoundingMode.UNNECESSARY);
         } catch (ArithmeticException ex) {
             throw new IllegalArgumentException("数量无法按单位版本精确换算，禁止截断", ex);
         }
@@ -106,13 +128,18 @@ public final class SkuPolicy {
     }
 
     /** 未启用效期时拒绝效期字段；启用时允许源日期暂存，但不默认生成UTC日界。 */
-    public void requireExpiryFields(java.time.Instant producedAt, java.time.Instant expiresAt, String sourceDate,
+    public void requireExpiryFields(
+            java.time.Instant producedAt,
+            java.time.Instant expiresAt,
+            String sourceDate,
             long expiryRuleVersion) {
         if (expiryRuleVersion < 0) {
             throw new IllegalArgumentException("效期规则版本不能为负");
         }
         if (!expiryEnabled) {
-            if (producedAt != null || expiresAt != null || (sourceDate != null && !sourceDate.isBlank())) {
+            if (producedAt != null
+                    || expiresAt != null
+                    || (sourceDate != null && !sourceDate.isBlank())) {
                 throw new IllegalArgumentException("未启用效期的商品不得写入生产/失效时间");
             }
             return;
@@ -120,7 +147,9 @@ public final class SkuPolicy {
         if (producedAt != null && expiresAt != null && !expiresAt.isAfter(producedAt)) {
             throw new IllegalArgumentException("失效时刻必须晚于生产时刻");
         }
-        if (expiresAt == null && (sourceDate == null || sourceDate.isBlank()) && expiryRuleVersion != 0) {
+        if (expiresAt == null
+                && (sourceDate == null || sourceDate.isBlank())
+                && expiryRuleVersion != 0) {
             throw new IllegalArgumentException("缺少失效时刻或源日期时不能绑定未确认的换算规则");
         }
     }

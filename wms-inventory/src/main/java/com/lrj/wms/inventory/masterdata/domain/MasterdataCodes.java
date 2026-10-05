@@ -22,8 +22,7 @@ public final class MasterdataCodes {
     private static final Set<String> GATE_STATES =
             Set.of(GATE_OPEN, GATE_QUIESCING, GATE_FROZEN, GATE_MAINTENANCE);
 
-    private MasterdataCodes() {
-    }
+    private MasterdataCodes() {}
 
     /** 校验仓/库位/SKU 状态；未知码不得当作 ACTIVE。 */
     public static String requireResourceState(String code) {

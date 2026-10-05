@@ -1,25 +1,25 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
-import { AppProviders } from "../../app/AppProviders";
-import { WorkspaceProvider } from "../../shell/WorkspaceContext";
-import { HomePage } from "./HomePage";
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
+import { AppProviders } from '../../app/AppProviders';
+import { WorkspaceProvider } from '../../shell/WorkspaceContext';
+import { HomePage } from './HomePage';
 
-describe("HomePage", () => {
-  it("shows workbench modules without inventing warehouses", () => {
+describe('HomePage', () => {
+  it('shows workbench modules without inventing warehouses', () => {
     render(
       <AppProviders>
         <MemoryRouter>
-          <WorkspaceProvider value={{ token: undefined, warehouseId: "" }}>
+          <WorkspaceProvider value={{ token: undefined, warehouseId: '' }}>
             <HomePage />
           </WorkspaceProvider>
         </MemoryRouter>
-      </AppProviders>
+      </AppProviders>,
     );
-    expect(screen.getByRole("heading", { name: "仓库工作台" })).toBeTruthy();
-    expect(screen.getByText("本仓入库")).toBeTruthy();
-    expect(screen.queryByText("商品 / 库位")).toBeNull();
+    expect(screen.getByRole('heading', { name: '仓库工作台' })).toBeTruthy();
+    expect(screen.getByText('本仓入库')).toBeTruthy();
+    expect(screen.queryByText('商品 / 库位')).toBeNull();
     expect(screen.getByText(/还没有可作业的仓库/)).toBeTruthy();
-    expect(screen.queryByText("Internal Server Error")).toBeNull();
+    expect(screen.queryByText('Internal Server Error')).toBeNull();
   });
 });

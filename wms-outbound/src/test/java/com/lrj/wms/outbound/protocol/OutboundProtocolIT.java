@@ -1,12 +1,9 @@
 package com.lrj.wms.outbound.protocol;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.mysql.cj.jdbc.MysqlDataSource;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.Map;
-import java.util.UUID;
+
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -19,7 +16,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.UUID;
 
 /** 出库 T1/T3。不连库存库。 */
 class OutboundProtocolIT {
@@ -30,16 +33,22 @@ class OutboundProtocolIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_outbound")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_outbound")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         Flyway.configure().dataSource(source).locations("classpath:db/migration").load().migrate();
         jdbc = new JdbcTemplate(source);
-        Configuration config = new Configuration(new Environment("outbound", new JdbcTransactionFactory(), source));
+        Configuration config =
+                new Configuration(
+                        new Environment("outbound", new JdbcTransactionFactory(), source));
         com.lrj.wms.runtime.db.DatabaseInstants.configure(config);
         config.addMapper(SourceMapper.class);
         sessions = new SqlSessionFactoryBuilder().build(config);
@@ -57,15 +66,27 @@ class OutboundProtocolIT {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         try (SqlSession session = sessions.openSession(false)) {
             SourceProtocolService service = new SourceProtocolService(session, clock);
-            Map<String, Object> first = service.submitShip("ENT-1", "WH-A", "CMD-OUT", "SHIP-1", "PART-1", "LINE-1",
-                    "ACTOR", new BigDecimal("2"));
+            Map<String, Object> first =
+                    service.submitShip(
+                            "ENT-1",
+                            "WH-A",
+                            "CMD-OUT",
+                            "SHIP-1",
+                            "PART-1",
+                            "LINE-1",
+                            "ACTOR",
+                            new BigDecimal("2"));
             assertEquals("PENDING", first.get("state"));
-            service.consumeResult("ENT-1", "WH-A", "EVT-OUT", "CMD-OUT", "CANCELLED", null, BigDecimal.ZERO);
+            service.consumeResult(
+                    "ENT-1", "WH-A", "EVT-OUT", "CMD-OUT", "CANCELLED", null, BigDecimal.ZERO);
             assertEquals("CANCELLED", service.get("ENT-1", "WH-A", "CMD-OUT").get("state"));
             session.commit();
         }
-        assertEquals("CANCELLED", jdbc.queryForObject("SELECT stock_sync_status FROM source_execution WHERE command_id='CMD-OUT'",
-                String.class));
+        assertEquals(
+                "CANCELLED",
+                jdbc.queryForObject(
+                        "SELECT stock_sync_status FROM source_execution WHERE command_id='CMD-OUT'",
+                        String.class));
     }
 
     @Test
@@ -74,27 +95,81 @@ class OutboundProtocolIT {
         String effectId;
         try (SqlSession session = sessions.openSession(false)) {
             SourceProtocolService service = new SourceProtocolService(session, clock);
-            Map<String, Object> first = service.submitPick("ENT-1", "WH-A", "CMD-P1", "ORD-1", "TASK-1", "LINE-1",
-                    "ACTOR", new BigDecimal("3"));
+            Map<String, Object> first =
+                    service.submitPick(
+                            "ENT-1",
+                            "WH-A",
+                            "CMD-P1",
+                            "ORD-1",
+                            "TASK-1",
+                            "LINE-1",
+                            "ACTOR",
+                            new BigDecimal("3"));
             effectId = String.valueOf(first.get("effectId"));
             Map<String, Object> closed = service.safeClose("ENT-1", "WH-A", "CMD-P1");
             assertEquals("CMD-P1", closed.get("commandId"));
             assertNotNull(closed.get("safeCloseRef"));
-            assertThrows(com.lrj.wms.runtime.messaging.MessageRejectedException.class, () -> service.consumeResult(
-                    "ENT-1", "WH-A", "EVT-CLOSED", "CMD-P1", "APPLIED", "POST-CLOSED", new BigDecimal("3")));
-            Map<String, Object> next = service.submitPick("ENT-1", "WH-A", "CMD-P2", "ORD-1", "TASK-1", "LINE-1",
-                    "ACTOR", new BigDecimal("3"), "CMD-P1");
+            assertThrows(
+                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    () ->
+                            service.consumeResult(
+                                    "ENT-1",
+                                    "WH-A",
+                                    "EVT-CLOSED",
+                                    "CMD-P1",
+                                    "APPLIED",
+                                    "POST-CLOSED",
+                                    new BigDecimal("3")));
+            Map<String, Object> next =
+                    service.submitPick(
+                            "ENT-1",
+                            "WH-A",
+                            "CMD-P2",
+                            "ORD-1",
+                            "TASK-1",
+                            "LINE-1",
+                            "ACTOR",
+                            new BigDecimal("3"),
+                            "CMD-P1");
             assertEquals("CMD-P2", next.get("commandId"));
-            assertThrows(com.lrj.wms.runtime.messaging.MessageRejectedException.class, () -> service.consumeResult("ENT-1", "WH-A", "EVT-OLD", "CMD-P1", "APPLIED", "POST-OLD", new BigDecimal("3")));
-            service.consumeResult("ENT-1", "WH-A", "EVT-NEW", "CMD-P2", "APPLIED", "POST-NEW", new BigDecimal("3"));
+            assertThrows(
+                    com.lrj.wms.runtime.messaging.MessageRejectedException.class,
+                    () ->
+                            service.consumeResult(
+                                    "ENT-1",
+                                    "WH-A",
+                                    "EVT-OLD",
+                                    "CMD-P1",
+                                    "APPLIED",
+                                    "POST-OLD",
+                                    new BigDecimal("3")));
+            service.consumeResult(
+                    "ENT-1",
+                    "WH-A",
+                    "EVT-NEW",
+                    "CMD-P2",
+                    "APPLIED",
+                    "POST-NEW",
+                    new BigDecimal("3"));
             session.commit();
         }
-        assertEquals("CMD-P2", jdbc.queryForObject(
-                "SELECT applied_command_id FROM source_effect WHERE id=?", String.class, effectId));
-        assertEquals("PENDING", jdbc.queryForObject("SELECT state FROM source_command WHERE command_id='CMD-P1'",
-                String.class));
-        assertEquals("APPLIED", jdbc.queryForObject("SELECT state FROM source_command WHERE command_id='CMD-P2'",
-                String.class));
-        System.out.println("S5_REAUTH: outbound late old receipt does not take effect applied_command_id");
+        assertEquals(
+                "CMD-P2",
+                jdbc.queryForObject(
+                        "SELECT applied_command_id FROM source_effect WHERE id=?",
+                        String.class,
+                        effectId));
+        assertEquals(
+                "PENDING",
+                jdbc.queryForObject(
+                        "SELECT state FROM source_command WHERE command_id='CMD-P1'",
+                        String.class));
+        assertEquals(
+                "APPLIED",
+                jdbc.queryForObject(
+                        "SELECT state FROM source_command WHERE command_id='CMD-P2'",
+                        String.class));
+        System.out.println(
+                "S5_REAUTH: outbound late old receipt does not take effect applied_command_id");
     }
 }

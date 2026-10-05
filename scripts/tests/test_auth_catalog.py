@@ -1,6 +1,7 @@
 """验证权限目录的公开契约边界；测试不代表运行中的WMS已经接入中央授权。"""
 import copy
 import importlib.util
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -62,11 +63,25 @@ class AuthCatalogTest(unittest.TestCase):
     def test_unknown_menu_and_conflicting_capability_meanings_fail_closed(self):
         text = (ROOT / "wms-console/src/shell/nav.tsx").read_text()
         with self.assertRaises(ValueError):
-            catalog.read_navigation(text.replace('to: "ship"', 'to: "admin"'))
+            catalog.read_navigation(re.sub(r"to: (['\"])ship\1", "to: 'admin'", text))
         source = (ROOT / "wms-security/src/main/resources/wms-operation-scopes.tsv").read_text()
         bindings = (ROOT / "docs/iam/operation-bindings.tsv").read_text()
         with self.assertRaises(ValueError):
             catalog.bind_operations(source, bindings.replace("wms.masterdata.read.enterprise", "wms.masterdata.read"))
+
+    def test_navigation_formatting_preserves_facts_and_rejects_unparsed_or_duplicate_fields(self):
+        text = (ROOT / "wms-console/src/shell/nav.tsx").read_text()
+        expected = catalog.read_navigation(text)
+        compact = re.sub(r"\s+", " ", text).replace("'", '"')
+        multiline = text.replace("to:", "\n to:").replace("label:", "\n label:")
+        self.assertEqual(expected, catalog.read_navigation(compact))
+        self.assertEqual(expected, catalog.read_navigation(multiline))
+        for changed in [text.replace("items: [", "items: [ ...hidden,", 1),
+                        text.replace("pda: true", "pda: true, pda: false", 1),
+                        text.replace("pda: true", "pda: isPda", 1),
+                        text.replace("to: 'ship'", "to: 'pick'")]:
+            with self.subTest(changed=changed[-200:]), self.assertRaises(ValueError):
+                catalog.read_navigation(changed)
 
     def test_artifact_replay_is_identical_and_check_rejects_drift_without_rewriting(self):
         first = catalog.build(ROOT)

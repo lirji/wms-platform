@@ -1,8 +1,10 @@
 package com.lrj.wms.inventory.inventory;
 
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import java.util.Map;
+
 import org.apache.ibatis.session.SqlSession;
+
+import java.util.Map;
 
 /** 上架目标库位资格。收货月台/发运位不能当存储上架位。 */
 public final class PutawayTargetService {
@@ -14,9 +16,11 @@ public final class PutawayTargetService {
         this.session = session;
     }
 
-    public Map<String, Object> requireStorage(String enterpriseId, String warehouseId, String locationId) {
-        Map<String, Object> location = session.getMapper(MasterdataMapper.class)
-                .getLocation(enterpriseId, warehouseId, locationId);
+    public Map<String, Object> requireStorage(
+            String enterpriseId, String warehouseId, String locationId) {
+        Map<String, Object> location =
+                session.getMapper(MasterdataMapper.class)
+                        .getLocation(enterpriseId, warehouseId, locationId);
         if (location == null) {
             throw new InventoryException("RESOURCE_NOT_FOUND", "上架库位不存在");
         }

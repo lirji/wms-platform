@@ -3,11 +3,13 @@ package com.lrj.wms.inventory.tcc;
 import com.lrj.wms.inventory.inventory.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.ReservationLineInput;
-import java.util.List;
+
 import org.apache.seata.rm.tcc.api.BusinessActionContext;
 import org.apache.seata.rm.tcc.api.BusinessActionContextParameter;
 import org.apache.seata.rm.tcc.api.LocalTCC;
 import org.apache.seata.rm.tcc.api.TwoPhaseBusinessAction;
+
+import java.util.List;
 
 /**
  * 仓级库存 RM 的预占 TCC 动作。业务方法不含 Fence 调用；Fence 由 useTCCFence 或同库 prepare/commit/rollback 包裹。
@@ -26,9 +28,13 @@ public final class ReservationTccAction {
     /**
      * Try：预留库存并落 TRIED。参与者/数量在调用前已冻结，这里不再改仓。
      */
-    @TwoPhaseBusinessAction(name = ACTION_NAME, commitMethod = "confirmReserve", rollbackMethod = "cancelReserve",
+    @TwoPhaseBusinessAction(
+            name = ACTION_NAME,
+            commitMethod = "confirmReserve",
+            rollbackMethod = "cancelReserve",
             useTCCFence = true)
-    public boolean tryReserve(BusinessActionContext context,
+    public boolean tryReserve(
+            BusinessActionContext context,
             @BusinessActionContextParameter("enterpriseId") String enterpriseId,
             @BusinessActionContextParameter("warehouseId") String warehouseId,
             @BusinessActionContextParameter("allocationId") String allocationId,
@@ -47,8 +53,20 @@ public final class ReservationTccAction {
         context.addActionContext("requestDigest", requestDigest);
         context.addActionContext("routeEpoch", routeEpoch);
         String operationId = phaseOperation("try", context);
-        inventory.reserveTried(enterpriseId, warehouseId, operationId, allocationId, ACTION_NAME, allocationId, attemptId,
-                context.getXid(), context.getBranchId(), ACTION_NAME, routeEpoch, requestDigest, lines);
+        inventory.reserveTried(
+                enterpriseId,
+                warehouseId,
+                operationId,
+                allocationId,
+                ACTION_NAME,
+                allocationId,
+                attemptId,
+                context.getXid(),
+                context.getBranchId(),
+                ACTION_NAME,
+                routeEpoch,
+                requestDigest,
+                lines);
         return true;
     }
 
@@ -56,9 +74,17 @@ public final class ReservationTccAction {
     public boolean confirmReserve(BusinessActionContext context) {
         requireContext(context);
         String operationId = phaseOperation("confirm", context);
-        inventory.confirmTried(text(context, "enterpriseId"), text(context, "warehouseId"), operationId,
-                text(context, "allocationId"), ACTION_NAME, text(context, "allocationId"), text(context, "attemptId"),
-                context.getXid(), context.getBranchId(), ACTION_NAME);
+        inventory.confirmTried(
+                text(context, "enterpriseId"),
+                text(context, "warehouseId"),
+                operationId,
+                text(context, "allocationId"),
+                ACTION_NAME,
+                text(context, "allocationId"),
+                text(context, "attemptId"),
+                context.getXid(),
+                context.getBranchId(),
+                ACTION_NAME);
         return true;
     }
 
@@ -66,9 +92,17 @@ public final class ReservationTccAction {
     public boolean cancelReserve(BusinessActionContext context) {
         requireContext(context);
         String operationId = phaseOperation("cancel", context);
-        inventory.cancelTried(text(context, "enterpriseId"), text(context, "warehouseId"), operationId,
-                text(context, "allocationId"), ACTION_NAME, text(context, "allocationId"), text(context, "attemptId"),
-                context.getXid(), context.getBranchId(), ACTION_NAME);
+        inventory.cancelTried(
+                text(context, "enterpriseId"),
+                text(context, "warehouseId"),
+                operationId,
+                text(context, "allocationId"),
+                ACTION_NAME,
+                text(context, "allocationId"),
+                text(context, "attemptId"),
+                context.getXid(),
+                context.getBranchId(),
+                ACTION_NAME);
         return true;
     }
 
@@ -79,8 +113,8 @@ public final class ReservationTccAction {
     }
 
     private static String phaseOperation(String phase, BusinessActionContext context) {
-        return com.lrj.wms.inventory.inventory.domain.CommandDigest.v1Parts("tcc-" + phase, context.getXid(),
-                Long.toString(context.getBranchId()));
+        return com.lrj.wms.inventory.inventory.domain.CommandDigest.v1Parts(
+                "tcc-" + phase, context.getXid(), Long.toString(context.getBranchId()));
     }
 
     private static String text(BusinessActionContext context, String key) {

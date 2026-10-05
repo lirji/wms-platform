@@ -1,25 +1,22 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper">
-
-    <!-- lockGate：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockGate" resultType="map">
+  <!-- lockGate：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockGate" resultType="map">
         SELECT id, location_id, state, fence_epoch, count_plan_id, version
         FROM location_gate
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND location_id=#{locationId} FOR UPDATE
     </select>
-
-    <!-- insertBalance：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertBalance">
+  <!-- insertBalance：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertBalance">
         INSERT INTO stock_balance (id, enterprise_id, warehouse_id, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{ownerId}, #{locationId}, #{skuId}, #{lotId}, #{qualityCode}, 0, 0, 0, 0, #{now}, #{now})
         ON DUPLICATE KEY UPDATE updated_at=updated_at
     </insert>
-
-    <!-- lockBalanceByDimension：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockBalanceByDimension" resultType="map">
+  <!-- lockBalanceByDimension：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockBalanceByDimension" resultType="map">
         SELECT id, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version
         FROM stock_balance
         WHERE enterprise_id=#{enterpriseId}
@@ -30,18 +27,16 @@
         AND lot_id=#{lotId}
         AND quality_code=#{qualityCode} FOR UPDATE
     </select>
-
-    <!-- lockBalanceById：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockBalanceById" resultType="map">
+  <!-- lockBalanceById：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockBalanceById" resultType="map">
         SELECT id, owner_id, location_id, sku_id, lot_id, quality_code, on_hand_qty, reserved_qty, free_execution_claim_qty, version
         FROM stock_balance
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{balanceId} FOR UPDATE
     </select>
-
-    <!-- casAdjust：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casAdjust">
+  <!-- casAdjust：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casAdjust">
         UPDATE stock_balance
         SET on_hand_qty=on_hand_qty+#{onHandDelta}, reserved_qty=reserved_qty+#{reservedDelta}, free_execution_claim_qty=free_execution_claim_qty+#{claimDelta}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -53,9 +48,8 @@
         AND free_execution_claim_qty+#{claimDelta}&gt;=0
         AND on_hand_qty+#{onHandDelta}&gt;=reserved_qty+#{reservedDelta}+free_execution_claim_qty+#{claimDelta}
     </update>
-
-    <!-- casReserveGood：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casReserveGood">
+  <!-- casReserveGood：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casReserveGood">
         UPDATE stock_balance
         SET reserved_qty=reserved_qty+#{qty}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -65,45 +59,39 @@
         AND quality_code='GOOD'
         AND on_hand_qty-reserved_qty-free_execution_claim_qty&gt;=#{qty}
     </update>
-
-    <!-- insertLedger：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="appendLedger">
+  <!-- insertLedger：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="appendLedger">
         INSERT INTO stock_ledger (id, enterprise_id, warehouse_id, operation_id, entry_no, balance_id, on_hand_delta, reserved_delta, free_execution_claim_delta, on_hand_after, reserved_after, free_execution_claim_after, balance_version, reason_code, document_id, actor_id, occurred_at, created_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{operationId}, #{entryNo}, #{balanceId}, #{onHandDelta}, #{reservedDelta}, #{claimDelta}, #{onHandAfter}, #{reservedAfter}, #{claimAfter}, #{balanceVersion}, #{reasonCode}, #{documentId}, #{actorId}, #{occurredAt}, #{now})
     </insert>
-
-    <!-- insertReservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertReservation">
+  <!-- insertReservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertReservation">
         INSERT INTO reservation (id, enterprise_id, warehouse_id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, route_epoch, execution_authorization_id, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{allocationId}, #{attemptId}, #{requestDigest}, #{digestVersion}, #{state}, #{xid}, #{branchId}, #{actionName}, #{routeEpoch}, #{executionAuthorizationId}, 0, #{now}, #{now})
     </insert>
-
-    <!-- lockReservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockReservation" resultType="map">
+  <!-- lockReservation：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockReservation" resultType="map">
         SELECT id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, route_epoch, execution_authorization_id, version
         FROM reservation
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND id=#{reservationId} FOR UPDATE
     </select>
-
-    <!-- insertReservationLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <insert id="insertReservationLine">
+  <!-- insertReservationLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <insert id="insertReservationLine">
         INSERT INTO reservation_line (id, enterprise_id, warehouse_id, reservation_id, parent_line_id, order_line_id, balance_id, requested_qty, remaining_qty, picked_qty, consumed_qty, released_qty, inflight_qty, version, created_at, updated_at)
         VALUES (#{id}, #{enterpriseId}, #{warehouseId}, #{reservationId}, #{parentLineId}, #{orderLineId}, #{balanceId}, #{requestedQty}, #{remainingQty}, #{pickedQty}, #{consumedQty}, #{releasedQty}, #{inflightQty}, 0, #{now}, #{now})
     </insert>
-
-    <!-- countLedger：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="countLedger" resultType="int">
+  <!-- countLedger：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="countLedger" resultType="int">
         SELECT COUNT(*)
         FROM stock_ledger
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND operation_id=#{operationId}
     </select>
-
-    <!-- casReservationState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casReservationState">
+  <!-- casReservationState：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casReservationState">
         UPDATE reservation
         SET state=#{toState}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -112,9 +100,8 @@
         AND version=#{expectedVersion}
         AND state=#{fromState}
     </update>
-
-    <!-- reservationLocationIds：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="reservationLocationIds" resultType="string">
+  <!-- reservationLocationIds：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="reservationLocationIds" resultType="string">
         SELECT DISTINCT b.location_id
         FROM reservation r JOIN reservation_line l ON l.enterprise_id=r.enterprise_id
         AND l.warehouse_id=r.warehouse_id
@@ -127,9 +114,8 @@
         AND r.attempt_id=#{attemptId}
         ORDER BY b.location_id
     </select>
-
-    <!-- lockReservationByAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockReservationByAttempt" resultType="map">
+  <!-- lockReservationByAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockReservationByAttempt" resultType="map">
         SELECT id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, route_epoch, execution_authorization_id, version
         FROM reservation
         WHERE enterprise_id=#{enterpriseId}
@@ -137,9 +123,8 @@
         AND allocation_id=#{allocationId}
         AND attempt_id=#{attemptId} FOR UPDATE
     </select>
-
-    <!-- findReservationByAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="findReservationByAttempt" resultType="map">
+  <!-- findReservationByAttempt：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="findReservationByAttempt" resultType="map">
         SELECT id, allocation_id, attempt_id, request_digest, digest_version, state, xid, branch_id, action_name, route_epoch, execution_authorization_id, version
         FROM reservation
         WHERE enterprise_id=#{enterpriseId}
@@ -147,9 +132,8 @@
         AND allocation_id=#{allocationId}
         AND attempt_id=#{attemptId}
     </select>
-
-    <!-- listWatchReservations：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listWatchReservations" resultType="map">
+  <!-- listWatchReservations：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listWatchReservations" resultType="map">
         SELECT id, allocation_id, attempt_id, state, xid, updated_at
         FROM reservation
         WHERE enterprise_id=#{enterpriseId}
@@ -158,18 +142,16 @@
         ORDER BY updated_at, id
         LIMIT #{limit}
     </select>
-
-    <!-- listReservationLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="listReservationLines" resultType="map">
+  <!-- listReservationLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="listReservationLines" resultType="map">
         SELECT id, balance_id, requested_qty, remaining_qty, version
         FROM reservation_line
         WHERE enterprise_id=#{enterpriseId}
         AND warehouse_id=#{warehouseId}
         AND reservation_id=#{reservationId}
     </select>
-
-    <!-- casReleaseTriedLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casReleaseTriedLine">
+  <!-- casReleaseTriedLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casReleaseTriedLine">
         UPDATE reservation_line
         SET released_qty=requested_qty, remaining_qty=0, picked_qty=0, inflight_qty=0, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -179,9 +161,8 @@
         AND consumed_qty=0
         AND released_qty=0
     </update>
-
-    <!-- rebindRemainingLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="rebindRemainingLines">
+  <!-- rebindRemainingLines：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="rebindRemainingLines">
         UPDATE reservation_line
         SET balance_id=#{targetBalanceId}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -189,9 +170,8 @@
         AND balance_id=#{sourceBalanceId}
         AND remaining_qty&gt;0
     </update>
-
-    <!-- lockOpenLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <select id="lockOpenLine" resultType="map">
+  <!-- lockOpenLine：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <select id="lockOpenLine" resultType="map">
         SELECT id, reservation_id, parent_line_id, order_line_id, balance_id, requested_qty, remaining_qty, picked_qty, consumed_qty, released_qty, version
         FROM reservation_line
         WHERE enterprise_id=#{enterpriseId}
@@ -202,9 +182,8 @@
         ORDER BY id
         LIMIT 1 FOR UPDATE
     </select>
-
-    <!-- casSplitPick：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casSplitPick">
+  <!-- casSplitPick：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casSplitPick">
         UPDATE reservation_line
         SET requested_qty=requested_qty-#{qty}, remaining_qty=remaining_qty-#{qty}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -213,9 +192,8 @@
         AND remaining_qty&gt;=#{qty}
         AND remaining_qty=requested_qty-consumed_qty-released_qty
     </update>
-
-    <!-- casConsumePicked：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casConsumePicked">
+  <!-- casConsumePicked：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casConsumePicked">
         UPDATE reservation_line
         SET remaining_qty=remaining_qty-#{qty}, consumed_qty=consumed_qty+#{qty}, picked_qty=picked_qty-#{qty}, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -224,9 +202,8 @@
         AND remaining_qty&gt;=#{qty}
         AND picked_qty&gt;=#{qty}
     </update>
-
-    <!-- casReleaseRemaining：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
-    <update id="casReleaseRemaining">
+  <!-- casReleaseRemaining：保持本上下文的数据范围与原有条件更新语义，值参数绑定。 -->
+  <update id="casReleaseRemaining">
         UPDATE reservation_line
         SET released_qty=released_qty+remaining_qty, remaining_qty=0, picked_qty=0, version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId}
@@ -235,31 +212,28 @@
         AND remaining_qty&gt;0
         AND remaining_qty=#{expected}
     </update>
-    <!-- 201行为越界探针；分配头锁串行同尝试的分批变化，禁止LIMIT 1任取其他行。 -->
-    <select id="lockOutboundLines" resultType="map">
+  <!-- 201行为越界探针；分配头锁串行同尝试的分批变化，禁止LIMIT 1任取其他行。 -->
+  <select id="lockOutboundLines" resultType="map">
         SELECT id, reservation_id, parent_line_id, order_line_id, balance_id, requested_qty,
                remaining_qty, picked_qty, consumed_qty, released_qty, inflight_qty, version
         FROM reservation_line
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId}
           AND reservation_id=#{reservationId} AND order_line_id=#{orderLineId} AND balance_id=#{balanceId}
           AND remaining_qty&gt;0 AND inflight_qty=0
-        <choose>
-            <when test="picked">AND parent_line_id IS NOT NULL AND picked_qty=remaining_qty</when>
-            <otherwise>AND parent_line_id IS NULL AND picked_qty=0</otherwise>
-        </choose>
+        <choose><when test="picked">AND parent_line_id IS NOT NULL AND picked_qty=remaining_qty</when><otherwise>AND parent_line_id IS NULL AND picked_qty=0</otherwise></choose>
         ORDER BY remaining_qty, id LIMIT 201 FOR UPDATE
     </select>
-    <update id="casReleaseUnpicked">
+  <update id="casReleaseUnpicked">
         UPDATE reservation_line SET released_qty=released_qty+#{qty}, remaining_qty=remaining_qty-#{qty},
             version=version+1, updated_at=#{now}
         WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} AND id=#{lineId}
           AND parent_line_id IS NULL AND picked_qty=0 AND inflight_qty=0 AND remaining_qty&gt;=#{qty}
     </update>
-    <insert id="ensureHistoryGuard">
+  <insert id="ensureHistoryGuard">
         INSERT INTO reconciliation_history_guard(id,enterprise_id,warehouse_id) VALUES(#{guardId},#{enterpriseId},#{warehouseId})
         ON DUPLICATE KEY UPDATE warehouse_id=warehouse_id
     </insert>
-    <select id="lockHistoryGuard" resultType="map" timeout="3">
+  <select id="lockHistoryGuard" resultType="map" timeout="3">
         SELECT id,closed_before FROM reconciliation_history_guard WHERE enterprise_id=#{enterpriseId} AND warehouse_id=#{warehouseId} FOR SHARE
     </select>
 </mapper>

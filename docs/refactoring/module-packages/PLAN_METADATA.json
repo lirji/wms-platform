@@ -1,0 +1,24 @@
+{
+  "goal": "Every WMS module: finer packages, formatting, Claude skill code quality optimization",
+  "claude_skill": "/Users/liruijun/.claude/skills/project-refactoring/SKILL.md",
+  "baseline": "2efa151b77c2620d39e810a3780710532fe0cdfc",
+  "phase_gates": {
+    "baseline": "PASS",
+    "test_protection": "PASS"
+  },
+  "change_sets": {
+    "R01": {
+      "allowFormattingChurn": true,
+      "approvedDependencies": [
+        "google-java-format",
+        "prettier"
+      ],
+      "reason": "explicit user-requested project formatting"
+    },
+    "R02_R12": {
+      "allowFormattingChurn": false
+    }
+  },
+  "original_user_work": "preserve original WMS55 files/local main17048d5; separate Driver remains user-owned unfinished work",
+  "completion": "entire objective; R01 alone is not complete"
+}

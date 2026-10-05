@@ -1,22 +1,21 @@
 package com.lrj.wms.inventory.domain;
 
 import com.lrj.wms.inventory.inventory.InventoryException;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 /** 移库/限制/调整 HTTP 信封。 */
 final class DomainHttp {
-    private DomainHttp() {
-    }
+    private DomainHttp() {}
 
     static Map<String, Object> row(Map<String, Object> source) {
         Map<String, Object> item = new LinkedHashMap<>();
@@ -36,7 +35,11 @@ final class DomainHttp {
         return body;
     }
 
-    static Map<String, Object> accepted(String warehouseId, String operationId, String statusUrl, String physical,
+    static Map<String, Object> accepted(
+            String warehouseId,
+            String operationId,
+            String statusUrl,
+            String physical,
             String sync) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("operationId", operationId);
@@ -53,18 +56,27 @@ final class DomainHttp {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
-        body.put("retryable", "VERSION_CONFLICT".equals(code) || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(code));
+        body.put(
+                "requestId",
+                com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
+        body.put(
+                "retryable",
+                "VERSION_CONFLICT".equals(code) || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(code));
         return body;
     }
 
     static ResponseEntity<Map<String, Object>> statusOf(InventoryException error) {
-        HttpStatus status = error.code().contains("NOT_FOUND") ? HttpStatus.NOT_FOUND
-                : error.code().contains("CONFLICT") || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(error.code())
-                        || "STOCK_INSUFFICIENT".equals(error.code()) || "STOCK_FROZEN".equals(error.code())
-                        || "HOLD_STATE_CONFLICT".equals(error.code()) || "ADJUSTMENT_STATE_CONFLICT".equals(error.code())
-                        ? HttpStatus.CONFLICT
-                        : HttpStatus.BAD_REQUEST;
+        HttpStatus status =
+                error.code().contains("NOT_FOUND")
+                        ? HttpStatus.NOT_FOUND
+                        : error.code().contains("CONFLICT")
+                                        || "IDEMPOTENCY_PAYLOAD_MISMATCH".equals(error.code())
+                                        || "STOCK_INSUFFICIENT".equals(error.code())
+                                        || "STOCK_FROZEN".equals(error.code())
+                                        || "HOLD_STATE_CONFLICT".equals(error.code())
+                                        || "ADJUSTMENT_STATE_CONFLICT".equals(error.code())
+                                ? HttpStatus.CONFLICT
+                                : HttpStatus.BAD_REQUEST;
         return ResponseEntity.status(status).body(error(error.code(), error.getMessage()));
     }
 
@@ -86,7 +98,8 @@ final class DomainHttp {
             throw new InventoryException("INVALID_ARGUMENT", "Idempotency-Key不能为空");
         }
         if (body != null && !body.isBlank() && !header.equals(body)) {
-            throw new InventoryException("INVALID_ARGUMENT", "clientOperationId必须与Idempotency-Key一致");
+            throw new InventoryException(
+                    "INVALID_ARGUMENT", "clientOperationId必须与Idempotency-Key一致");
         }
         return header;
     }
@@ -109,7 +122,9 @@ final class DomainHttp {
         if (value == null || String.valueOf(value).isBlank()) {
             throw new InventoryException("INVALID_VERSION", "expectedVersion不能为空");
         }
-        return value instanceof Number number ? number.longValue() : Long.parseLong(String.valueOf(value));
+        return value instanceof Number number
+                ? number.longValue()
+                : Long.parseLong(String.valueOf(value));
     }
 
     @SuppressWarnings("unchecked")

@@ -3,17 +3,14 @@ package com.lrj.wms.fulfillment;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /** HTTP 数量用十进制字符串，时间用 Instant。 */
 public final class HttpJson {
-    private HttpJson() {
-    }
+    private HttpJson() {}
 
     public static Map<String, Object> page(List<Map<String, Object>> items) {
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -35,7 +32,9 @@ public final class HttpJson {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);
         body.put("message", message);
-        body.put("requestId", com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
+        body.put(
+                "requestId",
+                com.lrj.wms.runtime.observability.RequestCorrelationFilter.currentId());
         body.put("retryable", "RECOVERY_PENDING".equals(code) || "VERSION_CONFLICT".equals(code));
         return body;
     }

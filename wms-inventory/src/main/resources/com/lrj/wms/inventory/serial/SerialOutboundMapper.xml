@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.lrj.wms.inventory.serial.SerialOutboundMapper">
- <insert id="insert">
+  <insert id="insert">
   INSERT INTO serial_pick_fact(id,enterprise_id,warehouse_id,command_id,operation_id,allocation_id,attempt_id,order_line_id,sku_id,serial_id,owner_epoch,source_balance_id,target_balance_id,created_at,updated_at)
   VALUES(#{row.id},#{row.e},#{row.w},#{row.command},#{row.operation},#{row.allocation},#{row.attempt},#{row.orderLine},#{row.sku},#{row.serial},#{row.epoch},#{row.source},#{row.target},#{row.now},#{row.now})
  </insert>
- <select id="available" resultType="map" timeout="3">
+  <select id="available" resultType="map" timeout="3">
   SELECT s.serial_id id,s.serial_id serialId,s.owner_epoch ownerEpoch,b.owner_id ownerId,b.sku_id skuId,b.lot_id lotId,b.location_id locationId
   FROM stock_balance b JOIN local_serial s ON s.enterprise_id=b.enterprise_id AND s.warehouse_id=b.warehouse_id AND s.balance_id=b.id
   WHERE b.enterprise_id=#{e} AND b.warehouse_id=#{w} AND b.owner_id=#{owner} AND b.sku_id=#{sku} AND b.location_id=#{location}
@@ -16,7 +16,7 @@
     <if test="page.id != null">AND s.serial_id&gt;#{page.id}</if>
   ORDER BY s.serial_id LIMIT #{page.fetchLimit}
  </select>
- <select id="lockPicked" resultType="map">
+  <select id="lockPicked" resultType="map">
   SELECT id,allocation_id,attempt_id,order_line_id,target_balance_id,state FROM serial_pick_fact
   WHERE enterprise_id=#{e} AND warehouse_id=#{w} AND sku_id=#{sku} AND active_serial=#{serial} AND owner_epoch=#{epoch} FOR UPDATE
  </select>

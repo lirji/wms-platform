@@ -3,7 +3,6 @@ package com.lrj.wms.inventory.inventory.domain;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 
 /**
@@ -11,8 +10,7 @@ import java.util.Date;
  * DATETIME 由显式配置的 JDBC 边界还原 Instant，禁止依赖 JVM 默认时区。
  */
 public final class ExpiryPolicy {
-    private ExpiryPolicy() {
-    }
+    private ExpiryPolicy() {}
 
     public static boolean satisfied(Instant expiresAt, Instant now) {
         if (now == null) {

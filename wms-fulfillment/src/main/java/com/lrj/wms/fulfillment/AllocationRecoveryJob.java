@@ -2,6 +2,7 @@ package com.lrj.wms.fulfillment;
 
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -32,9 +33,13 @@ public class AllocationRecoveryJob {
         if (scope == null || scope.isBlank()) {
             scope = XxlJobHelper.getJobParam();
         }
-        try { return sweep.execute(scope); }
-        catch (RuntimeException error) {
-            XxlJobHelper.handleFail(error instanceof FulfillmentException failure ? failure.code() : "ALLOCATION_RECOVERY_FAILED");
+        try {
+            return sweep.execute(scope);
+        } catch (RuntimeException error) {
+            XxlJobHelper.handleFail(
+                    error instanceof FulfillmentException failure
+                            ? failure.code()
+                            : "ALLOCATION_RECOVERY_FAILED");
             throw error;
         }
     }

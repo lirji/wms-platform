@@ -13,8 +13,10 @@ public final class EffectCodes {
     public static final String ACTION_PUTAWAY = "PUTAWAY";
     public static final String ACTION_PICK = "PICK";
     public static final String ACTION_MOVE = "MOVE";
+
     /** 取消未拣释放预占，区别于把原命令置为CANCELLED的墓碑操作。 */
     public static final String ACTION_CANCEL = "CANCEL";
+
     public static final String ACTION_SHIP = "SHIP";
     public static final String ACTION_RETURN = "RETURN";
     public static final String ACTION_COMPENSATE = "COMPENSATE";
@@ -35,16 +37,39 @@ public final class EffectCodes {
     public static final String STATE_CANCELLED = "CANCELLED";
     public static final String STATE_SAFE_CLOSED = "SAFE_CLOSED";
 
-    private static final Set<String> ACTIONS = Set.of(ACTION_RECEIVE, ACTION_QUALITY, ACTION_PUTAWAY, ACTION_PICK, ACTION_MOVE,
-            ACTION_CANCEL, ACTION_SHIP, ACTION_RETURN, ACTION_COMPENSATE, ACTION_COUNT_ADJUST);
-    private static final Set<String> FACTS = Set.of(FACT_RECEIPT_PART, FACT_SUB_ACTION, FACT_SHIPMENT_PART,
-            FACT_CASE_PART, FACT_ADJUSTMENT_LINE);
-    private static final Set<String> EFFECT_STATES = Set.of(STATE_REGISTERED, STATE_OPEN, STATE_STARTED, STATE_UNKNOWN,
-            STATE_APPLIED, STATE_REJECTED, STATE_CANCELLED, STATE_SAFE_CLOSED);
-    private static final Set<String> BLOCKED_REAUTH = Set.of(STATE_STARTED, STATE_UNKNOWN, STATE_OPEN);
+    private static final Set<String> ACTIONS =
+            Set.of(
+                    ACTION_RECEIVE,
+                    ACTION_QUALITY,
+                    ACTION_PUTAWAY,
+                    ACTION_PICK,
+                    ACTION_MOVE,
+                    ACTION_CANCEL,
+                    ACTION_SHIP,
+                    ACTION_RETURN,
+                    ACTION_COMPENSATE,
+                    ACTION_COUNT_ADJUST);
+    private static final Set<String> FACTS =
+            Set.of(
+                    FACT_RECEIPT_PART,
+                    FACT_SUB_ACTION,
+                    FACT_SHIPMENT_PART,
+                    FACT_CASE_PART,
+                    FACT_ADJUSTMENT_LINE);
+    private static final Set<String> EFFECT_STATES =
+            Set.of(
+                    STATE_REGISTERED,
+                    STATE_OPEN,
+                    STATE_STARTED,
+                    STATE_UNKNOWN,
+                    STATE_APPLIED,
+                    STATE_REJECTED,
+                    STATE_CANCELLED,
+                    STATE_SAFE_CLOSED);
+    private static final Set<String> BLOCKED_REAUTH =
+            Set.of(STATE_STARTED, STATE_UNKNOWN, STATE_OPEN);
 
-    private EffectCodes() {
-    }
+    private EffectCodes() {}
 
     /** 校验动作；未知不得当作可登记。 */
     public static String requireAction(String code) {

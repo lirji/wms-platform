@@ -1,26 +1,42 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Button, Card, Space, Tooltip } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
-import { asOfMeta, nextCursorOf, withQuery } from "../../api/envelope";
-import { CommandDrawer } from "../../shared/command/CommandDrawer";
-import { DataTable, type Column } from "../../shared/ui/DataTable";
-import { errorBanner } from "../../shared/ui/errorBanner";
-import { PageHead } from "../../shared/ui/PageHead";
-import { QueryMeta } from "../../shared/ui/QueryMeta";
-import { StatusBanner } from "../../shared/ui/StatusBanner";
-import { WmsSearchForm } from "../../shared/ui/WmsSearchForm";
-import { WmsToolbar } from "../../shared/ui/WmsToolbar";
-import { useResource } from "../../shared/useResource";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Button, Card, Space, Tooltip } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
+import { asOfMeta, nextCursorOf, withQuery } from '../../api/envelope';
+import { CommandDrawer } from '../../shared/command/CommandDrawer';
+import { DataTable, type Column } from '../../shared/ui/DataTable';
+import { errorBanner } from '../../shared/ui/errorBanner';
+import { PageHead } from '../../shared/ui/PageHead';
+import { QueryMeta } from '../../shared/ui/QueryMeta';
+import { StatusBanner } from '../../shared/ui/StatusBanner';
+import { WmsSearchForm } from '../../shared/ui/WmsSearchForm';
+import { WmsToolbar } from '../../shared/ui/WmsToolbar';
+import { useResource } from '../../shared/useResource';
+import { useWorkspace } from '../../shell/WorkspaceContext';
 
 const DEFAULT_COLUMNS: Column[] = [
-  { key: "id", label: "标识", keys: ["id", "orderId", "planId", "jobId", "caseId"], kind: "id", copyKind: "单据" },
-  { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-  { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-  { key: "qty", label: "数量", qty: true, keys: ["qty", "quantity", "onHandQty", "on_hand_qty", "expectedQty", "expected_qty"] },
-  { key: "physicalStatus", label: "实物", keys: ["physicalStatus"], kind: "status" },
-  { key: "stockSyncStatus", label: "库存同步", keys: ["stockSyncStatus", "stock_sync_status"], kind: "status" }
+  {
+    key: 'id',
+    label: '标识',
+    keys: ['id', 'orderId', 'planId', 'jobId', 'caseId'],
+    kind: 'id',
+    copyKind: '单据',
+  },
+  { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+  { key: 'skuId', label: 'SKU', keys: ['skuId', 'sku_id'], kind: 'id', copyKind: 'SKU' },
+  {
+    key: 'qty',
+    label: '数量',
+    qty: true,
+    keys: ['qty', 'quantity', 'onHandQty', 'on_hand_qty', 'expectedQty', 'expected_qty'],
+  },
+  { key: 'physicalStatus', label: '实物', keys: ['physicalStatus'], kind: 'status' },
+  {
+    key: 'stockSyncStatus',
+    label: '库存同步',
+    keys: ['stockSyncStatus', 'stock_sync_status'],
+    kind: 'status',
+  },
 ];
 
 export function DocumentListPage({
@@ -38,17 +54,17 @@ export function DocumentListPage({
   clearFilterOnCreate,
   create,
   actions,
-  queryKey = "q",
-  cursorKey = "cursor",
-  secondary
+  queryKey = 'q',
+  cursorKey = 'cursor',
+  secondary,
 }: {
   title: string;
   sub: string;
-  extra?: "tcc";
+  extra?: 'tcc';
   paths: string[];
   columns?: Column[];
   empty: string;
-  hrefFor?: (row: import("../../api/envelope").ItemRecord) => string | undefined;
+  hrefFor?: (row: import('../../api/envelope').ItemRecord) => string | undefined;
   createLabel?: string;
   createTitle?: string;
   createHint?: string;
@@ -62,20 +78,22 @@ export function DocumentListPage({
 }) {
   const { token, warehouseId, warehouseName } = useWorkspace();
   const [search, setSearch] = useSearchParams();
-  const query = search.get(queryKey) ?? "";
+  const query = search.get(queryKey) ?? '';
   const [draft, setDraft] = useState(query);
-  const cursor = search.get(cursorKey) ?? "";
+  const cursor = search.get(cursorKey) ?? '';
   useEffect(() => {
     setDraft(query);
   }, [query]);
-  const resolved = (warehouseId ? paths : []).filter(Boolean).map((path) => withQuery(path, {
-    cursor: cursor || undefined,
-    limit: "20"
-  }));
+  const resolved = (warehouseId ? paths : []).filter(Boolean).map((path) =>
+    withQuery(path, {
+      cursor: cursor || undefined,
+      limit: '20',
+    }),
+  );
   const [tick, setTick] = useState(0);
   const { rows, payloads, error, loading } = useResource(token, resolved, tick);
   const meta = payloads[0] ? asOfMeta(payloads[0]) : null;
-  const nextCursor = payloads[0] ? nextCursorOf(payloads[0]) : "";
+  const nextCursor = payloads[0] ? nextCursorOf(payloads[0]) : '';
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) {
@@ -98,37 +116,45 @@ export function DocumentListPage({
 
   const list = (
     <Card
-      size={secondary ? "small" : "middle"}
-      title={(
+      size={secondary ? 'small' : 'middle'}
+      title={
         <WmsToolbar
-          title={secondary ? title : "业务列表"}
+          title={secondary ? title : '业务列表'}
           count={loading ? undefined : String(visible.length)}
-          extra={secondary ? actions : (
-            <Tooltip title="刷新">
-              <Button icon={<ReloadOutlined />} aria-label="刷新" onClick={() => setTick((current) => current + 1)} />
-            </Tooltip>
-          )}
+          extra={
+            secondary ? (
+              actions
+            ) : (
+              <Tooltip title="刷新">
+                <Button
+                  icon={<ReloadOutlined />}
+                  aria-label="刷新"
+                  onClick={() => setTick((current) => current + 1)}
+                />
+              </Tooltip>
+            )
+          }
         />
-      )}
+      }
     >
       <DataTable
         caption={title}
         rows={visible}
         columns={columns}
         loading={loading}
-        emptyText={query ? "当前筛选没有匹配。清除筛选后重试。" : empty}
+        emptyText={query ? '当前筛选没有匹配。清除筛选后重试。' : empty}
         hrefFor={hrefFor}
         nextCursor={nextCursor}
         hasCursor={Boolean(cursor)}
         onFirstPage={() => patch({ [cursorKey]: undefined })}
-        onNextPage={() => nextCursor ? patch({ [cursorKey]: nextCursor }) : undefined}
+        onNextPage={() => (nextCursor ? patch({ [cursorKey]: nextCursor }) : undefined)}
       />
     </Card>
   );
 
   if (secondary) {
     return (
-      <Space orientation="vertical" size={12} style={{ display: "flex" }}>
+      <Space orientation="vertical" size={12} style={{ display: 'flex' }}>
         {error ? errorBanner(error) : null}
         {list}
       </Space>
@@ -136,12 +162,12 @@ export function DocumentListPage({
   }
 
   return (
-    <Space orientation="vertical" size={16} style={{ display: "flex" }}>
+    <Space orientation="vertical" size={16} style={{ display: 'flex' }}>
       <PageHead
-        eyebrow={warehouseName || warehouseId || "未选仓"}
+        eyebrow={warehouseName || warehouseId || '未选仓'}
         title={title}
-        sub={warehouseId ? `${sub} · 当前仓 ${warehouseId}` : "尚未选仓，不会猜测仓库。"}
-        extra={(
+        sub={warehouseId ? `${sub} · 当前仓 ${warehouseId}` : '尚未选仓，不会猜测仓库。'}
+        extra={
           <div className="list-toolbar">
             {create && createLabel ? (
               <CommandDrawer
@@ -150,10 +176,13 @@ export function DocumentListPage({
                 title={createTitle || createLabel}
                 hint={createHint}
                 requireScope={createScope}
-                disabled={!token || !warehouseId || warehouseId === "_"}
+                disabled={!token || !warehouseId || warehouseId === '_'}
                 onSubmitted={() => {
                   setTick((current) => current + 1);
-                  patch({ [cursorKey]: undefined, ...(clearFilterOnCreate ? { [queryKey]: undefined } : {}) });
+                  patch({
+                    [cursorKey]: undefined,
+                    ...(clearFilterOnCreate ? { [queryKey]: undefined } : {}),
+                  });
                 }}
               >
                 {create}
@@ -161,7 +190,7 @@ export function DocumentListPage({
             ) : null}
             {actions}
           </div>
-        )}
+        }
       />
       <QueryMeta
         warehouseId={warehouseId}
@@ -169,10 +198,14 @@ export function DocumentListPage({
         asOf={meta?.asOf}
         lagSeconds={meta?.lagSeconds}
         stale={meta?.stale}
-        rowCount={loading ? "读取中" : String(rows.length)}
+        rowCount={loading ? '读取中' : String(rows.length)}
       />
-      {extra === "tcc" ? (
-        <StatusBanner kind="tcc" title="跨仓分配请看各仓进度" detail="单仓 CONFIRMED 不是整单成功" />
+      {extra === 'tcc' ? (
+        <StatusBanner
+          kind="tcc"
+          title="跨仓分配请看各仓进度"
+          detail="单仓 CONFIRMED 不是整单成功"
+        />
       ) : null}
       {error ? errorBanner(error) : null}
       <WmsSearchForm
@@ -180,7 +213,7 @@ export function DocumentListPage({
         onChange={setDraft}
         onSearch={() => patch({ [queryKey]: draft.trim() || undefined, [cursorKey]: undefined })}
         onReset={() => {
-          setDraft("");
+          setDraft('');
           patch({ [queryKey]: undefined, [cursorKey]: undefined });
         }}
         placeholder="筛选已返回字段，查询后写入地址栏"

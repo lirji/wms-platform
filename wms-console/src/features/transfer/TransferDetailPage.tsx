@@ -1,47 +1,50 @@
-import { FormEvent, useState } from "react";
-import { Button, Card, Form, Input } from "antd";
-import { useParams } from "react-router-dom";
-import { api } from "../../api/client";
-import { asRecord, field, nestedRecords } from "../../api/envelope";
-import { CommandCard } from "../../shared/command/CommandCard";
-import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
-import { SerialChoiceQuery } from "../../shared/serial/SerialChoiceQuery";
-import { SerialExecutionField } from "../../shared/serial/SerialExecutionField";
-import { serialExecution } from "../../shared/serial/serialIds";
-import { DataTable } from "../../shared/ui/DataTable";
-import { errorBanner } from "../../shared/ui/errorBanner";
-import { useDocument } from "../../shared/useDocument";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { FormEvent, useState } from 'react';
+import { Button, Card, Form, Input } from 'antd';
+import { useParams } from 'react-router-dom';
+import { api } from '../../api/client';
+import { asRecord, field, nestedRecords } from '../../api/envelope';
+import { CommandCard } from '../../shared/command/CommandCard';
+import { CommandCol, DocumentWorkbench } from '../../shared/document/DocumentWorkbench';
+import { SerialChoiceQuery } from '../../shared/serial/SerialChoiceQuery';
+import { SerialExecutionField } from '../../shared/serial/SerialExecutionField';
+import { serialExecution } from '../../shared/serial/serialIds';
+import { DataTable } from '../../shared/ui/DataTable';
+import { errorBanner } from '../../shared/ui/errorBanner';
+import { useDocument } from '../../shared/useDocument';
+import { useWorkspace } from '../../shell/WorkspaceContext';
 
 function postingContext(transferId: string, values: Record<string, string>) {
   return {
     documentId: transferId,
     ownerId: values.ownerId,
     skuId: values.skuId,
-    baseUnit: values.baseUnit || "EA",
+    baseUnit: values.baseUnit || 'EA',
     sourceLocationId: values.sourceLocationId,
-    lotId: values.lotId || "NO_LOT",
-    qualityCode: values.qualityCode
+    lotId: values.lotId || 'NO_LOT',
+    qualityCode: values.qualityCode,
   };
 }
 
 export function TransferDetailPage() {
-  const { warehouseId = "", transferId = "" } = useParams();
+  const { warehouseId = '', transferId = '' } = useParams();
   const { token } = useWorkspace();
   const [tick, setTick] = useState(0);
   const { record, error, loading } = useDocument(
     token,
-    transferId ? `/api/wms/v1/transfers/${transferId}?warehouseId=${encodeURIComponent(warehouseId)}` : undefined,
-    tick
+    transferId
+      ? `/api/wms/v1/transfers/${transferId}?warehouseId=${encodeURIComponent(warehouseId)}`
+      : undefined,
+    tick,
   );
   const reload = () => setTick((current) => current + 1);
-  const source = field(record, "sourceWarehouseId");
-  const target = field(record, "targetWarehouseId");
-  const [commandId, setCommandId] = useState("");
+  const source = field(record, 'sourceWarehouseId');
+  const target = field(record, 'targetWarehouseId');
+  const [commandId, setCommandId] = useState('');
   const [commandTick, setCommandTick] = useState(0);
-  const commandPath = transferId && commandId.trim()
-    ? `/api/wms/v1/transfers/${transferId}/serial-commands/${encodeURIComponent(commandId.trim())}`
-    : undefined;
+  const commandPath =
+    transferId && commandId.trim()
+      ? `/api/wms/v1/transfers/${transferId}/serial-commands/${encodeURIComponent(commandId.trim())}`
+      : undefined;
   const command = useDocument(token, commandTick > 0 ? commandPath : undefined, commandTick);
 
   return (
@@ -49,58 +52,97 @@ export function TransferDetailPage() {
       backTo={`/w/${warehouseId}/transfers`}
       backLabel="返回调拨列表"
       title={`调拨单 ${transferId}`}
-      sub={`源仓 ${source || "—"} → 目的仓 ${target || "—"}。在源仓发出，在目的仓申请额度并接收。`}
+      sub={`源仓 ${source || '—'} → 目的仓 ${target || '—'}。在源仓发出，在目的仓申请额度并接收。`}
       loading={loading}
       error={error}
       record={record}
       headerFields={[
-        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-        { key: "transferId", label: "调拨单", keys: ["transferId", "id"], kind: "id", copyKind: "调拨单" },
-        { key: "source", label: "源仓", keys: ["sourceWarehouseId", "source_warehouse_id"], kind: "id", copyKind: "源仓" },
-        { key: "target", label: "目的仓", keys: ["targetWarehouseId", "target_warehouse_id"], kind: "id", copyKind: "目的仓" },
-        { key: "version", label: "版本", keys: ["version"] }
+        { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+        {
+          key: 'transferId',
+          label: '调拨单',
+          keys: ['transferId', 'id'],
+          kind: 'id',
+          copyKind: '调拨单',
+        },
+        {
+          key: 'source',
+          label: '源仓',
+          keys: ['sourceWarehouseId', 'source_warehouse_id'],
+          kind: 'id',
+          copyKind: '源仓',
+        },
+        {
+          key: 'target',
+          label: '目的仓',
+          keys: ['targetWarehouseId', 'target_warehouse_id'],
+          kind: 'id',
+          copyKind: '目的仓',
+        },
+        { key: 'version', label: '版本', keys: ['version'] },
       ]}
       lineColumns={[
-        { key: "id", label: "行", keys: ["id", "lineId"], kind: "id", copyKind: "行" },
-        { key: "skuId", label: "SKU", keys: ["skuId", "sku_id"], kind: "id", copyKind: "SKU" },
-        { key: "planned", label: "计划", qty: true, keys: ["planned_qty"] },
-        { key: "issued", label: "已发", qty: true, keys: ["issued_qty"] },
-        { key: "received", label: "已收", qty: true, keys: ["received_qty"] },
-        { key: "loss", label: "损耗", qty: true, keys: ["loss_confirmed_qty"] }
+        { key: 'id', label: '行', keys: ['id', 'lineId'], kind: 'id', copyKind: '行' },
+        { key: 'skuId', label: 'SKU', keys: ['skuId', 'sku_id'], kind: 'id', copyKind: 'SKU' },
+        { key: 'planned', label: '计划', qty: true, keys: ['planned_qty'] },
+        { key: 'issued', label: '已发', qty: true, keys: ['issued_qty'] },
+        { key: 'received', label: '已收', qty: true, keys: ['received_qty'] },
+        { key: 'loss', label: '损耗', qty: true, keys: ['loss_confirmed_qty'] },
       ]}
-      extra={(
+      extra={
         <>
           <DataTable
             caption="仓腿"
-            rows={nestedRecords(record, "legs")}
+            rows={nestedRecords(record, 'legs')}
             emptyText="还没有仓腿"
             columns={[
-              { key: "warehouse", label: "仓", keys: ["warehouse_id", "warehouseId"], kind: "id", copyKind: "仓" },
-              { key: "role", label: "角色", keys: ["role"] },
-              { key: "status", label: "状态", keys: ["status", "state"], kind: "status" }
+              {
+                key: 'warehouse',
+                label: '仓',
+                keys: ['warehouse_id', 'warehouseId'],
+                kind: 'id',
+                copyKind: '仓',
+              },
+              { key: 'role', label: '角色', keys: ['role'] },
+              { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
             ]}
           />
-          {source === warehouseId || !source ? <SerialChoiceQuery kind="selectable" warehouseId={warehouseId} /> : null}
+          {source === warehouseId || !source ? (
+            <SerialChoiceQuery kind="selectable" warehouseId={warehouseId} />
+          ) : null}
           <Card size="small" title="序列调拨命令" extra="Outbox 已发送不等于 COMPLETE。">
-            <Form layout="inline" className="list-toolbar" onSubmitCapture={(event: FormEvent) => {
-              event.preventDefault();
-              setCommandTick((current) => current + 1);
-            }}>
+            <Form
+              layout="inline"
+              className="list-toolbar"
+              onSubmitCapture={(event: FormEvent) => {
+                event.preventDefault();
+                setCommandTick((current) => current + 1);
+              }}
+            >
               <Form.Item label="commandId" required>
                 <Input value={commandId} onChange={(event) => setCommandId(event.target.value)} />
               </Form.Item>
-              <Button type="primary" htmlType="submit" disabled={!token || !commandId.trim()} loading={command.loading}>查询</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                disabled={!token || !commandId.trim()}
+                loading={command.loading}
+              >
+                查询
+              </Button>
             </Form>
             {command.error ? errorBanner(command.error) : null}
             {commandTick > 0 && !command.loading && !command.error ? (
               <p style={{ marginTop: 12 }}>
-                状态 {field(asRecord(command.record), "state") || "—"} · 仓 {field(command.record, "warehouseId") || "—"} · 数量 {field(command.record, "quantity") || "—"}
+                状态 {field(asRecord(command.record), 'state') || '—'} · 仓{' '}
+                {field(command.record, 'warehouseId') || '—'} · 数量{' '}
+                {field(command.record, 'quantity') || '—'}
               </p>
             ) : null}
           </Card>
         </>
-      )}
-      commands={(
+      }
+      commands={
         <>
           <CommandCol title="源仓发出" requireScope="transfer.create" warehouseId={source}>
             <CommandCard
@@ -112,14 +154,20 @@ export function TransferDetailPage() {
               submitLabel="确认发出"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/transfers/${transferId}/issues`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { lineId: values.lineId, qty: values.qty, clientOperationId: key }
-              })}
+              onRun={(key, values) =>
+                api(`/api/wms/v1/transfers/${transferId}/issues`, token, {
+                  method: 'POST',
+                  idempotencyKey: key,
+                  body: { lineId: values.lineId, qty: values.qty, clientOperationId: key },
+                })
+              }
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="数量" name="qty" rules={[{ required: true }]}>
+                <Input inputMode="decimal" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="序列号发出" requireScope="transfer.create" warehouseId={source}>
@@ -133,33 +181,62 @@ export function TransferDetailPage() {
               disabled={!token}
               onDone={reload}
               onRun={(key, values) => {
-                const selection = serialExecution(values.serialExecution || "");
+                const selection = serialExecution(values.serialExecution || '');
                 if (!selection) {
-                  throw new Error("序列号发出必须提交当前身份与 ownerEpoch");
+                  throw new Error('序列号发出必须提交当前身份与 ownerEpoch');
                 }
                 return api(`/api/wms/v1/transfers/${transferId}/serial-issues`, token, {
-                  method: "POST",
+                  method: 'POST',
                   idempotencyKey: key,
                   body: {
                     lineId: values.lineId,
                     qty: selection.identities.length,
                     postingContext: postingContext(transferId, values),
-                    selection
-                  }
+                    selection,
+                  },
                 });
               }}
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="单位" name="baseUnit" initialValue="EA"><Input /></Form.Item>
-              <Form.Item label="源库位" name="sourceLocationId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="批次" name="lotId" initialValue="NO_LOT" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="质量" name="qualityCode" initialValue="GOOD" rules={[{ required: true }]} extra="源发出填 GOOD。"><Input /></Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="单位" name="baseUnit" initialValue="EA">
+                <Input />
+              </Form.Item>
+              <Form.Item label="源库位" name="sourceLocationId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="批次"
+                name="lotId"
+                initialValue="NO_LOT"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="质量"
+                name="qualityCode"
+                initialValue="GOOD"
+                rules={[{ required: true }]}
+                extra="源发出填 GOOD。"
+              >
+                <Input />
+              </Form.Item>
               <SerialExecutionField required extra="先查本页可选序列号。不要手写旧代际。" />
             </CommandCard>
           </CommandCol>
-          <CommandCol title="目的接收授权" requireScope="transfer.authorizeReceipt" warehouseId={target}>
+          <CommandCol
+            title="目的接收授权"
+            requireScope="transfer.authorizeReceipt"
+            warehouseId={target}
+          >
             <CommandCard
               embedded
               requireScope="transfer.authorizeReceipt"
@@ -169,19 +246,25 @@ export function TransferDetailPage() {
               submitLabel="申请额度"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/transfers/${transferId}/receipt-authorizations`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: {
-                  lineId: values.lineId,
-                  quantity: values.qty,
-                  targetClientOperationId: key,
-                  clientOperationId: key
-                }
-              })}
+              onRun={(key, values) =>
+                api(`/api/wms/v1/transfers/${transferId}/receipt-authorizations`, token, {
+                  method: 'POST',
+                  idempotencyKey: key,
+                  body: {
+                    lineId: values.lineId,
+                    quantity: values.qty,
+                    targetClientOperationId: key,
+                    clientOperationId: key,
+                  },
+                })
+              }
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="数量" name="qty" rules={[{ required: true }]}>
+                <Input inputMode="decimal" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="目的仓接收" requireScope="transfer.receive" warehouseId={target}>
@@ -194,24 +277,44 @@ export function TransferDetailPage() {
               submitLabel="确认接收"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/warehouses/${values.warehouseId || target || warehouseId}/transfer-receipts`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: {
-                  transferId,
-                  lineId: values.lineId,
-                  authorizationId: values.authorizationId,
-                  tokenVersion: Number(values.tokenVersion || "0"),
-                  qty: values.qty,
-                  clientOperationId: key
-                }
-              })}
+              onRun={(key, values) =>
+                api(
+                  `/api/wms/v1/warehouses/${values.warehouseId || target || warehouseId}/transfer-receipts`,
+                  token,
+                  {
+                    method: 'POST',
+                    idempotencyKey: key,
+                    body: {
+                      transferId,
+                      lineId: values.lineId,
+                      authorizationId: values.authorizationId,
+                      tokenVersion: Number(values.tokenVersion || '0'),
+                      qty: values.qty,
+                      clientOperationId: key,
+                    },
+                  },
+                )
+              }
             >
-              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input readOnly /></Form.Item>
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="authorizationId" name="authorizationId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0"><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}>
+                <Input readOnly />
+              </Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="authorizationId"
+                name="authorizationId"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0">
+                <Input />
+              </Form.Item>
+              <Form.Item label="数量" name="qty" rules={[{ required: true }]}>
+                <Input inputMode="decimal" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
           <CommandCol title="序列号接收" requireScope="transfer.receive" warehouseId={target}>
@@ -225,35 +328,79 @@ export function TransferDetailPage() {
               disabled={!token}
               onDone={reload}
               onRun={(key, values) => {
-                const selection = serialExecution(values.serialExecution || "");
+                const selection = serialExecution(values.serialExecution || '');
                 if (!selection) {
-                  throw new Error("序列号接收必须提交原发出身份与 ownerEpoch");
+                  throw new Error('序列号接收必须提交原发出身份与 ownerEpoch');
                 }
-                return api(`/api/wms/v1/warehouses/${values.warehouseId || target || warehouseId}/serial-transfer-receipts`, token, {
-                  method: "POST",
-                  idempotencyKey: key,
-                  body: {
-                    transferId,
-                    lineId: values.lineId,
-                    authorizationId: values.authorizationId,
-                    tokenVersion: Number(values.tokenVersion || "0"),
-                    qty: selection.identities.length,
-                    postingContext: postingContext(transferId, values),
-                    selection
-                  }
-                });
+                return api(
+                  `/api/wms/v1/warehouses/${values.warehouseId || target || warehouseId}/serial-transfer-receipts`,
+                  token,
+                  {
+                    method: 'POST',
+                    idempotencyKey: key,
+                    body: {
+                      transferId,
+                      lineId: values.lineId,
+                      authorizationId: values.authorizationId,
+                      tokenVersion: Number(values.tokenVersion || '0'),
+                      qty: selection.identities.length,
+                      postingContext: postingContext(transferId, values),
+                      selection,
+                    },
+                  },
+                );
               }}
             >
-              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}><Input readOnly /></Form.Item>
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="authorizationId" name="authorizationId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0"><Input /></Form.Item>
-              <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="单位" name="baseUnit" initialValue="EA"><Input /></Form.Item>
-              <Form.Item label="目的库位" name="sourceLocationId" extra="契约字段仍是 sourceLocationId，填本次接收库位。" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="批次" name="lotId" initialValue="NO_LOT" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="质量" name="qualityCode" initialValue="HOLD" rules={[{ required: true }]} extra="目的接收必须 HOLD。"><Input /></Form.Item>
+              <Form.Item label="目的仓" name="warehouseId" initialValue={target || warehouseId}>
+                <Input readOnly />
+              </Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="authorizationId"
+                name="authorizationId"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item label="tokenVersion" name="tokenVersion" initialValue="0">
+                <Input />
+              </Form.Item>
+              <Form.Item label="货主" name="ownerId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="SKU" name="skuId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="单位" name="baseUnit" initialValue="EA">
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="目的库位"
+                name="sourceLocationId"
+                extra="契约字段仍是 sourceLocationId，填本次接收库位。"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="批次"
+                name="lotId"
+                initialValue="NO_LOT"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="质量"
+                name="qualityCode"
+                initialValue="HOLD"
+                rules={[{ required: true }]}
+                extra="目的接收必须 HOLD。"
+              >
+                <Input />
+              </Form.Item>
               <SerialExecutionField required extra="必须是已发出的原身份。" />
             </CommandCard>
           </CommandCol>
@@ -268,18 +415,24 @@ export function TransferDetailPage() {
               submitLabel="确认损耗"
               disabled={!token}
               onDone={reload}
-              onRun={(key, values) => api(`/api/wms/v1/transfers/${transferId}/losses`, token, {
-                method: "POST",
-                idempotencyKey: key,
-                body: { lineId: values.lineId, qty: values.qty, clientOperationId: key }
-              })}
+              onRun={(key, values) =>
+                api(`/api/wms/v1/transfers/${transferId}/losses`, token, {
+                  method: 'POST',
+                  idempotencyKey: key,
+                  body: { lineId: values.lineId, qty: values.qty, clientOperationId: key },
+                })
+              }
             >
-              <Form.Item label="行" name="lineId" rules={[{ required: true }]}><Input /></Form.Item>
-              <Form.Item label="数量" name="qty" rules={[{ required: true }]}><Input inputMode="decimal" /></Form.Item>
+              <Form.Item label="行" name="lineId" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item label="数量" name="qty" rules={[{ required: true }]}>
+                <Input inputMode="decimal" />
+              </Form.Item>
             </CommandCard>
           </CommandCol>
         </>
-      )}
+      }
     />
   );
 }

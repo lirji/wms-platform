@@ -3,6 +3,7 @@ package com.lrj.wms.inventory.jobs;
 import com.lrj.wms.inventory.tcc.TccReservationWatch;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
+
 import org.apache.seata.core.context.RootContext;
 import org.apache.seata.tm.api.GlobalTransactionContext;
 import org.springframework.beans.factory.ObjectProvider;
@@ -18,14 +19,24 @@ public class InventoryCatalogJobs {
     private final org.apache.ibatis.session.SqlSessionFactory sessions;
 
     private com.lrj.wms.inventory.serial.SerialRegistryHttpClient registry;
+
     @org.springframework.beans.factory.annotation.Autowired
-    public void registry(ObjectProvider<com.lrj.wms.inventory.serial.SerialRegistryHttpClient> clients) { this.registry=clients.getIfAvailable(); }
+    public void registry(
+            ObjectProvider<com.lrj.wms.inventory.serial.SerialRegistryHttpClient> clients) {
+        this.registry = clients.getIfAvailable();
+    }
+
     private com.lrj.wms.inventory.recon.ReconciliationCollector reconciliationCollector;
+
     /** 可选采集器默认关闭；开启后沿用原对账任务调度，不增加后台无限循环。 */
     @org.springframework.beans.factory.annotation.Autowired
-    public void reconciliationCollector(ObjectProvider<com.lrj.wms.inventory.recon.ReconciliationCollector> collectors) {this.reconciliationCollector=collectors.getIfAvailable();}
+    public void reconciliationCollector(
+            ObjectProvider<com.lrj.wms.inventory.recon.ReconciliationCollector> collectors) {
+        this.reconciliationCollector = collectors.getIfAvailable();
+    }
 
-    public InventoryCatalogJobs(ObjectProvider<TccReservationWatch> watches,
+    public InventoryCatalogJobs(
+            ObjectProvider<TccReservationWatch> watches,
             ObjectProvider<org.apache.ibatis.session.SqlSessionFactory> sessions) {
         this.watch = watches == null ? null : watches.getIfAvailable();
         this.sessions = sessions.getIfAvailable();
@@ -46,7 +57,9 @@ public class InventoryCatalogJobs {
         clearSchedulerContext();
         String[] scope = requireScope(3);
         try (var session = requireSessions().openSession(false)) {
-            var result = new ExpiryEligibilitySweep(session, java.time.Clock.systemUTC()).execute(scope[0], scope[1], scope[2]);
+            var result =
+                    new ExpiryEligibilitySweep(session, java.time.Clock.systemUTC())
+                            .execute(scope[0], scope[1], scope[2]);
             session.commit();
             XxlJobHelper.log("expiry notices={}, hasMore={}", result.notices(), result.hasMore());
         }
@@ -55,33 +68,63 @@ public class InventoryCatalogJobs {
     @XxlJob(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY)
     public void serialTransferRecovery() {
         clearSchedulerContext();
-        String[] scope=requireScope(2);
-        var shipped=new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry).execute(scope[0],scope[1]);
-        var released=new com.lrj.wms.inventory.serial.SerialReleaseRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry).execute(scope[0],scope[1]);
-        var report=new com.lrj.wms.inventory.serial.SerialRecoveryService(requireSessions(),java.time.Clock.systemUTC(),registry,registry).execute(scope[0],scope[1],10);
+        String[] scope = requireScope(2);
+        var shipped =
+                new com.lrj.wms.inventory.serial.SerialShipmentRecoveryService(
+                                requireSessions(), java.time.Clock.systemUTC(), registry)
+                        .execute(scope[0], scope[1]);
+        var released =
+                new com.lrj.wms.inventory.serial.SerialReleaseRecoveryService(
+                                requireSessions(), java.time.Clock.systemUTC(), registry)
+                        .execute(scope[0], scope[1]);
+        var report =
+                new com.lrj.wms.inventory.serial.SerialRecoveryService(
+                                requireSessions(), java.time.Clock.systemUTC(), registry, registry)
+                        .execute(scope[0], scope[1], 10);
         // 仅原登记意图DONE才能写调拨完成回执；与回执Outbox同事务，重复调度不会重复通知。
-        com.lrj.wms.inventory.serial.SerialTransferCommandService.completeDue(requireSessions(),java.time.Clock.systemUTC(),scope[0],scope[1]);
-        XxlJobHelper.log("serial recovered={}, failed={}, released={}, releaseFailed={}, shipped={}, shipmentFailed={}",report.completed(),report.failed(),released.completed(),released.failed(),shipped.completed(),shipped.failed());
-        if(report.failed()+released.failed()+shipped.failed()>0) throw new IllegalStateException("登记恢复失败已保留原事实及有界退避/隔离记录");
+        com.lrj.wms.inventory.serial.SerialTransferCommandService.completeDue(
+                requireSessions(), java.time.Clock.systemUTC(), scope[0], scope[1]);
+        XxlJobHelper.log(
+                "serial recovered={}, failed={}, released={}, releaseFailed={}, shipped={}, shipmentFailed={}",
+                report.completed(),
+                report.failed(),
+                released.completed(),
+                released.failed(),
+                shipped.completed(),
+                shipped.failed());
+        if (report.failed() + released.failed() + shipped.failed() > 0)
+            throw new IllegalStateException("登记恢复失败已保留原事实及有界退避/隔离记录");
     }
 
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
     public void stockInternalReconcile() {
         clearSchedulerContext();
-        String[] scope = requireScope(2,3);
-        String cutoffId=scope.length==3?scope[2]:null;
-        if(cutoffId==null) {
-            if(reconciliationCollector==null) throw new IllegalStateException("仓级自动采集尚未启用");
-            cutoffId=reconciliationCollector.scheduledWindow(scope[0],scope[1]);
-            if(cutoffId==null) return;
+        String[] scope = requireScope(2, 3);
+        String cutoffId = scope.length == 3 ? scope[2] : null;
+        if (cutoffId == null) {
+            if (reconciliationCollector == null) throw new IllegalStateException("仓级自动采集尚未启用");
+            cutoffId = reconciliationCollector.scheduledWindow(scope[0], scope[1]);
+            if (cutoffId == null) return;
         }
-        if(reconciliationCollector!=null) reconciliationCollector.advance(scope[0],scope[1],cutoffId);
-        try (var session = requireSessions().openSession(org.apache.ibatis.session.TransactionIsolationLevel.REPEATABLE_READ)) {
-            var result = new com.lrj.wms.inventory.recon.StockInternalReconcile(session, java.time.Clock.systemUTC())
-                    .execute(scope[0], scope[1], cutoffId);
+        if (reconciliationCollector != null)
+            reconciliationCollector.advance(scope[0], scope[1], cutoffId);
+        try (var session =
+                requireSessions()
+                        .openSession(
+                                org.apache.ibatis.session.TransactionIsolationLevel
+                                        .REPEATABLE_READ)) {
+            var result =
+                    new com.lrj.wms.inventory.recon.StockInternalReconcile(
+                                    session, java.time.Clock.systemUTC())
+                            .execute(scope[0], scope[1], cutoffId);
             session.commit();
-            XxlJobHelper.log("recon scanned={}, opened={}, closed={}, cycleCompleted={}, watermarksComplete={}",
-                    result.scanned(), result.opened(), result.closed(), result.cycleCompleted(), result.watermarksComplete());
+            XxlJobHelper.log(
+                    "recon scanned={}, opened={}, closed={}, cycleCompleted={}, watermarksComplete={}",
+                    result.scanned(),
+                    result.opened(),
+                    result.closed(),
+                    result.cycleCompleted(),
+                    result.watermarksComplete());
         }
     }
 
@@ -90,16 +133,33 @@ public class InventoryCatalogJobs {
         clearSchedulerContext();
         String[] scope = requireScope(2);
         try (var session = requireSessions().openSession(false)) {
-            var snapshot = session.getMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class).nextExporting(scope[0], scope[1]);
-            if (snapshot == null) { session.commit(); return; }
-            var watermarks = tools.jackson.databind.json.JsonMapper.builder().build()
-                    .readTree(String.valueOf(snapshot.get("source_watermarks")));
-            var result = new com.lrj.wms.inventory.recon.SnapshotExportService(session, java.time.Clock.systemUTC())
-                    .export(scope[0], scope[1], String.valueOf(snapshot.get("cutoff_id")),
-                            java.sql.Timestamp.from(com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(snapshot.get("closed_at"))),
-                            watermarks.path("source").asString(), watermarks.path("posting").asString(), watermarks.path("receipt").asString());
+            var snapshot =
+                    session.getMapper(com.lrj.wms.inventory.recon.SnapshotMapper.class)
+                            .nextExporting(scope[0], scope[1]);
+            if (snapshot == null) {
+                session.commit();
+                return;
+            }
+            var watermarks =
+                    tools.jackson.databind.json.JsonMapper.builder()
+                            .build()
+                            .readTree(String.valueOf(snapshot.get("source_watermarks")));
+            var result =
+                    new com.lrj.wms.inventory.recon.SnapshotExportService(
+                                    session, java.time.Clock.systemUTC())
+                            .export(
+                                    scope[0],
+                                    scope[1],
+                                    String.valueOf(snapshot.get("cutoff_id")),
+                                    java.sql.Timestamp.from(
+                                            com.lrj.wms.inventory.inventory.domain.ExpiryPolicy
+                                                    .instantOf(snapshot.get("closed_at"))),
+                                    watermarks.path("source").asString(),
+                                    watermarks.path("posting").asString(),
+                                    watermarks.path("receipt").asString());
             session.commit();
-            XxlJobHelper.log("snapshot={}, state={}", result.get("snapshotId"), result.get("state"));
+            XxlJobHelper.log(
+                    "snapshot={}, state={}", result.get("snapshotId"), result.get("state"));
         }
     }
 
@@ -107,8 +167,10 @@ public class InventoryCatalogJobs {
     public void countApplyRecovery() {
         clearSchedulerContext();
         String[] scope = requireScope(3);
-        var report = new com.lrj.wms.inventory.count.CountApplyRecovery(requireSessions(), java.time.Clock.systemUTC(),registry)
-                .execute(scope[0], scope[1], scope[2]);
+        var report =
+                new com.lrj.wms.inventory.count.CountApplyRecovery(
+                                requireSessions(), java.time.Clock.systemUTC(), registry)
+                        .execute(scope[0], scope[1], scope[2]);
         XxlJobHelper.log("count applied={}, failed={}", report.applied(), report.failed());
         if (report.failed() > 0) throw new IllegalStateException("盘点存在失败行，已记录退避与错误码，计划保持冻结");
     }
@@ -118,10 +180,22 @@ public class InventoryCatalogJobs {
         clearSchedulerContext();
         String[] scope = requireScope(5);
         try (var session = requireSessions().openSession(false)) {
-            var result = new com.lrj.wms.inventory.archive.ArchivePlanner(session, java.time.Clock.systemUTC()).execute(
-                    scope[0],scope[1],scope[2],java.time.Instant.parse(scope[3]),scope[4],"job:archivePlanner");
+            var result =
+                    new com.lrj.wms.inventory.archive.ArchivePlanner(
+                                    session, java.time.Clock.systemUTC())
+                            .execute(
+                                    scope[0],
+                                    scope[1],
+                                    scope[2],
+                                    java.time.Instant.parse(scope[3]),
+                                    scope[4],
+                                    "job:archivePlanner");
             session.commit();
-            XxlJobHelper.log("archive plan={}, state={}, candidates={}", result.get("planId"),result.get("state"),result.get("candidateCount"));
+            XxlJobHelper.log(
+                    "archive plan={}, state={}, candidates={}",
+                    result.get("planId"),
+                    result.get("state"),
+                    result.get("candidateCount"));
         }
     }
 
@@ -130,7 +204,9 @@ public class InventoryCatalogJobs {
         clearSchedulerContext();
         String[] scope = requireScope(2);
         try (var session = requireSessions().openSession(false)) {
-            int reclaimed = new JobRunService(session, java.time.Clock.systemUTC()).reclaimExpired(scope[0], scope[1]);
+            int reclaimed =
+                    new JobRunService(session, java.time.Clock.systemUTC())
+                            .reclaimExpired(scope[0], scope[1]);
             session.commit();
             XxlJobHelper.log("reclaimed={}", reclaimed);
         }
@@ -154,7 +230,8 @@ public class InventoryCatalogJobs {
             throw new IllegalArgumentException("任务参数必须带企业/范围");
         }
         String[] split = param.split(",");
-        if (java.util.Arrays.stream(parts).noneMatch(count -> count==split.length) || java.util.Arrays.stream(split).anyMatch(String::isBlank)) {
+        if (java.util.Arrays.stream(parts).noneMatch(count -> count == split.length)
+                || java.util.Arrays.stream(split).anyMatch(String::isBlank)) {
             throw new IllegalArgumentException("任务参数不足");
         }
         return split;

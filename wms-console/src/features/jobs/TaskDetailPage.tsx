@@ -1,29 +1,31 @@
-import { useState } from "react";
-import { Form, Input } from "antd";
-import { useParams, useSearchParams } from "react-router-dom";
-import { api } from "../../api/client";
-import { field } from "../../api/envelope";
-import { CommandCard } from "../../shared/command/CommandCard";
-import { CommandCol, DocumentWorkbench } from "../../shared/document/DocumentWorkbench";
-import { DataTable } from "../../shared/ui/DataTable";
-import { useDocument } from "../../shared/useDocument";
-import { useResource } from "../../shared/useResource";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { useState } from 'react';
+import { Form, Input } from 'antd';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { api } from '../../api/client';
+import { field } from '../../api/envelope';
+import { CommandCard } from '../../shared/command/CommandCard';
+import { CommandCol, DocumentWorkbench } from '../../shared/document/DocumentWorkbench';
+import { DataTable } from '../../shared/ui/DataTable';
+import { useDocument } from '../../shared/useDocument';
+import { useResource } from '../../shared/useResource';
+import { useWorkspace } from '../../shell/WorkspaceContext';
 
 export function TaskDetailPage() {
-  const { warehouseId = "", taskId = "" } = useParams();
+  const { warehouseId = '', taskId = '' } = useParams();
   const [search] = useSearchParams();
-  const taskType = search.get("taskType") || "PICK";
+  const taskType = search.get('taskType') || 'PICK';
   const { token } = useWorkspace();
   const [tick, setTick] = useState(0);
-  const typed = taskType ? `?taskType=${encodeURIComponent(taskType)}` : "";
-  const path = warehouseId && taskId
-    ? `/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}${typed}`
-    : undefined;
+  const typed = taskType ? `?taskType=${encodeURIComponent(taskType)}` : '';
+  const path =
+    warehouseId && taskId
+      ? `/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}${typed}`
+      : undefined;
   const { record, error, loading } = useDocument(token, path, tick);
-  const effectsPath = warehouseId && taskId
-    ? `/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}/action-effects`
-    : "";
+  const effectsPath =
+    warehouseId && taskId
+      ? `/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}/action-effects`
+      : '';
   const { rows: effects } = useResource(token, effectsPath ? [effectsPath] : [], tick);
   const reload = () => setTick((current) => current + 1);
 
@@ -37,24 +39,24 @@ export function TaskDetailPage() {
       error={error}
       record={record}
       headerFields={[
-        { key: "status", label: "状态", keys: ["status", "state"], kind: "status" },
-        { key: "id", label: "仓任务", keys: ["id", "taskId"], kind: "id", copyKind: "仓任务" },
-        { key: "type", label: "类型", keys: ["taskType", "task_type"] },
-        { key: "version", label: "版本", keys: ["version"] }
+        { key: 'status', label: '状态', keys: ['status', 'state'], kind: 'status' },
+        { key: 'id', label: '仓任务', keys: ['id', 'taskId'], kind: 'id', copyKind: '仓任务' },
+        { key: 'type', label: '类型', keys: ['taskType', 'task_type'] },
+        { key: 'version', label: '版本', keys: ['version'] },
       ]}
       lineColumns={[]}
-      extra={(
+      extra={
         <DataTable
           rows={effects}
           emptyText="没有可恢复的动作效果"
           columns={[
-            { key: "id", label: "效果", keys: ["id", "effectId"], kind: "id", copyKind: "效果" },
-            { key: "status", label: "状态", keys: ["state", "status"], kind: "status" },
-            { key: "action", label: "动作", keys: ["action"] }
+            { key: 'id', label: '效果', keys: ['id', 'effectId'], kind: 'id', copyKind: '效果' },
+            { key: 'status', label: '状态', keys: ['state', 'status'], kind: 'status' },
+            { key: 'action', label: '动作', keys: ['action'] },
           ]}
         />
-      )}
-      commands={(
+      }
+      commands={
         <CommandCol title="领取任务" requireScope="task.claim">
           <CommandCard
             embedded
@@ -65,23 +67,29 @@ export function TaskDetailPage() {
             submitLabel="领取任务"
             disabled={!token}
             onDone={reload}
-            onRun={(key, values) => api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}/claims${typed}`, token, {
-              method: "POST",
-              idempotencyKey: key,
-              body: {
-                expectedVersion: Number(values.expectedVersion || field(record, "version") || "0"),
-                reason: values.reason,
-                clientOperationId: key
-              }
-            })}
+            onRun={(key, values) =>
+              api(`/api/wms/v1/warehouses/${warehouseId}/tasks/${taskId}/claims${typed}`, token, {
+                method: 'POST',
+                idempotencyKey: key,
+                body: {
+                  expectedVersion: Number(
+                    values.expectedVersion || field(record, 'version') || '0',
+                  ),
+                  reason: values.reason,
+                  clientOperationId: key,
+                },
+              })
+            }
           >
             <Form.Item label="expectedVersion" name="expectedVersion">
-              <Input placeholder={field(record, "version") || "0"} />
+              <Input placeholder={field(record, 'version') || '0'} />
             </Form.Item>
-            <Form.Item label="原因" name="reason"><Input /></Form.Item>
+            <Form.Item label="原因" name="reason">
+              <Input />
+            </Form.Item>
           </CommandCard>
         </CommandCol>
-      )}
+      }
     />
   );
 }

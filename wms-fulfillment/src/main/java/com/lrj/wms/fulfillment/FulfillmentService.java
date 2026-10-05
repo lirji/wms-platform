@@ -1,5 +1,8 @@
 package com.lrj.wms.fulfillment;
 
+import org.apache.ibatis.exceptions.PersistenceException;
+import org.apache.ibatis.session.SqlSession;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -17,8 +20,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ibatis.exceptions.PersistenceException;
-import org.apache.ibatis.session.SqlSession;
 
 /** attempt/XID/participant 映射。TC 状态只存观察副本，不能本地发明放行决定。 */
 public final class FulfillmentService {
@@ -40,10 +41,12 @@ public final class FulfillmentService {
     public static final String NO_WAREHOUSE = "NO_WAREHOUSE";
     public static final String EVENT_ALLOCATION_COMPLETED = "AllocationCompleted";
     public static final String EVENT_OUTBOUND_ORDER_REQUESTED = "OutboundOrderRequested";
-    public static final String EVENT_EXECUTION_AUTHORIZATION_REQUESTED = "ExecutionAuthorizationRequested";
+    public static final String EVENT_EXECUTION_AUTHORIZATION_REQUESTED =
+            "ExecutionAuthorizationRequested";
     public static final Duration LAUNCH_LEASE = Duration.ofSeconds(30);
 
-    private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+    private static final tools.jackson.databind.json.JsonMapper JSON =
+            tools.jackson.databind.json.JsonMapper.builder().build();
 
     private final SqlSession session;
     private final Clock clock;
@@ -71,24 +74,38 @@ public final class FulfillmentService {
         body.put("lines", mapper.lockLines(enterpriseId, fulfillmentId));
         Object attemptId = order.get("active_attempt_id");
         if (attemptId != null && !String.valueOf(attemptId).isBlank()) {
-            Map<String, Object> attempt = mapper.lockAttempt(enterpriseId, String.valueOf(attemptId));
+            Map<String, Object> attempt =
+                    mapper.lockAttempt(enterpriseId, String.valueOf(attemptId));
             body.put("attemptState", attempt == null ? null : attempt.get("state"));
-            body.put("tcObservedStatus", attempt == null ? null : attempt.get("tc_observed_status"));
-            body.put("cancelRequested", attempt != null && cancelRequested(attempt.get("cancel_requested")));
-            body.put("participants", mapper.listParticipants(enterpriseId, String.valueOf(attemptId)));
+            body.put(
+                    "tcObservedStatus", attempt == null ? null : attempt.get("tc_observed_status"));
+            body.put(
+                    "cancelRequested",
+                    attempt != null && cancelRequested(attempt.get("cancel_requested")));
+            body.put(
+                    "participants",
+                    mapper.listParticipants(enterpriseId, String.valueOf(attemptId)));
         } else {
             body.put("cancelRequested", false);
             body.put("participants", List.of());
         }
-        body.put("cancellations",session.getMapper(FulfillmentCancelMapper.class).forOrder(enterpriseId,fulfillmentId));
+        body.put(
+                "cancellations",
+                session.getMapper(FulfillmentCancelMapper.class)
+                        .forOrder(enterpriseId, fulfillmentId));
         return body;
     }
 
     /**
      * 受理取消。只打 cancel_requested，不改 attempt 业务态，不发明 ALLOCATED 或 TC Cancel。
      */
-    public Map<String, Object> requestCancel(String enterpriseId, String fulfillmentId, String clientOperationId,
-            String reason, Long expectedVersion, String actorId) {
+    public Map<String, Object> requestCancel(
+            String enterpriseId,
+            String fulfillmentId,
+            String clientOperationId,
+            String reason,
+            Long expectedVersion,
+            String actorId) {
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         requireId(fulfillmentId, "RESOURCE_NOT_FOUND", "履约单不能为空");
         requireId(clientOperationId, "INVALID_ARGUMENT", "命令键不能为空");
@@ -96,28 +113,41 @@ public final class FulfillmentService {
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         FulfillmentCancelMapper cancels = session.getMapper(FulfillmentCancelMapper.class);
         // 同原单并发取消必须在锁内核对幂等正文，不能让INSERT IGNORE掩盖不同请求。
-        Map<String,Object> order=mapper.lockOrder(enterpriseId,fulfillmentId);
-        if(order==null) throw new FulfillmentException("RESOURCE_NOT_FOUND","履约单不存在");
+        Map<String, Object> order = mapper.lockOrder(enterpriseId, fulfillmentId);
+        if (order == null) throw new FulfillmentException("RESOURCE_NOT_FOUND", "履约单不存在");
         Map<String, Object> existing = cancels.getByKey(enterpriseId, clientOperationId);
         if (existing != null) {
             if (!fulfillmentId.equals(String.valueOf(existing.get("fulfillment_id")))
-                    || !java.util.Objects.equals(reason,existing.get("reason")) || !actorId.equals(existing.get("actor_id"))) {
+                    || !java.util.Objects.equals(reason, existing.get("reason"))
+                    || !actorId.equals(existing.get("actor_id"))) {
                 throw new FulfillmentException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键取消内容不一致");
             }
             return cancelView(existing, mapper.lockOrder(enterpriseId, fulfillmentId));
         }
-        if (expectedVersion != null && expectedVersion.longValue() != ((Number) order.get("version")).longValue()) {
+        if (expectedVersion != null
+                && expectedVersion.longValue() != ((Number) order.get("version")).longValue()) {
             throw new FulfillmentException("VERSION_CONFLICT", "履约单版本冲突");
         }
         String attemptId = nullable(order.get("active_attempt_id"));
         Timestamp now = now();
-        cancels.insertIgnore(UUID.randomUUID().toString(), enterpriseId, fulfillmentId, clientOperationId, attemptId,
-                reason, actorId, "CANCEL_REQUESTED", now);
+        cancels.insertIgnore(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                fulfillmentId,
+                clientOperationId,
+                attemptId,
+                reason,
+                actorId,
+                "CANCEL_REQUESTED",
+                now);
         if (attemptId != null) {
             cancels.casCancelRequested(enterpriseId, attemptId, now);
-            CommittedCancellationFlow.enqueue(session,clock,enterpriseId,mapper.lockAttempt(enterpriseId,attemptId));
+            CommittedCancellationFlow.enqueue(
+                    session, clock, enterpriseId, mapper.lockAttempt(enterpriseId, attemptId));
         }
-        return cancelView(cancels.getByKey(enterpriseId, clientOperationId), mapper.lockOrder(enterpriseId, fulfillmentId));
+        return cancelView(
+                cancels.getByKey(enterpriseId, clientOperationId),
+                mapper.lockOrder(enterpriseId, fulfillmentId));
     }
 
     public List<Map<String, Object>> list(String enterpriseId, int limit) {
@@ -125,14 +155,26 @@ public final class FulfillmentService {
     }
 
     /** 按来源单号创建或重放履约单。异摘要拒绝。 */
-    public Map<String, Object> createOrder(String enterpriseId, String sourceSystem, String sourceOrderNo,
-            String digest, List<Map<String, Object>> lines, long strategyVersion) {
-        return createOrder(enterpriseId, sourceSystem, sourceOrderNo, digest, lines, strategyVersion, null);
+    public Map<String, Object> createOrder(
+            String enterpriseId,
+            String sourceSystem,
+            String sourceOrderNo,
+            String digest,
+            List<Map<String, Object>> lines,
+            long strategyVersion) {
+        return createOrder(
+                enterpriseId, sourceSystem, sourceOrderNo, digest, lines, strategyVersion, null);
     }
 
     /** 新客户端显式提供货主；同源重放必须匹配全部原事实，不能依赖客户端自报摘要。 */
-    public Map<String, Object> createOrder(String enterpriseId, String sourceSystem, String sourceOrderNo,
-            String digest, List<Map<String, Object>> lines, long strategyVersion, String ownerId) {
+    public Map<String, Object> createOrder(
+            String enterpriseId,
+            String sourceSystem,
+            String sourceOrderNo,
+            String digest,
+            List<Map<String, Object>> lines,
+            long strategyVersion,
+            String ownerId) {
         if (ownerId != null) requireId(ownerId, "INVALID_OWNER", "货主不能为空");
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         requireId(sourceSystem, "INVALID_SOURCE", "来源系统不能为空");
@@ -145,9 +187,18 @@ public final class FulfillmentService {
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         String orderId = UUID.randomUUID().toString();
-        mapper.insertOrderIgnore(orderId, enterpriseId, sourceSystem, sourceOrderNo, digest, ORDER_OPEN,
-                strategyVersion, ownerId, now);
-        Map<String, Object> order = mapper.lockOrderBySource(enterpriseId, sourceSystem, sourceOrderNo);
+        mapper.insertOrderIgnore(
+                orderId,
+                enterpriseId,
+                sourceSystem,
+                sourceOrderNo,
+                digest,
+                ORDER_OPEN,
+                strategyVersion,
+                ownerId,
+                now);
+        Map<String, Object> order =
+                mapper.lockOrderBySource(enterpriseId, sourceSystem, sourceOrderNo);
         if (order == null) {
             throw new FulfillmentException("VERSION_CONFLICT", "履约单创建竞争");
         }
@@ -158,25 +209,38 @@ public final class FulfillmentService {
         }
         if (orderId.equals(String.valueOf(order.get("id")))) {
             for (Map<String, Object> line : lines) {
-                mapper.insertLine(UUID.randomUUID().toString(), enterpriseId, orderId, required(line, "sourceLineId"),
-                        required(line, "skuId"), requiredQty(line.get("requestedQty")), required(line, "baseUnit"),
-                        line.get("minRemainingDays") == null ? 0 : ((Number) line.get("minRemainingDays")).intValue(),
+                mapper.insertLine(
+                        UUID.randomUUID().toString(),
+                        enterpriseId,
+                        orderId,
+                        required(line, "sourceLineId"),
+                        required(line, "skuId"),
+                        requiredQty(line.get("requestedQty")),
+                        required(line, "baseUnit"),
+                        line.get("minRemainingDays") == null
+                                ? 0
+                                : ((Number) line.get("minRemainingDays")).intValue(),
                         now);
             }
         }
-        if (!requestedLines.equals(canonicalOrderLines(mapper.lockLines(enterpriseId, String.valueOf(order.get("id"))), true)))
+        if (!requestedLines.equals(
+                canonicalOrderLines(
+                        mapper.lockLines(enterpriseId, String.valueOf(order.get("id"))), true)))
             throw new FulfillmentException("ORDER_CONFLICT", "同源单号货主或订单行内容不一致");
         return orderView(order);
     }
 
     /** 按原行号规范化，数值等值可重放，重复行与非法保质期在写库前拒绝。 */
-    private static Map<String, List<Object>> canonicalOrderLines(List<Map<String,Object>> lines, boolean stored) {
+    private static Map<String, List<Object>> canonicalOrderLines(
+            List<Map<String, Object>> lines, boolean stored) {
         var result = new java.util.TreeMap<String, List<Object>>();
         for (var line : lines) {
             String id = required(line, stored ? "source_line_id" : "sourceLineId");
             String sku = required(line, stored ? "sku_id" : "skuId");
             String unit = required(line, stored ? "base_unit" : "baseUnit");
-            BigDecimal qty = requiredQty(line.get(stored ? "requested_qty" : "requestedQty")).stripTrailingZeros();
+            BigDecimal qty =
+                    requiredQty(line.get(stored ? "requested_qty" : "requestedQty"))
+                            .stripTrailingZeros();
             Object rawDays = line.get(stored ? "min_remaining_days" : "minRemainingDays");
             int days = rawDays == null ? 0 : new BigDecimal(rawDays.toString()).intValueExact();
             if (days < 0 || result.put(id, List.of(sku, unit, qty, days)) != null)
@@ -186,8 +250,13 @@ public final class FulfillmentService {
     }
 
     /** 创建命令与attempt原子落库；省略截止时刻时仅首次取默认值，重试不得延长期限。 */
-    public Map<String,Object> prepareAttempt(String enterpriseId, String fulfillmentId, String commandId,
-            Instant requestedDeadline, List<String> warehouses, List<Map<String,Object>> lines) {
+    public Map<String, Object> prepareAttempt(
+            String enterpriseId,
+            String fulfillmentId,
+            String commandId,
+            Instant requestedDeadline,
+            List<String> warehouses,
+            List<Map<String, Object>> lines) {
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         requireId(fulfillmentId, "UNKNOWN_ORDER", "履约单不能为空");
         requireId(commandId, "INVALID_ARGUMENT", "命令键不能为空");
@@ -195,41 +264,73 @@ public final class FulfillmentService {
         if (fixedWarehouses.size() > 200 || lines == null || lines.isEmpty() || lines.size() > 200)
             throw new FulfillmentException("INVALID_LINE", "参与仓及行须在1到200范围内");
         // JSON数组保留字段边界，规范数量和排序；不能靠可碰撞的分隔字符串辨别不同请求。
-        var canonicalLines = lines.stream().map(line -> List.of(required(line,"warehouseId"),
-                required(line,"orderLineId"), required(line,"skuId"),
-                requiredQty(line.get("qty")).stripTrailingZeros().toPlainString(), required(line,"baseUnit")))
-                .sorted(java.util.Comparator.comparing(JSON::writeValueAsString)).toList();
-        String hash = com.lrj.wms.runtime.messaging.RuntimeMessage.hash(JSON.writeValueAsString(
-                java.util.Arrays.asList("attempt-command-v1", fulfillmentId, requestedDeadline == null ? null : requestedDeadline.toString(),
-                        fixedWarehouses, canonicalLines)));
+        var canonicalLines =
+                lines.stream()
+                        .map(
+                                line ->
+                                        List.of(
+                                                required(line, "warehouseId"),
+                                                required(line, "orderLineId"),
+                                                required(line, "skuId"),
+                                                requiredQty(line.get("qty"))
+                                                        .stripTrailingZeros()
+                                                        .toPlainString(),
+                                                required(line, "baseUnit")))
+                        .sorted(java.util.Comparator.comparing(JSON::writeValueAsString))
+                        .toList();
+        String hash =
+                com.lrj.wms.runtime.messaging.RuntimeMessage.hash(
+                        JSON.writeValueAsString(
+                                java.util.Arrays.asList(
+                                        "attempt-command-v1",
+                                        fulfillmentId,
+                                        requestedDeadline == null
+                                                ? null
+                                                : requestedDeadline.toString(),
+                                        fixedWarehouses,
+                                        canonicalLines)));
         var mapper = session.getMapper(FulfillmentMapper.class);
         String claim = UUID.randomUUID().toString();
         mapper.insertAttemptCommand(enterpriseId, commandId, fulfillmentId, hash, claim, now());
         var receipt = mapper.lockAttemptCommand(enterpriseId, commandId);
-        if (receipt == null || !fulfillmentId.equals(receipt.get("fulfillment_id")) || !hash.equals(receipt.get("payload_hash")))
+        if (receipt == null
+                || !fulfillmentId.equals(receipt.get("fulfillment_id"))
+                || !hash.equals(receipt.get("payload_hash")))
             throw new FulfillmentException("IDEMPOTENCY_PAYLOAD_MISMATCH", "同键分配请求内容不一致");
-        Map<String,Object> result;
+        Map<String, Object> result;
         if (!claim.equals(receipt.get("claim_id"))) {
             String original = nullable(receipt.get("attempt_id"));
-            if (original == null) throw new FulfillmentException("ATTEMPT_RECEIPT_INCOMPLETE", "命令缺少原attempt，不能重建");
+            if (original == null)
+                throw new FulfillmentException("ATTEMPT_RECEIPT_INCOMPLETE", "命令缺少原attempt，不能重建");
             var attempt = requireAttempt(mapper, enterpriseId, original);
             if (!fulfillmentId.equals(attempt.get("fulfillment_id")))
                 throw new FulfillmentException("ATTEMPT_RECEIPT_INCOMPLETE", "命令与原attempt不一致");
             result = attemptView(attempt, mapper.lockParticipants(enterpriseId, original));
         } else {
-            result = createAttempt(enterpriseId, fulfillmentId,
-                    requestedDeadline == null ? clock.instant().plusSeconds(3600) : requestedDeadline,
-                    new ArrayList<>(fixedWarehouses), lines);
-            if (mapper.bindAttemptCommand(enterpriseId, commandId, claim, String.valueOf(result.get("id"))) != 1)
-                throw new FulfillmentException("VERSION_CONFLICT", "分配命令回执绑定失败");
+            result =
+                    createAttempt(
+                            enterpriseId,
+                            fulfillmentId,
+                            requestedDeadline == null
+                                    ? clock.instant().plusSeconds(3600)
+                                    : requestedDeadline,
+                            new ArrayList<>(fixedWarehouses),
+                            lines);
+            if (mapper.bindAttemptCommand(
+                            enterpriseId, commandId, claim, String.valueOf(result.get("id")))
+                    != 1) throw new FulfillmentException("VERSION_CONFLICT", "分配命令回执绑定失败");
         }
         result.put("clientOperationId", commandId);
         return result;
     }
 
     /** 创建固定参与者 attempt，并 CAS 绑定为订单活动尝试。未知未终态不得重开。 */
-    public Map<String, Object> createAttempt(String enterpriseId, String fulfillmentId, Instant deadline,
-            List<String> warehouses, List<Map<String, Object>> participantLines) {
+    public Map<String, Object> createAttempt(
+            String enterpriseId,
+            String fulfillmentId,
+            Instant deadline,
+            List<String> warehouses,
+            List<Map<String, Object>> participantLines) {
         requireId(enterpriseId, "INVALID_ENTERPRISE", "企业不能为空");
         requireId(fulfillmentId, "UNKNOWN_ORDER", "履约单不能为空");
         Set<String> uniqueWarehouses = uniqueWarehouses(warehouses);
@@ -267,29 +368,52 @@ public final class FulfillmentService {
         if (deadline == null) {
             throw new FulfillmentException("INVALID_DEADLINE", "截止时刻不能为空");
         }
-        mapper.insertAttempt(attemptId, enterpriseId, fulfillmentId, ATTEMPT_PLANNED, Timestamp.from(deadline),
-                hash, digest, now);
+        mapper.insertAttempt(
+                attemptId,
+                enterpriseId,
+                fulfillmentId,
+                ATTEMPT_PLANNED,
+                Timestamp.from(deadline),
+                hash,
+                digest,
+                now);
         for (String warehouseId : uniqueWarehouses) {
             String participantId = UUID.randomUUID().toString();
-            mapper.insertParticipant(participantId, enterpriseId, attemptId, warehouseId, PARTICIPANT_PLANNED, now);
+            mapper.insertParticipant(
+                    participantId, enterpriseId, attemptId, warehouseId, PARTICIPANT_PLANNED, now);
             for (Map<String, Object> line : participantLines) {
                 if (!warehouseId.equals(String.valueOf(line.get("warehouseId")))) {
                     continue;
                 }
-                mapper.insertParticipantLine(UUID.randomUUID().toString(), enterpriseId, participantId,
-                        required(line, "orderLineId"), required(line, "skuId"), requiredQty(line.get("qty")),
-                        required(line, "baseUnit"), now);
+                mapper.insertParticipantLine(
+                        UUID.randomUUID().toString(),
+                        enterpriseId,
+                        participantId,
+                        required(line, "orderLineId"),
+                        required(line, "skuId"),
+                        requiredQty(line.get("qty")),
+                        required(line, "baseUnit"),
+                        now);
             }
         }
-        if (mapper.casActiveAttempt(enterpriseId, fulfillmentId, attemptId, active,
-                ((Number) order.get("version")).longValue(), now) != 1) {
+        if (mapper.casActiveAttempt(
+                        enterpriseId,
+                        fulfillmentId,
+                        attemptId,
+                        active,
+                        ((Number) order.get("version")).longValue(),
+                        now)
+                != 1) {
             throw new FulfillmentException("VERSION_CONFLICT", "活动attempt CAS失败");
         }
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** CAS 领取启动权。失败者不得 begin/Try。同执行器同代际重放。 */
-    public Map<String, Object> claimLaunch(String enterpriseId, String attemptId, String executorId) {
+    public Map<String, Object> claimLaunch(
+            String enterpriseId, String attemptId, String executorId) {
         requireId(executorId, "INVALID_EXECUTOR", "执行器不能为空");
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
@@ -304,20 +428,39 @@ public final class FulfillmentService {
             }
             throw new FulfillmentException("XID_ALREADY_BOUND", "attempt已绑定XID，不能再领取启动");
         }
-        if (ATTEMPT_STARTING.equals(String.valueOf(attempt.get("state"))) && executorId.equals(owner)) {
+        if (ATTEMPT_STARTING.equals(String.valueOf(attempt.get("state")))
+                && executorId.equals(owner)) {
             return attemptView(attempt, mapper.lockParticipants(enterpriseId, attemptId));
         }
-        if (mapper.claimLaunch(enterpriseId, attemptId, executorId, Timestamp.from(clock.instant().plus(LAUNCH_LEASE)),
-                epoch, ((Number) attempt.get("version")).longValue(), ATTEMPT_STARTING, now) != 1) {
+        if (mapper.claimLaunch(
+                        enterpriseId,
+                        attemptId,
+                        executorId,
+                        Timestamp.from(clock.instant().plus(LAUNCH_LEASE)),
+                        epoch,
+                        ((Number) attempt.get("version")).longValue(),
+                        ATTEMPT_STARTING,
+                        now)
+                != 1) {
             throw new FulfillmentException("LAUNCH_CAS_LOST", "启动权已被其他执行器领取");
         }
-        mapper.insertLaunch(UUID.randomUUID().toString(), enterpriseId, attemptId, epoch + 1, executorId,
-                LAUNCH_CLAIMED, CLEANUP_NONE, now);
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        mapper.insertLaunch(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                attemptId,
+                epoch + 1,
+                executorId,
+                LAUNCH_CLAIMED,
+                CLEANUP_NONE,
+                now);
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** 绑定 XID 一次。覆盖拒绝；并发只允许一个胜者。 */
-    public Map<String, Object> bindXid(String enterpriseId, String attemptId, String executorId, String xid) {
+    public Map<String, Object> bindXid(
+            String enterpriseId, String attemptId, String executorId, String xid) {
         requireId(executorId, "INVALID_EXECUTOR", "执行器不能为空");
         xid = requireXid(xid);
         Timestamp now = now();
@@ -337,7 +480,8 @@ public final class FulfillmentService {
             throw new FulfillmentException("LAUNCH_OWNER_MISMATCH", "只有领取启动权的执行器可绑定XID");
         }
         try {
-            if (mapper.bindXid(enterpriseId, attemptId, xid, executorId, epoch, ATTEMPT_TRYING, now) != 1) {
+            if (mapper.bindXid(enterpriseId, attemptId, xid, executorId, epoch, ATTEMPT_TRYING, now)
+                    != 1) {
                 throw new FulfillmentException("LAUNCH_CAS_LOST", "XID绑定竞争失败");
             }
         } catch (PersistenceException error) {
@@ -347,18 +491,25 @@ public final class FulfillmentService {
             throw error;
         }
         mapper.bindLaunch(enterpriseId, attemptId, epoch, executorId, xid, LAUNCH_BOUND, now);
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** TM在原XID绑定事务内记录审计来源；未绑定的历史attempt不按新配置自动补证据。 */
-    public Map<String, Object> bindXid(String enterpriseId, String attemptId, String executorId,
-            String xid, TcEvidenceScope scope) {
+    public Map<String, Object> bindXid(
+            String enterpriseId,
+            String attemptId,
+            String executorId,
+            String xid,
+            TcEvidenceScope scope) {
         Map<String, Object> view = bindXid(enterpriseId, attemptId, executorId, xid);
         long epoch = ((Number) view.get("launchEpoch")).longValue();
         var mapper = session.getMapper(AllocationRecoveryMapper.class);
         mapper.bind(enterpriseId, attemptId, xid, epoch, scope, now());
         var binding = mapper.binding(enterpriseId, attemptId);
-        if (binding == null || !xid.equals(binding.get("xid"))
+        if (binding == null
+                || !xid.equals(binding.get("xid"))
                 || epoch != ((Number) binding.get("launch_epoch")).longValue()
                 || !scope.clusterId().equals(binding.get("cluster_id"))
                 || !scope.applicationId().equals(binding.get("application_id"))
@@ -376,14 +527,17 @@ public final class FulfillmentService {
             throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID只能恢复原事务，不能标空启动");
         }
         long epoch = ((Number) attempt.get("launch_epoch")).longValue();
-        if (mapper.markLaunchUnknown(enterpriseId, attemptId, epoch, LAUNCH_UNKNOWN, CLEANUP_PENDING, now()) != 1) {
+        if (mapper.markLaunchUnknown(
+                        enterpriseId, attemptId, epoch, LAUNCH_UNKNOWN, CLEANUP_PENDING, now())
+                != 1) {
             throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "没有可标记失联的CLAIMED启动");
         }
         return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
     }
 
     /** 记录已知空 XID，不写入 attempt.xid，供受控回滚清理。 */
-    public Map<String, Object> recordKnownEmptyXid(String enterpriseId, String attemptId, String xid) {
+    public Map<String, Object> recordKnownEmptyXid(
+            String enterpriseId, String attemptId, String xid) {
         xid = requireXid(xid);
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
@@ -391,7 +545,9 @@ public final class FulfillmentService {
             throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID不能记为空启动");
         }
         long epoch = ((Number) attempt.get("launch_epoch")).longValue();
-        if (mapper.recordEmptyXid(enterpriseId, attemptId, epoch, xid, LAUNCH_UNKNOWN, CLEANUP_PENDING, now()) != 1) {
+        if (mapper.recordEmptyXid(
+                        enterpriseId, attemptId, epoch, xid, LAUNCH_UNKNOWN, CLEANUP_PENDING, now())
+                != 1) {
             throw new FulfillmentException("LAUNCH_NOT_CLAIMED", "没有可记录空XID的启动行");
         }
         return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
@@ -401,7 +557,8 @@ public final class FulfillmentService {
      * 仅当启动已标 UNKNOWN、attempt 未绑定且无仓级 reservation 时提升代际。
      * 失败者不得 Try；旧执行器随后 bind 会因代际失败。
      */
-    public Map<String, Object> isolateEmptyLaunch(String enterpriseId, String attemptId, String recovererId) {
+    public Map<String, Object> isolateEmptyLaunch(
+            String enterpriseId, String attemptId, String recovererId) {
         requireId(recovererId, "INVALID_EXECUTOR", "恢复执行器不能为空");
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
@@ -410,14 +567,30 @@ public final class FulfillmentService {
             throw new FulfillmentException("XID_ALREADY_BOUND", "已绑定XID不能隔离空启动");
         }
         long epoch = ((Number) attempt.get("launch_epoch")).longValue();
-        if (mapper.isolateEmptyLaunch(enterpriseId, attemptId, recovererId,
-                Timestamp.from(clock.instant().plus(LAUNCH_LEASE)), epoch,
-                ((Number) attempt.get("version")).longValue(), ATTEMPT_STARTING, now) != 1) {
+        if (mapper.isolateEmptyLaunch(
+                        enterpriseId,
+                        attemptId,
+                        recovererId,
+                        Timestamp.from(clock.instant().plus(LAUNCH_LEASE)),
+                        epoch,
+                        ((Number) attempt.get("version")).longValue(),
+                        ATTEMPT_STARTING,
+                        now)
+                != 1) {
             throw new FulfillmentException("LAUNCH_NOT_ISOLATED", "空启动未证明可隔离，保持RECOVERY_PENDING");
         }
-        mapper.insertLaunch(UUID.randomUUID().toString(), enterpriseId, attemptId, epoch + 1, recovererId,
-                LAUNCH_CLAIMED, CLEANUP_NONE, now);
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        mapper.insertLaunch(
+                UUID.randomUUID().toString(),
+                enterpriseId,
+                attemptId,
+                epoch + 1,
+                recovererId,
+                LAUNCH_CLAIMED,
+                CLEANUP_NONE,
+                now);
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** 兼容未知启动的等待标记；知道XID不等于已清理，缺证据时必须拒绝CLEANED。 */
@@ -426,8 +599,11 @@ public final class FulfillmentService {
     }
 
     /** 只有可信端口读取到原环境/原XID的回滚终态才允许清理，原证据与状态同事务保存。 */
-    public Map<String, Object> cleanupEmptyLaunch(String enterpriseId, String attemptId,
-            TcStatusPort.Observation observation, TcEvidenceScope scope) {
+    public Map<String, Object> cleanupEmptyLaunch(
+            String enterpriseId,
+            String attemptId,
+            TcStatusPort.Observation observation,
+            TcEvidenceScope scope) {
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
         if (nullable(attempt.get("xid")) != null) {
@@ -442,57 +618,84 @@ public final class FulfillmentService {
         String cleanup = xid == null ? CLEANUP_WAITING_TIMEOUT : CLEANUP_CLEANED;
         String evidence = null;
         if (xid != null) {
-            if (observation == null || scope == null) throw new FulfillmentException("TC_EVIDENCE_REQUIRED", "已知空XID仍需原TC回滚终态证据");
+            if (observation == null || scope == null)
+                throw new FulfillmentException("TC_EVIDENCE_REQUIRED", "已知空XID仍需原TC回滚终态证据");
             try {
                 var proof = JSON.readTree(observation.evidence());
-                int code = "Rollbacked".equals(observation.status()) ? 11 : "TimeoutRollbacked".equals(observation.status()) ? 13 : -1;
-                if (code < 0 || !proof.path("status").isIntegralNumber() || !proof.path("status").canConvertToInt()
-                        || proof.path("status").asInt() != code || !xid.equals(proof.path("xid").asString())
+                int code =
+                        "Rollbacked".equals(observation.status())
+                                ? 11
+                                : "TimeoutRollbacked".equals(observation.status()) ? 13 : -1;
+                if (code < 0
+                        || !proof.path("status").isIntegralNumber()
+                        || !proof.path("status").canConvertToInt()
+                        || proof.path("status").asInt() != code
+                        || !xid.equals(proof.path("xid").asString())
                         || !scope.clusterId().equals(proof.path("clusterId").asString())
                         || !scope.applicationId().equals(proof.path("applicationId").asString())
-                        || !scope.transactionGroup().equals(proof.path("transactionGroup").asString())) throw new IllegalArgumentException();
+                        || !scope.transactionGroup()
+                                .equals(proof.path("transactionGroup").asString()))
+                    throw new IllegalArgumentException();
                 evidence = proof.toString();
-            } catch (RuntimeException invalid) { throw new FulfillmentException("INVALID_TC_EVIDENCE", "清理证据必须属于原空XID及TC环境的回滚终态"); }
+            } catch (RuntimeException invalid) {
+                throw new FulfillmentException("INVALID_TC_EVIDENCE", "清理证据必须属于原空XID及TC环境的回滚终态");
+            }
         }
         if (cleanup.equals(launch.get("cleanup_state"))) {
             if (!sameJson(evidence, nullable(launch.get("cleanup_terminal_evidence"))))
                 throw new FulfillmentException("TC_EVIDENCE_CONFLICT", "原清理证据不可覆盖或补造");
             return launchView(launch, attempt);
         }
-        if (mapper.cleanupLaunch(enterpriseId, attemptId, epoch, cleanup,
-                xid == null ? "UNKNOWN_EMPTY_XID" : "KNOWN_EMPTY_XID", evidence, now()) != 1) {
+        if (mapper.cleanupLaunch(
+                        enterpriseId,
+                        attemptId,
+                        epoch,
+                        cleanup,
+                        xid == null ? "UNKNOWN_EMPTY_XID" : "KNOWN_EMPTY_XID",
+                        evidence,
+                        now())
+                != 1) {
             throw new FulfillmentException("LAUNCH_CLEANUP_CONFLICT", "空启动清理竞争");
         }
         return launchView(mapper.lockLaunch(enterpriseId, attemptId, epoch), attempt);
     }
 
     private static boolean sameJson(String left, String right) {
-        return left == null ? right == null : right != null && JSON.readTree(left).equals(JSON.readTree(right));
+        return left == null
+                ? right == null
+                : right != null && JSON.readTree(left).equals(JSON.readTree(right));
     }
 
     /** 写入 TC 观察副本，不据此直接放行。 */
-    public Map<String, Object> observeTc(String enterpriseId, String attemptId, String observedStatus, String evidence) {
+    public Map<String, Object> observeTc(
+            String enterpriseId, String attemptId, String observedStatus, String evidence) {
         requireId(observedStatus, "INVALID_TC_STATUS", "TC观察状态不能为空");
         Timestamp now = now();
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
         if (ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state")))
-                && (!TC_COMMITTED.equals(observedStatus) || evidence == null || evidence.isBlank())) {
+                && (!TC_COMMITTED.equals(observedStatus)
+                        || evidence == null
+                        || evidence.isBlank())) {
             throw new FulfillmentException("ALLOCATED_IMMUTABLE", "已ALLOCATED不能用缺证据观察覆盖");
         }
         // TC终态只能追加一次；乱序非终态和互相矛盾的终态都不能抹掉已有证据。
         if (evidence != null && !evidence.isBlank()) {
             try {
                 var json = JSON.readTree(evidence);
-                int expected = switch (observedStatus) {
-                    case "Committed" -> 9;
-                    case "Rollbacked" -> 11;
-                    case "TimeoutRollbacked" -> 13;
-                    default -> throw new IllegalArgumentException();
-                };
-                if (!json.isObject() || !json.path("xid").isString()
-                        || !java.util.Objects.equals(nullable(attempt.get("xid")), json.path("xid").asString())
-                        || !json.path("status").isIntegralNumber() || json.path("status").asInt() != expected) {
+                int expected =
+                        switch (observedStatus) {
+                            case "Committed" -> 9;
+                            case "Rollbacked" -> 11;
+                            case "TimeoutRollbacked" -> 13;
+                            default -> throw new IllegalArgumentException();
+                        };
+                if (!json.isObject()
+                        || !json.path("xid").isString()
+                        || !java.util.Objects.equals(
+                                nullable(attempt.get("xid")), json.path("xid").asString())
+                        || !json.path("status").isIntegralNumber()
+                        || json.path("status").asInt() != expected) {
                     throw new IllegalArgumentException();
                 }
                 Object previous = attempt.get("tc_terminal_evidence");
@@ -503,7 +706,8 @@ public final class FulfillmentService {
                     }
                     return attemptView(attempt, mapper.lockParticipants(enterpriseId, attemptId));
                 }
-            } catch (FulfillmentException conflict) { throw conflict;
+            } catch (FulfillmentException conflict) {
+                throw conflict;
             } catch (RuntimeException invalid) {
                 throw new FulfillmentException("INVALID_TC_EVIDENCE", "证据必须属于绑定XID和明确TC终态");
             }
@@ -513,12 +717,22 @@ public final class FulfillmentService {
         if (mapper.observeTc(enterpriseId, attemptId, observedStatus, evidence, now) != 1) {
             throw new FulfillmentException("VERSION_CONFLICT", "TC观察写入失败");
         }
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** 绑定仓级XID/branch/action一次。fulfillment只观察，不驱动Confirm/Cancel。 */
-    public Map<String, Object> bindParticipant(String enterpriseId, String attemptId, String warehouseId,
-            String xid, long branchId, String actionName, String reservationId, long routeEpoch, String branchState) {
+    public Map<String, Object> bindParticipant(
+            String enterpriseId,
+            String attemptId,
+            String warehouseId,
+            String xid,
+            long branchId,
+            String actionName,
+            String reservationId,
+            long routeEpoch,
+            String branchState) {
         requireId(warehouseId, "INVALID_PARTICIPANT", "仓库不能为空");
         requireId(actionName, "INVALID_PARTICIPANT", "TCC动作名不能为空");
         requireId(reservationId, "INVALID_PARTICIPANT", "预占标识不能为空");
@@ -542,10 +756,13 @@ public final class FulfillmentService {
             if (warehouseId.equals(String.valueOf(participant.get("warehouse_id")))) {
                 found = true;
                 if (participant.get("xid") != null) {
-                    if (!xid.equals(participant.get("xid")) || !actionName.equals(participant.get("action_name"))
+                    if (!xid.equals(participant.get("xid"))
+                            || !actionName.equals(participant.get("action_name"))
                             || !reservationId.equals(participant.get("reservation_id"))
-                            || !(participant.get("branch_id") instanceof Number originalBranch) || originalBranch.longValue() != branchId
-                            || !(participant.get("route_epoch") instanceof Number originalRoute) || originalRoute.longValue() != routeEpoch) {
+                            || !(participant.get("branch_id") instanceof Number originalBranch)
+                            || originalBranch.longValue() != branchId
+                            || !(participant.get("route_epoch") instanceof Number originalRoute)
+                            || originalRoute.longValue() != routeEpoch) {
                         throw new FulfillmentException("BRANCH_ALREADY_BOUND", "仓级分支身份不可改绑");
                     }
                     // 原Try回执可能晚于Confirm或截止时刻；同身份只读取，不回退观察状态或重做Try。
@@ -558,41 +775,67 @@ public final class FulfillmentService {
             throw new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在");
         }
         refuseExpiredTry(attempt);
-        if (mapper.bindParticipantBranch(enterpriseId, attemptId, warehouseId, xid, branchId, actionName,
-                reservationId, routeEpoch, branchState, now()) != 1) {
+        if (mapper.bindParticipantBranch(
+                        enterpriseId,
+                        attemptId,
+                        warehouseId,
+                        xid,
+                        branchId,
+                        actionName,
+                        reservationId,
+                        routeEpoch,
+                        branchState,
+                        now())
+                != 1) {
             throw new FulfillmentException("BRANCH_ALREADY_BOUND", "仓级分支身份不可改绑");
         }
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** 记录仓级 RM 观察状态，不是 TC 决定。 */
-    public Map<String, Object> observeParticipant(String enterpriseId, String attemptId, String warehouseId,
-            String state, Long confirmedVersion) {
+    public Map<String, Object> observeParticipant(
+            String enterpriseId,
+            String attemptId,
+            String warehouseId,
+            String state,
+            Long confirmedVersion) {
         requireId(warehouseId, "INVALID_PARTICIPANT", "仓库不能为空");
         requireId(state, "INVALID_PARTICIPANT", "仓级状态不能为空");
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> attempt = requireAttempt(mapper, enterpriseId, attemptId);
-        Map<String, Object> participant = mapper.lockParticipants(enterpriseId, attemptId).stream()
-                .filter(row -> warehouseId.equals(row.get("warehouse_id"))).findFirst()
-                .orElseThrow(() -> new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在"));
+        Map<String, Object> participant =
+                mapper.lockParticipants(enterpriseId, attemptId).stream()
+                        .filter(row -> warehouseId.equals(row.get("warehouse_id")))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在"));
         if (!Set.of("TRIED", "CONFIRMED", "CANCELLED").contains(state)) {
             throw new FulfillmentException("INVALID_PARTICIPANT", "未知分支观察状态");
         }
-        if (PARTICIPANT_CONFIRMED.equals(state) && (!participantBound(attempt, participant)
-                || confirmedVersion == null || confirmedVersion < 1)) {
+        if (PARTICIPANT_CONFIRMED.equals(state)
+                && (!participantBound(attempt, participant)
+                        || confirmedVersion == null
+                        || confirmedVersion < 1)) {
             throw new FulfillmentException("PARTICIPANT_EVIDENCE_MISSING", "确认必须绑定原始分支身份和确认版本");
         }
         if (Set.of("CONFIRMED", "CANCELLED").contains(String.valueOf(participant.get("state")))) {
             if (!state.equals(participant.get("state"))
-                    || !java.util.Objects.equals(confirmedVersion, participant.get("confirmed_version"))) {
+                    || !java.util.Objects.equals(
+                            confirmedVersion, participant.get("confirmed_version"))) {
                 throw new FulfillmentException("PARTICIPANT_EVIDENCE_CONFLICT", "分支终态不可回退或改写");
             }
             return attemptView(attempt, mapper.lockParticipants(enterpriseId, attemptId));
         }
-        if (mapper.observeParticipant(enterpriseId, attemptId, warehouseId, state, confirmedVersion, now()) != 1) {
+        if (mapper.observeParticipant(
+                        enterpriseId, attemptId, warehouseId, state, confirmedVersion, now())
+                != 1) {
             throw new FulfillmentException("INVALID_PARTICIPANT", "参与仓不存在");
         }
-        return attemptView(mapper.lockAttempt(enterpriseId, attemptId), mapper.lockParticipants(enterpriseId, attemptId));
+        return attemptView(
+                mapper.lockAttempt(enterpriseId, attemptId),
+                mapper.lockParticipants(enterpriseId, attemptId));
     }
 
     /** 已绑定 XID 后生成下游 Try 头；禁止空上下文。 */
@@ -624,24 +867,31 @@ public final class FulfillmentService {
         for (Map<String, Object> participant : participants) {
             if (!PARTICIPANT_CONFIRMED.equals(String.valueOf(participant.get("state")))
                     || !participantBound(attempt, participant)
-                    || !(participant.get("confirmed_version") instanceof Number confirmed) || confirmed.longValue() < 1) {
+                    || !(participant.get("confirmed_version") instanceof Number confirmed)
+                    || confirmed.longValue() < 1) {
                 throw new FulfillmentException("PARTICIPANTS_NOT_CONFIRMED", "固定参与者尚未全部CONFIRMED");
             }
         }
-        Map<String, Object> order = mapper.lockOrder(enterpriseId, String.valueOf(attempt.get("fulfillment_id")));
+        Map<String, Object> order =
+                mapper.lockOrder(enterpriseId, String.valueOf(attempt.get("fulfillment_id")));
         if (order == null || !attemptId.equals(order.get("active_attempt_id"))) {
             throw new FulfillmentException("ATTEMPT_SUPERSEDED", "旧attempt不能派发执行授权");
         }
         // 已签发的屏障重放不能因后来的取消请求回退；撤销执行能力需走独立补偿协议。
-        if (order.get("owner_id") != null && cancelRequested(attempt.get("cancel_requested"))
+        if (order.get("owner_id") != null
+                && cancelRequested(attempt.get("cancel_requested"))
                 && !ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state"))))
             throw new FulfillmentException("CANCEL_REQUIRES_COMPENSATION", "取消已请求，须先处理原事务结果和库存补偿");
         if (ATTEMPT_ALLOCATED.equals(String.valueOf(attempt.get("state")))) {
             writeBarrierOutbox(mapper, enterpriseId, attemptId, attempt, participants);
             return attemptView(attempt, participants);
         }
-        if (mapper.casAttemptState(enterpriseId, attemptId, ATTEMPT_ALLOCATED, ATTEMPT_TRYING, now()) != 1
-                && mapper.casAttemptState(enterpriseId, attemptId, ATTEMPT_ALLOCATED, "TCC_COMPLETING", now()) != 1) {
+        if (mapper.casAttemptState(
+                                enterpriseId, attemptId, ATTEMPT_ALLOCATED, ATTEMPT_TRYING, now())
+                        != 1
+                && mapper.casAttemptState(
+                                enterpriseId, attemptId, ATTEMPT_ALLOCATED, "TCC_COMPLETING", now())
+                        != 1) {
             throw new FulfillmentException("VERSION_CONFLICT", "ALLOCATED状态竞争");
         }
         Map<String, Object> allocated = mapper.lockAttempt(enterpriseId, attemptId);
@@ -683,15 +933,21 @@ public final class FulfillmentService {
     public static String participantHash(Set<String> warehouses) {
         String payload = String.join("\u001f", warehouses);
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(payload.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
     }
 
-    private void freezeAgainstOrder(FulfillmentMapper mapper, String enterpriseId, String fulfillmentId,
-            Set<String> warehouses, List<Map<String, Object>> participantLines) {
+    private void freezeAgainstOrder(
+            FulfillmentMapper mapper,
+            String enterpriseId,
+            String fulfillmentId,
+            Set<String> warehouses,
+            List<Map<String, Object>> participantLines) {
         List<Map<String, Object>> orderLines = mapper.lockLines(enterpriseId, fulfillmentId);
         if (orderLines.isEmpty()) {
             throw new FulfillmentException("INVALID_LINE", "履约行不存在，不能冻结分配");
@@ -708,7 +964,8 @@ public final class FulfillmentService {
                 throw new FulfillmentException("INVALID_LINE", "参与行不是履约行");
             }
             if (!String.valueOf(orderLine.get("sku_id")).equals(required(line, "skuId"))
-                    || !String.valueOf(orderLine.get("base_unit")).equals(required(line, "baseUnit"))) {
+                    || !String.valueOf(orderLine.get("base_unit"))
+                            .equals(required(line, "baseUnit"))) {
                 throw new FulfillmentException("QTY_MISMATCH", "参与行SKU或单位与履约行不一致");
             }
             if (!warehouses.contains(required(line, "warehouseId"))) {
@@ -751,7 +1008,8 @@ public final class FulfillmentService {
         throw new IllegalStateException("不支持的截止时刻类型: " + value.getClass().getName());
     }
 
-    private Map<String, Object> requireAttempt(FulfillmentMapper mapper, String enterpriseId, String attemptId) {
+    private Map<String, Object> requireAttempt(
+            FulfillmentMapper mapper, String enterpriseId, String attemptId) {
         requireId(attemptId, "UNKNOWN_ATTEMPT", "attempt不能为空");
         Map<String, Object> attempt = mapper.lockAttempt(enterpriseId, attemptId);
         if (attempt == null) {
@@ -761,57 +1019,132 @@ public final class FulfillmentService {
     }
 
     /** 状态文本不能代替持久化的XID、分支、资源、预占和路由身份。 */
-    private static boolean participantBound(Map<String, Object> attempt, Map<String, Object> participant) {
+    private static boolean participantBound(
+            Map<String, Object> attempt, Map<String, Object> participant) {
         return nullable(attempt.get("xid")) != null
                 && attempt.get("xid").equals(participant.get("xid"))
-                && participant.get("branch_id") instanceof Number branch && branch.longValue() > 0
+                && participant.get("branch_id") instanceof Number branch
+                && branch.longValue() > 0
                 && nullable(participant.get("action_name")) != null
                 && nullable(participant.get("reservation_id")) != null;
     }
 
-    private void writeBarrierOutbox(FulfillmentMapper mapper, String enterpriseId, String attemptId,
-            Map<String, Object> attempt, List<Map<String, Object>> participants) {
+    private void writeBarrierOutbox(
+            FulfillmentMapper mapper,
+            String enterpriseId,
+            String attemptId,
+            Map<String, Object> attempt,
+            List<Map<String, Object>> participants) {
         Timestamp now = now();
         String xid = nullable(attempt.get("xid"));
         String evidence = nullable(attempt.get("tc_terminal_evidence"));
-        String warehouses = String.join(",", participants.stream()
-                .map(participant -> String.valueOf(participant.get("warehouse_id"))).toList());
-        insertOutbox(mapper, enterpriseId, attemptId, NO_WAREHOUSE, EVENT_ALLOCATION_COMPLETED,
-                "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
-                        + "\",\"tcTerminalEvidence\":\"" + escape(evidence) + "\",\"warehouses\":\""
-                        + escape(warehouses) + "\"}", null, now);
+        String warehouses =
+                String.join(
+                        ",",
+                        participants.stream()
+                                .map(participant -> String.valueOf(participant.get("warehouse_id")))
+                                .toList());
+        insertOutbox(
+                mapper,
+                enterpriseId,
+                attemptId,
+                NO_WAREHOUSE,
+                EVENT_ALLOCATION_COMPLETED,
+                "{\"attemptId\":\""
+                        + escape(attemptId)
+                        + "\",\"xid\":\""
+                        + escape(xid)
+                        + "\",\"tcTerminalEvidence\":\""
+                        + escape(evidence)
+                        + "\",\"warehouses\":\""
+                        + escape(warehouses)
+                        + "\"}",
+                null,
+                now);
         List<Map<String, Object>> lines = mapper.listParticipantLines(enterpriseId, attemptId);
-        var delivery = AllocationAuthorizationFactory.snapshots(session, enterpriseId,
-                mapper.lockOrder(enterpriseId, String.valueOf(attempt.get("fulfillment_id"))), attempt, participants, lines);
+        var delivery =
+                AllocationAuthorizationFactory.snapshots(
+                        session,
+                        enterpriseId,
+                        mapper.lockOrder(
+                                enterpriseId, String.valueOf(attempt.get("fulfillment_id"))),
+                        attempt,
+                        participants,
+                        lines);
         for (Map<String, Object> participant : participants) {
             String warehouseId = String.valueOf(participant.get("warehouse_id"));
             String reservationId = nullable(participant.get("reservation_id"));
-            String payload = "{\"attemptId\":\"" + escape(attemptId) + "\",\"xid\":\"" + escape(xid)
-                    + "\",\"warehouseId\":\"" + escape(warehouseId) + "\",\"reservationId\":\""
-                    + escape(reservationId) + "\",\"lines\":" + linesJson(lines, warehouseId) + "}";
-            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_OUTBOUND_ORDER_REQUESTED, payload, delivery.get(warehouseId), now);
-            insertOutbox(mapper, enterpriseId, attemptId, warehouseId, EVENT_EXECUTION_AUTHORIZATION_REQUESTED,
-                    payload, delivery.get(warehouseId), now);
+            String payload =
+                    "{\"attemptId\":\""
+                            + escape(attemptId)
+                            + "\",\"xid\":\""
+                            + escape(xid)
+                            + "\",\"warehouseId\":\""
+                            + escape(warehouseId)
+                            + "\",\"reservationId\":\""
+                            + escape(reservationId)
+                            + "\",\"lines\":"
+                            + linesJson(lines, warehouseId)
+                            + "}";
+            insertOutbox(
+                    mapper,
+                    enterpriseId,
+                    attemptId,
+                    warehouseId,
+                    EVENT_OUTBOUND_ORDER_REQUESTED,
+                    payload,
+                    delivery.get(warehouseId),
+                    now);
+            insertOutbox(
+                    mapper,
+                    enterpriseId,
+                    attemptId,
+                    warehouseId,
+                    EVENT_EXECUTION_AUTHORIZATION_REQUESTED,
+                    payload,
+                    delivery.get(warehouseId),
+                    now);
         }
     }
 
-    private static void insertOutbox(FulfillmentMapper mapper, String enterpriseId, String attemptId,
-            String warehouseId, String eventType, String payload, String delivery, Timestamp now) {
+    private static void insertOutbox(
+            FulfillmentMapper mapper,
+            String enterpriseId,
+            String attemptId,
+            String warehouseId,
+            String eventType,
+            String payload,
+            String delivery,
+            Timestamp now) {
         String eventId = UUID.randomUUID().toString();
-        mapper.insertOutboxIgnore(eventId, enterpriseId, attemptId, warehouseId, eventType,
-                operationId(eventType, attemptId, warehouseId), payload, now);
+        mapper.insertOutboxIgnore(
+                eventId,
+                enterpriseId,
+                attemptId,
+                warehouseId,
+                eventType,
+                operationId(eventType, attemptId, warehouseId),
+                payload,
+                now);
         var existing = mapper.getBarrierOutbox(enterpriseId, attemptId, warehouseId, eventType);
         var json = JSON;
-        if (existing == null || !operationId(eventType, attemptId, warehouseId).equals(existing.get("operation_id"))
-                || !json.readTree(payload).equals(json.readTree(String.valueOf(existing.get("payload"))))) {
+        if (existing == null
+                || !operationId(eventType, attemptId, warehouseId)
+                        .equals(existing.get("operation_id"))
+                || !json.readTree(payload)
+                        .equals(json.readTree(String.valueOf(existing.get("payload"))))) {
             throw new FulfillmentException("BARRIER_OUTBOX_CONFLICT", "屏障事件原身份和正文不一致");
         }
         if (delivery != null) {
             if (existing.get("delivery_payload") == null) {
-                if (!eventId.equals(existing.get("event_id")) || mapper.bindOutboxDelivery(eventId, delivery) != 1)
-                    throw new FulfillmentException("LEGACY_AUTHORIZATION_CONTEXT_MISSING", "旧事件缺完整授权快照，不自动补齐");
-            } else if (!com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(delivery).equals(
-                    com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(String.valueOf(existing.get("delivery_payload"))))) {
+                if (!eventId.equals(existing.get("event_id"))
+                        || mapper.bindOutboxDelivery(eventId, delivery) != 1)
+                    throw new FulfillmentException(
+                            "LEGACY_AUTHORIZATION_CONTEXT_MISSING", "旧事件缺完整授权快照，不自动补齐");
+            } else if (!com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(delivery)
+                    .equals(
+                            com.lrj.wms.runtime.messaging.RuntimeMessage.contentHash(
+                                    String.valueOf(existing.get("delivery_payload"))))) {
                 throw new FulfillmentException("BARRIER_OUTBOX_CONFLICT", "屏障投递快照与原始事实不一致");
             }
         }
@@ -828,18 +1161,31 @@ public final class FulfillmentService {
                 body.append(',');
             }
             first = false;
-            body.append("{\"orderLineId\":\"").append(escape(line.get("order_line_id")))
-                    .append("\",\"skuId\":\"").append(escape(line.get("sku_id")))
-                    .append("\",\"qty\":\"").append(escape(line.get("qty")))
-                    .append("\",\"baseUnit\":\"").append(escape(line.get("base_unit"))).append("\"}");
+            body.append("{\"orderLineId\":\"")
+                    .append(escape(line.get("order_line_id")))
+                    .append("\",\"skuId\":\"")
+                    .append(escape(line.get("sku_id")))
+                    .append("\",\"qty\":\"")
+                    .append(escape(line.get("qty")))
+                    .append("\",\"baseUnit\":\"")
+                    .append(escape(line.get("base_unit")))
+                    .append("\"}");
         }
         return body.append(']').toString();
     }
 
     private static String operationId(String eventType, String attemptId, String warehouseId) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
-                    (eventType + '\u001f' + attemptId + '\u001f' + warehouseId).getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(
+                                            (eventType
+                                                            + '\u001f'
+                                                            + attemptId
+                                                            + '\u001f'
+                                                            + warehouseId)
+                                                    .getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
@@ -886,7 +1232,8 @@ public final class FulfillmentService {
         return body;
     }
 
-    private static Map<String, Object> attemptView(Map<String, Object> attempt, List<Map<String, Object>> participants) {
+    private static Map<String, Object> attemptView(
+            Map<String, Object> attempt, List<Map<String, Object>> participants) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("id", attempt.get("id"));
         body.put("fulfillmentId", attempt.get("fulfillment_id"));
@@ -917,7 +1264,8 @@ public final class FulfillmentService {
         return body;
     }
 
-    private static Map<String, Object> launchView(Map<String, Object> launch, Map<String, Object> attempt) {
+    private static Map<String, Object> launchView(
+            Map<String, Object> launch, Map<String, Object> attempt) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("attemptId", attempt.get("id"));
         body.put("attemptState", attempt.get("state"));
@@ -962,14 +1310,18 @@ public final class FulfillmentService {
         if (value == null) {
             throw new FulfillmentException("INVALID_LINE", "数量不能为空");
         }
-        BigDecimal qty = value instanceof BigDecimal decimal ? decimal : new BigDecimal(String.valueOf(value));
+        BigDecimal qty =
+                value instanceof BigDecimal decimal
+                        ? decimal
+                        : new BigDecimal(String.valueOf(value));
         if (qty.signum() <= 0) {
             throw new FulfillmentException("INVALID_LINE", "数量必须为正");
         }
         return qty;
     }
 
-    private static Map<String, Object> cancelView(Map<String, Object> cancellation, Map<String, Object> order) {
+    private static Map<String, Object> cancelView(
+            Map<String, Object> cancellation, Map<String, Object> order) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("cancellationId", cancellation.get("id"));
         body.put("fulfillmentId", cancellation.get("fulfillment_id"));
@@ -1008,5 +1360,4 @@ public final class FulfillmentService {
         }
         return false;
     }
-
 }

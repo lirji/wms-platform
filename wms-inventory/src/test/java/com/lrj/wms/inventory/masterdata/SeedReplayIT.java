@@ -1,7 +1,16 @@
 package com.lrj.wms.inventory.masterdata;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.mysql.cj.jdbc.MysqlDataSource;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.mysql.MySQLContainer;
+
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,13 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+
 import javax.sql.DataSource;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.mysql.MySQLContainer;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 种子复跑不新增行；使用专属容器，避免与其它 IT 的仓主键冲突。 */
 class SeedReplayIT {
@@ -28,11 +32,15 @@ class SeedReplayIT {
 
     @BeforeAll
     static void prepare() {
-        mysql = new MySQLContainer("mysql:8.4.11").withDatabaseName("wms_inventory")
-                .withUsername("wms").withPassword(UUID.randomUUID().toString());
+        mysql =
+                new MySQLContainer("mysql:8.4.11")
+                        .withDatabaseName("wms_inventory")
+                        .withUsername("wms")
+                        .withPassword(UUID.randomUUID().toString());
         mysql.start();
         MysqlDataSource source = new MysqlDataSource();
-        source.setUrl(com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
+        source.setUrl(
+                com.lrj.wms.runtime.db.RuntimeDataSources.withTimeZone(mysql.getJdbcUrl(), "UTC"));
         source.setUser(mysql.getUsername());
         source.setPassword(mysql.getPassword());
         dataSource = source;
@@ -67,17 +75,22 @@ class SeedReplayIT {
 
     private static void assertCasePackAndExpiry(Clock clock) {
         SkuPolicy lotSku = SeedCatalog.skus().get(1).policy();
-        assertEquals(new BigDecimal("12"),
+        assertEquals(
+                new BigDecimal("12"),
                 lotSku.toBaseQuantity(BigDecimal.ONE, SeedCatalog.twelve(), BigDecimal.ONE));
         try (Connection connection = dataSource.getConnection();
-                PreparedStatement units = connection.prepareStatement(
-                        "SELECT numerator, denominator FROM sku_unit WHERE enterprise_id=? AND sku_id='SKU-LOT' AND unit_code='CS'");
-                PreparedStatement near = connection.prepareStatement(
-                        "SELECT expires_at, produced_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-NEAR'");
-                PreparedStatement expired = connection.prepareStatement(
-                        "SELECT expires_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-EXP'");
-                PreparedStatement std = connection.prepareStatement(
-                        "SELECT expires_at, produced_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-STD'")) {
+                PreparedStatement units =
+                        connection.prepareStatement(
+                                "SELECT numerator, denominator FROM sku_unit WHERE enterprise_id=? AND sku_id='SKU-LOT' AND unit_code='CS'");
+                PreparedStatement near =
+                        connection.prepareStatement(
+                                "SELECT expires_at, produced_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-NEAR'");
+                PreparedStatement expired =
+                        connection.prepareStatement(
+                                "SELECT expires_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-EXP'");
+                PreparedStatement std =
+                        connection.prepareStatement(
+                                "SELECT expires_at, produced_at FROM lot WHERE enterprise_id=? AND warehouse_id='WH-A' AND lot_code='LOT-STD'")) {
             for (PreparedStatement statement : List.of(units, near, expired, std)) {
                 statement.setString(1, SeedCatalog.ENTERPRISE);
             }
@@ -88,14 +101,21 @@ class SeedReplayIT {
             }
             try (ResultSet nearRow = near.executeQuery()) {
                 assertTrue(nearRow.next());
-                assertEquals(SeedCatalog.nearExpiry(clock.instant()), nearRow.getTimestamp("expires_at").toInstant());
-                assertEquals("2026-09-17T13:00:00Z", nearRow.getTimestamp("expires_at").toInstant().toString());
+                assertEquals(
+                        SeedCatalog.nearExpiry(clock.instant()),
+                        nearRow.getTimestamp("expires_at").toInstant());
+                assertEquals(
+                        "2026-09-17T13:00:00Z",
+                        nearRow.getTimestamp("expires_at").toInstant().toString());
             }
             try (ResultSet expiredRow = expired.executeQuery()) {
                 assertTrue(expiredRow.next());
-                assertEquals(SeedCatalog.alreadyExpired(clock.instant()),
+                assertEquals(
+                        SeedCatalog.alreadyExpired(clock.instant()),
                         expiredRow.getTimestamp("expires_at").toInstant());
-                assertEquals("2026-09-09T13:00:00Z", expiredRow.getTimestamp("expires_at").toInstant().toString());
+                assertEquals(
+                        "2026-09-09T13:00:00Z",
+                        expiredRow.getTimestamp("expires_at").toInstant().toString());
             }
             try (ResultSet stdRow = std.executeQuery()) {
                 assertTrue(stdRow.next());
@@ -109,15 +129,18 @@ class SeedReplayIT {
 
     private static void assertOpeningStock() {
         try (Connection connection = dataSource.getConnection();
-                PreparedStatement balance = connection.prepareStatement(
-                        "SELECT on_hand_qty, reserved_qty, quality_code FROM stock_balance WHERE enterprise_id=? "
-                                + "AND warehouse_id='WH-A' AND sku_id='SKU-STD' AND lot_id='NO_LOT'");
-                PreparedStatement expired = connection.prepareStatement(
-                        "SELECT quality_code, on_hand_qty FROM stock_balance WHERE enterprise_id=? "
-                                + "AND warehouse_id='WH-A' AND sku_id='SKU-EXPIRED'");
-                PreparedStatement view = connection.prepareStatement(
-                        "SELECT on_hand_qty FROM inventory_view WHERE enterprise_id=? AND warehouse_id='WH-A' "
-                                + "AND sku_id='SKU-STD' AND lot_id='NO_LOT'")) {
+                PreparedStatement balance =
+                        connection.prepareStatement(
+                                "SELECT on_hand_qty, reserved_qty, quality_code FROM stock_balance WHERE enterprise_id=? "
+                                        + "AND warehouse_id='WH-A' AND sku_id='SKU-STD' AND lot_id='NO_LOT'");
+                PreparedStatement expired =
+                        connection.prepareStatement(
+                                "SELECT quality_code, on_hand_qty FROM stock_balance WHERE enterprise_id=? "
+                                        + "AND warehouse_id='WH-A' AND sku_id='SKU-EXPIRED'");
+                PreparedStatement view =
+                        connection.prepareStatement(
+                                "SELECT on_hand_qty FROM inventory_view WHERE enterprise_id=? AND warehouse_id='WH-A' "
+                                        + "AND sku_id='SKU-STD' AND lot_id='NO_LOT'")) {
             for (PreparedStatement statement : List.of(balance, expired, view)) {
                 statement.setString(1, SeedCatalog.ENTERPRISE);
             }
