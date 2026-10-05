@@ -52,7 +52,8 @@ try {
   await expect(reader.page.getByText('SKU-NEAR', { exact: true }).first()).toBeVisible();
   await expect(reader.page.getByRole('button', { name: '创建商品', exact: true })).toHaveCount(0);
   await expect(reader.page.getByRole('button', { name: '创建库位', exact: true })).toHaveCount(0);
-  await expect(reader.page.getByRole('menuitem', { name: '入库作业', exact: true })).toHaveCount(0);
+  if (fixture.phase === 'W04') await expect(reader.page.getByRole('menuitem', { name: '入库作业', exact: true })).toHaveCount(0);
+  else await expect(reader.page.getByRole('menuitem', { name: /入库作业/ })).toBeVisible();
   await shot(reader.page, 'reader-a-desktop');
   checks.push('真实reader A PKCE登录，中央目录仅显示已授权页面，数据库SKU可见且写按钮隐藏');
   await reader.page.goto(origin + '/w/WH-B/catalog');
@@ -87,6 +88,6 @@ try {
   save(process.env.WMS_BROWSER_SCENARIO === 'enterprise-only' ? 'w04-enterprise-browser-result.json' : 'w04-browser-result.json', { result: 'PASS', checks, errors, token_injection: false, mocked_api: false });
   console.log('PASS: ' + checks.length + '个真实浏览器PKCE/菜单/深链检查。');
 } catch (error) {
-  save('w04-browser-failure.json', { message: String(error), errors, checks });
+  save('w04-browser-failure-' + Date.now() + '.json', { message: String(error), errors, checks });
   throw error;
 } finally { await browser.close(); }

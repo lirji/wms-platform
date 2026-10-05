@@ -2,40 +2,39 @@
 
 ## 任务目标
 
-按已批准顺序完成WMS集中权限：只读→入出库/PDA→盘点调整/调拨→真实本机运行与正常Git发布。local-wms绑定ENT-DEMO；不生产部署。
+连续完成WMS全部集中权限：只读→入出库/PDA→盘点调整/调拨→实际本机运行与正常Git发布。local-wms绑定ENT-DEMO，不生产部署。
 
 ## 已完成
 
-- W00–W03已发布；Auth b66f735/CI37219575766、WMS远端17048d5/CI37213828874通过。
-- W04验证DONE：19身份/SQL+5正常浏览器+7企业-only后端+1企业-only浏览器+2企业撤权+9故障/旧Token撤权PASS；当前源码截图已看，无身份注入/API替换。
-- 最新前端39文件84测试+类型/buildPASS。10新增安全测试PASS，144 default必需检查PASS。
-- 原303项回归1失败与第二次专项失败保留；用户要求继续后正常Docker重启/恢复，同版专项150.2秒PASS。135原ID/镜像/挂载/状态与36原运行服务健康匹配，5服务补恢复，旧Casdoor在数据库ready后恢复。不删镜像/卷。
-- 原WMS55文件/HEAD/status保持。Review通过；自动hygiene宽泛正则误分类有逐条人工审查，无formatter限制已记录，未改共享政策或伪称工具PASS。
+- W00–W03已发布；W04 Auth8189b13/CI37246323217 SUCCESS且远端main同步，WMS876b13c/CI37246311489仍在运行，不能取消或冒称PASS。
+- W04本地真实身份/SQL、企业-only、浏览器、撤权、故障与恢复PASS；原两次Allocation失败保留，正常Docker恢复后同版专项PASS，144 default门禁PASS。135原容器ID/镜像/挂载/状态匹配，36原运行服务恢复。
+- W05验证DONE：runtime-w05-b8e3b083814c，23身份/SQL、34动作、4PDA浏览器、5导航浏览器、10旧Token写撤权、15故障/读撤权PASS。21安全/8Owner HTTP/147门禁、10UI/类型/buildPASS，8张当前图已看。
+- 原WMS55受保护文件、HEAD/status未改。W05原工具失败与并发503保留；运行制品复制冻结、MySQL最终TCP就绪、原orderId/replayed契约正确消费。新写与重试拒绝不撤销已提交数量3。
 
 ## 已修改文件
 
-- WMS任务工作树61路径：security、五服务配置、console权限/登录、OpenAPI、生成器、固定SDK CI/Docker、浏览器工具、docs/iam及本进度。
-- Auth W04 runtime/failure/enterprise-smoke工具、identity PKCE、CI、设计进度/验证记录。actions-smoke是W05未验证准备，必须排除W04交付。
+- W05 WMS内部机器配置/过滤链与3真实Spring验签测试、五服务yaml、PDA表单label/顶栏、浏览器工具与清单/验收/Review/本进度。
+- W05 Auth动作/写撤权工具、runtime冻结/TCP/五服务、CI、设计进度与验证记录。W05逻辑提交中。
 
 ## 未完成
 
-- W04两仓逻辑提交/精确CI/main正常发布（正在执行）。
-- W05机器内部链路兼容与真实入出库/PDA；W06独立审批/应用与源目标；W07HTTPS跨Docker、实际本机运行/故障/回退/最终交付。
+- W04 WMS精确CI/main发布，W05 Git/精确CI/main发布。不要推WMS W05分支取消仍运行的W04 CI。
+- W06独立审批/应用、源/目标调拨，W07跨Docker HTTPS、真实本机运行/故障/兼容回退、最终交付。整体目标未完成，继续推进。
 
 ## 当前问题
 
-- 无W04产品验证阻塞。原失败是环境恢复后专项通过，不能伪称原full命令一次通过。共享Docker恢复已完成，不重复授权/重启。
-- 原wms-local全部停服，尚未真实Docker切换。旧localhost8000/wms-platform及inventory-worker需W05限定内部路径兼容，公开路径不OR回退。
-- 私密凭据/证据/测试MySQL数据保留，无清理授权。宿主fixture/Vite已停止；本轮临时caffeinate session68556运行，任务结束停止。
+- W05无产品验证阻塞；自动hygiene2项为测试工具误报，逐条人工审查，原FAIL及无formatter限制保留，不改共享政策。
+- 旧8000/wms-platform机器白名单仅内部路径兼容；真实RSA过滤链已证明，旧IdP真实机器发行仍待W07。原wms-local停服尚未切换。
+- W05fixture进程session61967与Vite48618由本任务持有，验证后停止；临时caffeinate68556任务结束停止。凭据、证据、测试DB/卷/工作树均保留，无清理授权。
 
 ## 下一步建议
 
-1. 显式路径提交W04；Auth排除W05actions工具。推任务分支，精确CI通过正常发布main，保护原WMS工作目录。
-2. 下一切片W05 READY，连续实现，不重复组织问题/重新规划；CI等待可开展已经满足本地前置门禁的W05。
+1. 保存W05证据并显式路径提交，核对W04 WMS CI，再正常发布已验证SHA。Auth本轮main可用祖先检查后正常ff push，原目录dirty避免切分支；最终clean后同步local main。
+2. W06 READY，同轮连续实施，不重复组织/继续问题；复用既有任务工作树，不动Driver/ERP。
 
 ## 恢复 Prompt
 
-读Auth规范PROGRESS_STATE和私密delivery-result.json，从W04 Git/精确CI或已记录的W05步骤继续。工作树复用/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。正常Docker恢复结果Auth .local/wms-auth-integration/docker-recovery/result.json；专项日志WMS .local/wms-auth-integration/w04-allocation-after-restart.log退出0。原full/第二轮失败证据保留，不重跑已通过全套，不处理Driver/ERP，不生产部署。
+读取Auth规范PROGRESS_STATE与私密delivery-result.json，从W05 Git或已记录的W06继续；总体目标W00–W07仍active。任务树/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。当前验证runtime-w05-b8e3b083814c和immutable制品，6份结果全PASS；原工具/并发失败全部保留，不假称旧机器真实IdP证明或本机已切换。
 
 ---
 

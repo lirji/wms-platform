@@ -27,8 +27,30 @@ import org.springframework.security.web.SecurityFilterChain;
  * issuer 配置后校验 Casdoor JWT；未配置时拒绝全部业务请求，绝不免认证回退。
  */
 @AutoConfiguration
-@EnableConfigurationProperties(WmsOidcProperties.class)
+@EnableConfigurationProperties({WmsOidcProperties.class, WmsInternalOidcProperties.class})
 public class WmsSecurityAutoConfiguration {
+    /** 机器协议单独验签和校验可信主体，Owner继续检查原scope、企业、仓和事务标识。 */
+    @Bean
+    @org.springframework.core.annotation.Order(0)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "wms.iam.enabled", havingValue = "true")
+    SecurityFilterChain internalMachineResourceServer(HttpSecurity http, WmsInternalOidcProperties properties) throws Exception {
+        http.securityMatcher("/internal/wms/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        if (!properties.configured()) return http.authorizeHttpRequests(auth -> auth.anyRequest().denyAll()).build();
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(properties.jwkSetUri()).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(new JwtTimestampValidator(),
+                new JwtIssuerValidator(properties.issuer()), jwt -> properties.allowedSubjects().contains(jwt.getSubject())
+                        && jwt.getAudience().contains(properties.clientId())
+                        // 旧机器令牌可能没有purpose声明；明确标识为ID Token的令牌仍必须拒绝。
+                        && !"id-token".equals(jwt.getClaims().get("tokenType"))
+                        ? OAuth2TokenValidatorResult.success()
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "机器身份不受信任", null))));
+        return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(decoder)
+                        .jwtAuthenticationConverter(WmsJwtAuthorities.converter())))
+                .build();
+    }
     /** 开关开启时配置缺失必须失败；不构造旧JWT权限的OR回退。 */
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "wms.iam.enabled", havingValue = "true")
@@ -73,6 +95,7 @@ public class WmsSecurityAutoConfiguration {
 
     /** Casdoor 资源服务器。 */
     @Bean
+    @org.springframework.core.annotation.Order(1)
     @Conditional(OnWmsOidcEnabled.class)
     SecurityFilterChain oidcResourceServer(HttpSecurity http, JwtDecoder jwtDecoder,
             com.lrj.wms.runtime.web.AdmissionGate admissionGate,

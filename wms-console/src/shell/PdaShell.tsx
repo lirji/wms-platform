@@ -40,12 +40,12 @@ export function PdaShell({ user, token }: { user: User; token?: string }) {
       <Layout className="app-shell">
         <a className="skip-link" href="#main">跳到主内容</a>
         <Layout.Header className="app-header">
-          <Flex align="center" justify="space-between">
+          <Flex className="app-header-row" align="center" justify="space-between" gap={8}>
             <Link to={warehouseId ? `/w/${warehouseId}` : "/"}>
               <Typography.Title level={4} style={{ margin: 0, color: "#1D2129" }}>PDA {job.label}</Typography.Title>
               <Typography.Text type="secondary">{warehouseId || "未选仓"} · {displayName}</Typography.Text>
             </Link>
-            <Space>
+            <Space className="workspace-actions" wrap>
               {jobs.map((item) => (
                 <Link key={item.to} to={`/pda/${encodeURIComponent(warehouseId)}/${item.to}`}>
                   <Button type={item.to === job.to ? "primary" : "default"}>{item.label}</Button>

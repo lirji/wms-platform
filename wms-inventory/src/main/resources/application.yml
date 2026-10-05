@@ -32,6 +32,12 @@ seata:
   application-id: ${spring.application.name}
   tx-service-group: wms_inventory_group
 wms:
+  # 内部机器协议独立发行方和主体白名单；中央模式未配置时拒绝全部内部请求。
+  internal-oidc:
+    issuer: ${WMS_INTERNAL_OIDC_ISSUER:}
+    client-id: ${WMS_INTERNAL_OIDC_CLIENT_ID:}
+    jwk-set-uri: ${WMS_INTERNAL_OIDC_JWK_SET_URI:}
+    allowed-subjects: ${WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS:}
   iam:
     enabled: ${WMS_IAM_ENABLED:false}
     configuration: ${WMS_IAM_CONFIGURATION:}

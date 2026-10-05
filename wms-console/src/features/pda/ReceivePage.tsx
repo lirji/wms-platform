@@ -103,23 +103,23 @@ export function ReceivePage() {
           />
         ) : null}
         <Form layout="vertical" onSubmitCapture={onScan} style={{ marginTop: 16 }}>
-          <Form.Item label="入库单" required>
-            <Input size="large" value={orderId} onChange={(event) => setOrderId(event.target.value)} />
+          <Form.Item label="入库单" htmlFor="pda-receive-order" required>
+            <Input id="pda-receive-order" size="large" value={orderId} onChange={(event) => setOrderId(event.target.value)} />
           </Form.Item>
-          <Form.Item label="行/扫码" required>
-            <Input ref={scanRef} size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
+          <Form.Item label="行/扫码" htmlFor="pda-receive-line" required>
+            <Input id="pda-receive-line" ref={scanRef} size="large" autoFocus value={scan || lineId} onChange={(event) => setScan(event.target.value)} />
           </Form.Item>
-          <Form.Item label="收货库位" required>
-            <Input size="large" value={locationId} onChange={(event) => setLocationId(event.target.value)} />
+          <Form.Item label="收货库位" htmlFor="pda-receive-location" required>
+            <Input id="pda-receive-location" size="large" value={locationId} onChange={(event) => setLocationId(event.target.value)} />
           </Form.Item>
-          <Form.Item label="货品批次" required extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。">
-            <Input size="large" value={lotId} onChange={(event) => setLotId(event.target.value)} />
+          <Form.Item label="货品批次" htmlFor="pda-receive-lot" required extra="不按批次管理的货品填写 NO_LOT；其余填写已建档批次。">
+            <Input id="pda-receive-lot" size="large" value={lotId} onChange={(event) => setLotId(event.target.value)} />
           </Form.Item>
-          <Form.Item label="数量" required extra="填写序列号时按身份个数提交。">
-            <Input size="large" inputMode="decimal" value={qty} onChange={(event) => setQty(event.target.value)} />
+          <Form.Item label="数量" htmlFor="pda-receive-qty" required extra="填写序列号时按身份个数提交。">
+            <Input id="pda-receive-qty" size="large" inputMode="decimal" value={qty} onChange={(event) => setQty(event.target.value)} />
           </Form.Item>
-          <Form.Item label="序列号观察" extra="序列号 SKU 每行一个。普通货品留空。">
-            <Input.TextArea rows={3} value={serialText} onChange={(event) => setSerialText(event.target.value)} placeholder={"SN-001\nSN-002"} />
+          <Form.Item label="序列号观察" htmlFor="pda-receive-serial" extra="序列号 SKU 每行一个。普通货品留空。">
+            <Input.TextArea id="pda-receive-serial" rows={3} value={serialText} onChange={(event) => setSerialText(event.target.value)} placeholder={"SN-001\nSN-002"} />
           </Form.Item>
           <Button type="primary" htmlType="submit" size="large" block loading={busy} disabled={busy || !hasScope(scopes, "inbound.receive")}>回车提交</Button>
         </Form>

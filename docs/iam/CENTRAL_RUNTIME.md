@@ -25,3 +25,9 @@
 错误稳定为 401 UNAUTHENTICATED、403 CENTRAL_ACCESS_DENIED、503 AUTHORIZATION_UNAVAILABLE；均不缓存，不包含上游内部错误或凭据。导航多能力检查使用有界线程池/队列和 10 秒截止时间，不持久化 JWT。
 
 W04 只授予主数据与库存读权。W05/W06 的绑定已经生成，业务动作与既有内部服务身份兼容仍需各片真实验证；本说明不表示已切换本机 Docker 或部署生产。
+
+## 内部机器协议兼容
+
+中央模式下，`/internal/wms/**` 使用单独的 `wms.internal-oidc` 过滤链。`WMS_INTERNAL_OIDC_ISSUER`、`WMS_INTERNAL_OIDC_CLIENT_ID`、`WMS_INTERNAL_OIDC_JWK_SET_URI`、`WMS_INTERNAL_OIDC_ALLOWED_SUBJECTS` 四项必须完整；全空拒绝内部请求，部分配置或无效主体启动失败。白名单最多16个明确机器主体，不接受通配符。旧本机发行方是 localhost:8000，audience 为 wms-platform；serial-registry 的原Owner白名单仍为 inventory-worker，库存TCC的原主体仍为 wms-fulfillment，来源对账另沿用原Owner白名单。
+
+内部请求仍校验签名、issuer、audience、期限及白名单；明确的ID Token拒绝。旧机器令牌没有purpose声明时不改变原协议。Controller继续校验scope、企业、仓和事务标识。公开入口只信任中央发行方和客户端，机器链路不构成旧JWT业务权限回退。开关关闭时继续沿用原OIDC链。W05验证记录独立列出真实RSA/Spring验证与实际IdP/MySQL动作，不把协议夹具声称为旧IdP机器发行证明。
