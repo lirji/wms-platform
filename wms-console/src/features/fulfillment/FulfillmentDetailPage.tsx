@@ -73,10 +73,10 @@ export function FulfillmentDetailPage() {
       )}
       commands={(
         <>
-          <CommandCol title="准备跨仓分配" requireScope="fulfillment.execute">
+          <CommandCol title="准备跨仓分配" requireScope="fulfillment.execute" resourceType="enterprise">
             <CommandCard
               embedded
-              requireScope="fulfillment.execute"
+              requireScope="fulfillment.execute" resourceType="enterprise"
               title="准备跨仓分配"
               hint="每个履约行数量必须分完。没有真实 TC 时 attempt 会停在准备/尝试态。"
               operation={`attempt:${fulfillmentId}`}
@@ -130,10 +130,10 @@ export function FulfillmentDetailPage() {
               <Form.Item label="原因" name="reason"><Input /></Form.Item>
             </CommandCard>
           </CommandCol>
-          <CommandCol title="执行跨仓分配" requireScope="fulfillment.execute">
+          <CommandCol title="执行跨仓分配" requireScope="fulfillment.execute" resourceType="enterprise">
             <CommandCard
               embedded
-              requireScope="fulfillment.execute"
+              requireScope="fulfillment.execute" resourceType="enterprise"
               title="执行跨仓分配"
               hint="202 只表示执行器已受理。没有 TC 终态证据时不会写成 ALLOCATED。"
               operation={`execute:${fulfillmentId}`}

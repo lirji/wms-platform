@@ -144,14 +144,31 @@ def main():
     mode.add_argument("--check", action="store_true")
     args = parser.parse_args()
     artifacts = build(args.root)
-    for name, data in artifacts.items():
-        path = args.root / "docs/iam" / name
-        content = encoded(data)
+    outputs = {args.root / "docs/iam" / name: encoded(data) for name, data in artifacts.items()}
+    # 后端消费同一审查绑定的生成副本；CI同时拒绝目录和运行资源漂移。
+    runtime = "# method\tpath\tlegacy_scope\tresource_type\tcapability\tslice\n"
+    runtime += "".join("\t".join(operation[key] for key in (
+        "method", "path", "legacy_scope", "resource_type", "capability", "slice")) + "\n"
+        for operation in artifacts["operations.json"]["operations"])
+    outputs[args.root / "wms-security/src/main/resources/wms-central-operation-bindings.tsv"] = runtime
+    outputs[args.root / "wms-security/src/main/resources/wms-central-catalog.json"] = encoded(artifacts["catalog.json"])
+    meanings = {operation["legacy_scope"] + ":" + operation["resource_type"]: operation["capability"]
+                for operation in artifacts["operations.json"]["operations"]}
+    outputs[args.root / "wms-console/src/auth/centralBindings.ts"] = (
+        "// 由Owner真实操作绑定生成；只声明能力语义，不包含成员或授权数据。\n"
+        + "export const CENTRAL_BINDINGS: Record<string, string> = " + encoded(dict(sorted(meanings.items()))).rstrip() + ";\n"
+        + "export const CENTRAL_QUERIES = " + encoded([
+            {"path": operation["path"], "capability": operation["capability"]}
+            for operation in artifacts["operations.json"]["operations"] if operation["method"] == "GET"
+        ]).rstrip() + ";\n")
+    for path, content in outputs.items():
         if args.check:
             if not path.is_file() or path.read_text() != content:
-                raise ValueError("中央目录产物缺失或漂移：" + name)
+                raise ValueError("中央目录产物缺失或漂移：" + path.name)
         else:
-            path.write_text(content)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.is_file() or path.read_text() != content:
+                path.write_text(content)
     print("PASS: WMS目录源与绑定一致；操作=%d，能力=%d，菜单=%d" % (
         len(artifacts["operations.json"]["operations"]), len(artifacts["catalog.json"]["capabilities"]),
         len(artifacts["catalog.json"]["menus"])))

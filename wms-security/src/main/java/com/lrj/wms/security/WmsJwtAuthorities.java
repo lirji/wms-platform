@@ -11,8 +11,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 
 /**
- * 把 Casdoor JWT 的 groups/scope/warehouses/enterprise 归一成权限。
- * 企业与仓范围只信令牌，不接受请求头扩大权限。
+ * 旧模式归一签名声明；中央模式只消费后端建立的单请求权限上下文。
+ * 两种模式由部署开关选择，中央拒绝或故障绝不回落令牌范围。
  */
 public final class WmsJwtAuthorities {
     public static final String WAREHOUSE_PREFIX = "WAREHOUSE_";
@@ -50,6 +50,7 @@ public final class WmsJwtAuthorities {
 
     /** 令牌内仓范围。 */
     public static Set<String> warehouses(Jwt jwt) {
+        if (jwt instanceof WmsCentralJwt central) return central.warehouses();
         Set<String> values = new LinkedHashSet<>(stringValues(jwt, "warehouses"));
         String csv = jwt.getClaimAsString("warehouses");
         if (csv != null) {
@@ -64,6 +65,7 @@ public final class WmsJwtAuthorities {
 
     /** 企业标识，优先 enterprise_id，否则 owner。 */
     public static String enterpriseId(Jwt jwt) {
+        if (jwt instanceof WmsCentralJwt central) return central.enterprise();
         String enterprise = firstNonBlank(jwt.getClaimAsString("enterprise_id"), jwt.getClaimAsString("owner"));
         if (enterprise == null || enterprise.isBlank()) {
             throw new IllegalArgumentException("令牌缺少企业范围");
@@ -73,6 +75,7 @@ public final class WmsJwtAuthorities {
 
     /** 校验调用仓必须在令牌仓列表中。 */
     public static void requireWarehouse(Jwt jwt, String warehouseId) {
+        if (jwt instanceof WmsCentralJwt central) { central.requireWarehouse(warehouseId); return; }
         if (!warehouses(jwt).contains(warehouseId)) {
             throw new WarehouseForbiddenException(warehouseId);
         }
@@ -83,6 +86,7 @@ public final class WmsJwtAuthorities {
         if (scope == null || scope.isBlank()) {
             throw new IllegalArgumentException("权限范围不能为空");
         }
+        if (jwt instanceof WmsCentralJwt central) { central.requireScope(scope); return; }
         boolean allowed = operationScopes(jwt).contains(scope);
         if (!allowed) {
             throw new ScopeForbiddenException(scope);
@@ -91,6 +95,7 @@ public final class WmsJwtAuthorities {
 
     /** 操作授权只接受 scope/permissions；组名碰撞不能代替作业权限。 */
     public static Set<String> operationScopes(Jwt jwt) {
+        if (jwt instanceof WmsCentralJwt central) return central.scopes();
         Set<String> values = new LinkedHashSet<>();
         for (String claim : List.of("scope", "permissions")) {
             for (String text : stringValues(jwt, claim)) {

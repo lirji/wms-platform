@@ -108,6 +108,10 @@ export async function api(path: string, token: string | undefined, options: Requ
         : response.status === 202,
       body: parsed
     };
+    if (!path.startsWith("/api/wms/v1/me/access") && (response.status === 401 || ([403, 503].includes(response.status)
+        && ["CENTRAL_ACCESS_DENIED", "AUTHORIZATION_UNAVAILABLE"].includes(error.code ?? "")))) {
+      window.dispatchEvent(new CustomEvent("wms:access-invalidated", { detail: error }));
+    }
     throw error;
   }
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {

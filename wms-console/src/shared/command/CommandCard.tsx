@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, Form } from "antd";
-import { hasScope } from "../../auth/can";
+import { canOperation } from "../../auth/can";
 import { api, clearKey, rememberKey } from "../../api/client";
 import { asRecord, field, type ItemRecord } from "../../api/envelope";
 import { useWorkspace } from "../../shell/WorkspaceContext";
@@ -17,6 +17,7 @@ export function CommandCard({
   disabled,
   embedded,
   requireScope,
+  resourceType,
   danger,
   pollOperation,
   children,
@@ -32,6 +33,7 @@ export function CommandCard({
   disabled?: boolean;
   embedded?: boolean;
   requireScope?: string | string[];
+  resourceType?: "warehouse" | "enterprise";
   danger?: boolean;
   /** 仅库存域 GET /operations/{id} 存在。入出库/履约 202 不要拿库存去猜。 */
   pollOperation?: boolean;
@@ -42,7 +44,8 @@ export function CommandCard({
   confirmResult?: (result: ItemRecord) => boolean;
   renderSuccess?: (result: ItemRecord, startNext: () => void) => ReactNode;
 }) {
-  const { token, scopes } = useWorkspace();
+  const workspace = useWorkspace();
+  const { token } = workspace;
   const markDirty = useMarkDirty();
   const dialog = useCommandDialog();
   const [form] = Form.useForm();
@@ -127,7 +130,7 @@ export function CommandCard({
     };
   }, [pollId, pollOperation, token]);
 
-  if (!hasScope(scopes, requireScope)) {
+  if (!canOperation(workspace, requireScope, resourceType)) {
     return null;
   }
 

@@ -7,6 +7,8 @@ export type WorkspaceValue = {
   enterpriseId?: string;
   warehouses?: string[];
   scopes?: string[];
+  mode?: "CENTRAL" | "LEGACY";
+  capabilities?: string[];
 };
 
 const WorkspaceContext = createContext<WorkspaceValue>({ warehouseId: "" });

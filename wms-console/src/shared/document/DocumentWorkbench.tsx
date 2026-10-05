@@ -1,7 +1,7 @@
 import { Children, Fragment, isValidElement, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Button, Card, Descriptions, Space } from "antd";
-import { hasScope } from "../../auth/can";
+import { canOperation } from "../../auth/can";
 import { field, nestedRecords, type ItemRecord } from "../../api/envelope";
 import { CommandDrawer } from "../command/CommandDrawer";
 import { CopyId } from "../ui/CopyId";
@@ -10,7 +10,7 @@ import { errorBanner } from "../ui/errorBanner";
 import { PageHead } from "../ui/PageHead";
 import { StatusBanner } from "../ui/StatusBanner";
 import { StatusChip } from "../ui/StatusChip";
-import { useWorkspace } from "../../shell/WorkspaceContext";
+import { useWorkspace, type WorkspaceValue } from "../../shell/WorkspaceContext";
 
 export type HeaderField = {
   key: string;
@@ -38,22 +38,23 @@ type CommandTab = { key: string; label: string; children: ReactNode };
 type CommandColProps = {
   title: string;
   requireScope?: string | string[];
+  resourceType?: "warehouse" | "enterprise";
   children: ReactNode;
 };
 
-export function collectCommandTabs(node: ReactNode, scopes: string[] | undefined): CommandTab[] {
+export function collectCommandTabs(node: ReactNode, scopes: string[] | undefined, workspace: WorkspaceValue = { warehouseId: "", scopes }): CommandTab[] {
   return Children.toArray(node).flatMap((child) => {
     if (!isValidElement(child)) {
       return [];
     }
     if (child.type === Fragment) {
-      return collectCommandTabs((child.props as { children?: ReactNode }).children, scopes);
+      return collectCommandTabs((child.props as { children?: ReactNode }).children, scopes, workspace);
     }
     if (child.type !== CommandCol) {
       return [];
     }
     const props = child.props as CommandColProps;
-    if (!hasScope(scopes, props.requireScope)) {
+    if (!canOperation(workspace, props.requireScope, props.resourceType)) {
       return [];
     }
     return [{ key: props.title, label: props.title, children: props.children }];
@@ -140,11 +141,12 @@ export function DocumentWorkbench({
   commands: ReactNode;
   extra?: ReactNode;
 }) {
-  const { scopes } = useWorkspace();
+  const workspace = useWorkspace();
+  const { scopes } = workspace;
   const [tick, setTick] = useState(0);
   const lines = nestedRecords(record, ...lineKeys);
   const columns = lineColumns ?? [...LINE_COLUMNS, ...(extraColumns ?? [])];
-  const tabs = useMemo(() => collectCommandTabs(commands, scopes), [commands, scopes]);
+  const tabs = useMemo(() => collectCommandTabs(commands, scopes, workspace), [commands, scopes, workspace]);
   void tick;
 
   return (

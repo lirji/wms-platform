@@ -105,12 +105,14 @@ export function SkuDetailPage() {
           title="追加单位"
           hint="分子分母必须是正整数。不在页面换算发运量。"
           requireScope="masterdata.write"
+            resourceType="enterprise"
           disabled={!token}
           onSubmitted={() => setTick((current) => current + 1)}
         >
           <CommandCard
             embedded
             requireScope="masterdata.write"
+            resourceType="enterprise"
             title="追加单位"
             hint="写入当前策略版本。"
             operation={`sku-unit:${decoded}`}

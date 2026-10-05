@@ -94,7 +94,13 @@ class OpenApiContractTest {
             String scope = method.getValue().path("security").path(0).path("oidc").path(0).asText();
             String key = method.getKey().toUpperCase(java.util.Locale.ROOT) + " " + canonical(path.getKey());
             contracts.put(key, scope);
-            assertEquals(scope, rules.get(key), "运行权限与契约不一致 " + key);
+            // 唯一本人提示入口只要求认证；不能把空scope泛化为新增业务入口的放行。
+            if (key.equals("GET /api/wms/v1/me/access")) {
+                assertEquals("", scope); assertNull(rules.get(key));
+            } else {
+                assertFalse(scope.isBlank(), "业务入口必须有能力 " + key);
+                assertEquals(scope, rules.get(key), "运行权限与契约不一致 " + key);
+            }
         }));
         for (String module : List.of("inbound", "outbound", "inventory", "fulfillment", "security")) {
             try (var files = java.nio.file.Files.walk(root.resolve("wms-" + module + "/src/main/java"))) {

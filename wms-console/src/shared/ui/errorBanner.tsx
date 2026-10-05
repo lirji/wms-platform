@@ -19,7 +19,7 @@ export function errorBanner(error: unknown) {
     return (
       <>
         <StatusBanner kind="error" title="登录已失效" detail="请重新登录。这不是仓权限不足。" />
-        <Button type="primary" href="/login" style={{ marginTop: 8 }}>去登录</Button>
+        <Button type="primary" href="/login?reauth=1" style={{ marginTop: 8 }}>去登录</Button>
       </>
     );
   }
@@ -57,13 +57,13 @@ export function errorBanner(error: unknown) {
 }
 
 function ForbiddenBanner({ message, code }: { message: string; code?: string }) {
-  const { warehouses = [], scopes = [], enterpriseId } = useWorkspace();
+  const { warehouses = [], scopes = [], enterpriseId, mode } = useWorkspace();
   const detail = [
     code,
     message,
     enterpriseId ? `enterprise=${enterpriseId}` : "",
-    warehouses.length ? `warehouses=${warehouses.join(",")}` : "令牌没有仓范围",
-    scopes.length ? `scope=${scopes.slice(0, 8).join(" ")}${scopes.length > 8 ? "…" : ""}` : "令牌没有作业权限"
+    mode === "CENTRAL" ? "请核对当前仓与动作权限，必要时刷新权限" : warehouses.length ? `warehouses=${warehouses.join(",")}` : "令牌没有仓范围",
+    mode === "CENTRAL" ? "" : scopes.length ? `scope=${scopes.slice(0, 8).join(" ")}${scopes.length > 8 ? "…" : ""}` : "令牌没有作业权限"
   ].filter(Boolean).join(" · ");
   return <StatusBanner kind="forbidden" title="没有权限访问该资源" detail={detail} />;
 }

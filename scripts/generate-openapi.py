@@ -31,7 +31,8 @@ def responses(*codes, success_schema="ResourceEnvelope"):
 
 
 def write_op(method, path, op, tag, scope, body, success, extra_params=None, description="", success_schema="ResourceEnvelope"):
-    scope_rules.append((method.upper(), path, scope))
+    if scope is not None:
+        scope_rules.append((method.upper(), path, scope))
     write = method in ("post", "put", "patch")
     params = extra_params or []
     if write:
@@ -48,7 +49,7 @@ def write_op(method, path, op, tag, scope, body, success, extra_params=None, des
         f"      tags: [{tag}]",
         f"      summary: {description or op}",
         f"      security:",
-        f"        - oidc: [{scope}]",
+        f"        - oidc: [{scope if scope is not None else ''}]",
         "      parameters:",
     ]
     for param in params:
@@ -77,6 +78,11 @@ def post(path, op, tag, scope, body, success, description, extra=None, success_s
 def get(path, op, tag, scope, success, description, extra=None, success_schema="ResourceEnvelope"):
     ops.append(write_op("get", path, op, tag, scope, None, success, extra, description, success_schema))
 
+
+# 本人权限只需要已认证身份；不登记业务动作，绝不因缺scope拒绝展示无权限状态。
+get("/api/wms/v1/me/access", "getMyAccess", "identity", None, ("200",),
+    "读取当前模式、本人菜单和当前仓能力提示；每次业务动作仍重新判权",
+    ["- name: warehouseId\n  in: query\n  required: false\n  schema: {type: string, minLength: 1, maxLength: 100}"], success_schema="MyAccess")
 
 cursor = [
     "- $ref: '#/components/parameters/Cursor'",
@@ -621,6 +627,31 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    MyAccess:
+      type: object
+      required: [mode, enterpriseId, warehouseIds, scopes, observedAt]
+      properties:
+        mode: {type: string, enum: [CENTRAL, LEGACY]}
+        enterpriseId: {type: string}
+        warehouseId: {type: [string, 'null']}
+        warehouseIds: {type: array, maxItems: 200, items: {type: string}}
+        scopes: {type: array, maxItems: 200, items: {type: string}}
+        capabilities: {type: array, maxItems: 200, items: {type: string}}
+        menus:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [code]
+            properties:
+              code: {type: string}
+              parent: {type: [string, 'null']}
+              route: {type: [string, 'null']}
+              label: {type: [string, 'null']}
+              position: {type: [integer, 'null']}
+        observedAt: {type: string, format: date-time}
+        manifestVersion: {type: integer, minimum: 1}
+        state: {type: string, enum: [AVAILABLE, NO_ACCESS]}
     Id:
       type: string
       minLength: 1
@@ -668,6 +699,8 @@ components:
             - REQUIRED_LOT
             - INVALID_EXPIRY
             - UNAUTHENTICATED
+            - CENTRAL_ACCESS_DENIED
+            - AUTHORIZATION_UNAVAILABLE
             - WAREHOUSE_FORBIDDEN
             - RESOURCE_NOT_FOUND
             - IDEMPOTENCY_PAYLOAD_MISMATCH

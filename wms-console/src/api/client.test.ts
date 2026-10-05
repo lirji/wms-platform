@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { routeFor, serviceFor } from "./client";
+import { describe, expect, it, vi } from "vitest";
+import { api, routeFor, serviceFor } from "./client";
 
 describe("API routing", () => {
   it("sends inbound receipts to inbound", () => {
@@ -50,4 +50,18 @@ describe("API routing", () => {
     expect(routeFor("/api/wms/v1/warehouses/WH-A/message-queues/INBOX/messages?service=inbound"))
       .toBe("/inbound-api/api/wms/v1/warehouses/WH-A/message-queues/INBOX/messages");
   });
+});
+
+it("bare resource-server 401 invalidates old hints with its real status", async () => {
+  const events: unknown[] = [];
+  const listener = (event: Event) => events.push((event as CustomEvent).detail);
+  window.addEventListener("wms:access-invalidated", listener);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 401 })));
+  try {
+    await expect(api("/api/wms/v1/skus", "expired")).rejects.toMatchObject({ status: 401 });
+    expect(events).toEqual([expect.objectContaining({ status: 401 })]);
+  } finally {
+    window.removeEventListener("wms:access-invalidated", listener);
+    vi.unstubAllGlobals();
+  }
 });

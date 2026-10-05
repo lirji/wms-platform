@@ -34,7 +34,7 @@ export function CatalogPage() {
       <PageHead
         eyebrow={warehouseName || warehouseId || "未选仓"}
         title="商品 / 库位"
-        sub="主数据来自库存服务。点标识打开详情。新建仓库不会自动进入当前令牌，须更新身份后才能选仓。"
+        sub="主数据来自库存服务。点标识打开详情。新建仓库后须获得该仓权限才能选仓。"
         extra={(
           <div className="list-toolbar">
             <CommandDrawer
@@ -42,12 +42,14 @@ export function CatalogPage() {
               title="创建商品"
               hint="编码即标识。基础单位会写成 1:1 换算。"
               requireScope="masterdata.write"
+                resourceType="enterprise"
               disabled={!token}
               onSubmitted={reload}
             >
               <CommandCard
                 embedded
                 requireScope="masterdata.write"
+                resourceType="enterprise"
                 title="创建商品"
                 hint="数量精度 0–6。序列号商品必须是整数精度。"
                 operation={`sku-create:${warehouseId}`}
@@ -171,12 +173,14 @@ export function CatalogPage() {
               hint="分子分母必须是正整数。不在页面换算发运量。"
               triggerType="default"
               requireScope="masterdata.write"
+                resourceType="enterprise"
               disabled={!token}
               onSubmitted={reload}
             >
               <CommandCard
                 embedded
                 requireScope="masterdata.write"
+                resourceType="enterprise"
                 title="追加单位"
                 hint="写入当前策略版本。"
                 operation={`sku-unit:${warehouseId}`}
@@ -225,15 +229,17 @@ export function CatalogPage() {
             <CommandDrawer
               triggerLabel="创建仓库"
               title="创建仓库"
-              hint="企业级写入。新仓要等身份更新后才会出现在选仓器。"
+              hint="企业级写入。新仓须获得中央仓权限后才会出现在选仓器。"
               triggerType="default"
               requireScope="masterdata.write"
+                resourceType="enterprise"
               disabled={!token}
               onSubmitted={reload}
             >
               <CommandCard
                 embedded
                 requireScope="masterdata.write"
+                resourceType="enterprise"
                 title="创建仓库"
                 hint="时区必须是 IANA 标识。"
                 operation="warehouse-create"

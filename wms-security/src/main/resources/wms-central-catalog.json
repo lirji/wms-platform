@@ -1,0 +1,417 @@
+{
+  "schema_version": "1",
+  "application": "wms",
+  "manifest_version": 1,
+  "capabilities": [
+    {
+      "code": "wms.adjustment.apply",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.adjustment.approve",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.adjustment.create",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.adjustment.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.count.create",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.count.freeze",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.count.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.count.record",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.fulfillment.cancel",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.fulfillment.create",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.fulfillment.execute",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.fulfillment.execute.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.fulfillment.read",
+      "resource_type": "wms_enterprise",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.inbound.create",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.inbound.putaway",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.inbound.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.inbound.receive",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.inventory.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.job.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.job.retry",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.masterdata.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.masterdata.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.masterdata.write",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.masterdata.write.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.messaging.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.messaging.recover",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.operation.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.outbound.pack",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.outbound.pick",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.outbound.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.outbound.ship",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.quality.inspect",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.recon.export",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.recon.export.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.recon.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.recon.read.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.recon.remediate",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.recon.remediate.enterprise",
+      "resource_type": "wms_enterprise",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.stock.audit",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.stock.hold",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.stock.move",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.stock.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.stock.release_hold",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.task.claim",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.task.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.transfer.authorize_receipt",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.transfer.create",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    },
+    {
+      "code": "wms.transfer.read",
+      "resource_type": "wms_warehouse",
+      "risk_level": "NORMAL"
+    },
+    {
+      "code": "wms.transfer.receive",
+      "resource_type": "wms_warehouse",
+      "risk_level": "HIGH"
+    }
+  ],
+  "menus": [
+    {
+      "code": "wms.nav.group.overview",
+      "parent": null,
+      "route": null,
+      "any_of": [],
+      "label": "总览",
+      "position": 0
+    },
+    {
+      "code": "wms.nav.overview",
+      "parent": "wms.nav.group.overview",
+      "route": "/",
+      "any_of": [
+        "wms.fulfillment.read",
+        "wms.inbound.read",
+        "wms.masterdata.read",
+        "wms.masterdata.read.enterprise",
+        "wms.outbound.read",
+        "wms.stock.read"
+      ],
+      "label": "作业总览",
+      "position": 1
+    },
+    {
+      "code": "wms.nav.group.in_out",
+      "parent": null,
+      "route": null,
+      "any_of": [],
+      "label": "入出存",
+      "position": 2
+    },
+    {
+      "code": "wms.nav.catalog",
+      "parent": "wms.nav.group.in_out",
+      "route": "/catalog",
+      "any_of": [
+        "wms.masterdata.read",
+        "wms.masterdata.read.enterprise"
+      ],
+      "label": "商品 / 库位",
+      "position": 3
+    },
+    {
+      "code": "wms.nav.inbound",
+      "parent": "wms.nav.group.in_out",
+      "route": "/inbound",
+      "any_of": [
+        "wms.inbound.read"
+      ],
+      "label": "入库作业",
+      "position": 4
+    },
+    {
+      "code": "wms.nav.stock",
+      "parent": "wms.nav.group.in_out",
+      "route": "/stock",
+      "any_of": [
+        "wms.inventory.read",
+        "wms.stock.audit",
+        "wms.stock.read"
+      ],
+      "label": "库存台账",
+      "position": 5
+    },
+    {
+      "code": "wms.nav.fulfillment",
+      "parent": "wms.nav.group.in_out",
+      "route": "/fulfillment",
+      "any_of": [
+        "wms.fulfillment.read",
+        "wms.outbound.read"
+      ],
+      "label": "出库履约",
+      "position": 6
+    },
+    {
+      "code": "wms.nav.group.collaboration",
+      "parent": null,
+      "route": null,
+      "any_of": [],
+      "label": "仓内协同",
+      "position": 7
+    },
+    {
+      "code": "wms.nav.transfers",
+      "parent": "wms.nav.group.collaboration",
+      "route": "/transfers",
+      "any_of": [
+        "wms.transfer.read"
+      ],
+      "label": "调拨",
+      "position": 8
+    },
+    {
+      "code": "wms.nav.counts",
+      "parent": "wms.nav.group.collaboration",
+      "route": "/counts",
+      "any_of": [
+        "wms.count.read"
+      ],
+      "label": "盘点",
+      "position": 9
+    },
+    {
+      "code": "wms.nav.receive",
+      "parent": "wms.nav.group.collaboration",
+      "route": "/pda/receive",
+      "any_of": [
+        "wms.inbound.receive"
+      ],
+      "label": "PDA 收货",
+      "position": 10
+    },
+    {
+      "code": "wms.nav.pick",
+      "parent": "wms.nav.group.collaboration",
+      "route": "/pda/pick",
+      "any_of": [
+        "wms.outbound.pick"
+      ],
+      "label": "PDA 拣货",
+      "position": 11
+    },
+    {
+      "code": "wms.nav.ship",
+      "parent": "wms.nav.group.collaboration",
+      "route": "/pda/ship",
+      "any_of": [
+        "wms.outbound.ship"
+      ],
+      "label": "PDA 发运",
+      "position": 12
+    },
+    {
+      "code": "wms.nav.group.control",
+      "parent": null,
+      "route": null,
+      "any_of": [],
+      "label": "管控",
+      "position": 13
+    },
+    {
+      "code": "wms.nav.jobs",
+      "parent": "wms.nav.group.control",
+      "route": "/jobs",
+      "any_of": [
+        "wms.job.read",
+        "wms.task.read"
+      ],
+      "label": "任务 / 设备",
+      "position": 14
+    },
+    {
+      "code": "wms.nav.recon",
+      "parent": "wms.nav.group.control",
+      "route": "/recon",
+      "any_of": [
+        "wms.recon.read",
+        "wms.recon.read.enterprise"
+      ],
+      "label": "对账差异",
+      "position": 15
+    }
+  ]
+}

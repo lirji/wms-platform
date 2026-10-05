@@ -28,6 +28,40 @@ tags:
   - name: internal-registry
   - name: internal-inventory
 paths:
+  /api/wms/v1/me/access:
+    get:
+      operationId: getMyAccess
+      tags: [identity]
+      summary: 读取当前模式、本人菜单和当前仓能力提示；每次业务动作仍重新判权
+      security:
+        - oidc: []
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - name: warehouseId
+          in: query
+          required: false
+          schema: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyAccess'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
   /api/wms/v1/warehouses/{warehouseId}/serial-stock:
     get:
       operationId: listSelectableSerialStock
@@ -4402,6 +4436,31 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    MyAccess:
+      type: object
+      required: [mode, enterpriseId, warehouseIds, scopes, observedAt]
+      properties:
+        mode: {type: string, enum: [CENTRAL, LEGACY]}
+        enterpriseId: {type: string}
+        warehouseId: {type: [string, 'null']}
+        warehouseIds: {type: array, maxItems: 200, items: {type: string}}
+        scopes: {type: array, maxItems: 200, items: {type: string}}
+        capabilities: {type: array, maxItems: 200, items: {type: string}}
+        menus:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [code]
+            properties:
+              code: {type: string}
+              parent: {type: [string, 'null']}
+              route: {type: [string, 'null']}
+              label: {type: [string, 'null']}
+              position: {type: [integer, 'null']}
+        observedAt: {type: string, format: date-time}
+        manifestVersion: {type: integer, minimum: 1}
+        state: {type: string, enum: [AVAILABLE, NO_ACCESS]}
     Id:
       type: string
       minLength: 1
@@ -4449,6 +4508,8 @@ components:
             - REQUIRED_LOT
             - INVALID_EXPIRY
             - UNAUTHENTICATED
+            - CENTRAL_ACCESS_DENIED
+            - AUTHORIZATION_UNAVAILABLE
             - WAREHOUSE_FORBIDDEN
             - RESOURCE_NOT_FOUND
             - IDEMPOTENCY_PAYLOAD_MISMATCH

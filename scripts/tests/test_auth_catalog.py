@@ -81,6 +81,16 @@ class AuthCatalogTest(unittest.TestCase):
             command = ["python3", str(ROOT / "scripts/export-auth-catalog.py"), "--root", str(root)]
             subprocess.run(command + ["--write"], check=True, capture_output=True)
             subprocess.run(command + ["--check"], check=True, capture_output=True)
+            # 各消费产物独立漂移也必须拒绝，不能只保护发布目录而放过运行绑定。
+            for relative in ["wms-security/src/main/resources/wms-central-operation-bindings.tsv",
+                             "wms-security/src/main/resources/wms-central-catalog.json",
+                             "wms-console/src/auth/centralBindings.ts"]:
+                runtime = root / relative
+                original = runtime.read_bytes()
+                runtime.write_bytes(original + b"drift")
+                self.assertNotEqual(0, subprocess.run(command + ["--check"], capture_output=True).returncode)
+                self.assertEqual(original + b"drift", runtime.read_bytes())
+                runtime.write_bytes(original)
             target = root / "docs/iam/catalog.json"
             changed = copy.deepcopy(first["catalog.json"])
             changed["menus"][0]["label"] = "漂移"

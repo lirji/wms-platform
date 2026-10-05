@@ -27,6 +27,9 @@ management:
       probes:
         enabled: true
 wms:
+  iam:
+    enabled: ${WMS_IAM_ENABLED:false}
+    configuration: ${WMS_IAM_CONFIGURATION:}
   oidc:
     issuer: ${WMS_OIDC_ISSUER:}
     jwk-set-uri: ${WMS_OIDC_JWK_SET_URI:}
@@ -42,3 +45,8 @@ wms:
 logging:
   pattern:
     level: "%5p [requestId=%X{requestId:-}]"
+
+# 本项目只使用固定双身份中央客户端，不启动SDK旧远程策略引擎。
+authz:
+  client:
+    enabled: false

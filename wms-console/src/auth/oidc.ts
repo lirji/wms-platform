@@ -1,4 +1,12 @@
-import { UserManager, WebStorageStateStore } from "oidc-client-ts";
+import { UserManager, WebStorageStateStore, type User } from "oidc-client-ts";
+
+let signinCallback: Promise<User> | undefined;
+
+/** React重复执行effect时共享同一次授权码交换；一次性code不能被第二次消费。 */
+export function finishSigninRedirect(): Promise<User> {
+  signinCallback ??= createUserManager().signinRedirectCallback();
+  return signinCallback;
+}
 
 export function issuerConfigured(): boolean {
   return Boolean(import.meta.env.VITE_OIDC_ISSUER);

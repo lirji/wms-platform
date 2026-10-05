@@ -31,6 +31,14 @@ jobs:
           distribution: microsoft
           java-version: '21'
           cache: maven
+      # SDK源码固定至已验收提交，避免开发机残留SNAPSHOT改变中央协议。
+      - uses: actions/checkout@v4
+        with:
+          repository: lirji/auth-platform
+          ref: 7712d2606805afb3b9a7de7a6d88fe94a28104fb
+          path: .local/auth-sdk-source
+      - run: ./mvnw -B -ntp -pl auth-platform-sdk -am install -DskipTests
+        working-directory: .local/auth-sdk-source
       - run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - run: python3 scripts/export-auth-catalog.py --check
       - run: python3 scripts/check-docs.py

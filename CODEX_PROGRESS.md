@@ -1,42 +1,41 @@
 # Codex Progress
 
-## 当前任务：WMS 集中权限接入（2026-10-04）
+## 任务目标
 
-### 任务目标
+按已批准顺序完成WMS集中权限：只读→入出库/PDA→盘点调整/调拨→真实本机运行与正常Git发布。local-wms绑定ENT-DEMO；不生产部署。
 
-按已授权顺序完成 WMS 主数据/库存只读、入出库、盘点调整/调拨的 Auth 权限接入。规范计划与状态在 Auth 仓库 `docs/design/wms-auth-integration/`，生产部署不在范围。
+## 已完成
 
-### 已完成
+- W00–W03已发布；Auth b66f735/CI37219575766、WMS远端17048d5/CI37213828874通过。
+- W04验证DONE：19身份/SQL+5正常浏览器+7企业-only后端+1企业-only浏览器+2企业撤权+9故障/旧Token撤权PASS；当前源码截图已看，无身份注入/API替换。
+- 最新前端39文件84测试+类型/buildPASS。10新增安全测试PASS，144 default必需检查PASS。
+- 原303项回归1失败与第二次专项失败保留；用户要求继续后正常Docker重启/恢复，同版专项150.2秒PASS。135原ID/镜像/挂载/状态与36原运行服务健康匹配，5服务补恢复，旧Casdoor在数据库ready后恢复。不删镜像/卷。
+- 原WMS55文件/HEAD/status保持。Review通过；自动hygiene宽泛正则误分类有逐条人工审查，无formatter限制已记录，未改共享政策或伪称工具PASS。
 
-- W00 核查电商 8602 尚未由 5273 治理鉴权接管；未操作电商权限或运行配置。
-- W01 Auth 精确仓资源与企业资源协议已验证：206 reactor 单元、13 SDK HTTP、2 个真实 PostgreSQL/图集成测试通过；旧电商范围回归通过。
-- W02 从 94 个真实公开接口、43 个原 scope 导出 49 个中央能力、16 个菜单；9 个 Python 工具测试、目录漂移检查、Auth 生产目录解析器、原契约及文档结构检查通过。
-- 实现提交：Auth b2d2414，WMS 411d3db。两仓均已推送 feat/wms-central-authorization；精确 CI 和主线结果单独落盘，不预先宣称发布成功。
-- 为保护原项目 Driver/pom/文档等用户改动，只在 `~/.local/share/git-worktrees/wms-platform/central-authorization` 修改 WMS；原工作目录未编辑、暂存、清理或切换分支。
+## 已修改文件
 
-### 已修改文件
+- WMS任务工作树61路径：security、五服务配置、console权限/登录、OpenAPI、生成器、固定SDK CI/Docker、浏览器工具、docs/iam及本进度。
+- Auth W04 runtime/failure/enterprise-smoke工具、identity PKCE、CI、设计进度/验证记录。actions-smoke是W05未验证准备，必须排除W04交付。
 
-- WMS scripts/export-auth-catalog.py、scripts/tests/test_auth_catalog.py、docs/iam、.github/workflows/verify.yml、本检查点。
-- Auth protocol/governance/SDK 测试、README、docs/design/wms-auth-integration；Auth 根检查点与私密验证证据单独保留。
+## 未完成
 
-### 未完成
+- W04两仓逻辑提交/精确CI/main正常发布（正在执行）。
+- W05机器内部链路兼容与真实入出库/PDA；W06独立审批/应用与源目标；W07HTTPS跨Docker、实际本机运行/故障/回退/最终交付。
 
-- W03 组织、企业和身份/服务运行映射；W04 主数据/库存只读；W05 入出库/PDA；W06 盘点调整/调拨；W07 真实运行/浏览器/故障验收。
-- 全部 Git/CI 实际交付结果读取 `/Users/liruijun/personal/LLM/auth-platform/.local/wms-auth-integration/delivery-result.json`；回执缺失或必需检查未通过时不得视为已合入 main。
+## 当前问题
 
-### 当前问题
+- 无W04产品验证阻塞。原失败是环境恢复后专项通过，不能伪称原full命令一次通过。共享Docker恢复已完成，不重复授权/重启。
+- 原wms-local全部停服，尚未真实Docker切换。旧localhost8000/wms-platform及inventory-worker需W05限定内部路径兼容，公开路径不OR回退。
+- 私密凭据/证据/测试MySQL数据保留，无清理授权。宿主fixture/Vite已停止；本轮临时caffeinate session68556运行，任务结束停止。
 
-- 必需业务输入 Q-ORG 未答复：ENT-DEMO 归独立 local-wms，还是复用 local-commerce？未明确前不能创建主体映射、复制成员、授予权限或切换实际运行。
-- 当前仅完成协议与源目录；没有将 WMS 实际鉴权切到 Auth。新增工作树、隔离测试数据库与证据需保留；未经清理授权不删除。
+## 下一步建议
 
-### 下一步建议
+1. 显式路径提交W04；Auth排除W05actions工具。推任务分支，精确CI通过正常发布main，保护原WMS工作目录。
+2. 下一切片W05 READY，连续实现，不重复组织问题/重新规划；CI等待可开展已经满足本地前置门禁的W05。
 
-1. 读取 Auth 规范 PROGRESS_STATE 和交付回执，核对精确 CI 与远端 main。
-2. 用户答复 Q-ORG 后直接继续 W03，冻结身份/服务配置与契约，再连续 W04–W07；不要要求重新描述或重复“继续”。
+## 恢复 Prompt
 
-### 恢复 Prompt
-
-读取本检查点及 Auth docs/design/wms-auth-integration/PROGRESS_STATE.md、.local/wms-auth-integration/delivery-result.json。从 Q-ORG 答复继续 W03 和后续切片，不重做 W00–W02，不恢复旧 S9/Driver 或 ERP 暂停任务。保护原 WMS 用户改动，不能把目录导出或流水线健康当作实际鉴权接入完成。
+读Auth规范PROGRESS_STATE和私密delivery-result.json，从W04 Git/精确CI或已记录的W05步骤继续。工作树复用/Users/liruijun/.local/share/git-worktrees/wms-platform/central-authorization。正常Docker恢复结果Auth .local/wms-auth-integration/docker-recovery/result.json；专项日志WMS .local/wms-auth-integration/w04-allocation-after-restart.log退出0。原full/第二轮失败证据保留，不重跑已通过全套，不处理Driver/ERP，不生产部署。
 
 ---
 

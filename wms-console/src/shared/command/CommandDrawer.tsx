@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Button, Modal } from "antd";
-import { hasScope } from "../../auth/can";
+import { canOperation } from "../../auth/can";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 import { CommandDialogContext, DirtyFormContext } from "./dirtyForm";
 
@@ -12,6 +12,7 @@ export function CommandDrawer({
   disabled,
   width = 560,
   requireScope,
+  resourceType,
   triggerType = "primary",
   onSubmitted,
   children
@@ -22,17 +23,18 @@ export function CommandDrawer({
   disabled?: boolean;
   width?: number;
   requireScope?: string | string[];
+  resourceType?: "warehouse" | "enterprise";
   triggerType?: "primary" | "default";
   onSubmitted?: () => void;
   children: ReactNode;
 }) {
-  const { scopes } = useWorkspace();
+  const workspace = useWorkspace();
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [contentVersion, setContentVersion] = useState(0);
   const [modal, modalContext] = Modal.useModal();
-  if (!hasScope(scopes, requireScope)) {
+  if (!canOperation(workspace, requireScope, resourceType)) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { User } from "oidc-client-ts";
-import { createUserManager, issuerConfigured } from "../auth/oidc";
+import { createUserManager, finishSigninRedirect, issuerConfigured } from "../auth/oidc";
 import { sanitizeReturnTo } from "../auth/returnTo";
 import { LoginCallbackPage, LoginPage, LoginSetupPage } from "../pages/LoginPage";
 import { LegacyRedirect, PdaLegacyRedirect, RootRedirect } from "../shell/LegacyRedirect";
@@ -48,14 +48,21 @@ export function App() {
     if (!configured) {
       return;
     }
-    const manager = createUserManager();
-    void manager.getUser().then(setUser);
+    let active = true;
     if (window.location.pathname === "/callback") {
-      void manager.signinRedirectCallback().then((signed) => {
+      void finishSigninRedirect().then((signed) => {
+        if (!active) return;
         setUser(signed);
-        navigate("/", { replace: true });
+        navigate(sanitizeReturnTo((signed.state as { returnTo?: string } | undefined)?.returnTo ?? null), { replace: true });
+      }).catch(() => {
+        if (!active) return;
+        setUser(null);
+        navigate("/login", { replace: true });
       });
+    } else {
+      void createUserManager().getUser().then(stored => { if (active) setUser(stored?.expired ? null : stored); });
     }
+    return () => { active = false; };
   }, [configured, navigate]);
 
   if (!configured) {

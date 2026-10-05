@@ -8,10 +8,12 @@ import { PageHead } from "../../shared/ui/PageHead";
 import { QueryMeta } from "../../shared/ui/QueryMeta";
 import { StatusBanner } from "../../shared/ui/StatusBanner";
 import { countText, useSettledResource } from "../../shared/useSettledResource";
+import { canQuery } from "../../auth/can";
 import { useWorkspace } from "../../shell/WorkspaceContext";
 
 export function HomePage() {
-  const { token, warehouseId, warehouseName } = useWorkspace();
+  const workspace = useWorkspace();
+  const { token, warehouseId, warehouseName } = workspace;
   const ready = Boolean(warehouseId && warehouseId !== "_");
   const { buckets, loading } = useSettledResource(token, ready ? [
     "/api/wms/v1/warehouses",
@@ -21,7 +23,7 @@ export function HomePage() {
     `/api/wms/v1/warehouses/${warehouseId}/inbound-orders`,
     `/api/wms/v1/warehouses/${warehouseId}/outbound-orders`,
     `/api/wms/v1/jobs?warehouseId=${encodeURIComponent(warehouseId)}`
-  ] : []);
+  ].filter(path => canQuery(workspace, path)) : []);
   const by = Object.fromEntries(buckets.map((bucket) => [bucket.path, bucket]));
   const stock = by[`/api/wms/v1/inventory?warehouseIds=${encodeURIComponent(warehouseId)}`];
   const inbound = by[`/api/wms/v1/warehouses/${warehouseId}/inbound-orders`];
@@ -61,11 +63,11 @@ export function HomePage() {
           />
         )}
       />
-      {!ready ? <StatusBanner kind="empty" title="还没有可作业的仓库" detail="顶栏会列出当前令牌允许的仓；服务不可达时不会伪装成没有权限。" /> : null}
+      {!ready ? <StatusBanner kind="empty" title="还没有可作业的仓库" detail="顶栏会列出当前权限允许的仓；服务不可达时不会伪装成没有权限。" /> : null}
       {firstError ? errorBanner(firstError) : null}
       <Row gutter={[12, 12]}>
         {[
-          { label: "可访问仓", value: loading ? "…" : counts.warehouses, hint: "当前令牌可见" },
+          { label: "可访问仓", value: loading ? "…" : counts.warehouses, hint: "当前权限可见" },
           { label: "SKU", value: loading ? "…" : counts.skus, hint: "企业主数据" },
           { label: "本仓库位", value: loading ? "…" : counts.locations, hint: "当前作业仓" },
           { label: "库存行", value: loading ? "…" : counts.stock, hint: "投影行，非合计数量" },

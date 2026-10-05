@@ -30,7 +30,7 @@ export function LoginPage({ user }: { user: User | null }) {
     };
   }, []);
 
-  if (user) {
+  if (user && search.get("reauth") !== "1") {
     return <Navigate to={returnTo} replace />;
   }
 
@@ -41,7 +41,8 @@ export function LoginPage({ user }: { user: User | null }) {
     setError("");
     setRedirecting(true);
     try {
-      await createUserManager().signinRedirect();
+      if (search.get("reauth") === "1") await createUserManager().removeUser();
+      await createUserManager().signinRedirect({ state: { returnTo } });
     } catch {
       setRedirecting(false);
       setError("无法跳转统一身份登录。请检查 OIDC 配置后重试。");
@@ -64,7 +65,7 @@ export function LoginPage({ user }: { user: User | null }) {
         <Button type="primary" size="large" block loading={redirecting} onClick={() => void startLogin()}>
           {redirecting ? "正在跳转统一身份…" : "使用统一身份登录"}
         </Button>
-        <p className="login-note">组织 <code>wms-platform</code>。完成后回到本次打开的页面。</p>
+        <p className="login-note">完成统一身份认证后返回作业台。</p>
       </section>
     </main>
   );

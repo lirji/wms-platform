@@ -6,7 +6,8 @@ import { LogoutOutlined, MobileOutlined, SafetyCertificateOutlined, ShopOutlined
 import { api } from "../api/client";
 import { field, pageItems } from "../api/envelope";
 import { createUserManager } from "../auth/oidc";
-import { tokenClaims } from "../auth/tokenClaims";
+import { useWorkspaceAccess, workspaceRouteAllowed } from "../auth/workspaceAccess";
+import { StatusBanner } from "../shared/ui/StatusBanner";
 import { NAV_GROUPS } from "./nav";
 import { rememberWarehouse } from "./warehouseSession";
 import { wmsTokens } from "../design/tokens";
@@ -40,38 +41,53 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const displayName = user.profile.name || user.profile.preferred_username || user.profile.sub;
-  const claims = useMemo(() => tokenClaims(token), [token]);
+  const { access, error, retry } = useWorkspaceAccess(token, warehouseId);
+  const claims = { enterpriseId: access?.enterpriseId, warehouses: access?.warehouseIds ?? [], scopes: access?.scopes ?? [] };
+  const routeAllowed = access && workspaceRouteAllowed(access, warehouseId, location.pathname);
+  const navGroups = NAV_GROUPS.map(group => ({ ...group, items: group.items.flatMap(item => {
+    if (!access) return [];
+    if (access.mode === "LEGACY") return [item];
+    const menu = access.menus.find(menu => menu.route === (item.pda ? `/pda/${item.to}` : `/${item.to}`));
+    return menu ? [{ ...item, label: menu.label ?? item.label, centralParent: menu.parent, position: menu.position ?? 100 }] : [];
+  }) })).filter(group => group.items.length).map(group => {
+    if (access?.mode !== "CENTRAL") return group;
+    const first = access.menus.find(menu => menu.route === (group.items[0].pda ? `/pda/${group.items[0].to}` : `/${group.items[0].to}`));
+    const parent = access.menus.find(menu => menu.code === first?.parent);
+    const position = (item: typeof group.items[number]) => access.menus.find(menu => menu.route === (item.pda ? `/pda/${item.to}` : `/${item.to}`))?.position ?? 100;
+    return { ...group, title: parent?.label ?? group.title, items: group.items.sort((left, right) => position(left) - position(right)) };
+  });
   const clock = useClock();
   const current = warehouses.find((row) => row.id === warehouseId);
 
   useEffect(() => {
-    if (!token) {
-      return;
+    let active = true;
+    setWarehouses([]); setLoadState("loading");
+    if (!access || !token) return;
+    const fallback = access.warehouseIds.map(id => ({ id, name: id }));
+    const complete = (mapped: Warehouse[]) => {
+      if (!active) return;
+      setWarehouses(mapped); setLoadState("ready");
+      const valid = mapped.some(row => row.id === warehouseId);
+      const next = valid ? warehouseId : (warehouseId === "_" || access.mode === "LEGACY" ? mapped[0]?.id : undefined);
+      if (next && next !== warehouseId) {
+        rememberWarehouse(next);
+        const menu = access.menus.find(menu => menu.route);
+        const route = menu?.route ?? "/";
+        navigate(hrefFor(next, route.replace(/^\/(pda\/)?/, ""), route.startsWith("/pda/")), { replace: true });
+      }
+    };
+    // 作业成员可能没有主数据读取能力；用本人接口的仓ID，名称读取拒绝不扩大范围。
+    if (access.mode === "CENTRAL" && !access.capabilities.includes("wms.masterdata.read")) {
+      complete(fallback);
+      return () => { active = false; };
     }
-    setLoadState("loading");
-    api("/api/wms/v1/warehouses", token)
-      .then((body) => {
-        const mapped = pageItems(body).map((row) => ({
-          id: field(row, "id", "warehouseId"),
-          name: field(row, "name", "code", "id")
-        })).filter((row) => row.id);
-        setWarehouses(mapped);
-        setLoadState("ready");
-        const valid = mapped.some((row) => row.id === warehouseId);
-        const next = valid ? warehouseId : mapped[0]?.id ?? "";
-        if (next && next !== warehouseId) {
-          rememberWarehouse(next);
-          navigate(`/w/${encodeURIComponent(next)}`, { replace: true });
-        }
-        if (next) {
-          rememberWarehouse(next);
-        }
-      })
-      .catch(() => {
-        setWarehouses([]);
-        setLoadState("error");
-      });
-  }, [navigate, token, warehouseId]);
+    api("/api/wms/v1/warehouses", token).then(body => {
+      const mapped = pageItems(body).map(row => ({ id: field(row, "id", "warehouseId"), name: field(row, "name", "code", "id") }))
+        .filter(row => access.warehouseIds.includes(row.id));
+      complete(fallback.map(row => mapped.find(value => value.id === row.id) ?? row));
+    }).catch(() => complete(fallback));
+    return () => { active = false; };
+  }, [access, navigate, token, warehouseId]);
 
   function changeWarehouse(next: string) {
     rememberWarehouse(next);
@@ -80,12 +96,12 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
   }
 
   const selected = useMemo(() => {
-    const match = NAV_GROUPS.flatMap((group) => group.items).find((item) => {
+    const match = navGroups.flatMap((group) => group.items).find((item) => {
       const href = hrefFor(warehouseId, item.to, item.pda);
       return item.end ? location.pathname === href : location.pathname.startsWith(href);
     });
     return match ? [match.label] : [];
-  }, [location.pathname, warehouseId]);
+  }, [location.pathname, warehouseId, access]);
 
   useEffect(() => {
     document.getElementById("page-title")?.focus();
@@ -98,7 +114,9 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
       warehouseName: current?.name,
       enterpriseId: claims.enterpriseId,
       warehouses: claims.warehouses,
-      scopes: claims.scopes
+      scopes: claims.scopes,
+      mode: access?.mode,
+      capabilities: access?.capabilities
     }}>
       <Layout className="app-shell">
         <a className="skip-link" href="#main">跳到主内容</a>
@@ -116,7 +134,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
             theme="light"
             mode="inline"
             selectedKeys={selected}
-            items={NAV_GROUPS.map((group) => ({
+            items={navGroups.map((group) => ({
               type: "group",
               key: group.title,
               label: group.title,
@@ -124,7 +142,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
                 key: item.label,
                 icon: item.icon,
                 label: item.label,
-                onClick: () => navigate(hrefFor(warehouseId, item.to, item.pda))
+                onClick: () => navigate(hrefFor(access?.mode === "CENTRAL" && !access.warehouseIds.length ? "_" : warehouseId, item.to, item.pda))
               }))
             }))}
           />
@@ -148,7 +166,7 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
               <Space className="workspace-actions" size={12} wrap>
                 <Typography.Text type="secondary">本机 {clock} UTC</Typography.Text>
                 <Popover
-                  title="当前令牌权限"
+                  title="当前可用权限"
                   content={(
                     <Space orientation="vertical" size={8} style={{ maxWidth: 420 }}>
                       <Typography.Text>企业 {claims.enterpriseId || "未声明"}</Typography.Text>
@@ -156,19 +174,20 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
                       <div>
                         {claims.scopes.length
                           ? claims.scopes.map((scope) => <Tag key={scope}>{scope}</Tag>)
-                          : <Typography.Text type="secondary">令牌没有作业权限名</Typography.Text>}
+                          : <Typography.Text type="secondary">当前没有作业权限</Typography.Text>}
                       </div>
                     </Space>
                   )}
                 >
                   <Button icon={<SafetyCertificateOutlined />}>
-                    {claims.scopes.length ? `${claims.scopes.length} 项权限` : "权限未声明"}
+                    {claims.scopes.length ? `${claims.scopes.length} 项权限` : "无可用权限"}
                   </Button>
                 </Popover>
+                <Button disabled={!token} onClick={retry}>刷新权限</Button>
                 <Avatar style={{ background: wmsTokens.colorPrimary }}>{String(displayName).slice(0, 1).toUpperCase()}</Avatar>
                 <Typography.Text className="workspace-user" strong title={String(displayName)}>{displayName}</Typography.Text>
                 <Tooltip title="打开 PDA">
-                  <Button icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
+                  <Button disabled={!access || (access.mode === "CENTRAL" && !access.menus.some(menu => menu.route === "/pda/receive"))} icon={<MobileOutlined />} onClick={() => navigate(warehouseId ? `/pda/${warehouseId}/receive` : "/")}>
                     打开 PDA
                   </Button>
                 </Tooltip>
@@ -179,7 +198,11 @@ export function WorkspaceShell({ user, token }: { user: User; token?: string }) 
             </Flex>
           </Layout.Header>
           <Layout.Content className="app-content" id="main">
-            <Outlet />
+            {!access ? <Space orientation="vertical">
+              <StatusBanner kind={error ? "error" : "loading"} title={error ? ((error as { status?: number }).status === 403 ? "当前权限已失效，请重新读取" : (error as { status?: number }).status === 401 ? "登录已失效，请重新登录" : "权限暂不可用，请重试") : "正在读取本人权限"} />
+              {(error as { status?: number } | undefined)?.status === 401 ? <Button href="/login?reauth=1">重新登录</Button> : null}
+              {error ? <Button onClick={retry}>重新读取权限</Button> : null}
+            </Space> : routeAllowed ? <Outlet /> : <StatusBanner kind="forbidden" title="当前仓或页面未获授权" />}
           </Layout.Content>
         </Layout>
       </Layout>

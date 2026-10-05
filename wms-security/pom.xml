@@ -9,6 +9,12 @@
   <artifactId>wms-security</artifactId>
   <description>OIDC资源服务器与无issuer时的默认拒绝，不含业务实体</description>
   <dependencies>
+    <!-- 中央客户端由CI/构建从已验收源码固定安装；不使用旧JWT声明替代服务端授权。 -->
+    <dependency>
+      <groupId>com.lrj.authz</groupId>
+      <artifactId>auth-platform-sdk</artifactId>
+      <version>0.1.0-SNAPSHOT</version>
+    </dependency>
     <dependency><groupId>com.lrj.wms</groupId><artifactId>wms-runtime</artifactId><version>${project.version}</version></dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

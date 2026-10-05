@@ -1,8 +1,18 @@
 # 在容器内用仓库锁定的 JDK/Maven 编译可运行进程；不把源码挂进运行镜像。
 ARG JDK_IMAGE=eclipse-temurin:21.0.8_9-jdk-jammy
 ARG JRE_IMAGE=eclipse-temurin:21.0.8_9-jre-jammy
+# 与CI一致，从不可变源码及下载摘要构建SDK；不复制宿主机Maven产物。
+FROM ${JDK_IMAGE} AS auth-sdk
+WORKDIR /auth-src
+ADD --checksum=sha256:dfc575fbd26d2b1b5435fc08beea0f6bdfca8c915f78318035343c294c79fa57 https://codeload.github.com/lirji/auth-platform/tar.gz/7712d2606805afb3b9a7de7a6d88fe94a28104fb /auth-source.tar.gz
+RUN tar -xzf /auth-source.tar.gz --strip-components=1 -C /auth-src \
+    && ./mvnw -B -ntp -pl auth-platform-sdk -am install -DskipTests \
+    && mkdir -p /auth-maven \
+    && cp -a /root/.m2/repository/com/lrj/authz /auth-maven/authz
+
 FROM ${JDK_IMAGE} AS build
 WORKDIR /src
+COPY --from=auth-sdk /auth-maven /auth-maven
 ENV MAVEN_OPTS="-Xmx2g"
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
@@ -19,7 +29,9 @@ COPY wms-test-support/pom.xml wms-test-support/pom.xml
 RUN chmod +x mvnw
 COPY . .
 RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -ntp -Dmaven.test.skip=true package \
+    mkdir -p /root/.m2/repository/com/lrj \
+    && cp -a /auth-maven/authz /root/.m2/repository/com/lrj/ \
+    && ./mvnw -B -ntp -Dmaven.test.skip=true package \
       -pl wms-inbound,wms-outbound,wms-inventory,wms-serial-registry,wms-fulfillment \
       -am
 

@@ -19,6 +19,9 @@ import org.springframework.web.util.pattern.PathPatternParser;
 /** 根据已提交契约逐路由校验作业权限；新增但未登记的公开入口默认拒绝。仓与对象权限仍由业务边界校验。 */
 final class OperationScopeFilter extends OncePerRequestFilter {
     private final List<Rule> rules = loadRules();
+    private final WmsCentralAuthorization central;
+    OperationScopeFilter() { this(null); }
+    OperationScopeFilter(WmsCentralAuthorization central) { this.central = central; }
 
     record Rule(String method, PathPattern path, String scope) { }
 
@@ -42,6 +45,30 @@ final class OperationScopeFilter extends OncePerRequestFilter {
             FilterChain chain) throws ServletException, IOException {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) { chain.doFilter(request, response); return; }
+        String uri = request.getRequestURI().substring(request.getContextPath().length());
+        if (("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod())) && "/api/wms/v1/me/access".equals(uri)) {
+            chain.doFilter(request, response); return;
+        }
+        if (central != null) {
+            try {
+                var matched = central.bindings.route(request.getMethod(), uri);
+                try (var authorized = central.authorize(jwt, matched)) {
+                    var extracted = matched.path().matchAndExtract(PathContainer.parsePath(uri));
+                    String warehouse = extracted == null ? null : extracted.getUriVariables().get("warehouseId");
+                    if (warehouse != null) authorized.requireWarehouse(warehouse);
+                    SecurityContextHolder.getContext().setAuthentication(new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                            authorized, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("CENTRAL_WMS"))));
+                    response.setHeader("Cache-Control", "no-store");
+                    chain.doFilter(request, response);
+                }
+            } catch (CentralAuthorizationException failure) {
+                if (response.isCommitted()) throw failure;
+                WmsCentralErrors.write(response, failure);
+            } catch (WarehouseForbiddenException rejected) {
+                WmsCentralErrors.write(response, new CentralAuthorizationException(CentralAuthorizationException.Reason.DENIED));
+            } finally { SecurityContextHolder.getContext().setAuthentication(auth); }
+            return;
+        }
         String method = "HEAD".equals(request.getMethod()) ? "GET" : request.getMethod();
         var path = PathContainer.parsePath(request.getRequestURI().substring(request.getContextPath().length()));
         var scopes = WmsJwtAuthorities.operationScopes(jwt);
