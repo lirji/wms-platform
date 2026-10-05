@@ -1,3 +1,48 @@
+# Codex Progress — Auth 与 WMS Docker 部署 DONE
+
+## 任务目标
+
+将 Auth e4d14eb 与 WMS 562f90f 部署到既有本机 Docker，保留业务数据、授权、凭据、持久卷和用户工作。
+
+## 已完成
+
+- 从两个精确源码 archive 构建六个不可变镜像并部署，11 应用容器 healthy、重启 0；源码 CI 三项均 success，运行镜像/JAR/挂载核对 PASS。
+- 12 项后端权限、5 项 Auth 浏览器、6 项 WMS 浏览器最终 PASS；真实 PKCE、原业务读取，0 个 Mock/Token 注入/业务或管理写入。
+- WMS 142 表/191 行摘要相同；Auth 权威授权/角色/目录/绑定不变，投影仅租约与重试调度字段变化，四分区 READY、失败 0、epoch/marker 不变。
+- 八个本任务后端的最终本机预算为 Xms32m/Xmx128m/ActiveProcessorCount2/MALLOC_ARENA_MAX2；CPU 限流和身份 deadline 实验均已撤回，原凭据和 2 秒身份期限保留。
+- 两仓部署报告和入口同步；旧镜像/备份/失败证据、原 WMS main 2efa151/55 文件及全部 11 工作树保护完成。
+
+## 已修改文件
+
+- README.md、docs/README.md、docs/deployment/auth-wms-refactor-docker-20261005.md、CODEX_PROGRESS.md。
+- Auth .local/docker-auth-wms-refactor-20261005 私密证据与已绑定的运行 env/预算 overlay；源码、测试、公开 Compose 未改。
+- Git 文档交付使用两仓 chore/deploy-auth-wms-refactor-docker 分支。实际提交、main 包含关系及远程 CI 状态以该私密目录 DELIVERY_RESULT.json 为准；制品源码仍为 e4d14eb/562f90f。
+
+## 未完成
+
+- 无部署或验收事项。文档发布流程的实时结果见 DELIVERY_RESULT.json，不能把文档 CI 与已部署源码 CI 混为一项。
+
+## 当前问题
+
+- 共享 VM 仍资源受限，正式容量、生产、现场设备及 TCC 业务写入没有重新验收。
+- 原机器 JWT 已于 2026-10-05 04:35:46 UTC 到期，演示 Grant 于 2026-10-06 01:17:59 UTC 到期；没有续发或延长。最终人类验收使用真实 PKCE 新会话。
+- 初期超时/重启及无效实验完整保留；CLI 入口改名导致 projector 重启的早期推断已排除。未执行完整回滚，不清理旧制品或卷。
+
+## 下一步建议
+
+1. 读取本机部署报告和 Auth .local/docker-auth-wms-refactor-20261005/DEPLOYMENT_RESULT.json、DELIVERY_RESULT.json；部署已经通过，不重复构建、切换、provision、续期或全量测试。
+2. 后续维护保留 Auth compose.runtime-budget.yml 和 WMS 第四份 compose.wms-native-budget.yml；后端替换后刷新控制台 DNS。
+3. 保留原 dirty WMS、Driver/旧试点、11 工作树、私密凭据/备份/证据；无清理授权不移除。
+
+## 恢复 Prompt
+
+请读取 CODEX_PROGRESS.md、部署报告和私密部署/交付回执。两个项目已部署且全部必要运行验收 PASS；仅根据真实 Git/CI 回执核对是否还有文档发布步骤。不要重新规划源码重构、权限接入或部署，不自动续期，不等待继续，不清理用户文件。
+
+---
+
+<details>
+<summary>历史已完成任务</summary>
+
 # Codex Progress — Auth 与 WMS 重构验收及交付检查点
 
 ## 任务目标
@@ -159,3 +204,5 @@
 ## 恢复 Prompt
 
 读取本文件。公开契约前端已授权发布。不要发明 OQ-03 或内部 HTTP。测试数据只改 `test-data/**`。
+
+</details>
