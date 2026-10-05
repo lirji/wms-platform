@@ -1,7 +1,7 @@
 package com.lrj.wms.outbound.seed;
 
-import com.lrj.wms.outbound.order.OutboundOrderMapper;
-import com.lrj.wms.outbound.order.OutboundOrderService;
+import com.lrj.wms.outbound.order.application.OutboundOrderService;
+import com.lrj.wms.outbound.order.persistence.OutboundOrderMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;

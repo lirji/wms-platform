@@ -21,8 +21,8 @@ import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.lrj.wms.inventory.tcc.ReservationTccAction;
-import com.lrj.wms.outbound.order.OutboundOrderMapper;
-import com.lrj.wms.outbound.order.OutboundOrderService;
+import com.lrj.wms.outbound.order.application.OutboundOrderService;
+import com.lrj.wms.outbound.order.persistence.OutboundOrderMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;
@@ -128,7 +128,7 @@ class ClosedLoopBlackBoxIT {
                 sessions(
                         "outbound",
                         outboundSource,
-                        com.lrj.wms.outbound.protocol.SourceMapper.class,
+                        com.lrj.wms.outbound.protocol.persistence.SourceMapper.class,
                         OutboundOrderMapper.class);
         fulfillmentSessions = sessions("fulfillment", fulfillmentSource, FulfillmentMapper.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
@@ -841,9 +841,13 @@ class ClosedLoopBlackBoxIT {
             String attempt,
             String authorization) {
         if (!session.getConfiguration()
-                .hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {
+                .hasMapper(
+                        com.lrj.wms.outbound.authorization.persistence.OutboundAuthorizationMapper
+                                .class)) {
             session.getConfiguration()
-                    .addMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class);
+                    .addMapper(
+                            com.lrj.wms.outbound.authorization.persistence
+                                    .OutboundAuthorizationMapper.class);
         }
         var jdbc =
                 new org.springframework.jdbc.core.JdbcTemplate(
@@ -861,7 +865,7 @@ class ClosedLoopBlackBoxIT {
                 xid,
                 evidence,
                 hash);
-        new com.lrj.wms.outbound.order.OutboundAuthorizationService(
+        new com.lrj.wms.outbound.authorization.application.OutboundAuthorizationService(
                         session, java.time.Clock.systemUTC())
                 .authorize(
                         enterprise,

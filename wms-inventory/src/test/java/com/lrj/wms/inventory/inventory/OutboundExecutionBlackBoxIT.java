@@ -15,10 +15,10 @@ import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import com.lrj.wms.outbound.order.OutboundException;
-import com.lrj.wms.outbound.order.OutboundOrderMapper;
-import com.lrj.wms.outbound.order.OutboundOrderService;
-import com.lrj.wms.outbound.protocol.SourceMapper;
+import com.lrj.wms.outbound.order.application.OutboundOrderService;
+import com.lrj.wms.outbound.order.domain.OutboundException;
+import com.lrj.wms.outbound.order.persistence.OutboundOrderMapper;
+import com.lrj.wms.outbound.protocol.persistence.SourceMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 
 import org.apache.ibatis.mapping.Environment;
@@ -653,9 +653,13 @@ class OutboundExecutionBlackBoxIT {
             String attempt,
             String authorization) {
         if (!session.getConfiguration()
-                .hasMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class)) {
+                .hasMapper(
+                        com.lrj.wms.outbound.authorization.persistence.OutboundAuthorizationMapper
+                                .class)) {
             session.getConfiguration()
-                    .addMapper(com.lrj.wms.outbound.order.OutboundAuthorizationMapper.class);
+                    .addMapper(
+                            com.lrj.wms.outbound.authorization.persistence
+                                    .OutboundAuthorizationMapper.class);
         }
         var jdbc =
                 new org.springframework.jdbc.core.JdbcTemplate(
@@ -673,7 +677,7 @@ class OutboundExecutionBlackBoxIT {
                 xid,
                 evidence,
                 hash);
-        new com.lrj.wms.outbound.order.OutboundAuthorizationService(
+        new com.lrj.wms.outbound.authorization.application.OutboundAuthorizationService(
                         session, java.time.Clock.systemUTC())
                 .authorize(
                         enterprise,
