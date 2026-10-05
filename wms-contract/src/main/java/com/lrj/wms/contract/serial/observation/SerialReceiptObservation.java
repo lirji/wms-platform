@@ -5,6 +5,7 @@ import java.util.*;
 
 /** 每次收货的完整身份观察；规范化后不可变，数量不能代替明确的序列号清单。 */
 public record SerialReceiptObservation(int schemaVersion, List<String> serialIds) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialReceiptObservation {
         if (schemaVersion != 1
                 || serialIds == null

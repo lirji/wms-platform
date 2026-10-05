@@ -19,6 +19,8 @@ export function useResource(token: string | undefined, paths: string[], tick = 0
     if (!token || usable.length === 0) {
       setRows([]);
       setPayloads([]);
+      // 会话或查询上下文结束时清除旧错误，反馈不能继续指向上一次请求。
+      setError(undefined);
       setLoading(false);
       return;
     }

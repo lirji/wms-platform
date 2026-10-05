@@ -43,6 +43,7 @@ jobs:
       - run: python3 scripts/format-java.py --check
       - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - run: python3 scripts/format-xml.py --check
+      - run: python3 scripts/check-module-packages.py
       - run: python3 scripts/export-auth-catalog.py --check
       - run: python3 scripts/check-docs.py
       - run: ./scripts/verify-contracts.sh

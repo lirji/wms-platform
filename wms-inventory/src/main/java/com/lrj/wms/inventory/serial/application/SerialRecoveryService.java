@@ -24,6 +24,7 @@ public final class SerialRecoveryService {
     private final SerialRegistryPort receipt;
     private final SerialTransferRegistryPort transfer;
 
+    /** 显式接收 SerialRecoveryService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialRecoveryService(
             SqlSessionFactory sessions,
             Clock clock,

@@ -30,6 +30,7 @@ public final class SeedOutbound {
 
     private SeedOutbound() {}
 
+    /** 命令行入口沿用显式配置与隔离检查，不能以演示默认值覆盖业务环境。 */
     public static void main(String[] args) {
         Map<String, String> flags = flags(args);
         String jdbc = required(flags, "jdbc", "WMS_SEED_JDBC_URL");
@@ -47,6 +48,7 @@ public final class SeedOutbound {
         System.out.println("seed-outbound ok " + counts);
     }
 
+    /** 种子入口先核对隔离环境，避免演示数据写入共享或正式业务库。 */
     public static void requireIsolated(String jdbcUrl) {
         String value = jdbcUrl.toLowerCase(Locale.ROOT);
         if (value.contains("43306") || value.contains("dev-infra") || value.contains("dev_infra")) {
@@ -57,6 +59,7 @@ public final class SeedOutbound {
         }
     }
 
+    /** 将隔离演示数据写入数据库并返回实际计数，页面通过真实接口读取。 */
     public static Map<String, Integer> seed(DataSource dataSource, Clock clock) {
         return seed(dataSource, clock, new com.lrj.wms.runtime.db.DatabaseTimePolicy("UTC", ""));
     }

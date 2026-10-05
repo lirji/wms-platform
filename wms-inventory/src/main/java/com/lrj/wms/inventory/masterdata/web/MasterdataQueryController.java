@@ -36,6 +36,7 @@ public class MasterdataQueryController {
     private final SqlSessionFactory sessions;
     private final com.lrj.wms.runtime.cache.ReadQueryCache cache;
 
+    /** 显式接收 MasterdataQueryController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MasterdataQueryController(
             SqlSessionFactory sessions, com.lrj.wms.runtime.cache.ReadQueryCache cache) {
         this.sessions = sessions;
@@ -208,6 +209,7 @@ public class MasterdataQueryController {
                 });
     }
 
+    /** 处理 GET /warehouses/{warehouseId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}")
     public Map<String, Object> warehouse(
             @AuthenticationPrincipal Jwt jwt, @PathVariable String warehouseId) {
@@ -219,6 +221,7 @@ public class MasterdataQueryController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/locations/{locationId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/locations/{locationId}")
     public Map<String, Object> location(
             @AuthenticationPrincipal Jwt jwt,
@@ -233,6 +236,7 @@ public class MasterdataQueryController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/locations/{locationId}/gate 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/locations/{locationId}/gate")
     public Map<String, Object> gate(
             @AuthenticationPrincipal Jwt jwt,
@@ -247,6 +251,7 @@ public class MasterdataQueryController {
         }
     }
 
+    /** 处理 GET /skus/{skuId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/skus/{skuId}")
     public Map<String, Object> sku(@AuthenticationPrincipal Jwt jwt, @PathVariable String skuId) {
         try (SqlSession session = sessions.openSession()) {
@@ -262,6 +267,7 @@ public class MasterdataQueryController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/lots/{lotId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/lots/{lotId}")
     public Map<String, Object> lot(
             @AuthenticationPrincipal Jwt jwt,

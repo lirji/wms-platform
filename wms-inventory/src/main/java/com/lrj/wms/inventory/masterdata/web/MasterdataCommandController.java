@@ -32,10 +32,12 @@ import java.util.Map;
 public class MasterdataCommandController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 MasterdataCommandController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MasterdataCommandController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 POST /warehouses 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/warehouses")
     public ResponseEntity<Map<String, Object>> createWarehouse(
             @AuthenticationPrincipal Jwt jwt,
@@ -58,6 +60,7 @@ public class MasterdataCommandController {
         }
     }
 
+    /** 处理 POST /warehouses/{warehouseId}/locations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/warehouses/{warehouseId}/locations")
     public ResponseEntity<Map<String, Object>> createLocation(
             @AuthenticationPrincipal Jwt jwt,
@@ -85,6 +88,7 @@ public class MasterdataCommandController {
         }
     }
 
+    /** 处理 POST /skus 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/skus")
     public ResponseEntity<Map<String, Object>> createSku(
             @AuthenticationPrincipal Jwt jwt,
@@ -111,6 +115,7 @@ public class MasterdataCommandController {
         }
     }
 
+    /** 处理 POST /skus/{skuId}/units 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/skus/{skuId}/units")
     public ResponseEntity<Map<String, Object>> addSkuUnit(
             @AuthenticationPrincipal Jwt jwt,
@@ -136,6 +141,7 @@ public class MasterdataCommandController {
         }
     }
 
+    /** 处理 POST /warehouses/{warehouseId}/lots 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/warehouses/{warehouseId}/lots")
     public ResponseEntity<Map<String, Object>> createLot(
             @AuthenticationPrincipal Jwt jwt,

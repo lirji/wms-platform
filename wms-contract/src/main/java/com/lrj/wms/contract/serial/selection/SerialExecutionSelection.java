@@ -7,6 +7,7 @@ import java.util.*;
 
 /** 出库选择固定实物身份及归属代际，旧周期的同名SN不能冒充当前库存。 */
 public record SerialExecutionSelection(Number schemaVersion, List<Identity> identities) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialExecutionSelection {
         if (!(schemaVersion instanceof Integer || schemaVersion instanceof Long)
                 || schemaVersion.longValue() != 1
@@ -31,6 +32,7 @@ public record SerialExecutionSelection(Number schemaVersion, List<Identity> iden
 
     /** Number保留JSON原类型后校验，防小数epoch被反序列化截断后通过。 */
     public record Identity(String serialId, Number ownerEpoch) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public Identity {
             if (!(ownerEpoch instanceof Integer || ownerEpoch instanceof Long)
                     || ownerEpoch.longValue() < 0)

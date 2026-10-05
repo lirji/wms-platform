@@ -18,6 +18,7 @@ public interface SerialHttpCommandMapper {
             @Param("actor") String actor,
             @Param("now") Timestamp now);
 
+    /** 读取{@code serial_http_command}，将 SQL 与绑定参数保持在同一持久化入口。行锁由调用方事务持有，读取和后续决策必须在同一事务内。 */
     Map<String, Object> lock(
             @Param("enterprise") String enterprise, @Param("command") String command);
 

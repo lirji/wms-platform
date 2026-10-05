@@ -13,6 +13,7 @@ public record CommittedCancellation(
     public static final String EVENT = "CommittedCancellationRequestedV1";
     public static final String RESULT = "CommittedCancellationResultV1";
 
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public CommittedCancellation {
         if (schemaVersion != 1
                 || cancellationId == null

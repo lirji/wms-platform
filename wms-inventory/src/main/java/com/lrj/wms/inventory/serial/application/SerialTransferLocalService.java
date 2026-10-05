@@ -33,6 +33,7 @@ public final class SerialTransferLocalService {
     private final Clock clock;
     private final SerialTransferRegistryPort registry;
 
+    /** 显式接收 SerialTransferLocalService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialTransferLocalService(
             SqlSession session, Clock clock, SerialTransferRegistryPort registry) {
         this.session = session;

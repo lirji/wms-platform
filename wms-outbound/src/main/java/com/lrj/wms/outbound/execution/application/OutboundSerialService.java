@@ -17,6 +17,7 @@ public final class OutboundSerialService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 OutboundSerialService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboundSerialService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;

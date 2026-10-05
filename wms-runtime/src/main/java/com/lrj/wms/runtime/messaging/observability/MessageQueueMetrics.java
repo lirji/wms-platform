@@ -31,6 +31,7 @@ public final class MessageQueueMetrics {
     private volatile Snapshot snapshot = new Snapshot(null, Map.of());
     private Instant nextAttempt = Instant.MIN;
 
+    /** 显式接收 MessageQueueMetrics 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MessageQueueMetrics(
             SqlSessionFactory sessions, MeterRegistry registry, Queue outbox, Clock clock) {
         if (outbox == Queue.INBOX) throw new IllegalArgumentException("必须明确当前服务的Outbox类别");

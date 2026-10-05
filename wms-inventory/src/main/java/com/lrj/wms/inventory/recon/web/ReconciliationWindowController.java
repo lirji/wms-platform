@@ -27,6 +27,7 @@ public class ReconciliationWindowController {
     private final SqlSessionFactory sessions;
     private final ReconciliationCollector collector;
 
+    /** 显式接收 ReconciliationWindowController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReconciliationWindowController(
             SqlSessionFactory sessions, ReconciliationCollector collector) {
         this.sessions = sessions;

@@ -7,6 +7,7 @@ import java.util.List;
 
 /** 本次库存动作实际选择的身份；与原收货完整清单分开，允许分次上架或拣货。 */
 public record SerialStockSelection(int schemaVersion, List<String> serialIds) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialStockSelection {
         var normalized = new SerialReceiptObservation(schemaVersion, serialIds);
         serialIds = normalized.serialIds();

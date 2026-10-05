@@ -19,11 +19,14 @@ public interface AllocationRecoveryMapper {
             @Param("scope") TcEvidenceScope scope,
             @Param("now") Timestamp now);
 
+    /** 读取{@code allocation_tc_binding}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> binding(
             @Param("enterpriseId") String enterpriseId, @Param("attemptId") String attemptId);
 
+    /** 写入{@code allocation_recovery_cursor}、{@code enterprise_id}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int ensureCursor(@Param("enterpriseId") String enterpriseId, @Param("now") Timestamp now);
 
+    /** 读取{@code allocation_recovery_cursor}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> cursor(@Param("enterpriseId") String enterpriseId);
 
     /** 按企业限20项，网络调用前关闭会话；仅在途及缺失屏障事件的已分配项可见。 */

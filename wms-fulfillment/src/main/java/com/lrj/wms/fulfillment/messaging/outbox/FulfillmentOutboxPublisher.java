@@ -24,6 +24,7 @@ public final class FulfillmentOutboxPublisher {
     private final String prefix;
     private final Clock clock;
 
+    /** 显式接收 FulfillmentOutboxPublisher 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public FulfillmentOutboxPublisher(
             SqlSessionFactory sessions,
             KafkaMessagePublisher publisher,

@@ -4,6 +4,7 @@ package com.lrj.wms.runtime.command;
 public final class CommandKeys {
     private CommandKeys() {}
 
+    /** 合并头与请求体中的操作键，冲突时拒绝，重试不能改用另一操作身份。 */
     public static String resolve(String header, String body) {
         if (header == null
                 || header.isBlank()

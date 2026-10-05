@@ -13,12 +13,16 @@ public interface OutboundOrderMapper {
     Map<String, Object> cancellation(
             @Param("e") String e, @Param("w") String w, @Param("o") String o);
 
+    /** 写入{@code outbound_cancellation}、{@code attempt_id}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int insertCancellation(@Param("r") Map<String, Object> r);
 
+    /** 读取{@code outbound_cancellation}，将 SQL 与绑定参数保持在同一持久化入口。使用既定分页或批量上限，避免一次读取无界数据。 */
     Map<String, Object> dueCancellation(@Param("now") Timestamp now);
 
+    /** 写入{@code outbound_cancellation}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int advanceCancellation(@Param("r") Map<String, Object> r);
 
+    /** 读取{@code source_effect}、{@code source_command}、{@code source_execution}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> cancellationUsage(
             @Param("e") String e,
             @Param("w") String w,
@@ -27,12 +31,14 @@ public interface OutboundOrderMapper {
             @Param("location") String location,
             @Param("lot") String lot);
 
+    /** 读取{@code outbound_task}、{@code outbound_line}、{@code source_effect}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int cancellationUncertain(
             @Param("e") String e,
             @Param("w") String w,
             @Param("o") String o,
             @Param("line") String line);
 
+    /** 写入{@code source_command}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int bindCompensation(
             @Param("e") String e,
             @Param("w") String w,
@@ -256,17 +262,20 @@ public interface OutboundOrderMapper {
             @Param("warehouseId") String warehouseId,
             @Param("commandId") String commandId);
 
+    /** 读取{@code outbound_task}，将 SQL 与绑定参数保持在同一持久化入口。 */
     BigDecimal pendingPickQty(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
             @Param("lineId") String lineId);
 
+    /** 写入{@code outbound_task}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int bindPlanningKey(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
             @Param("taskId") String taskId,
             @Param("commandId") String commandId);
 
+    /** 写入{@code outbound_task}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int cancelOpenPickTasks(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,

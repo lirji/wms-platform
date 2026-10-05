@@ -33,10 +33,12 @@ import java.util.UUID;
 public class CountCommandController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 CountCommandController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountCommandController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 POST /count-plans 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans")
     public ResponseEntity<Map<String, Object>> create(
             @AuthenticationPrincipal Jwt jwt,
@@ -59,6 +61,7 @@ public class CountCommandController {
         }
     }
 
+    /** 处理 POST /count-plans/{countPlanId}/freeze-requests 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans/{countPlanId}/freeze-requests")
     public Map<String, Object> freeze(
             @AuthenticationPrincipal Jwt jwt,
@@ -84,6 +87,7 @@ public class CountCommandController {
         }
     }
 
+    /** 处理 POST /count-plans/{countPlanId}/observations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans/{countPlanId}/observations")
     public Map<String, Object> observe(
             @AuthenticationPrincipal Jwt jwt,
@@ -123,6 +127,7 @@ public class CountCommandController {
         }
     }
 
+    /** 处理 POST /count-plans/{countPlanId}/reviews 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans/{countPlanId}/reviews")
     public Map<String, Object> review(
             @AuthenticationPrincipal Jwt jwt,
@@ -139,6 +144,7 @@ public class CountCommandController {
         }
     }
 
+    /** 处理 POST /count-plans/{countPlanId}/approvals 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans/{countPlanId}/approvals")
     public Map<String, Object> approve(
             @AuthenticationPrincipal Jwt jwt,
@@ -164,6 +170,7 @@ public class CountCommandController {
         }
     }
 
+    /** 处理 POST /count-plans/{countPlanId}/applications 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/count-plans/{countPlanId}/applications")
     public ResponseEntity<Map<String, Object>> apply(
             @AuthenticationPrincipal Jwt jwt,

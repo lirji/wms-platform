@@ -24,10 +24,12 @@ import java.util.*;
 public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
     private final Clock clock;
 
+    /** 显式接收 StockCommandMessageHandler 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public StockCommandMessageHandler(Clock clock) {
         this.clock = clock;
     }
 
+    /** 消费沿用持久化 Inbox 与库存命令入口，业务失败不能被确认成成功。 */
     @Override
     public void apply(SqlSession session, RuntimeMessage message) {
         boolean outbound = "wms-outbound".equals(message.sourceService());

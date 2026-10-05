@@ -26,11 +26,13 @@ public final class SeataRmDriver
             channelAliases = new java.util.concurrent.ConcurrentHashMap<>();
     private final org.apache.seata.core.rpc.netty.ChannelEventListener channelListener =
             new org.apache.seata.core.rpc.netty.ChannelEventListener() {
+                /** 连接建立时注册原客户端身份，不能在恢复时更换事务主体。 */
                 @Override
                 public void onChannelConnected(io.netty.channel.Channel channel) {
                     channelAliases.put(channel, java.util.concurrent.ConcurrentHashMap.newKeySet());
                 }
 
+                /** 记录协调连接中断，后续恢复沿用原事务身份。 */
                 @Override
                 public void onChannelDisconnected(io.netty.channel.Channel channel) {
                     channelAliases.remove(channel);
@@ -47,6 +49,7 @@ public final class SeataRmDriver
                     });
     private volatile long healthyAt;
 
+    /** 显式接收 SeataRmDriver 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SeataRmDriver(
             RuntimeTccCoordinator coordinator,
             String group,

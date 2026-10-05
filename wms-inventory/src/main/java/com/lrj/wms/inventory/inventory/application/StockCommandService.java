@@ -26,6 +26,7 @@ public final class StockCommandService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 StockCommandService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public StockCommandService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -1162,6 +1163,7 @@ public final class StockCommandService {
                 null);
     }
 
+    /** 沿用库存操作入口应用拣货，不能绕过操作身份与取消围栏。 */
     public Map<String, Object> applyPick(
             String enterpriseId,
             String warehouseId,
@@ -1347,6 +1349,7 @@ public final class StockCommandService {
                 null);
     }
 
+    /** 沿用库存操作入口应用发运，不能绕过操作身份与取消围栏。 */
     public Map<String, Object> applyShip(
             String enterpriseId,
             String warehouseId,

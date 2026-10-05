@@ -28,11 +28,13 @@ public final class MasterdataCommandService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 MasterdataCommandService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MasterdataCommandService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 核对企业、编码与时区后建立仓主数据，重试沿用操作身份。 */
     public Map<String, Object> createWarehouse(
             String enterpriseId,
             String code,
@@ -61,6 +63,7 @@ public final class MasterdataCommandService {
                 () -> requireWarehouse(enterpriseId, warehouseId));
     }
 
+    /** 核对所属仓与库位约束后建立主数据，不能跨仓创建库位。 */
     public Map<String, Object> createLocation(
             String enterpriseId,
             String warehouseId,
@@ -104,6 +107,7 @@ public final class MasterdataCommandService {
                 () -> requireLocation(enterpriseId, warehouseId, locationId));
     }
 
+    /** 校验数量精度及批次、序列号和效期策略后建立 SKU，不能静默补齐未知策略。 */
     public Map<String, Object> createSku(
             String enterpriseId,
             String code,
@@ -153,6 +157,7 @@ public final class MasterdataCommandService {
                 () -> requireSku(enterpriseId, skuId));
     }
 
+    /** 使用明确的单位版本和精确整数比新增换算，禁止隐式截断数量。 */
     public Map<String, Object> addSkuUnit(
             String enterpriseId,
             String skuId,
@@ -197,6 +202,7 @@ public final class MasterdataCommandService {
                 });
     }
 
+    /** 校验仓、货主、SKU 与效期输入后建立批次，不能为未知时区猜测截止时刻。 */
     public Map<String, Object> createLot(
             String enterpriseId,
             String warehouseId,
@@ -248,6 +254,7 @@ public final class MasterdataCommandService {
                 () -> requireLot(enterpriseId, warehouseId, lotId));
     }
 
+    /** 使用当前企业的仓主数据执行校验，缺失时沿用用例的明确拒绝。 */
     public Map<String, Object> requireWarehouse(String enterpriseId, String warehouseId) {
         Map<String, Object> row = http().getWarehouse(enterpriseId, warehouseId);
         if (row == null) {
@@ -256,6 +263,7 @@ public final class MasterdataCommandService {
         return row;
     }
 
+    /** 使用当前企业和仓的库位主数据执行校验，不能接受其他仓的库位。 */
     public Map<String, Object> requireLocation(
             String enterpriseId, String warehouseId, String locationId) {
         Map<String, Object> row = http().getLocation(enterpriseId, warehouseId, locationId);
@@ -265,6 +273,7 @@ public final class MasterdataCommandService {
         return row;
     }
 
+    /** 核对当前库位门禁事实，调用方不能用缺失观察默认允许操作。 */
     public Map<String, Object> requireGate(
             String enterpriseId, String warehouseId, String locationId) {
         Map<String, Object> row = http().getLocationGate(enterpriseId, warehouseId, locationId);
@@ -274,6 +283,7 @@ public final class MasterdataCommandService {
         return row;
     }
 
+    /** 使用当前企业的 SKU 策略执行校验，不能回退到猜测的数量精度。 */
     public Map<String, Object> requireSku(String enterpriseId, String skuId) {
         Map<String, Object> row = http().getSku(enterpriseId, skuId);
         if (row == null) {
@@ -282,6 +292,7 @@ public final class MasterdataCommandService {
         return row;
     }
 
+    /** 核对当前仓的批次与商品归属，不能将其他仓或 SKU 的批次当作可用。 */
     public Map<String, Object> requireLot(String enterpriseId, String warehouseId, String lotId) {
         Map<String, Object> row = http().getLot(enterpriseId, warehouseId, lotId);
         if (row == null) {
@@ -398,11 +409,13 @@ public final class MasterdataCommandService {
 
     @FunctionalInterface
     private interface Creator {
+        /** 由幂等主数据用例调用创建步骤，操作结果与幂等记录必须绑定同一次处理。 */
         String create();
     }
 
     @FunctionalInterface
     private interface Reader {
+        /** 由幂等主数据用例读取已保存结果，重放不能重新执行创建副作用。 */
         Map<String, Object> read();
     }
 }

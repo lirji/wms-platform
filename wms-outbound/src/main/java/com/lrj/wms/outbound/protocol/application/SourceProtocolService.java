@@ -41,6 +41,7 @@ public final class SourceProtocolService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 SourceProtocolService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SourceProtocolService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -184,6 +185,7 @@ public final class SourceProtocolService {
                 null);
     }
 
+    /** 以来源命令身份提交拣货，保持幂等摘要与已承诺的请求一致。 */
     public Map<String, Object> submitPick(
             String enterpriseId,
             String warehouseId,
@@ -543,6 +545,7 @@ public final class SourceProtocolService {
         return body;
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String warehouseId, String commandId) {
         SourceMapper mapper = session.getMapper(SourceMapper.class);
         Map<String, Object> command = mapper.getCommand(enterpriseId, warehouseId, commandId);

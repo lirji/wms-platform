@@ -11,15 +11,18 @@ public interface StockCommandMapper {
     /** 同原出库单的取消和STARTED串行，拒绝网络迟到的新执行。 */
     int ensureCancellationGuard(@Param("e") String e, @Param("w") String w, @Param("o") String o);
 
+    /** 读取{@code outbound_cancellation_guard}，将 SQL 与绑定参数保持在同一持久化入口。行锁由调用方事务持有，读取和后续决策必须在同一事务内。 */
     Map<String, Object> lockCancellationGuard(
             @Param("e") String e, @Param("w") String w, @Param("o") String o);
 
+    /** 写入{@code outbound_cancellation_guard}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int stopCancellationGuard(
             @Param("e") String e,
             @Param("w") String w,
             @Param("o") String o,
             @Param("id") String id);
 
+    /** 读取{@code stock_effect}、{@code execution_permit}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int unresolvedOutboundPermits(
             @Param("e") String e,
             @Param("w") String w,

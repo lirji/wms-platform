@@ -36,11 +36,13 @@ public class EffectController {
     private final SqlSessionFactory sessions;
     private final Clock clock;
 
+    /** 显式接收 EffectController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public EffectController(SqlSessionFactory sessions) {
         this.sessions = sessions;
         this.clock = Clock.systemUTC();
     }
 
+    /** 处理 GET /action-effects 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/action-effects")
     public Map<String, Object> list(
             @AuthenticationPrincipal Jwt jwt,
@@ -59,6 +61,7 @@ public class EffectController {
         }
     }
 
+    /** 处理 GET /tasks/{taskId}/action-effects 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/tasks/{taskId}/action-effects")
     public Map<String, Object> listByTask(
             @AuthenticationPrincipal Jwt jwt,

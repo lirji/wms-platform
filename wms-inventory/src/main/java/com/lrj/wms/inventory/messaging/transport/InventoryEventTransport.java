@@ -18,6 +18,7 @@ public final class InventoryEventTransport implements OutboxTransport {
     private final KafkaMessagePublisher publisher;
     private final String topicPrefix;
 
+    /** 显式接收 InventoryEventTransport 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryEventTransport(
             SqlSessionFactory sessions, KafkaMessagePublisher publisher, String topicPrefix) {
         this.sessions = sessions;
@@ -25,6 +26,7 @@ public final class InventoryEventTransport implements OutboxTransport {
         this.topicPrefix = topicPrefix;
     }
 
+    /** 沿用原事件身份投递，投递失败必须保留给既有持久化重试路径处理。 */
     @Override
     public void publish(OutboxRecord record) {
         var node = RuntimeMessage.JSON.readTree(record.payload());

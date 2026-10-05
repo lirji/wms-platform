@@ -1,6 +1,5 @@
 package com.lrj.wms.inventory.recon.snapshot.web;
 
-import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.jobs.domain.JobRunException;
 import com.lrj.wms.inventory.recon.snapshot.application.SnapshotExportService;
 import com.lrj.wms.security.authorization.WarehouseForbiddenException;
@@ -36,10 +35,12 @@ import java.util.Map;
 public class SnapshotExportController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 SnapshotExportController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SnapshotExportController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 POST /reconciliation-snapshots 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/reconciliation-snapshots")
     public ResponseEntity<Map<String, Object>> create(
             @AuthenticationPrincipal Jwt jwt,
@@ -72,6 +73,7 @@ public class SnapshotExportController {
         }
     }
 
+    /** 处理 GET /reconciliation-snapshots/{id} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/reconciliation-snapshots/{id}")
     public Map<String, Object> get(
             @AuthenticationPrincipal Jwt jwt,
@@ -112,7 +114,7 @@ public class SnapshotExportController {
         if (value instanceof String text) {
             return Timestamp.from(Instant.parse(text));
         }
-        return Timestamp.from(ExpiryPolicy.instantOf(value));
+        return Timestamp.from(com.lrj.wms.runtime.db.DatabaseInstants.instantOf(value));
     }
 
     private static Map<String, Object> errorBody(String code, String message) {

@@ -20,6 +20,7 @@ public final class SerialPutawayStockService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 SerialPutawayStockService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialPutawayStockService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;

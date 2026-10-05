@@ -11,6 +11,7 @@ public interface SourceMapper {
     /** T1与关窗使用同一范围锁，时间必须在获得锁后生成。 */
     int ensureWindowGuard(@Param("e") String e, @Param("w") String w);
 
+    /** 读取{@code source_window_guard}，将 SQL 与绑定参数保持在同一持久化入口。行锁由调用方事务持有，读取和后续决策必须在同一事务内。 */
     Map<String, Object> lockWindowGuard(@Param("e") String e, @Param("w") String w);
 
     /** 回执绑定来源事实，禁止消息任意指定另一业务行。身份字段创建后不可修改。 */

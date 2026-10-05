@@ -21,6 +21,7 @@ public record SerialTransferCommand(
     public static final String EVENT = "SerialTransferCommandV1";
     public static final String RESULT = "SerialTransferResultV1";
 
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialTransferCommand {
         if (!(schemaVersion instanceof Integer || schemaVersion instanceof Long)
                 || schemaVersion.longValue() != 1) throw new IllegalArgumentException("调拨命令只接受V1");

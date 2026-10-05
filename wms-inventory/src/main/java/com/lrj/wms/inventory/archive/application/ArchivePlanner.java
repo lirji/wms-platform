@@ -1,7 +1,6 @@
 package com.lrj.wms.inventory.archive.application;
 
 import com.lrj.wms.inventory.archive.persistence.ArchivePlanMapper;
-import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.jobs.domain.JobRunException;
 
 import org.apache.ibatis.session.SqlSession;
@@ -21,6 +20,7 @@ public final class ArchivePlanner {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 ArchivePlanner 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ArchivePlanner(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -53,7 +53,7 @@ public final class ArchivePlanner {
                 UUID.randomUUID().toString(),
                 now);
         var plan = mapper.lock(enterprise, warehouse, run);
-        if (!cutoff.equals(ExpiryPolicy.instantOf(plan.get("cutoff_at")))
+        if (!cutoff.equals(com.lrj.wms.runtime.db.DatabaseInstants.instantOf(plan.get("cutoff_at")))
                 || !policy.equals(plan.get("policy_ref"))) {
             throw new JobRunException("ARCHIVE_PLAN_CONFLICT", "同运行键不能改变关闭时刻或保留依据");
         }

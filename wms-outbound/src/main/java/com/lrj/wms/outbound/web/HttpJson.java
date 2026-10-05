@@ -12,6 +12,7 @@ import java.util.Map;
 public final class HttpJson {
     private HttpJson() {}
 
+    /** 将 page 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static Map<String, Object> page(List<Map<String, Object>> items) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map<String, Object> item : items) {
@@ -20,6 +21,7 @@ public final class HttpJson {
         return Map.of("items", rows, "limit", rows.size());
     }
 
+    /** 将 cursorPage 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static Map<String, Object> cursorPage(Map<String, Object> source) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) source.get("items");
@@ -33,6 +35,7 @@ public final class HttpJson {
         return body;
     }
 
+    /** 将 row 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static Map<String, Object> row(Map<String, Object> source) {
         Map<String, Object> item = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : source.entrySet()) {
@@ -41,6 +44,7 @@ public final class HttpJson {
         return item;
     }
 
+    /** 将 error 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static Map<String, Object> error(String code, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("code", code);

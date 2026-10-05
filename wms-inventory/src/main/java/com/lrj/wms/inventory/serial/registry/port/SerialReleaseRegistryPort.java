@@ -20,6 +20,7 @@ public interface SerialReleaseRegistryPort {
         throw new SerialRegistryUnavailableException("未配置序列调拨准备端口");
     }
 
+    /** 沿用原限制身份释放库存限制，竞争或重试不能重复释放同一效果。 */
     Map<String, Object> release(
             String enterprise,
             String sku,

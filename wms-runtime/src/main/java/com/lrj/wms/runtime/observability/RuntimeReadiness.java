@@ -14,10 +14,12 @@ public final class RuntimeReadiness implements HealthIndicator {
     private final Environment environment;
     private final Supplier<java.util.List<RuntimeDependencyCheck>> checks;
 
+    /** 显式接收 RuntimeReadiness 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public RuntimeReadiness(Supplier<DataSource> dataSource, Environment environment) {
         this(dataSource, environment, java.util.List::of);
     }
 
+    /** 显式接收 RuntimeReadiness 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public RuntimeReadiness(
             Supplier<DataSource> dataSource,
             Environment environment,
@@ -27,6 +29,7 @@ public final class RuntimeReadiness implements HealthIndicator {
         this.checks = checks;
     }
 
+    /** 基于本依赖的实际就绪条件返回健康状态，不能仅以线程存活代替可用。 */
     @Override
     public Health health() {
         if (environment.getProperty("wms.oidc.issuer", "").isBlank()

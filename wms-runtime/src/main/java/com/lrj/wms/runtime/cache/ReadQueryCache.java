@@ -30,6 +30,7 @@ public final class ReadQueryCache
     private final java.util.concurrent.atomic.LongAdder rejected =
             new java.util.concurrent.atomic.LongAdder();
 
+    /** 显式接收 ReadQueryCache 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReadQueryCache(QueryCacheProperties properties) {
         this.properties = properties;
         this.local =
@@ -124,6 +125,7 @@ public final class ReadQueryCache
                 redis.errors());
     }
 
+    /** 将缓存指标绑定到现有注册表，指标名称与资源预算保持统一。 */
     @Override
     public void bindTo(io.micrometer.core.instrument.MeterRegistry registry) {
         for (String name :
@@ -163,6 +165,7 @@ public final class ReadQueryCache
         }
     }
 
+    /** 释放本实例拥有的客户端或资源，避免重复创建后留下后台工作。 */
     @Override
     public void close() {
         local.invalidateAll();

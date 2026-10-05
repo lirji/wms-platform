@@ -15,16 +15,19 @@ public class AllocationRecoveryJob {
     private final AllocationRecoverySweep sweep;
     private final String enterpriseId;
 
+    /** 显式接收 AllocationRecoveryJob 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     @Autowired
     public AllocationRecoveryJob(ObjectProvider<AllocationRecoverySweep> sweeps) {
         this(sweeps.getIfAvailable(), null);
     }
 
+    /** 显式接收 AllocationRecoveryJob 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationRecoveryJob(AllocationRecoverySweep sweep, String enterpriseId) {
         this.sweep = sweep;
         this.enterpriseId = enterpriseId;
     }
 
+    /** 在当前组合根提供 execute，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(AllocationRecoverySweep.HANDLER)
     public AllocationRecoverySweep.Report execute() {
         if (sweep == null) {

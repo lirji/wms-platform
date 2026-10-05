@@ -6,6 +6,7 @@ import java.sql.SQLException;
 public final class DatabaseErrors {
     private DatabaseErrors() {}
 
+    /** 沿异常原因链识别数据库唯一约束冲突，避免依赖单一驱动的异常文本。 */
     public static boolean duplicateKey(Throwable error) {
         for (Throwable current = error; current != null; current = current.getCause()) {
             if (current instanceof SQLException sql && sql.getErrorCode() == 1062) return true;

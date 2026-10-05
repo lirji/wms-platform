@@ -19,6 +19,7 @@ public final class KafkaInboxConsumer implements SmartLifecycle {
     /** 返回之前必须提交Inbox（包括毒消息隔离）；禁止仅在内存去重后返回。 */
     @FunctionalInterface
     public interface DurableReceiver {
+        /** 先提交持久化 Inbox 再返回，Kafka 位点推进不能先于数据库记录。 */
         void persist(ConsumerRecord<String, String> record);
     }
 
@@ -31,6 +32,7 @@ public final class KafkaInboxConsumer implements SmartLifecycle {
     private Thread worker;
     private volatile boolean receiving;
 
+    /** 显式接收 KafkaInboxConsumer 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public KafkaInboxConsumer(
             KafkaSettings settings, String group, List<String> topics, DurableReceiver receiver) {
         this.settings = settings;
@@ -39,6 +41,7 @@ public final class KafkaInboxConsumer implements SmartLifecycle {
         this.receiver = receiver;
     }
 
+    /** 只启动一次本实例消费者，避免重复线程争用同一消费位点。 */
     @Override
     public synchronized void start() {
         if (running) return;
@@ -130,16 +133,19 @@ public final class KafkaInboxConsumer implements SmartLifecycle {
         return receiving;
     }
 
+    /** 返回生命周期运行标记；消费者加入组的就绪状态另由 isReceiving 提供。 */
     @Override
     public boolean isRunning() {
         return running;
     }
 
+    /** 按既有生命周期阶段启动和停止消费者，保持与业务处理器的先后顺序。 */
     @Override
     public int getPhase() {
         return Integer.MAX_VALUE - 100;
     }
 
+    /** 唤醒消费者并在既有预算内等候退出，不能在停止后继续推进位点。 */
     @Override
     public synchronized void stop() {
         running = false;

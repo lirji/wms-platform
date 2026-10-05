@@ -23,6 +23,7 @@ public final class WarehouseTryHttpClient implements WarehouseTryPort, AutoClose
     private final HttpClient http;
     private volatile boolean closed;
 
+    /** 显式接收 WarehouseTryHttpClient 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public WarehouseTryHttpClient(
             Map<String, URI> cells,
             String cluster,
@@ -73,6 +74,7 @@ public final class WarehouseTryHttpClient implements WarehouseTryPort, AutoClose
                     "RM_CELL_NOT_CONFIGURED");
     }
 
+    /** 以既定事务、仓与分支身份提交预留，重试不能产生新的预留身份。 */
     @Override
     public WarehouseTryResult reserve(String xid, WarehouseTryRequest request) {
         if (closed)
@@ -184,17 +186,20 @@ public final class WarehouseTryHttpClient implements WarehouseTryPort, AutoClose
         private final java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
         private Flow.Subscription subscription;
 
+        /** 返回同一响应的完成阶段，调用方必须等候实际接收结果。 */
         @Override
         public CompletionStage<byte[]> getBody() {
             return result;
         }
 
+        /** 保存本次有界接收的订阅，后续需求与取消必须针对同一订阅。 */
         @Override
         public void onSubscribe(Flow.Subscription value) {
             subscription = value;
             value.request(1);
         }
 
+        /** 逐批检查响应大小，避免远端响应无限占用客户端内存。 */
         @Override
         public void onNext(List<ByteBuffer> chunks) {
             for (var chunk : chunks) {
@@ -212,11 +217,13 @@ public final class WarehouseTryHttpClient implements WarehouseTryPort, AutoClose
             subscription.request(1);
         }
 
+        /** 传播或记录本次异步失败，不能用成功结果掩盖接收失败。 */
         @Override
         public void onError(Throwable failure) {
             result.completeExceptionally(failure);
         }
 
+        /** 完成既有异步接收或释放处理，不把尚未结束的请求当作完成。 */
         @Override
         public void onComplete() {
             result.complete(bytes.toByteArray());

@@ -14,6 +14,7 @@ public record WarehouseTryRequest(
         String cellId,
         long routeEpoch,
         List<Line> lines) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public WarehouseTryRequest {
         if (schemaVersion != 1 || routeEpoch < 1)
             throw new IllegalArgumentException("Try版本或路由代际无效");
@@ -44,6 +45,7 @@ public record WarehouseTryRequest(
             BigDecimal qty,
             String baseUnit,
             int minRemainingDays) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public Line {
             for (String id : List.of(orderLineId, skuId, sourceLocationId, lotId, baseUnit))
                 requireId(id);

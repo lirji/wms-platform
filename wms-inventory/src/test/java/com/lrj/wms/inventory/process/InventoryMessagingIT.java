@@ -3,7 +3,6 @@ package com.lrj.wms.inventory.process;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.inventory.inventory.application.InventoryApplicationService;
-import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.domain.Quantity;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
@@ -154,7 +153,8 @@ class InventoryMessagingIT {
                         "SELECT on_hand_qty,source_version,as_of FROM inventory_view WHERE enterprise_id='ENT-MQ'");
         assertEquals(0, new BigDecimal("9").compareTo((BigDecimal) view.get("on_hand_qty")));
         assertEquals(2L, ((Number) view.get("source_version")).longValue());
-        assertEquals(occurred, ExpiryPolicy.instantOf(view.get("as_of")));
+        assertEquals(
+                occurred, com.lrj.wms.runtime.db.DatabaseInstants.instantOf(view.get("as_of")));
         // 投影提交和worker完成心跳不是同一时刻，首次探针还可能缓存启动时的DOWN。
         long readyDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
         while (System.nanoTime() < readyDeadline

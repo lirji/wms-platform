@@ -17,6 +17,7 @@ public final class AdmissionGate {
                     .expireAfterAccess(Duration.ofMinutes(5))
                     .build();
 
+    /** 显式接收 AdmissionGate 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AdmissionGate(AdmissionBudget budget) {
         this.budget = budget;
         this.global = new Bucket(budget.globalConcurrency(), budget.globalRequestsPerSecond());
@@ -49,6 +50,7 @@ public final class AdmissionGate {
             this.tenant = tenant;
         }
 
+        /** 将 close 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
         @Override
         public void close() {
             if (closed.compareAndSet(false, true)) {

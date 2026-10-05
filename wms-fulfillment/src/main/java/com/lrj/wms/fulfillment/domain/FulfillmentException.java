@@ -4,6 +4,7 @@ package com.lrj.wms.fulfillment.domain;
 public final class FulfillmentException extends RuntimeException {
     private final String code;
 
+    /** 携带本异常既有的错误身份与说明，边界转换使用稳定结果而非堆栈文本。 */
     public FulfillmentException(String code, String message) {
         super(message);
         this.code = code;

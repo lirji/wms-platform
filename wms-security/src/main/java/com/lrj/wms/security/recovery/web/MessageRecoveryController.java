@@ -23,6 +23,7 @@ import java.util.Map;
 public final class MessageRecoveryController {
     private final MessageRecoveryService recovery;
 
+    /** 显式接收 MessageRecoveryController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MessageRecoveryController(MessageRecoveryService recovery) {
         this.recovery = recovery;
     }

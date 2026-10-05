@@ -84,6 +84,7 @@ public final class InboundWorkbenchRequests {
             @Valid
                     com.lrj.wms.contract.serial.observation.SerialQualityObservation
                             serialQualityObservation) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public InspectRequest(
                 String lineId,
                 BigDecimal acceptedQty,
@@ -116,6 +117,7 @@ public final class InboundWorkbenchRequests {
             @Size(max = 64) String clientOperationId,
             @Size(max = 64) String receiptCommandId,
             @Valid com.lrj.wms.contract.serial.selection.SerialStockSelection serialSelection) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public PutawayRequest(
                 String inboundOrderId,
                 String lineId,
@@ -137,6 +139,7 @@ public final class InboundWorkbenchRequests {
                     null);
         }
 
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public PutawayRequest(
                 String inboundOrderId,
                 String lineId,

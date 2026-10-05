@@ -1,7 +1,6 @@
 package com.lrj.wms.inventory.query.application;
 
 import com.lrj.wms.inventory.compat.CompatibilityGate;
-import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.jobs.domain.JobRunException;
 import com.lrj.wms.inventory.query.persistence.ProjectionMapper;
@@ -28,11 +27,13 @@ public final class InventoryProjectionService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 InventoryProjectionService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryProjectionService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 依据事件身份和聚合版本更新查询投影，重复与乱序不能覆盖更新的事实。 */
     public Map<String, Object> apply(
             String enterpriseId,
             String warehouseId,
@@ -281,6 +282,6 @@ public final class InventoryProjectionService {
         if (value == null) {
             return null;
         }
-        return Timestamp.from(ExpiryPolicy.instantOf(value));
+        return Timestamp.from(com.lrj.wms.runtime.db.DatabaseInstants.instantOf(value));
     }
 }

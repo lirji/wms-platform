@@ -24,11 +24,13 @@ public final class WarehouseMoveService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 WarehouseMoveService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public WarehouseMoveService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 移库由统一应用入口核对源与目标桶，不能拆成无关的两次库存修改。 */
     public Map<String, Object> move(
             String enterpriseId,
             String warehouseId,

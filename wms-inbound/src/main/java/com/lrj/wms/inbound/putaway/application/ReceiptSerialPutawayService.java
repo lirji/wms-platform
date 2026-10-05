@@ -19,6 +19,7 @@ public final class ReceiptSerialPutawayService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 ReceiptSerialPutawayService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReceiptSerialPutawayService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;

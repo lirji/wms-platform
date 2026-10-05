@@ -32,10 +32,12 @@ import java.util.Map;
 public class InventoryViewController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 InventoryViewController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryViewController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 GET /inventory 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/inventory")
     public Map<String, Object> inventory(
             @AuthenticationPrincipal Jwt jwt,
@@ -60,6 +62,7 @@ public class InventoryViewController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/inventory/{balanceId}/ledger 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/inventory/{balanceId}/ledger")
     public Map<String, Object> ledger(
             @AuthenticationPrincipal Jwt jwt,

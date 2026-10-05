@@ -10,6 +10,7 @@ import java.util.Map;
 
 /** 内部对账只读权威库存并落差异单。禁止改写 stock_balance。 */
 public interface ReconciliationMapper {
+    /** 写入{@code reconciliation_cutoff}、{@code id}，将 SQL 与绑定参数保持在同一持久化入口。 */
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     /** upsertCutoff：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int upsertCutoff(
@@ -30,6 +31,7 @@ public interface ReconciliationMapper {
             @Param("warehouseId") String warehouseId,
             @Param("cutoffId") String cutoffId);
 
+    /** 写入{@code source_execution_fact}、{@code updated_at}，将 SQL 与绑定参数保持在同一持久化入口。 */
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     /** insertFactIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertFactIgnore(
@@ -54,6 +56,7 @@ public interface ReconciliationMapper {
             @Param("cursor") String cursor,
             @Param("limit") int limit);
 
+    /** 读取{@code source_execution_fact}、{@code stock_posting}，将 SQL 与绑定参数保持在同一持久化入口。使用既定分页或批量上限，避免一次读取无界数据。 */
     @Options(timeout = 5)
     List<Map<String, Object>> factPage(
             @Param("enterpriseId") String enterpriseId,
@@ -62,6 +65,7 @@ public interface ReconciliationMapper {
             @Param("cursor") String cursor,
             @Param("limit") int limit);
 
+    /** 读取{@code stock_posting}、{@code source_execution_fact}，将 SQL 与绑定参数保持在同一持久化入口。使用既定分页或批量上限，避免一次读取无界数据。 */
     @Options(timeout = 5)
     List<Map<String, Object>> postingPage(
             @Param("enterpriseId") String enterpriseId,
@@ -70,6 +74,7 @@ public interface ReconciliationMapper {
             @Param("cursor") String cursor,
             @Param("limit") int limit);
 
+    /** 写入{@code reconciliation_scan}、{@code id}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int insertScan(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
@@ -77,11 +82,13 @@ public interface ReconciliationMapper {
             @Param("id") String id,
             @Param("now") Timestamp now);
 
+    /** 读取{@code reconciliation_scan}，将 SQL 与绑定参数保持在同一持久化入口。行锁由调用方事务持有，读取和后续决策必须在同一事务内。 */
     Map<String, Object> lockScan(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
             @Param("cutoffId") String cutoffId);
 
+    /** 写入{@code reconciliation_scan}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int checkpoint(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
@@ -90,6 +97,7 @@ public interface ReconciliationMapper {
             @Param("completed") boolean completed,
             @Param("now") Timestamp now);
 
+    /** 写入{@code reconciliation_case}、{@code approved_by}，将 SQL 与绑定参数保持在同一持久化入口。 */
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     /** insertCaseIgnore：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int insertCaseIgnore(
@@ -133,6 +141,7 @@ public interface ReconciliationMapper {
             @Param("caseType") String caseType,
             @Param("scopeId") String scopeId);
 
+    /** 写入{@code reconciliation_case}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     /** casCase：SQL 定义在同名 Mapper XML，调用方负责用例事务。 */
     int casCase(

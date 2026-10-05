@@ -12,6 +12,7 @@ public final class WarehouseQuantityFact {
 
     private WarehouseQuantityFact() {}
 
+    /** 构造带原作用域的在手数量事实，导出与对账必须使用同一稳定数量语义。 */
     public static Map<String, Object> onHand(
             String factId,
             String enterpriseId,

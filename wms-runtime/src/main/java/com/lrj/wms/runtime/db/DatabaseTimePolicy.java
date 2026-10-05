@@ -17,6 +17,7 @@ import javax.sql.DataSource;
 @ConfigurationProperties("wms.runtime.db.time")
 public record DatabaseTimePolicy(
         @DefaultValue("UTC") String storageZone, @DefaultValue("") String legacyEvidence) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public DatabaseTimePolicy {
         if (storageZone == null
                 || !(ZoneId.of(storageZone).normalized() instanceof ZoneOffset offset)

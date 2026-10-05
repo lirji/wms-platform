@@ -16,6 +16,7 @@ public final class KafkaMessagePublisher implements AutoCloseable {
 
     private final KafkaProducer<String, String> producer;
 
+    /** 显式接收 KafkaMessagePublisher 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public KafkaMessagePublisher(KafkaSettings settings, String clientId) {
         var properties = settings.connection();
         properties.put("client.id", clientId);
@@ -51,6 +52,7 @@ public final class KafkaMessagePublisher implements AutoCloseable {
         }
     }
 
+    /** 释放本实例拥有的客户端或资源，避免重复创建后留下后台工作。 */
     @Override
     public void close() {
         producer.close(Duration.ofSeconds(3));

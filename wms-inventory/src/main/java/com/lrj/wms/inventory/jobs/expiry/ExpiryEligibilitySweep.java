@@ -22,11 +22,13 @@ public final class ExpiryEligibilitySweep {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 ExpiryEligibilitySweep 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ExpiryEligibilitySweep(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 在既定仓与窗口扫描效期资格，沿用当前工作上限与失效广播规则。 */
     public Report execute(String enterpriseId, String warehouseId, String windowId) {
         RootContext.unbind();
         if (enterpriseId == null
@@ -45,7 +47,8 @@ public final class ExpiryEligibilitySweep {
         int openReservations = 0;
         for (Map<String, Object> lot : lots.stream().limit(PAGE_LIMIT).toList()) {
             if (ExpiryPolicy.satisfied(
-                    ExpiryPolicy.instantOf(lot.get("expires_at")), clock.instant())) {
+                    com.lrj.wms.runtime.db.DatabaseInstants.instantOf(lot.get("expires_at")),
+                    clock.instant())) {
                 continue;
             }
             String lotId = String.valueOf(lot.get("id"));
@@ -56,7 +59,9 @@ public final class ExpiryEligibilitySweep {
                     warehouseId,
                     lotId,
                     windowId,
-                    Timestamp.from(ExpiryPolicy.instantOf(lot.get("expires_at"))),
+                    Timestamp.from(
+                            com.lrj.wms.runtime.db.DatabaseInstants.instantOf(
+                                    lot.get("expires_at"))),
                     open,
                     now);
             noticed++;

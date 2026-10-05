@@ -37,24 +37,29 @@ public final class CompatibilityGate {
 
     private CompatibilityGate() {}
 
+    /** 只重置兼容性观察计数，不能借此改变实际兼容判定。 */
     public static void resetObservation() {
         ACCEPTED_CURRENT.set(0);
         ACCEPTED_N1.set(0);
         REJECTED.set(0);
     }
 
+    /** 记录当前版本通过的观察，供兼容性诊断核对。 */
     public static int acceptedCurrent() {
         return ACCEPTED_CURRENT.get();
     }
 
+    /** 记录兼容旧版本通过的观察，不能改变兼容窗口。 */
     public static int acceptedNMinusOne() {
         return ACCEPTED_N1.get();
     }
 
+    /** 记录未知版本被拒绝的观察，不能静默接受新协议。 */
     public static int rejectedUnknown() {
         return REJECTED.get();
     }
 
+    /** 按既定版本与指纹判定事件兼容性，未知模式不能默认放行。 */
     public static Decision decideEvent(String payload) {
         try {
             JsonNode object = object(payload);
@@ -65,10 +70,12 @@ public final class CompatibilityGate {
         }
     }
 
+    /** 按既定版本与指纹判定快照兼容性，未知模式不能默认放行。 */
     public static Decision decideSnapshot(int schemaVersion) {
         return decide(schemaVersion, WarehouseQuantityFact.SCHEMA_VERSION);
     }
 
+    /** 事件使用前执行兼容检查，拒绝不能被当作已处理。 */
     public static void requireEvent(String payload) {
         Decision decision = decideEvent(payload);
         if (decision == Decision.REJECT_UNKNOWN) {
@@ -76,6 +83,7 @@ public final class CompatibilityGate {
         }
     }
 
+    /** 核对快照事实的数量模式，避免版本兼容被误当作数量语义一致。 */
     public static Decision decideSnapshotFact(Map<String, Object> fact) {
         if (fact == null) return record(Decision.REJECT_UNKNOWN);
         if (!fact.containsKey("schemaVersion")) {
@@ -88,6 +96,7 @@ public final class CompatibilityGate {
         }
     }
 
+    /** 检查数量事实的表示约束，不能用隐式换算掩盖协议差异。 */
     public static void requireQuantityFact(Map<String, Object> fact) {
         if (fact == null) {
             throw new JobRunException("SCHEMA_UNSUPPORTED", "数量事实不能为空");

@@ -23,11 +23,13 @@ public final class StockHoldService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 StockHoldService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public StockHoldService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 通过该应用入口建立初始单据并执行既有校验，避免调用方直接写入状态。 */
     public Map<String, Object> create(
             String enterpriseId,
             String warehouseId,
@@ -88,6 +90,7 @@ public final class StockHoldService {
         return view(docs.getHoldByKey(enterpriseId, warehouseId, clientOperationId));
     }
 
+    /** 沿用原限制身份释放库存限制，竞争或重试不能重复释放同一效果。 */
     public Map<String, Object> release(
             String enterpriseId,
             String warehouseId,

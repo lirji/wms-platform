@@ -21,6 +21,7 @@ public final class ReservationTccAction {
 
     private final InventoryApplicationService inventory;
 
+    /** 显式接收 ReservationTccAction 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReservationTccAction(InventoryApplicationService inventory) {
         this.inventory = inventory;
     }

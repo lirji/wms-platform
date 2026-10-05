@@ -9,6 +9,7 @@ import org.apache.ibatis.session.SqlSession;
 public final class OutboundCancellationGuard {
     private OutboundCancellationGuard() {}
 
+    /** 操作前检查原单据取消围栏，避免取消承诺之后继续扣减。 */
     public static void requireOpen(SqlSession session, String e, String w, String o) {
         com.lrj.wms.inventory.migrate.application.WarehouseMigrationService.requireWritable(
                 session, e, w);

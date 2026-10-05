@@ -8,6 +8,7 @@ import java.util.*;
 /** 每个收货批次的累计合格/不合格身份快照，未列出的原身份继续HOLD。 */
 public record SerialQualityObservation(
         int schemaVersion, List<String> acceptedSerials, List<String> rejectedSerials) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialQualityObservation {
         if (schemaVersion != 1
                 || acceptedSerials == null

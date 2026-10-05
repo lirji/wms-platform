@@ -30,6 +30,7 @@ import java.util.*;
 public class SerialTransferController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 SerialTransferController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialTransferController(
             SqlSessionFactory sessions, org.springframework.core.env.Environment environment) {
         if (!environment.getProperty("wms.messaging.enabled", Boolean.class, false))

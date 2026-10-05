@@ -33,27 +33,32 @@ public final class SeedCatalog {
             String locationSuffix,
             String qualityCode,
             BigDecimal onHandQty) {
+        /** 按既定演示仓生成稳定库存桶标识，重复灌数必须定位同一演示记录。 */
         public String balanceId(String warehouseId) {
             return "BAL-" + warehouseId + "-" + idSuffix;
         }
 
+        /** 按既定演示仓生成稳定批次标识，重复灌数必须定位同一演示记录。 */
         public String lotId(String warehouseId) {
             return lotIdOrTemplate.contains("%s")
                     ? lotIdOrTemplate.formatted(warehouseId)
                     : lotIdOrTemplate;
         }
 
+        /** 按既定演示仓生成稳定库位标识，重复灌数必须定位同一演示记录。 */
         public String locationId(String warehouseId) {
             return warehouseId + "-" + locationSuffix;
         }
     }
 
+    /** 返回数据库种子使用的统一演示仓目录，前端不能硬编码另一份目录。 */
     public static List<WarehouseSeed> warehouses() {
         return List.of(
                 new WarehouseSeed(WAREHOUSE_A, "SHA", "上海演示仓", "Asia/Shanghai"),
                 new WarehouseSeed(WAREHOUSE_B, "SZX", "深圳演示仓", "Asia/Shanghai"));
     }
 
+    /** 返回数据库种子使用的统一商品策略，演示库存和商品精度必须一致。 */
     public static List<SkuSeed> skus() {
         return List.of(
                 new SkuSeed(
@@ -133,14 +138,17 @@ public final class SeedCatalog {
                         false));
     }
 
+    /** 相对于种子时钟生成近效期瞬时，避免演示依赖机器默认时区。 */
     public static Instant nearExpiry(Instant now) {
         return now.plus(Duration.ofDays(7));
     }
 
+    /** 相对于种子时钟生成已过期瞬时，避免演示依赖机器默认时区。 */
     public static Instant alreadyExpired(Instant now) {
         return now.minus(Duration.ofDays(1));
     }
 
+    /** 使用精确十进制构造既定演示数量，不能通过浮点换算改变种子数据。 */
     public static BigDecimal twelve() {
         return new BigDecimal("12");
     }
@@ -181,10 +189,12 @@ public final class SeedCatalog {
                         new BigDecimal("6")));
     }
 
+    /** 生成演示仓绑定的稳定盘点标识，重复灌数不能创建另一盘点身份。 */
     public static String countPlanId(String warehouseId) {
         return "CNT-DEMO-DRAFT-" + warehouseId;
     }
 
+    /** 提供演示仓对应的存储库位，不能将其他仓的库位混入种子。 */
     public static String storageLocation(String warehouseId) {
         return warehouseId + "-STO";
     }

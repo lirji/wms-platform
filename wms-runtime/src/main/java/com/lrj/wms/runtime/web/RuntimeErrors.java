@@ -9,6 +9,7 @@ import java.util.Map;
 /** 共享边界只翻译明确的运行时错误，不改变领域错误语义。 */
 @RestControllerAdvice
 public class RuntimeErrors {
+    /** 将 missingCommandContext 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @ExceptionHandler(com.lrj.wms.runtime.messaging.outbox.MissingCommandContextException.class)
     public ResponseEntity<Map<String, Object>> missingCommandContext() {
         return ResponseEntity.status(409)
@@ -25,6 +26,7 @@ public class RuntimeErrors {
                                 false));
     }
 
+    /** 将 commandConflict 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @ExceptionHandler(com.lrj.wms.runtime.command.CommandConflictException.class)
     public ResponseEntity<Map<String, Object>> commandConflict() {
         return ResponseEntity.status(409)
@@ -41,6 +43,7 @@ public class RuntimeErrors {
                                 false));
     }
 
+    /** 将 cacheBusy 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @ExceptionHandler(com.lrj.wms.runtime.cache.QueryCacheBusyException.class)
     public ResponseEntity<Map<String, Object>> cacheBusy() {
         return ResponseEntity.status(503)
@@ -81,6 +84,7 @@ public class RuntimeErrors {
                                 false));
     }
 
+    /** 将 database 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @ExceptionHandler({
         java.sql.SQLException.class,
         org.springframework.dao.DataAccessException.class
@@ -101,6 +105,7 @@ public class RuntimeErrors {
                                 !duplicate));
     }
 
+    /** 将 invalidPage 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @ExceptionHandler(InvalidPageException.class)
     public ResponseEntity<Map<String, Object>> invalidPage(InvalidPageException error) {
         return ResponseEntity.badRequest()

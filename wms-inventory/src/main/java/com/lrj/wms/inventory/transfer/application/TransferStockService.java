@@ -26,6 +26,7 @@ public final class TransferStockService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 TransferStockService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public TransferStockService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -127,6 +128,7 @@ public final class TransferStockService {
         return replay(after, false);
     }
 
+    /** 按既定收货操作身份应用实物观察，重试与来源凭证必须保持一致。 */
     public Map<String, Object> receive(
             String enterpriseId,
             String warehouseId,

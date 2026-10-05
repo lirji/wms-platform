@@ -24,6 +24,7 @@ public final class MessageRecoveryService {
     private final RuntimeInbox inbox;
     private final Clock clock;
 
+    /** 显式接收 MessageRecoveryService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MessageRecoveryService(
             SqlSessionFactory sessions,
             MessageQueueMetrics.Queue outbox,

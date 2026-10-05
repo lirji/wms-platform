@@ -43,6 +43,7 @@ public class InboundWorkbenchController {
 
     private final boolean messagingEnabled;
 
+    /** 显式接收 InboundWorkbenchController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InboundWorkbenchController(
             SqlSessionFactory sessions,
             @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}")
@@ -51,6 +52,7 @@ public class InboundWorkbenchController {
         this.messagingEnabled = messagingEnabled;
     }
 
+    /** 处理 GET /inbound-orders 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/inbound-orders")
     public Map<String, Object> list(
             @AuthenticationPrincipal Jwt jwt,
@@ -74,6 +76,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /inbound-orders/{inboundOrderId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/inbound-orders/{inboundOrderId}")
     public Map<String, Object> get(
             @AuthenticationPrincipal Jwt jwt,
@@ -90,6 +93,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /inbound-orders 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/inbound-orders")
     public ResponseEntity<Map<String, Object>> create(
             @AuthenticationPrincipal Jwt jwt,
@@ -136,6 +140,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /inbound-orders/{inboundOrderId}/receipts 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/inbound-orders/{inboundOrderId}/receipts")
     public ResponseEntity<Map<String, Object>> receive(
             @AuthenticationPrincipal Jwt jwt,
@@ -195,6 +200,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /quality-inspections/{inspectionId}/results 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/quality-inspections/{inspectionId}/results")
     public ResponseEntity<Map<String, Object>> inspect(
             @AuthenticationPrincipal Jwt jwt,
@@ -256,6 +262,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /tasks 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/tasks")
     public Map<String, Object> listTasks(
             @AuthenticationPrincipal Jwt jwt,
@@ -277,6 +284,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /tasks/{taskId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/tasks/{taskId}")
     public Map<String, Object> getTask(
             @AuthenticationPrincipal Jwt jwt,
@@ -291,6 +299,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /tasks/{taskId}/claims 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/tasks/{taskId}/claims")
     public Map<String, Object> claim(
             @AuthenticationPrincipal Jwt jwt,
@@ -322,6 +331,7 @@ public class InboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /tasks/{taskId}/putaways 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/tasks/{taskId}/putaways")
     public ResponseEntity<Map<String, Object>> putaway(
             @AuthenticationPrincipal Jwt jwt,

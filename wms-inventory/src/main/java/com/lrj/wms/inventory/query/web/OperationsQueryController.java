@@ -38,10 +38,12 @@ import java.util.Map;
 public class OperationsQueryController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 OperationsQueryController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OperationsQueryController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 GET /jobs 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/jobs")
     public Map<String, Object> jobs(
             @AuthenticationPrincipal Jwt jwt,
@@ -65,6 +67,7 @@ public class OperationsQueryController {
         }
     }
 
+    /** 处理 GET /jobs/{jobId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/jobs/{jobId}")
     public Map<String, Object> job(
             @AuthenticationPrincipal Jwt jwt,
@@ -88,6 +91,7 @@ public class OperationsQueryController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/count-plans 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/count-plans")
     public Map<String, Object> counts(
             @AuthenticationPrincipal Jwt jwt,
@@ -111,6 +115,7 @@ public class OperationsQueryController {
         }
     }
 
+    /** 处理 GET /operations/{operationId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/operations/{operationId}")
     public Map<String, Object> operation(
             @AuthenticationPrincipal Jwt jwt, @PathVariable String operationId) {
@@ -124,6 +129,7 @@ public class OperationsQueryController {
         }
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/count-plans/{countPlanId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/count-plans/{countPlanId}")
     public Map<String, Object> count(
             @AuthenticationPrincipal Jwt jwt,

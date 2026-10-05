@@ -20,11 +20,13 @@ public final class MessageWorker implements SmartLifecycle {
             new java.util.concurrent.atomic.AtomicReference<>(new PulseStatus(0, false, 0));
     private long generation;
 
+    /** 显式接收 MessageWorker 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public MessageWorker(String name, Runnable pulse) {
         this.name = name;
         this.pulse = pulse;
     }
 
+    /** 按既有生命周期启动本实例工作器，避免同一实例重复运行后台循环。 */
     @Override
     public synchronized void start() {
         if (running) return;
@@ -68,16 +70,19 @@ public final class MessageWorker implements SmartLifecycle {
                 && System.nanoTime() - completed.completedAt() < TimeUnit.SECONDS.toNanos(30);
     }
 
+    /** 返回本实例保存的 running，调用方沿用同一快照或执行上下文。 */
     @Override
     public boolean isRunning() {
         return running;
     }
 
+    /** 使用既有生命周期顺序，保证依赖与后台工作器按原顺序启停。 */
     @Override
     public int getPhase() {
         return Integer.MAX_VALUE - 90;
     }
 
+    /** 按既有预算停止本实例工作器，保持停止与资源释放的生命周期一致。 */
     @Override
     public synchronized void stop() {
         running = false;

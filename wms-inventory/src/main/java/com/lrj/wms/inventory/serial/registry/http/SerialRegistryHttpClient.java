@@ -41,6 +41,7 @@ public final class SerialRegistryHttpClient
     private final HttpClient http;
     private final AtomicBoolean closed = new AtomicBoolean();
 
+    /** 显式接收 SerialRegistryHttpClient 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialRegistryHttpClient(URI base, Function<String, String> tokens, Duration timeout) {
         if (base.getHost() == null
                 || base.getRawUserInfo() != null
@@ -83,11 +84,13 @@ public final class SerialRegistryHttpClient
         return identity("claims", e, sku, serial, wh, op, Set.of("CLAIMED", "ACTIVE"));
     }
 
+    /** 沿用已声明的序列号和操作身份激活，不能重新分配全局物品身份。 */
     @Override
     public Map<String, Object> activate(String e, String sku, String serial, String wh, String op) {
         return identity("activations", e, sku, serial, wh, op, Set.of("ACTIVE"));
     }
 
+    /** 按全局身份声明发现观察，不能把仓内观察直接当作注册授权。 */
     @Override
     public Map<String, Object> claimFound(
             String e, String sku, String serial, String wh, String op) {
@@ -101,12 +104,14 @@ public final class SerialRegistryHttpClient
                 Set.of("CLAIMED", "FOUND_CLAIMED", "ACTIVE"));
     }
 
+    /** 按已声明的发现操作激活身份，重试不能引入不同登记结果。 */
     @Override
     public Map<String, Object> activateFound(
             String e, String sku, String serial, String wh, String op) {
         return identity("found-activations", e, sku, serial, wh, op, Set.of("ACTIVE"));
     }
 
+    /** 将缺失观察交给序列号权威处理，调用方不能自行释放全局身份。 */
     @Override
     public Map<String, Object> markMissing(
             String e, String sku, String serial, String wh, String fact, long epoch) {
@@ -155,6 +160,7 @@ public final class SerialRegistryHttpClient
         return result;
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     @Override
     public Map<String, Object> get(String e, String sku, String serial) {
         var result =
@@ -263,6 +269,7 @@ public final class SerialRegistryHttpClient
         return result;
     }
 
+    /** 登记目标仓开始接收的观察，不能跳过原调拨身份与归属约束。 */
     @Override
     public Map<String, Object> startReceiving(
             String e,
@@ -300,6 +307,7 @@ public final class SerialRegistryHttpClient
         return result;
     }
 
+    /** 以同一调拨身份确认目标归属，不能用仓内观察替代全局归属校验。 */
     @Override
     public Map<String, Object> confirmDestination(
             String e, String sku, String serial, String transfer, String wh, String ref) {
@@ -452,17 +460,20 @@ public final class SerialRegistryHttpClient
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private Flow.Subscription subscription;
 
+        /** 返回同一响应的完成阶段，调用方必须等候实际接收结果。 */
         @Override
         public CompletionStage<byte[]> getBody() {
             return result;
         }
 
+        /** 保存本次有界接收的订阅，后续需求与取消必须针对同一订阅。 */
         @Override
         public void onSubscribe(Flow.Subscription subscription) {
             this.subscription = subscription;
             subscription.request(1);
         }
 
+        /** 逐批检查响应大小，避免远端响应无限占用客户端内存。 */
         @Override
         public void onNext(List<ByteBuffer> chunks) {
             for (var chunk : chunks) {
@@ -478,11 +489,13 @@ public final class SerialRegistryHttpClient
             subscription.request(1);
         }
 
+        /** 传播或记录本次异步失败，不能用成功结果掩盖接收失败。 */
         @Override
         public void onError(Throwable failure) {
             result.completeExceptionally(failure);
         }
 
+        /** 完成既有异步接收或释放处理，不把尚未结束的请求当作完成。 */
         @Override
         public void onComplete() {
             result.complete(bytes.toByteArray());

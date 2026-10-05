@@ -19,6 +19,7 @@ public final class SourceWindowService {
     private final Clock clock;
     private final String source;
 
+    /** 显式接收 SourceWindowService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SourceWindowService(SqlSession session, Clock clock, String source) {
         if (!List.of("wms-inbound", "wms-outbound").contains(source))
             throw new IllegalArgumentException("未知事实来源");

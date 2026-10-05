@@ -34,6 +34,7 @@ public record RuntimeMessage(
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
 
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public RuntimeMessage {
         if (schemaVersion != 1 || aggregateVersion < 0)
             throw new MessageRejectedException("SCHEMA_UNSUPPORTED");
@@ -51,6 +52,7 @@ public record RuntimeMessage(
             throw new MessageRejectedException("INVALID_REQUEST_ID");
     }
 
+    /** 在协议入口解析并校验既有信封，未知或不完整字段不能进入业务处理。 */
     public static RuntimeMessage parse(String raw) {
         if (raw == null || raw.getBytes(StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES) {
             throw new MessageRejectedException("MESSAGE_TOO_LARGE");
@@ -92,10 +94,12 @@ public record RuntimeMessage(
         }
     }
 
+    /** 使用统一信封编码保持字段与摘要语义一致，生产者不能另造表示。 */
     public String encode() {
         return JSON.writeValueAsString(this);
     }
 
+    /** 将消息来源和事件身份纳入去重作用域，避免不同来源事件互相覆盖。 */
     public String identity() {
         return hash(
                 JSON.writeValueAsString(
@@ -124,6 +128,7 @@ public record RuntimeMessage(
         return node.isNull() ? null : node.asString();
     }
 
+    /** 使用原有 UTF-8 与 SHA-256 规则生成摘要，重试键和持久化摘要必须一致。 */
     public static String hash(String raw) {
         try {
             return HexFormat.of()

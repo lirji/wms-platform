@@ -26,11 +26,13 @@ public final class FefoCandidateService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 FefoCandidateService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public FefoCandidateService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 按商品精度、实时效期与 FEFO 顺序筛选候选桶，不能将缓存观察代替当前资格判断。 */
     public List<Map<String, Object>> list(
             String enterpriseId,
             String warehouseId,
@@ -57,7 +59,8 @@ public final class FefoCandidateService {
                     || !MasterdataCodes.GATE_OPEN.equals(String.valueOf(row.get("gate_state")))) {
                 continue;
             }
-            Instant expiresAt = ExpiryPolicy.instantOf(row.get("expires_at"));
+            Instant expiresAt =
+                    com.lrj.wms.runtime.db.DatabaseInstants.instantOf(row.get("expires_at"));
             if (!ExpiryPolicy.satisfied(expiresAt, now)) {
                 continue;
             }

@@ -15,6 +15,7 @@ import java.util.*;
 
 /** 人工重排只解除已核查的隔离，保留原始操作和上下文；审计与入队原子提交。 */
 public final class SerialRecoveryOperations {
+    /** 恢复沿用已保存的意图与命令身份，不能重试时换号或绕过现有恢复条件。 */
     public static Map<String, Object> retry(
             SqlSession session,
             Clock clock,

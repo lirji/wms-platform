@@ -50,3 +50,5 @@
 Java 使用固定版本及摘要的 Google Java Format（JDK 21），XML 使用 `xmllint`；Linux 需要 `libxml2-utils`。执行 `python3 scripts/format-java.py --write`、`python3 scripts/format-xml.py --write`，前端在 `wms-console` 执行 `npm ci` 后运行 `npm run format`。对应 `--check` 和 `npm run format:check` 已接入 CI。
 
 Java 格式器不会重排中文 Javadoc 和长协议字面量，XML 格式器会核对 SQL 文本与 XML 语义。数据库迁移和按字节核对的中央目录生成副本不由人工格式器重写。[模块重构记录](docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md)包含包结构、兼容性和验证证据。
+
+`python3 scripts/check-module-packages.py` 检查源码目录、Mapper 装载、自动配置与纯领域依赖边界。[代码规范审查](docs/refactoring/module-packages/CODE_QUALITY_REVIEW.md)说明各模块保留的约束及实际优化。

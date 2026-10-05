@@ -38,6 +38,7 @@ public final class ReservationState {
         return OCCUPY_RESERVED.contains(require(state));
     }
 
+    /** 集中判断终态，调用方不能各自维护不一致的结束条件。 */
     public static boolean isTerminal(String state) {
         return TERMINAL.contains(require(state));
     }

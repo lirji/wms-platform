@@ -93,6 +93,7 @@ public final class InventoryCodes {
         return requireKnown("门禁决策", DECISIONS, code);
     }
 
+    /** 集中判断可分配质量码，避免不同业务入口放宽库存资格。 */
     public static boolean allocatableQuality(String quality) {
         return QUALITY_GOOD.equals(requireQuality(quality));
     }

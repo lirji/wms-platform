@@ -21,6 +21,7 @@ public final class InventoryPolicy {
         }
     }
 
+    /** 拒绝负数量，避免库存约束被不合法输入绕过。 */
     public static void requireNonNegative(String label, Quantity quantity) {
         if (quantity == null || quantity.isNegative()) {
             throw new IllegalArgumentException(label + "不能为负");

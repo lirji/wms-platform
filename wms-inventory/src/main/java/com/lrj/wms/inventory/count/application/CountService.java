@@ -52,16 +52,19 @@ public final class CountService {
     private final Clock clock;
     private final SerialCountRegistryPort registry;
 
+    /** 显式接收 CountService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountService(SqlSession session, Clock clock) {
         this(session, clock, null);
     }
 
+    /** 显式接收 CountService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountService(SqlSession session, Clock clock, SerialCountRegistryPort registry) {
         this.session = session;
         this.clock = clock;
         this.registry = registry;
     }
 
+    /** 通过该应用入口建立初始单据并执行既有校验，避免调用方直接写入状态。 */
     public Map<String, Object> create(
             String enterpriseId,
             String warehouseId,
@@ -237,6 +240,7 @@ public final class CountService {
                 null);
     }
 
+    /** 进入复核前检查既有盘点结果，避免未完成的观察被当作已审结果。 */
     public Map<String, Object> submitReview(
             String enterpriseId, String warehouseId, String planId) {
         Timestamp now = Timestamp.from(clock.instant());
@@ -273,6 +277,7 @@ public final class CountService {
                 counts);
     }
 
+    /** 审批由应用用例核对状态与版本，调用方不能直接修改持久化状态。 */
     public Map<String, Object> approve(
             String enterpriseId,
             String warehouseId,
@@ -489,6 +494,7 @@ public final class CountService {
                 counts);
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String warehouseId, String planId) {
         CountMapper counts = session.getMapper(CountMapper.class);
         Map<String, Object> plan = counts.getPlan(enterpriseId, warehouseId, planId);

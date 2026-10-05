@@ -32,6 +32,7 @@ public final class OutboundDispatchService {
     private final WcsCommandPort commands;
     private final WcsReceiptPort receipts;
 
+    /** 显式接收 OutboundDispatchService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboundDispatchService(
             SqlSession session,
             Clock clock,

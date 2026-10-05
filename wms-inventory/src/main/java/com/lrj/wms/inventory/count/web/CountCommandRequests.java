@@ -31,6 +31,7 @@ public final class CountCommandRequests {
             @Valid
                     com.lrj.wms.contract.serial.observation.SerialCountObservation
                             serialObservation) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public ObserveRequest(
                 String lineId, String observationId, BigDecimal qty, Integer roundNo) {
             this(lineId, observationId, qty, roundNo, null);

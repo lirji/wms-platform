@@ -10,6 +10,7 @@ public record AdmissionBudget(
         @DefaultValue("16") int tenantConcurrency,
         @DefaultValue("200") int globalRequestsPerSecond,
         @DefaultValue("40") int tenantRequestsPerSecond) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public AdmissionBudget {
         if (globalConcurrency < 1
                 || globalConcurrency > 2000

@@ -29,6 +29,7 @@ public final class RuntimeInbox implements KafkaInboxConsumer.DurableReceiver {
     private final Map<String, String> sourceByTopic;
     private final Clock clock;
 
+    /** 显式接收 RuntimeInbox 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public RuntimeInbox(
             SqlSessionFactory sessions, Map<String, String> sourceByTopic, Clock clock) {
         this.sessions = sessions;
@@ -36,6 +37,7 @@ public final class RuntimeInbox implements KafkaInboxConsumer.DurableReceiver {
         this.clock = clock;
     }
 
+    /** 先提交持久化 Inbox 再返回，Kafka 位点推进不能先于数据库记录。 */
     @Override
     public void persist(ConsumerRecord<String, String> record) {
         String raw = record.value() == null ? "" : record.value();

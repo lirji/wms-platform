@@ -25,6 +25,7 @@ public final class AllocationRecoverySweep {
             new com.lrj.wms.runtime.web.AdmissionGate(
                     new com.lrj.wms.runtime.web.AdmissionBudget(4, 1, 8, 2));
 
+    /** 显式接收 AllocationRecoverySweep 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationRecoverySweep(FulfillmentService fulfillment, TcStatusPort tcStatus) {
         this.sessions = null;
         this.scope = null;

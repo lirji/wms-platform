@@ -21,6 +21,7 @@ import java.util.Set;
 public final class ReservationConfirmationHandler implements RuntimeInbox.Handler {
     private final Clock clock;
 
+    /** 显式接收 ReservationConfirmationHandler 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReservationConfirmationHandler(Clock clock) {
         this.clock = clock;
     }

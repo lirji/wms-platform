@@ -14,10 +14,12 @@ import java.util.Map;
 public final class InventoryAuditService {
     private final SqlSession session;
 
+    /** 显式接收 InventoryAuditService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryAuditService(SqlSession session) {
         this.session = session;
     }
 
+    /** 按仓和游标读取账本，避免全量扫描及跨仓数据混合。 */
     public Map<String, Object> listLedger(
             String enterpriseId, String warehouseId, String balanceId, String cursor, int limit) {
         InventoryHttpQueryMapper mapper = mapper();
@@ -30,6 +32,7 @@ public final class InventoryAuditService {
                 size);
     }
 
+    /** 在允许的仓集合内汇总操作事实，不能跨越调用方的观察范围。 */
     public Map<String, Object> getOperation(
             String enterpriseId, String operationId, List<String> warehouseIds) {
         List<Map<String, Object>> entries =
@@ -43,6 +46,7 @@ public final class InventoryAuditService {
         return body;
     }
 
+    /** 按仓、任务与游标读取效果，避免把其他任务效果混入结果。 */
     public Map<String, Object> listEffects(
             String enterpriseId, String warehouseId, String taskId, String cursor, int limit) {
         int size = pageSize(limit);

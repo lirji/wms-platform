@@ -24,11 +24,13 @@ public final class OutboundAuthorizationService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 OutboundAuthorizationService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboundAuthorizationService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 在应用用例中核对授权内容与既有单据，重试不能改变已承诺内容。 */
     public Map<String, Object> authorize(
             String enterpriseId,
             String warehouseId,

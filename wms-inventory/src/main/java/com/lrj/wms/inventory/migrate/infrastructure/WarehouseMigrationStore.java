@@ -92,6 +92,7 @@ public final class WarehouseMigrationStore {
     private final SqlSessionFactory source;
     private final SqlSessionFactory target;
 
+    /** 显式接收 WarehouseMigrationStore 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public WarehouseMigrationStore(DataSource source, DataSource target) {
         this.source = factory(source);
         this.target = factory(target);
@@ -134,6 +135,7 @@ public final class WarehouseMigrationStore {
 
     /** 列名只接受数据库元数据中的简单标识符，值仍由 JDBC 绑定。 */
     public record Column(String name, boolean json) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public Column {
             if (name == null || !name.matches("[a-z][a-z0-9_]*")) {
                 throw new IllegalArgumentException("非法数据库列名");
@@ -270,6 +272,7 @@ public final class WarehouseMigrationStore {
         }
     }
 
+    /** 按迁移计划选取来源或目标的数量摘要，比较必须保持相同仓作用域。 */
     public Map<String, Object> quantities(
             boolean onTarget, String enterpriseId, String warehouseId) {
         try (SqlSession session = (onTarget ? target : source).openSession()) {

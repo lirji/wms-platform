@@ -32,6 +32,7 @@ public final class ReconciliationSourceHttpClient
     private final HttpClient http;
     private final AtomicBoolean closed = new AtomicBoolean();
 
+    /** 显式接收 ReconciliationSourceHttpClient 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReconciliationSourceHttpClient(
             Map<String, URI> sources, Function<String, String> tokens, Duration timeout) {
         if (!sources.keySet().equals(Set.of("wms-inbound", "wms-outbound"))
@@ -208,17 +209,20 @@ public final class ReconciliationSourceHttpClient
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private Flow.Subscription subscription;
 
+        /** 返回同一响应的完成阶段，调用方必须等候实际接收结果。 */
         @Override
         public CompletionStage<byte[]> getBody() {
             return result;
         }
 
+        /** 保存本次有界接收的订阅，后续需求与取消必须针对同一订阅。 */
         @Override
         public void onSubscribe(Flow.Subscription subscription) {
             this.subscription = subscription;
             subscription.request(1);
         }
 
+        /** 逐批检查响应大小，避免远端响应无限占用客户端内存。 */
         @Override
         public void onNext(List<ByteBuffer> chunks) {
             for (var chunk : chunks) {
@@ -234,11 +238,13 @@ public final class ReconciliationSourceHttpClient
             subscription.request(1);
         }
 
+        /** 传播或记录本次异步失败，不能用成功结果掩盖接收失败。 */
         @Override
         public void onError(Throwable failure) {
             result.completeExceptionally(failure);
         }
 
+        /** 完成既有异步接收或释放处理，不把尚未结束的请求当作完成。 */
         @Override
         public void onComplete() {
             result.complete(bytes.toByteArray());

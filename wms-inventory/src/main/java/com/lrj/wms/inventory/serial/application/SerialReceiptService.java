@@ -36,6 +36,7 @@ public final class SerialReceiptService {
     private final Clock clock;
     private final SerialRegistryPort registry;
 
+    /** 显式接收 SerialReceiptService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialReceiptService(SqlSession session, Clock clock, SerialRegistryPort registry) {
         this.session = session;
         this.clock = clock;
@@ -219,6 +220,7 @@ public final class SerialReceiptService {
         return view(row);
     }
 
+    /** 按既有序列号规范化规则生成身份，避免重复登记相同物品。 */
     public static String normalize(String serial) {
         if (serial == null || serial.isBlank()) {
             throw new InventoryException("INVALID_SERIAL", "序列号不能为空");

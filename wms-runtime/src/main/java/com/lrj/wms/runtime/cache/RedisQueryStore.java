@@ -70,6 +70,7 @@ final class RedisQueryStore implements AutoCloseable {
         }
     }
 
+    /** 释放本实例拥有的客户端或资源，避免重复创建后留下后台工作。 */
     @Override
     public synchronized void close() {
         if (connection != null) connection.close();

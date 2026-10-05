@@ -53,6 +53,7 @@ public final class OutboundWorkbenchRequests {
             if (serialExecution != null) serialExecution.requireQuantity(qty);
         }
 
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public PickRequest(
                 String lotId, String pickPartId, String clientOperationId, BigDecimal qty) {
             this(lotId, pickPartId, clientOperationId, qty, null);
@@ -81,6 +82,7 @@ public final class OutboundWorkbenchRequests {
             if (serialExecution != null) serialExecution.requireQuantity(qty);
         }
 
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public ShipRequest(
                 String stagingLocationId,
                 String lotId,

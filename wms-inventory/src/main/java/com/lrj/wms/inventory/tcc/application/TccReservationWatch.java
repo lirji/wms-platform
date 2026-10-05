@@ -18,6 +18,7 @@ public final class TccReservationWatch {
 
     private final SqlSession session;
 
+    /** 显式接收 TccReservationWatch 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public TccReservationWatch(SqlSession session) {
         this.session = session;
     }

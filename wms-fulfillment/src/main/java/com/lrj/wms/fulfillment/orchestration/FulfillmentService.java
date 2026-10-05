@@ -60,11 +60,13 @@ public final class FulfillmentService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 FulfillmentService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public FulfillmentService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String fulfillmentId) {
         FulfillmentMapper mapper = session.getMapper(FulfillmentMapper.class);
         Map<String, Object> order = mapper.lockOrder(enterpriseId, fulfillmentId);
@@ -159,6 +161,7 @@ public final class FulfillmentService {
                 mapper.lockOrder(enterpriseId, fulfillmentId));
     }
 
+    /** 沿用用例的作用域、排序与读取上限，保持列表结果可以稳定续读。 */
     public List<Map<String, Object>> list(String enterpriseId, int limit) {
         return session.getMapper(FulfillmentMapper.class).listOrders(enterpriseId, limit);
     }

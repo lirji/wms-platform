@@ -33,6 +33,7 @@ import java.util.*;
 public final class RuntimeTccCoordinator implements FenceHandler {
     @FunctionalInterface
     public interface Registration {
+        /** 在业务动作开始前注册既定事务分支，后续回执必须沿用返回的分支身份。 */
         long register(String xid, String applicationData);
     }
 
@@ -45,6 +46,7 @@ public final class RuntimeTccCoordinator implements FenceHandler {
             new com.lrj.wms.runtime.web.AdmissionGate(
                     new com.lrj.wms.runtime.web.AdmissionBudget(4, 2, 32, 16));
 
+    /** 显式接收 RuntimeTccCoordinator 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public RuntimeTccCoordinator(
             SqlSessionTemplate sessions,
             TransactionTemplate transactions,
@@ -64,6 +66,7 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         this.actionName = actionName;
     }
 
+    /** 返回注册时固定的 TCC 动作名，提交和回滚必须路由到同一动作。 */
     public String actionName() {
         return actionName;
     }
@@ -245,6 +248,7 @@ public final class RuntimeTccCoordinator implements FenceHandler {
                 });
     }
 
+    /** 沿用协调器的提交围栏契约，重试必须保留事务与分支身份。 */
     @Override
     public boolean commitFence(
             Method method, Object target, String xid, Long branch, Object[] args) {
@@ -255,6 +259,7 @@ public final class RuntimeTccCoordinator implements FenceHandler {
         return finishFence(true, method, target, xid, branch, args, action);
     }
 
+    /** 沿用协调器的回滚围栏契约，回滚结果不能冒充未发生的业务效果。 */
     @Override
     public boolean rollbackFence(
             Method method, Object target, String xid, Long branch, Object[] args, String action) {

@@ -28,6 +28,7 @@ public final class WarehouseMigrationService {
     private final com.lrj.wms.inventory.migrate.infrastructure.WarehouseMigrationStore copies;
     private final Clock clock;
 
+    /** 显式接收 WarehouseMigrationService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public WarehouseMigrationService(
             SqlSession source, JdbcTemplate sourceJdbc, JdbcTemplate targetJdbc, Clock clock) {
         this.source = source;
@@ -94,6 +95,7 @@ public final class WarehouseMigrationService {
         return false;
     }
 
+    /** 记录仓迁移的来源与目标，后续步骤必须沿用同一个路由计划。 */
     public Map<String, Object> prepare(
             String enterpriseId, String warehouseId, String sourceCell, String targetCell) {
         Timestamp now = Timestamp.from(clock.instant());
@@ -132,6 +134,7 @@ public final class WarehouseMigrationService {
         return view(routes.get(enterpriseId, warehouseId));
     }
 
+    /** 在既定截止点复制全量数据，保留追平增量所需的迁移边界。 */
     public Map<String, Object> copyFull(String enterpriseId, String warehouseId) {
         Timestamp cutoff = Timestamp.from(clock.instant());
         int rows = 0;
@@ -148,6 +151,7 @@ public final class WarehouseMigrationService {
         return body;
     }
 
+    /** 沿用迁移计划追平增量，不能把未追平的数据视为已切换。 */
     public Map<String, Object> copyIncremental(String enterpriseId, String warehouseId) {
         Map<String, Object> route = requireState(enterpriseId, warehouseId, ACTIVE, QUIESCING);
         Timestamp since = timestampOf(route.get("cutoff_at"));
@@ -166,6 +170,7 @@ public final class WarehouseMigrationService {
         return body;
     }
 
+    /** 进入静默阶段阻止旧路径继续写入，为一致的切换建立前提。 */
     public Map<String, Object> quiesce(String enterpriseId, String warehouseId) {
         Timestamp now = Timestamp.from(clock.instant());
         Map<String, Object> route = requireState(enterpriseId, warehouseId, ACTIVE);
@@ -194,6 +199,7 @@ public final class WarehouseMigrationService {
         return view(routes.get(enterpriseId, warehouseId));
     }
 
+    /** 核对切换前的数据与围栏证据，验证未通过不能进入新路由。 */
     public Map<String, Object> validate(String enterpriseId, String warehouseId) {
         copies.copyTerminalFences(enterpriseId, warehouseId, true);
         Map<String, Object> diffs = new LinkedHashMap<>();
@@ -219,6 +225,7 @@ public final class WarehouseMigrationService {
         return body;
     }
 
+    /** 按既定状态切换路由代际，旧执行器不能以过期代际继续写入。 */
     public Map<String, Object> switchEpoch(String enterpriseId, String warehouseId) {
         Timestamp now = Timestamp.from(clock.instant());
         Map<String, Object> route = requireState(enterpriseId, warehouseId, QUIESCING);
@@ -246,6 +253,7 @@ public final class WarehouseMigrationService {
         return body;
     }
 
+    /** 只允许在切换前终止迁移，避免把已产生的新路由效果当作未发生。 */
     public Map<String, Object> abortBeforeSwitch(String enterpriseId, String warehouseId) {
         Timestamp now = Timestamp.from(clock.instant());
         Map<String, Object> route = requireState(enterpriseId, warehouseId, QUIESCING);
@@ -266,6 +274,7 @@ public final class WarehouseMigrationService {
         return view(routes.get(enterpriseId, warehouseId));
     }
 
+    /** 切换后拒绝直接回退，数据效果必须通过明确恢复方案处理。 */
     public Map<String, Object> refuseRollbackAfterCutover(String enterpriseId, String warehouseId) {
         Map<String, Object> route =
                 source.getMapper(WarehouseRouteMapper.class).get(enterpriseId, warehouseId);

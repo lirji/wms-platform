@@ -36,10 +36,12 @@ import java.util.Map;
 public class ReconciliationController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 ReconciliationController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReconciliationController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 GET /reconciliation-cases 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/reconciliation-cases")
     public Map<String, Object> cases(
             @AuthenticationPrincipal Jwt jwt,
@@ -53,6 +55,7 @@ public class ReconciliationController {
         return listCases(jwt, warehouseIds.getFirst(), cutoffId, cursor, limit);
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/reconciliation-cases 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/reconciliation-cases")
     public Map<String, Object> casesByWarehouse(
             @AuthenticationPrincipal Jwt jwt,
@@ -63,6 +66,7 @@ public class ReconciliationController {
         return listCases(jwt, warehouseId, cutoffId, cursor, limit);
     }
 
+    /** 处理 GET /warehouses/{warehouseId}/reconciliation-cases/{id} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/warehouses/{warehouseId}/reconciliation-cases/{id}")
     public Map<String, Object> caseByWarehouse(
             @AuthenticationPrincipal Jwt jwt,
@@ -80,6 +84,7 @@ public class ReconciliationController {
         }
     }
 
+    /** 处理 POST /reconciliation-cases/{id}/remediations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/reconciliation-cases/{id}/remediations")
     public ResponseEntity<Map<String, Object>> remediate(
             @AuthenticationPrincipal Jwt jwt,
@@ -89,6 +94,7 @@ public class ReconciliationController {
         return remediateCase(jwt, warehouseId, id, body);
     }
 
+    /** 处理 POST /warehouses/{warehouseId}/reconciliation-cases/{id}/remediations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/warehouses/{warehouseId}/reconciliation-cases/{id}/remediations")
     public ResponseEntity<Map<String, Object>> remediateByWarehouse(
             @AuthenticationPrincipal Jwt jwt,

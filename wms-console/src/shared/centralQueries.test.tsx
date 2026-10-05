@@ -42,3 +42,19 @@ test('unknown read and ungranted detail are local hints; legacy still requests b
   expect(api).not.toHaveBeenCalled();
   expect(result.current.record).toEqual({});
 });
+
+test('clearing the session also clears the previous query failure', async () => {
+  const failure = new Error('读取失败');
+  vi.mocked(api).mockRejectedValueOnce(failure);
+  const { result, rerender } = renderHook(
+    ({ token }: { token?: string }) => useResource(token, ['/api/wms/v1/skus']),
+    { initialProps: { token: 'token' as string | undefined }, wrapper },
+  );
+  await waitFor(() => expect(result.current.error).toBe(failure));
+  rerender({ token: undefined });
+  await waitFor(() => expect(result.current.error).toBeUndefined());
+  expect(result.current.rows).toEqual([]);
+  expect(result.current.payloads).toEqual([]);
+  expect(result.current.loading).toBe(false);
+  expect(api).toHaveBeenCalledTimes(1);
+});

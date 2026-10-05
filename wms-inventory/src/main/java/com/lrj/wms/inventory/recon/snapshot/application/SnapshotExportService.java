@@ -1,7 +1,6 @@
 package com.lrj.wms.inventory.recon.snapshot.application;
 
 import com.lrj.wms.inventory.compat.CompatibilityGate;
-import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
 import com.lrj.wms.inventory.jobs.domain.JobRunException;
 import com.lrj.wms.inventory.recon.domain.WarehouseQuantityFact;
 import com.lrj.wms.inventory.recon.snapshot.persistence.SnapshotMapper;
@@ -35,11 +34,13 @@ public final class SnapshotExportService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 SnapshotExportService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SnapshotExportService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 快照导出绑定既定闭合窗口，不能混入窗口之外的后续变更。 */
     public Map<String, Object> export(
             String enterpriseId,
             String warehouseId,
@@ -97,7 +98,8 @@ public final class SnapshotExportService {
         if (existing == null) {
             throw new JobRunException("SNAPSHOT_MISSING", "快照未创建");
         }
-        if (!ExpiryPolicy.instantOf(existing.get("closed_at")).equals(closedAt.toInstant())
+        if (!com.lrj.wms.runtime.db.DatabaseInstants.instantOf(existing.get("closed_at"))
+                        .equals(closedAt.toInstant())
                 || !JSON.readTree(String.valueOf(existing.get("source_watermarks")))
                         .equals(JSON.readTree(watermarks))) {
             throw new JobRunException("CONFLICT", "同一截止身份的关闭时刻和水位不能修改");
@@ -207,6 +209,7 @@ public final class SnapshotExportService {
         return get(enterpriseId, warehouseId, snapshotId);
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String warehouseId, String snapshotId) {
         return get(enterpriseId, warehouseId, snapshotId, 0);
     }

@@ -28,6 +28,7 @@ public class AllocationExecutionController {
     private final WarehouseTryHttpClient warehouse;
     private final Set<String> enterprises;
 
+    /** 显式接收 AllocationExecutionController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationExecutionController(
             AllocationExecutionService service,
             WarehouseTryHttpClient warehouse,
@@ -44,6 +45,7 @@ public class AllocationExecutionController {
                                 .toList());
     }
 
+    /** 处理 POST /api/wms/v1/fulfillments/{fulfillmentId}/attempts/{attemptId}/executions 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/api/wms/v1/fulfillments/{fulfillmentId}/attempts/{attemptId}/executions")
     public ResponseEntity<Map<String, Object>> execute(
             @AuthenticationPrincipal Jwt jwt,

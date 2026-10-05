@@ -20,6 +20,7 @@ public final class CountApplyRecovery {
     private final Clock clock;
     private final com.lrj.wms.inventory.serial.registry.port.SerialCountRegistryPort registry;
 
+    /** 显式接收 CountApplyRecovery 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountApplyRecovery(SqlSessionFactory sessions, Clock clock) {
         this(sessions, clock, null);
     }

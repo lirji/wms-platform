@@ -26,6 +26,7 @@ public final class SourceWindowController {
     private final SqlSessionFactory sessions;
     private final java.util.Set<String> allowed;
 
+    /** 显式接收 SourceWindowController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SourceWindowController(
             SqlSessionFactory sessions, org.springframework.core.env.Environment environment) {
         this.sessions = sessions;

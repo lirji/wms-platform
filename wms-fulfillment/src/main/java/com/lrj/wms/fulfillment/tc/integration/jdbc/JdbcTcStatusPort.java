@@ -24,6 +24,7 @@ public final class JdbcTcStatusPort
     private org.springframework.boot.health.contributor.Health cachedHealth =
             org.springframework.boot.health.contributor.Health.outOfService().build();
 
+    /** 显式接收 JdbcTcStatusPort 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public JdbcTcStatusPort(
             SqlSessionFactory auditSessions, TcEvidenceScope scope, AutoCloseable ownedPool) {
         this.auditSessions = auditSessions;
@@ -31,6 +32,7 @@ public final class JdbcTcStatusPort
         this.ownedPool = ownedPool;
     }
 
+    /** 返回本实例保存的 scope，调用方沿用同一快照或执行上下文。 */
     public TcEvidenceScope scope() {
         return scope;
     }

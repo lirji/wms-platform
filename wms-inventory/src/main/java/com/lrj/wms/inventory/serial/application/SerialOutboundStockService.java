@@ -22,6 +22,7 @@ public final class SerialOutboundStockService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 SerialOutboundStockService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialOutboundStockService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;

@@ -93,18 +93,22 @@ final class TenantAdmissionFilter extends OncePerRequestFilter {
                     request.getAsyncContext()
                             .addListener(
                                     new AsyncListener() {
+                                        /** 完成既有异步接收或释放处理，不把尚未结束的请求当作完成。 */
                                         public void onComplete(AsyncEvent event) {
                                             permit.close();
                                         }
 
+                                        /** 异步请求超时仍执行原结束处理，避免请求配额未归还。 */
                                         public void onTimeout(AsyncEvent event) {
                                             permit.close();
                                         }
 
+                                        /** 传播或记录本次异步失败，不能用成功结果掩盖接收失败。 */
                                         public void onError(AsyncEvent event) {
                                             permit.close();
                                         }
 
+                                        /** 将原结束监听器绑定到新的异步周期，避免后续周期遗漏释放。 */
                                         public void onStartAsync(AsyncEvent event) {
                                             event.getAsyncContext().addListener(this);
                                         }

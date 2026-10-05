@@ -22,6 +22,7 @@ public final class CountSerialAdjustmentService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 CountSerialAdjustmentService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountSerialAdjustmentService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -348,21 +349,25 @@ public final class CountSerialAdjustmentService {
             return result;
         }
 
+        /** 复用盘点已保存的缺失登记结果，恢复时不能重新产生注册副作用。 */
         public Map<String, Object> markMissing(
                 String e, String sku, String sn, String w, String ref, long epoch) {
             return proof(sn);
         }
 
+        /** 复用盘点已保存的发现凭证，恢复时不能重新声明全局身份。 */
         public Map<String, Object> claimFound(
                 String e, String sku, String sn, String w, String op) {
             return proof(sn);
         }
 
+        /** 复用盘点已保存的激活凭证，恢复时不能重新改变全局身份。 */
         public Map<String, Object> activateFound(
                 String e, String sku, String sn, String w, String op) {
             return proof(sn);
         }
 
+        /** 盘点恢复只使用已保存的登记结果，禁止额外查询改变该次恢复的事实集。 */
         public Map<String, Object> get(String e, String sku, String sn) {
             throw new UnsupportedOperationException("盘点落地只能使用原动作凭证");
         }

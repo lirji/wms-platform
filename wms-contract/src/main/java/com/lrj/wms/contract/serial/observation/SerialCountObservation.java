@@ -5,6 +5,7 @@ import java.util.List;
 
 /** 一次盘点的完整实见集合；空集合明确表示一件未见，不与未提交身份混淆。 */
 public record SerialCountObservation(Number schemaVersion, List<String> serialIds) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public SerialCountObservation {
         if (!(schemaVersion instanceof Integer || schemaVersion instanceof Long)
                 || schemaVersion.longValue() != 1

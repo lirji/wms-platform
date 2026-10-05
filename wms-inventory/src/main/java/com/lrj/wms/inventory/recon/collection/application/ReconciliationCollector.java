@@ -26,6 +26,7 @@ public final class ReconciliationCollector {
     private final Clock clock;
     private final ReconciliationSourcePort source;
 
+    /** 显式接收 ReconciliationCollector 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public ReconciliationCollector(
             SqlSessionFactory sessions, Clock clock, ReconciliationSourcePort source) {
         this.sessions = sessions;

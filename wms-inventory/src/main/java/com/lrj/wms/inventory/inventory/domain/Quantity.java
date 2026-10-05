@@ -52,36 +52,44 @@ public final class Quantity implements Comparable<Quantity> {
         return of(new BigDecimal(text), scale);
     }
 
+    /** 沿用 SKU 精度创建零数量，避免零值绕过精度约束。 */
     public static Quantity zero(int scale) {
         return of(BigDecimal.ZERO, scale);
     }
 
+    /** 只允许相同 SKU 精度相加，结果仍须满足数据库数量范围。 */
     public Quantity plus(Quantity other) {
         requireSameScale(other);
         return of(amount.add(other.amount), scale);
     }
 
+    /** 只允许相同 SKU 精度相减，结果仍须满足数据库数量范围。 */
     public Quantity minus(Quantity other) {
         requireSameScale(other);
         return of(amount.subtract(other.amount), scale);
     }
 
+    /** 显式判断负数，供业务规则拒绝不合法库存结果。 */
     public boolean isNegative() {
         return amount.signum() < 0;
     }
 
+    /** 按数值判断零量，不依赖 BigDecimal 的表示精度。 */
     public boolean isZero() {
         return amount.signum() == 0;
     }
 
+    /** 按数值判断正量，供调用方选择有效数量分支。 */
     public boolean isPositive() {
         return amount.signum() > 0;
     }
 
+    /** 返回创建时绑定的 SKU 精度，不能用默认舍入规则替代。 */
     public int scale() {
         return scale;
     }
 
+    /** 返回不可变的精确数值，持久化时避免浮点换算。 */
     public BigDecimal toBigDecimal() {
         return amount;
     }
@@ -91,12 +99,14 @@ public final class Quantity implements Comparable<Quantity> {
         return amount.toPlainString();
     }
 
+    /** 沿用值对象的确定比较规则，确保排序和业务比较使用相同语义。 */
     @Override
     public int compareTo(Quantity other) {
         requireSameScale(other);
         return amount.compareTo(other.amount);
     }
 
+    /** 以业务身份与数值定义相等，避免对象实例身份影响去重。 */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -108,16 +118,19 @@ public final class Quantity implements Comparable<Quantity> {
         return scale == other.scale && amount.compareTo(other.amount) == 0;
     }
 
+    /** 哈希规则与相等语义保持一致，避免集合去重产生分歧。 */
     @Override
     public int hashCode() {
         return Objects.hash(amount.stripTrailingZeros(), scale);
     }
 
+    /** 输出固定精度的十进制字符串，诊断和契约数量表示保持一致。 */
     @Override
     public String toString() {
         return toPlainString();
     }
 
+    /** 在数量入口校验数据库允许精度，不能静默截断。 */
     public static int requireScale(int scale) {
         if (scale < MIN_SCALE || scale > MAX_SCALE) {
             throw new IllegalArgumentException("数量精度必须在0到6之间：" + scale);

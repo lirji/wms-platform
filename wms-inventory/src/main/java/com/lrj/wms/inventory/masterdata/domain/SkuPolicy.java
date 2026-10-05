@@ -154,46 +154,57 @@ public final class SkuPolicy {
         }
     }
 
+    /** 返回本值对象绑定的SKU 身份，调用方据此执行一致的身份或策略判断。 */
     public String skuId() {
         return skuId;
     }
 
+    /** 返回本值对象绑定的企业身份，调用方据此执行一致的身份或策略判断。 */
     public String enterpriseId() {
         return enterpriseId;
     }
 
+    /** 返回本值对象绑定的稳定业务编码，调用方据此执行一致的身份或策略判断。 */
     public String code() {
         return code;
     }
 
+    /** 返回本值对象绑定的业务名称，调用方据此执行一致的身份或策略判断。 */
     public String name() {
         return name;
     }
 
+    /** 返回本值对象绑定的基础单位，调用方据此执行一致的身份或策略判断。 */
     public String baseUnit() {
         return baseUnit;
     }
 
+    /** 返回本值对象绑定的SKU 数量精度，调用方据此执行一致的身份或策略判断。 */
     public int quantityScale() {
         return quantityScale;
     }
 
+    /** 返回本值对象绑定的批次策略开关，调用方据此执行一致的身份或策略判断。 */
     public boolean lotEnabled() {
         return lotEnabled;
     }
 
+    /** 返回本值对象绑定的序列号策略开关，调用方据此执行一致的身份或策略判断。 */
     public boolean serialEnabled() {
         return serialEnabled;
     }
 
+    /** 返回本值对象绑定的效期策略开关，调用方据此执行一致的身份或策略判断。 */
     public boolean expiryEnabled() {
         return expiryEnabled;
     }
 
+    /** 返回本值对象绑定的策略版本，调用方据此执行一致的身份或策略判断。 */
     public long policyVersion() {
         return policyVersion;
     }
 
+    /** 返回本值对象绑定的资源状态，调用方据此执行一致的身份或策略判断。 */
     public String state() {
         return state;
     }

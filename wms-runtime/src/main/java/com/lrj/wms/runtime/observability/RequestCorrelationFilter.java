@@ -13,6 +13,7 @@ import java.util.UUID;
 
 /** 关联标识贯穿HTTP响应与日志；不记录请求正文、令牌，线程复用前恢复MDC。 */
 public final class RequestCorrelationFilter extends OncePerRequestFilter {
+    /** 复用当前请求的关联标识，后续日志与错误响应才能关联同一次处理。 */
     public static String currentId() {
         String value = MDC.get("requestId");
         return value == null ? UUID.randomUUID().toString() : value;

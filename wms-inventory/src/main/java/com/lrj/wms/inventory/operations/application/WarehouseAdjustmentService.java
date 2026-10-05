@@ -26,11 +26,13 @@ public final class WarehouseAdjustmentService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 WarehouseAdjustmentService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public WarehouseAdjustmentService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 通过该应用入口建立初始单据并执行既有校验，避免调用方直接写入状态。 */
     public Map<String, Object> create(
             String enterpriseId,
             String warehouseId,
@@ -79,6 +81,7 @@ public final class WarehouseAdjustmentService {
         return view(docs.getAdjustmentByKey(enterpriseId, warehouseId, clientOperationId));
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String warehouseId, String adjustmentId) {
         Map<String, Object> row =
                 session.getMapper(DomainCommandMapper.class)
@@ -89,6 +92,7 @@ public final class WarehouseAdjustmentService {
         return view(row);
     }
 
+    /** 沿用用例的作用域、排序与读取上限，保持列表结果可以稳定续读。 */
     public List<Map<String, Object>> list(
             String enterpriseId, String warehouseId, String cursor, int limit) {
         int page = Math.min(Math.max(limit, 1), 50);
@@ -96,6 +100,7 @@ public final class WarehouseAdjustmentService {
                 .listAdjustments(enterpriseId, warehouseId, cursor, page);
     }
 
+    /** 集中核对单据状态、操作者与决策内容，保持审批状态迁移可追溯。 */
     public Map<String, Object> decide(
             String enterpriseId,
             String warehouseId,
@@ -132,6 +137,7 @@ public final class WarehouseAdjustmentService {
         return view(docs.lockAdjustment(enterpriseId, warehouseId, adjustmentId));
     }
 
+    /** 在既有事务和条件校验下应用当前结果，不能跳过用例的幂等或版本判断。 */
     public Map<String, Object> apply(
             String enterpriseId,
             String warehouseId,

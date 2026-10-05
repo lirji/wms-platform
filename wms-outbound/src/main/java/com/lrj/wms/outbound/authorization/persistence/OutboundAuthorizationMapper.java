@@ -7,6 +7,7 @@ import java.util.Map;
 
 /** 出库执行授权与 TCC 证据副本；SQL 只在 XML。 */
 public interface OutboundAuthorizationMapper {
+    /** 读取{@code outbound_tcc_evidence}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> getEvidence(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
@@ -30,6 +31,7 @@ public interface OutboundAuthorizationMapper {
             @Param("warehouseId") String warehouseId,
             @Param("attemptId") String attemptId);
 
+    /** 写入{@code outbound_execution_authorization}，将 SQL 与绑定参数保持在同一持久化入口。唯一约束吸收重试，影响行数用于区分首次写入和重复。 */
     int insertAuthorizationIgnore(
             @Param("id") String id,
             @Param("enterpriseId") String enterpriseId,
@@ -45,11 +47,13 @@ public interface OutboundAuthorizationMapper {
             @Param("state") String state,
             @Param("now") Timestamp now);
 
+    /** 读取{@code outbound_execution_authorization}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> getAuthorizationByKey(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
             @Param("clientOperationId") String clientOperationId);
 
+    /** 写入{@code outbound_order}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int casBindAuthorization(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,
@@ -65,6 +69,7 @@ public interface OutboundAuthorizationMapper {
             @Param("attemptId") String attemptId,
             @Param("authorizationId") String authorizationId);
 
+    /** 读取{@code outbound_execution_authorization}，将 SQL 与绑定参数保持在同一持久化入口。 */
     Map<String, Object> getAuthorizationById(
             @Param("enterpriseId") String enterpriseId,
             @Param("warehouseId") String warehouseId,

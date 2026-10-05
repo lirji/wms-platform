@@ -27,6 +27,7 @@ public final class OutboxPublisher {
     private final Clock clock;
     private final OutboxBudget budget;
 
+    /** 显式接收 OutboxPublisher 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboxPublisher(SqlSessionFactory sessions, OutboxTransport transport, Clock clock) {
         this(sessions, transport, clock, OutboxBudget.defaults());
     }
@@ -124,8 +125,7 @@ public final class OutboxPublisher {
                 String.valueOf(row.get("event_type")),
                 String.valueOf(row.get("operation_id")),
                 String.valueOf(row.get("payload")),
-                com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(
-                        row.get("created_at")));
+                com.lrj.wms.runtime.db.DatabaseInstants.instantOf(row.get("created_at")));
     }
 
     private record Claimed(OutboxRecord record, long claimEpoch, long attempt) {}

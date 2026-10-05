@@ -23,6 +23,7 @@ public class InventoryCatalogJobs {
 
     private com.lrj.wms.inventory.serial.registry.http.SerialRegistryHttpClient registry;
 
+    /** 在当前组合根提供 registry，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @org.springframework.beans.factory.annotation.Autowired
     public void registry(
             ObjectProvider<com.lrj.wms.inventory.serial.registry.http.SerialRegistryHttpClient>
@@ -43,6 +44,7 @@ public class InventoryCatalogJobs {
         this.reconciliationCollector = collectors.getIfAvailable();
     }
 
+    /** 显式接收 InventoryCatalogJobs 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryCatalogJobs(
             ObjectProvider<TccReservationWatch> watches,
             ObjectProvider<org.apache.ibatis.session.SqlSessionFactory> sessions) {
@@ -50,6 +52,7 @@ public class InventoryCatalogJobs {
         this.sessions = sessions.getIfAvailable();
     }
 
+    /** 在当前组合根提供 tccReservationWatch，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.TCC_RESERVATION_WATCH)
     public void tccReservationWatch() {
         clearSchedulerContext();
@@ -60,6 +63,7 @@ public class InventoryCatalogJobs {
         watch.inspect(scope[0], scope[1]);
     }
 
+    /** 在当前组合根提供 expiryEligibilitySweep，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.EXPIRY_ELIGIBILITY_SWEEP)
     public void expiryEligibilitySweep() {
         clearSchedulerContext();
@@ -73,6 +77,7 @@ public class InventoryCatalogJobs {
         }
     }
 
+    /** 在当前组合根提供 serialTransferRecovery，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.SERIAL_TRANSFER_RECOVERY)
     public void serialTransferRecovery() {
         clearSchedulerContext();
@@ -104,6 +109,7 @@ public class InventoryCatalogJobs {
             throw new IllegalStateException("登记恢复失败已保留原事实及有界退避/隔离记录");
     }
 
+    /** 在当前组合根提供 stockInternalReconcile，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.STOCK_INTERNAL_RECONCILE)
     public void stockInternalReconcile() {
         clearSchedulerContext();
@@ -136,6 +142,7 @@ public class InventoryCatalogJobs {
         }
     }
 
+    /** 在当前组合根提供 externalReconcileExport，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.EXTERNAL_RECONCILE_EXPORT)
     public void externalReconcileExport() {
         clearSchedulerContext();
@@ -162,8 +169,8 @@ public class InventoryCatalogJobs {
                                     scope[1],
                                     String.valueOf(snapshot.get("cutoff_id")),
                                     java.sql.Timestamp.from(
-                                            com.lrj.wms.inventory.inventory.domain.ExpiryPolicy
-                                                    .instantOf(snapshot.get("closed_at"))),
+                                            com.lrj.wms.runtime.db.DatabaseInstants.instantOf(
+                                                    snapshot.get("closed_at"))),
                                     watermarks.path("source").asString(),
                                     watermarks.path("posting").asString(),
                                     watermarks.path("receipt").asString());
@@ -173,6 +180,7 @@ public class InventoryCatalogJobs {
         }
     }
 
+    /** 在当前组合根提供 countApplyRecovery，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.COUNT_APPLY_RECOVERY)
     public void countApplyRecovery() {
         clearSchedulerContext();
@@ -185,6 +193,7 @@ public class InventoryCatalogJobs {
         if (report.failed() > 0) throw new IllegalStateException("盘点存在失败行，已记录退避与错误码，计划保持冻结");
     }
 
+    /** 在当前组合根提供 archivePlanner，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.ARCHIVE_PLANNER)
     public void archivePlanner() {
         clearSchedulerContext();
@@ -209,6 +218,7 @@ public class InventoryCatalogJobs {
         }
     }
 
+    /** 在当前组合根提供 jobLeaseRecovery，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @XxlJob(WmsJobCatalog.JOB_LEASE_RECOVERY)
     public void jobLeaseRecovery() {
         clearSchedulerContext();

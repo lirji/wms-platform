@@ -13,10 +13,12 @@ public final class PutawayTargetService {
 
     private final SqlSession session;
 
+    /** 显式接收 PutawayTargetService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public PutawayTargetService(SqlSession session) {
         this.session = session;
     }
 
+    /** 核对库位存在且允许存储，不能将不可用库位选作上架目标。 */
     public Map<String, Object> requireStorage(
             String enterpriseId, String warehouseId, String locationId) {
         Map<String, Object> location =

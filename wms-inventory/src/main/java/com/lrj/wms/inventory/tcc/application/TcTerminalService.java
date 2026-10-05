@@ -16,6 +16,7 @@ import java.util.*;
 public final class TcTerminalService {
     private TcTerminalService() {}
 
+    /** 核对终态通知的来源、事务及分支后更新本库围栏，不能用未经确认的通知结束预留。 */
     public static void accept(
             SqlSession session, RuntimeMessage message, String cluster, String group) {
         if (!"wms-fulfillment".equals(message.sourceService())

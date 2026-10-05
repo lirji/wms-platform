@@ -17,6 +17,7 @@ public final class KafkaDependencyHealth implements RuntimeDependencyCheck, Auto
     private long checkedAt;
     private Health cached = Health.outOfService().build();
 
+    /** 显式接收 KafkaDependencyHealth 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public KafkaDependencyHealth(KafkaSettings settings, BooleanSupplier workersReady) {
         var properties = settings.connection();
         properties.put("default.api.timeout.ms", "1000");
@@ -25,6 +26,7 @@ public final class KafkaDependencyHealth implements RuntimeDependencyCheck, Auto
         this.workersReady = workersReady;
     }
 
+    /** 基于本依赖的实际就绪条件返回健康状态，不能仅以线程存活代替可用。 */
     @Override
     public synchronized Health health() {
         long now = System.nanoTime();
@@ -48,6 +50,7 @@ public final class KafkaDependencyHealth implements RuntimeDependencyCheck, Auto
         return cached;
     }
 
+    /** 释放本实例拥有的客户端或资源，避免重复创建后留下后台工作。 */
     @Override
     public void close() {
         admin.close(Duration.ofSeconds(2));

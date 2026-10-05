@@ -18,6 +18,7 @@ public record KafkaSettings(
         @DefaultValue("PLAINTEXT") String securityProtocol,
         @DefaultValue("") String saslMechanism,
         @DefaultValue("") String saslJaasConfig) {
+    /** 启用 Kafka 时要求已有连接与安全参数齐备，不能带着缺失配置运行。 */
     @AssertTrue(message = "启用消息必须配置broker与有效安全协议")
     public boolean isConfigured() {
         return !enabled

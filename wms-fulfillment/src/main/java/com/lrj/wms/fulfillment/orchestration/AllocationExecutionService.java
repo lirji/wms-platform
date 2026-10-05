@@ -21,6 +21,7 @@ public final class AllocationExecutionService {
     private final TcEvidenceScope scope;
     private final Clock clock;
 
+    /** 显式接收 AllocationExecutionService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationExecutionService(
             SqlSessionFactory sessions, TcEvidenceScope scope, Clock clock) {
         this.sessions = sessions;

@@ -14,6 +14,7 @@ public record OutboxBudget(
         @DefaultValue("30") int leaseSeconds,
         @DefaultValue("1000") long baseDelayMs,
         @DefaultValue("60000") long maxDelayMs) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public OutboxBudget {
         if (batchSize < 1
                 || batchSize > 200
@@ -28,10 +29,12 @@ public record OutboxBudget(
         }
     }
 
+    /** 集中提供既有 Outbox 默认预算，调用方不能各自引入不同的重试上限。 */
     public static OutboxBudget defaults() {
         return new OutboxBudget(32, 8, 30, 1000, 60000);
     }
 
+    /** 按当前领取代际计算有界重试间隔，不能立即无限重试失败投递。 */
     public Duration retryDelay(long claimEpoch) {
         long cap =
                 Math.min(maxDelayMs, baseDelayMs * (1L << Math.min(20, Math.max(0, claimEpoch))));

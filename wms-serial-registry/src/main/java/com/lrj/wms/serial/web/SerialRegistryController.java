@@ -33,6 +33,7 @@ public final class SerialRegistryController {
     private final SerialAccessProperties access;
     private final SerialCommandService commands;
 
+    /** 显式接收 SerialRegistryController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialRegistryController(SqlSessionFactory sessions, SerialAccessProperties access) {
         this.sessions = sessions;
         this.access = access;
@@ -159,6 +160,7 @@ public final class SerialRegistryController {
                                 body.expectedEpoch()));
     }
 
+    /** 处理 POST /found-claims 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/found-claims")
     public Map<String, Object> claimFound(
             @AuthenticationPrincipal Jwt jwt,
@@ -182,6 +184,7 @@ public final class SerialRegistryController {
                                 body.operationId()));
     }
 
+    /** 处理 POST /found-activations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/found-activations")
     public Map<String, Object> activateFound(
             @AuthenticationPrincipal Jwt jwt,
@@ -247,6 +250,7 @@ public final class SerialRegistryController {
                                         body.operationId()));
     }
 
+    /** 处理 POST /source-releases 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/source-releases")
     public Map<String, Object> sourceRelease(
             @AuthenticationPrincipal Jwt jwt,
@@ -288,6 +292,7 @@ public final class SerialRegistryController {
         return result;
     }
 
+    /** 处理 POST /destination-receivings 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/destination-receivings")
     public Map<String, Object> startReceiving(
             @AuthenticationPrincipal Jwt jwt,
@@ -313,6 +318,7 @@ public final class SerialRegistryController {
                                 body.expectedEpoch()));
     }
 
+    /** 处理 POST /destination-confirmations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/destination-confirmations")
     public Map<String, Object> confirmDestination(
             @AuthenticationPrincipal Jwt jwt,

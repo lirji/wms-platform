@@ -81,6 +81,7 @@ public final class SeataTmDriver implements AllocationTmPort, AutoCloseable {
         }
     }
 
+    /** 返回本实例保存的 scope，调用方沿用同一快照或执行上下文。 */
     public TcEvidenceScope scope() {
         return scope;
     }

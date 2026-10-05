@@ -102,6 +102,7 @@ final class WmsCentralJwt extends Jwt implements AutoCloseable {
         plans.clear();
     }
 
+    /** 身份诊断只输出既定脱敏表示，原始 JWT 不能进入日志。 */
     @Override
     public String toString() {
         return "WmsCentralJwt[credentials=redacted]";

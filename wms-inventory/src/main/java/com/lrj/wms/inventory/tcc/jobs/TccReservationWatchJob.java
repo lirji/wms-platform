@@ -9,6 +9,7 @@ public final class TccReservationWatchJob {
     private final String enterpriseId;
     private final String warehouseId;
 
+    /** 显式接收 TccReservationWatchJob 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public TccReservationWatchJob(
             TccReservationWatch watch, String enterpriseId, String warehouseId) {
         this.watch = watch;
@@ -16,6 +17,7 @@ public final class TccReservationWatchJob {
         this.warehouseId = warehouseId;
     }
 
+    /** 调度入口沿用当前任务的执行规则与领取身份，不能绕过业务工作器。 */
     @XxlJob(TccReservationWatch.HANDLER)
     public TccReservationWatch.Report execute() {
         return watch.inspect(enterpriseId, warehouseId);

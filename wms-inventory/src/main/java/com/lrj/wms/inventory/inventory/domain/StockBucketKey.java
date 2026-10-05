@@ -69,39 +69,48 @@ public final class StockBucketKey implements Comparable<StockBucketKey> {
         return keys.stream().distinct().sorted().toList();
     }
 
+    /** 返回本值对象绑定的企业身份，调用方据此执行一致的身份或策略判断。 */
     public String enterpriseId() {
         return enterpriseId;
     }
 
+    /** 返回本值对象绑定的仓身份，调用方据此执行一致的身份或策略判断。 */
     public String warehouseId() {
         return warehouseId;
     }
 
+    /** 返回本值对象绑定的货主身份，调用方据此执行一致的身份或策略判断。 */
     public String ownerId() {
         return ownerId;
     }
 
+    /** 返回本值对象绑定的库位身份，调用方据此执行一致的身份或策略判断。 */
     public String locationId() {
         return locationId;
     }
 
+    /** 返回本值对象绑定的SKU 身份，调用方据此执行一致的身份或策略判断。 */
     public String skuId() {
         return skuId;
     }
 
+    /** 返回本值对象绑定的批次身份，调用方据此执行一致的身份或策略判断。 */
     public String lotId() {
         return lotId;
     }
 
+    /** 返回本值对象绑定的质量码，调用方据此执行一致的身份或策略判断。 */
     public String qualityCode() {
         return qualityCode;
     }
 
+    /** 沿用值对象的确定比较规则，确保排序和业务比较使用相同语义。 */
     @Override
     public int compareTo(StockBucketKey other) {
         return ORDER.compare(this, other);
     }
 
+    /** 以业务身份与数值定义相等，避免对象实例身份影响去重。 */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -119,6 +128,7 @@ public final class StockBucketKey implements Comparable<StockBucketKey> {
                 && qualityCode.equals(other.qualityCode);
     }
 
+    /** 哈希规则与相等语义保持一致，避免集合去重产生分歧。 */
     @Override
     public int hashCode() {
         return Objects.hash(

@@ -14,6 +14,7 @@ import tools.jackson.databind.node.ObjectNode;
 public final class SourceCommandContextStore {
     private final SqlSession session;
 
+    /** 显式接收 SourceCommandContextStore 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SourceCommandContextStore(SqlSession session) {
         this.session = session;
     }

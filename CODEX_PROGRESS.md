@@ -2,45 +2,41 @@
 
 ## 任务目标
 
-权限接入之后按Claude SKILL细化项目每个模块的包结构、格式化、按规范优化并完整验证/正常Git交付。当前默认WMS，异步范围问题可纠正；完整目标未完成，不把只格式化当作完成。
+权限接入之后按Claude SKILL细化WMS每个正式模块的包结构、格式化、按规范优化并完整验证/正常Git交付。WMS范围按原任务执行；Auth权限实施已完成。本次不部署。
 
 ## 已完成
 
-- 读取Claude project-refactoring/backend-implementation/dev-standards，同Codex/Claude/ Cursor规范摘要一致。
-- 起点WMS远端main2efa151/完整CI37257041197 SUCCESS；当前全reactor package及93单测PASS；基线/测试保护Gate PASS。
-- 复用既有干净central-authorization工作树，建立refactor/module-packages-code-quality。518 Java/120 SQL/IAM摘要落盘，原WMS17048d5/55文件/Driver/历史pilot工作保持。
-- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00/R01 DONE（f6ceb72），R10包迁移本地验证DONE，R11开始。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
+- R00–R10：基线/测试保护、Java/XML/console格式工具和所有正式模块包结构迁移，分批提交；保留私有协作边界。详细映射和日志见docs/refactoring/module-packages及.local/refactoring-module-packages。
+- R11：公开方法中文原因说明、全模块规范审查；消息预算归协议、共享纯凭证规则/摘要/错误工厂、数据库投影时刻退出纯领域。
+- WCS无效回执占用去重身份和并发重放、页面清空上下文残留错误已先新增特征/回归测试再修复。
+- 100 Java单测、87 console测试、13脚本测试及类型/build/三类格式、包边界/目录/文档/diff检查PASS。120 SQL/64 Mapper SQL/权限目录保持。
+- R11真实差异卫生CLI零finding，IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS；仅命令发现器不识别独立Java格式CLI，实际格式check PASS。
 
 ## 已修改文件
 
-- docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md、PLAN_METADATA.json。
-- scripts/format-java.py、.editorconfig、wms-console格式配置及package/lock（精确版本已锁定）。
-- 本文件；.local/refactoring-module-packages/为忽略的基线/日志/后续证据。
-
-## 最新切片
-
-- R10：26类迁移，本地全reactor clean test/96单测与SQL/Mapper/目录/格式守卫PASS。完整IT/CI/卫生终审尚未执行；继续R11。
+- 各模块src及消费者/namespace/自动配置/测试入口，R02–R10_PACKAGE_MAPPING列出具体映射。
+- scripts/format-java.py、format-xml.py、check-module-packages.py与对应回归、CI、console格式配置/开发锁文件。
+- docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md、CODE_QUALITY_REVIEW.md、PLAN_METADATA.json、README.md和本文件。
 
 ## 未完成
 
-- R01格式化/编译及93Java、86前端、10脚本测试PASS；继续R02–R12覆盖全部正式模块、代码规范/优化/全量验证/正常main交付。
-- 原未提交Driver独立工作只能只读核对，不能混入当前任务Git；若需改动，先确定其范围/工作归属。
+- R12：当前完整真实默认verify、warehouse/tc/failure profile、启动smoke及精确提交CI；最终兼容/原工作保护核对和正常main交付。
+- 不把本地单测/格式通过宣称整个目标完成；保持主动推进，不等待继续。
 
 ## 当前问题
 
-- 导航解析格式回归已修复，原失败保留。规范化基线的未修改技能卫生引擎无阻断，仅命令发现FORMAT_TOOL_NOT_AVAILABLE限制；实际格式check全部PASS，见R01_TEST_RESULT.json。
-
-- 本任务没有重部署授权；现有W07制品和数据保持。SQL迁移/权限与HTTP/事件契约不得因拆包改变。
-- 原WMSlocal main17048d5和55文件保护；不清理11旧工作树/镜像/卷/测试数据/证据，不强推。
+- 无当前实现阻断。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
+- 原WMSmain17048d5/55个用户文件/Driver保持，11旧工作树和私密证据保留。只在既有central-authorization树的refactor/module-packages-code-quality分支工作。
+- 本次没有重部署授权，现有W07制品/数据及权限TTL不因源码任务更改。
 
 ## 下一步建议
 
-1. R01已验证提交f6ceb72；按R02_PACKAGE_MAPPING开始契约与WCS包迁移，再连续后续切片。
-2. 每批通过编译/相关真实测试/namespace检查/diff才继续；更新本文件，不等待继续。最终完整CI与兼容门禁再发布main。
+1. R11验证提交后推任务分支，执行并核对完整CI中的真实IT、所有profile和console；失败则保留证据并有界修复。
+2. 全量门禁通过后复核兼容与用户工作保护、更新R12结果，按持续授权正常合入推main并核对最终CI，不强推。
 
 ## 恢复 Prompt
 
-读取本文件及docs/refactoring/module-packages报告/PLAN_METADATA、.local/refactoring-module-packages当前日志和git状态，从R01/后续未完成切片继续。目标是每个模块的包结构+格式+规范优化全完成，不止格式化；保留原WMS和Driver未提交工作，不重做已完成Auth权限，不修改运行环境，不等待继续。
+读取本文件、重构报告和.local/refactoring-module-packages最新R11/R12、Git/CI结果，继续R12完整验证和main交付。R00–R11已完成本地验证，不重做包迁移/权限部署，不触碰原WMS、Driver或运行数据，不清理、不等待继续。
 
 ---
 

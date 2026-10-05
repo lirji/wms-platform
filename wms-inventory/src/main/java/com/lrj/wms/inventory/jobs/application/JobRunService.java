@@ -34,6 +34,7 @@ public final class JobRunService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 JobRunService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public JobRunService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -154,6 +155,7 @@ public final class JobRunService {
         return body;
     }
 
+    /** 校验领取代际和围栏后续租，过期执行器不能延长新执行器的任务。 */
     public Map<String, Object> heartbeat(
             String enterpriseId,
             String warehouseId,
@@ -172,6 +174,7 @@ public final class JobRunService {
         return Map.of("shardId", shardId, "leaseUntil", until);
     }
 
+    /** 检查点绑定任务领取代际，旧执行器不能覆盖已推进的进度。 */
     public Map<String, Object> checkpoint(
             String enterpriseId,
             String warehouseId,
@@ -188,11 +191,13 @@ public final class JobRunService {
         return Map.of("shardId", shardId, "cursorKey", cursor);
     }
 
+    /** 以当前领取代际结束任务，完成记录不能覆盖另一执行器的状态。 */
     public Map<String, Object> complete(
             String enterpriseId, String warehouseId, String shardId, long epoch, String fence) {
         return finish(enterpriseId, warehouseId, shardId, epoch, fence, SUCCEEDED, null, 0, 1, 0);
     }
 
+    /** 以当前领取代际记录失败，保留后续重试与排查所需状态。 */
     public Map<String, Object> fail(
             String enterpriseId,
             String warehouseId,

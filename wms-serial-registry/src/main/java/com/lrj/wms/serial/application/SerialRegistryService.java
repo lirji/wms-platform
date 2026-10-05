@@ -30,6 +30,7 @@ public final class SerialRegistryService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 SerialRegistryService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialRegistryService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -724,6 +725,7 @@ public final class SerialRegistryService {
         return transferView(transfer);
     }
 
+    /** 按既有序列号规范化规则生成身份，避免重复登记相同物品。 */
     public static String normalize(String serial) {
         if (serial == null || serial.isBlank()) {
             throw new SerialRegistryException("INVALID_SERIAL", "序列号不能为空");
@@ -731,6 +733,7 @@ public final class SerialRegistryService {
         return serial.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
+    /** 按企业、SKU 与规范化序列号确定分片，所有操作必须使用相同路由。 */
     public static int routeBucket(String enterpriseId, String skuId, String normalized) {
         int hash = (enterpriseId + '\u001f' + skuId + '\u001f' + normalized).hashCode();
         return Math.floorMod(hash, BUCKETS);

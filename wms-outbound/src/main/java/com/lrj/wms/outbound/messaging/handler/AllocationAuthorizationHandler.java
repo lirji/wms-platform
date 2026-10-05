@@ -20,6 +20,7 @@ import java.util.UUID;
 public final class AllocationAuthorizationHandler implements RuntimeInbox.Handler {
     private final Clock clock;
 
+    /** 显式接收 AllocationAuthorizationHandler 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationAuthorizationHandler(Clock clock) {
         this.clock = clock;
     }

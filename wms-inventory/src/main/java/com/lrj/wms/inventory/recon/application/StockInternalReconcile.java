@@ -40,11 +40,13 @@ public final class StockInternalReconcile {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 StockInternalReconcile 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public StockInternalReconcile(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 闭合窗口时核对截止点与来源证据，不能把缺失事实视为一致。 */
     public Map<String, Object> closeWindow(
             String enterpriseId,
             String warehouseId,
@@ -95,6 +97,7 @@ public final class StockInternalReconcile {
         return body;
     }
 
+    /** 按来源身份收集事实，重复或不同来源的事实不能互相覆盖。 */
     public void ingestSourceFact(
             String enterpriseId,
             String warehouseId,
@@ -368,6 +371,7 @@ public final class StockInternalReconcile {
                 .toString();
     }
 
+    /** 读取已持久化的差异案例，不能用临时计算覆盖既有审计事实。 */
     public List<Map<String, Object>> listCases(
             String enterpriseId, String warehouseId, String cutoffId) {
         RootContext.unbind();
@@ -376,6 +380,7 @@ public final class StockInternalReconcile {
                 .listCases(enterpriseId, warehouseId, cutoffId);
     }
 
+    /** 整改必须经过既定案例与动作校验，不能直接改写历史库存事实。 */
     public Map<String, Object> remediate(
             String enterpriseId,
             String warehouseId,
@@ -572,7 +577,7 @@ public final class StockInternalReconcile {
         if (value == null) {
             return null;
         }
-        return Timestamp.from(com.lrj.wms.inventory.inventory.domain.ExpiryPolicy.instantOf(value));
+        return Timestamp.from(com.lrj.wms.runtime.db.DatabaseInstants.instantOf(value));
     }
 
     public record Report(

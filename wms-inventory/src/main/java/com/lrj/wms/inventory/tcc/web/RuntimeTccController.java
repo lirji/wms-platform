@@ -20,11 +20,13 @@ public class RuntimeTccController {
     private final RuntimeTccCoordinator coordinator;
     private final SeataRmDriver driver;
 
+    /** 显式接收 RuntimeTccController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public RuntimeTccController(RuntimeTccCoordinator coordinator, SeataRmDriver driver) {
         this.coordinator = coordinator;
         this.driver = driver;
     }
 
+    /** 处理 POST /internal/wms/v1/warehouses/{warehouseId}/tcc/tries 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/internal/wms/v1/warehouses/{warehouseId}/tcc/tries")
     public WarehouseTryResult tryReserve(
             @AuthenticationPrincipal Jwt jwt,

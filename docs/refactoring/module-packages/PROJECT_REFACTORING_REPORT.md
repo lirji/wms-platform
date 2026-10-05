@@ -37,8 +37,8 @@
 | R08 | fulfillment订单/分配/调拨/TC/恢复的能力与层次，保持原事务和幂等 | R07 | DONE |
 | R09 | inventory主数据/库存/移动/盘点/serial/recon/TCC/jobs等每个能力的包与代码规范 | R08 | DONE |
 | R10 | test-support场景/基础设施/契约分组、所有FQCN和进程入口同步；console规范/格式/结构审查 | R09 | DONE |
-| R11 | 全模块中文注释、类型/常量/配置、错误处理/规则/事务/SQL/测试的逐条审查及有证据优化 | R10 | IN_PROGRESS |
-| R12 | 全量必要IT/全部CI、接口/SQL/事件兼容、架构与卫生终审、文档进度和正常Git交付 | R11 | TODO |
+| R11 | 全模块中文注释、类型/常量/配置、错误处理/规则/事务/SQL/测试的逐条审查及有证据优化 | R10 | DONE |
+| R12 | 全量必要IT/全部CI、接口/SQL/事件兼容、架构与卫生终审、文档进度和正常Git交付 | R11 | IN_PROGRESS |
 
 单批迁移映射可审查，编译、相关测试、配置/namespace、diff通过才继续。各批逻辑完整后本地提交在同一任务分支；最终必要完整CI成功后正常合入并推main，保护原main与用户改动。没有新部署授权，不改正在运行的W07制品/数据。
 
@@ -50,13 +50,13 @@
 
 ## 兼容和验收
 
-HTTP/API、DB、消息/事件、业务规则：UNCHANGED。内部Java包名：CHANGED且消费者同步。现有main应用/种子入口：UNCHANGED。保持SKU数量/精度、状态迁移、Owner仓、跨仓/成员代际/严格撤权、机器固定主体与scope、无ALLOW缓存、幂等/lease/乱序/CAS失败处理。
+HTTP/API、DB、消息/事件、正式业务规则：UNCHANGED。内部Java包名及效期转换方法归属：CHANGED且消费者同步。R11另修正隔离WCS的无效回执/并发重放及页面清空上下文后的旧错误，具体CHANGED见[规范审查](CODE_QUALITY_REVIEW.md)。现有main应用/种子入口：UNCHANGED。保持SKU数量/精度、状态迁移、Owner仓、跨仓/成员代际/严格撤权、机器固定主体与scope、无ALLOW缓存、幂等/lease/乱序/CAS失败处理。
 
 完成必须有：每模块包映射和责任/依赖证据；格式check；必要编译、单测/真实数据库IT/已有必需profile；权限目录/操作摘要、SQL迁移、运行配置兼容；技能Code Hygiene Gate与终审；正常Git及精确CI。未运行/未覆盖的项不称PASS，不能仅用格式或子模块编译宣称全部目标完成。
 
 ## 当前进度与证据
 
-R00、R01完成；下一批R02。测试与构建原始日志、原文件摘要、后续每批回执在 `.local/refactoring-module-packages/`。全目标未完成，所有TODO切片持续推进；最终报告补齐已实施映射、验证、技术债、风险、回退和证据索引。
+R00–R11完成本地验证；R12正在执行完整集成测试、最终兼容和Git/CI交付。测试与构建原始日志、原文件摘要、后续每批回执在 `.local/refactoring-module-packages/`。全目标未完成，所有TODO切片持续推进；最终报告补齐已实施映射、验证、技术债、风险、回退和证据索引。
 
 ### R01 验证（f6ceb72）
 
@@ -101,3 +101,11 @@ R03还修正协议到Kafka适配器的反向依赖：262144字节预算由Runtim
 ### R10 本地包迁移验证
 
 按R10_PACKAGE_MAPPING迁移26个类，未扩大原访问可见性。全reactor清除旧编译结果后构建/单测通过（96项）；120个SQL迁移、64份Mapper SQL文本、权限目录摘要及格式/文档/差异检查通过。完整真实IT、CI与最终卫生审查仍由R12完成。原始结果：.local/refactoring-module-packages/r10-unit.log，R10_TEST_RESULT.json。
+
+### R11 规范审查与有证据优化
+
+十个正式模块和console的结构/规则审查见[代码规范审查](CODE_QUALITY_REVIEW.md)。本批补齐765个显式公开方法、接口方法及构造器的中文说明，AST复核未发现缺项；没有机械包装record访问器。新增Mapper/资源/自动配置/领域依赖检查及3个实际失败场景的脚本回归用例，已接入CI。
+
+100个Java单测、87个console测试、13个脚本测试，前端类型/build，Java/XML/console格式、包边界、权限目录、文档与diff检查全部PASS。SQL120份、Mapper SQL文本64份及中央目录字节保持。WCS先新增测试复现无效回执占用事件身份；修复后重复无效请求仍拒绝，合法相同身份可首次成功，并发重放只有一次首次接受。效期投影转换迁移前后同组特征测试通过，类型与错误保持。页面清空上下文的旧错误回归先失败、修复后通过。
+
+原始卫生CLI扫描R11真实差异通过：IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS、零finding。唯一限制FORMAT_TOOL_NOT_AVAILABLE是命令发现器没有识别已执行的独立Java CLI；实际三类格式check已PASS。初次检查发现源码集合名称直接比较及重复回执错误码，已复用命名常量修正并重新验证；原结果保留，没有改变技能规则或规范化R11差异。最终日志/回执在.local/refactoring-module-packages/R11_TEST_RESULT.json。完整真实IT/profile/精确CI由R12执行，不能以本批单测替代。

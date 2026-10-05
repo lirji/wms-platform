@@ -23,6 +23,7 @@ public final class CountSerialRecovery {
     private final Clock clock;
     private final SerialCountRegistryPort registry;
 
+    /** 显式接收 CountSerialRecovery 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public CountSerialRecovery(
             SqlSessionFactory sessions, Clock clock, SerialCountRegistryPort registry) {
         this.sessions = sessions;

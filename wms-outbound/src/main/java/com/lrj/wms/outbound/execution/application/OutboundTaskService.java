@@ -25,11 +25,13 @@ public final class OutboundTaskService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 OutboundTaskService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboundTaskService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 沿用用例的作用域、排序与读取上限，保持列表结果可以稳定续读。 */
     public Map<String, Object> list(
             String enterpriseId, String warehouseId, String taskType, String cursor, int limit) {
         requireType(taskType);
@@ -39,6 +41,7 @@ public final class OutboundTaskService {
         return page(items, size);
     }
 
+    /** 按调用方提供的作用域读取既有事实，缺失结果沿用当前用例的处理契约。 */
     public Map<String, Object> get(String enterpriseId, String warehouseId, String taskId) {
         Map<String, Object> task = queries().getTask(enterpriseId, warehouseId, taskId);
         if (task == null) {
@@ -47,6 +50,7 @@ public final class OutboundTaskService {
         return task;
     }
 
+    /** 领取由应用入口检查状态与版本，竞争者不能把领取失败当作成功。 */
     public Map<String, Object> claim(
             String enterpriseId,
             String warehouseId,

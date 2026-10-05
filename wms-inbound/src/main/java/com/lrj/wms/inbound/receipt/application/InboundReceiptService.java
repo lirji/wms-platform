@@ -35,11 +35,13 @@ public final class InboundReceiptService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 InboundReceiptService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InboundReceiptService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
     }
 
+    /** 在企业和仓作用域内读取订单，调用方不能把其他仓的单据混入结果。 */
     public Map<String, Object> getOrder(String enterpriseId, String warehouseId, String orderId) {
         Map<String, Object> order = mapper().getOrder(enterpriseId, warehouseId, orderId);
         if (order == null) {
@@ -57,6 +59,7 @@ public final class InboundReceiptService {
         return body;
     }
 
+    /** 沿用当前订单查询及数量上限，避免无界读取和跨仓数据混合。 */
     public List<Map<String, Object>> listOrders(
             String enterpriseId, String warehouseId, int limit) {
         return mapper().listOrders(enterpriseId, warehouseId, limit);

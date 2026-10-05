@@ -44,6 +44,7 @@ public class OutboundWorkbenchController {
 
     private final boolean messagingEnabled;
 
+    /** 显式接收 OutboundWorkbenchController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public OutboundWorkbenchController(
             SqlSessionFactory sessions,
             @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}")
@@ -52,6 +53,7 @@ public class OutboundWorkbenchController {
         this.messagingEnabled = messagingEnabled;
     }
 
+    /** 处理 GET /outbound-orders 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/outbound-orders")
     public Map<String, Object> list(
             @AuthenticationPrincipal Jwt jwt,
@@ -75,6 +77,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /outbound-orders/{outboundOrderId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/outbound-orders/{outboundOrderId}")
     public Map<String, Object> get(
             @AuthenticationPrincipal Jwt jwt,
@@ -137,6 +140,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders")
     public ResponseEntity<Map<String, Object>> create(
             @AuthenticationPrincipal Jwt jwt,
@@ -160,6 +164,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders/{outboundOrderId}/execution-authorizations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders/{outboundOrderId}/execution-authorizations")
     public Map<String, Object> authorize(
             @AuthenticationPrincipal Jwt jwt,
@@ -192,6 +197,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders/{outboundOrderId}/pick-tasks 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders/{outboundOrderId}/pick-tasks")
     public ResponseEntity<Map<String, Object>> planPick(
             @AuthenticationPrincipal Jwt jwt,
@@ -222,6 +228,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /tasks 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/tasks")
     public Map<String, Object> listTasks(
             @AuthenticationPrincipal Jwt jwt,
@@ -243,6 +250,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 GET /tasks/{taskId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/tasks/{taskId}")
     public Map<String, Object> getTask(
             @AuthenticationPrincipal Jwt jwt,
@@ -257,6 +265,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /tasks/{taskId}/claims 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/tasks/{taskId}/claims")
     public Map<String, Object> claim(
             @AuthenticationPrincipal Jwt jwt,
@@ -288,6 +297,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /tasks/{taskId}/picks 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/tasks/{taskId}/picks")
     public ResponseEntity<Map<String, Object>> pick(
             @AuthenticationPrincipal Jwt jwt,
@@ -329,6 +339,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders/{outboundOrderId}/packings 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders/{outboundOrderId}/packings")
     public ResponseEntity<Map<String, Object>> pack(
             @AuthenticationPrincipal Jwt jwt,
@@ -351,6 +362,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders/{outboundOrderId}/shipments 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders/{outboundOrderId}/shipments")
     public ResponseEntity<Map<String, Object>> ship(
             @AuthenticationPrincipal Jwt jwt,
@@ -423,6 +435,7 @@ public class OutboundWorkbenchController {
         }
     }
 
+    /** 处理 POST /outbound-orders/{outboundOrderId}/cancellations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/outbound-orders/{outboundOrderId}/cancellations")
     public ResponseEntity<Map<String, Object>> cancel(
             @AuthenticationPrincipal Jwt jwt,

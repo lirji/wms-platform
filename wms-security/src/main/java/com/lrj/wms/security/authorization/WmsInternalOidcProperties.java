@@ -9,6 +9,7 @@ import java.util.Set;
 @ConfigurationProperties(prefix = "wms.internal-oidc")
 public record WmsInternalOidcProperties(
         String issuer, String clientId, String jwkSetUri, Set<String> allowedSubjects) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public WmsInternalOidcProperties {
         issuer = issuer == null ? "" : issuer;
         clientId = clientId == null ? "" : clientId;

@@ -21,6 +21,7 @@ import java.util.Map;
 public final class SerialStockController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 SerialStockController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialStockController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }

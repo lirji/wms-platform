@@ -12,6 +12,7 @@ import java.util.Map;
 public final class InventoryHttpJson {
     private InventoryHttpJson() {}
 
+    /** 将 body 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static Map<String, Object> body(Map<String, Object> source) {
         Map<String, Object> item = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : source.entrySet()) {
@@ -20,6 +21,7 @@ public final class InventoryHttpJson {
         return item;
     }
 
+    /** 将 rows 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     public static List<Map<String, Object>> rows(List<Map<String, Object>> source) {
         List<Map<String, Object>> items = new ArrayList<>();
         for (Map<String, Object> row : source) {

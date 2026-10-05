@@ -2,6 +2,7 @@ package com.lrj.wms.fulfillment.tc.domain;
 
 /** TC集群和TM身份来自受控配置，不能由HTTP调用方提供或随恢复猜测。 */
 public record TcEvidenceScope(String clusterId, String applicationId, String transactionGroup) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public TcEvidenceScope {
         if (clusterId == null
                 || !clusterId.matches("[A-Za-z0-9._-]{1,64}")

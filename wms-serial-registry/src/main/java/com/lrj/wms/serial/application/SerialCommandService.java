@@ -19,6 +19,7 @@ public final class SerialCommandService {
     private final SqlSessionFactory sessions;
     private final Clock clock;
 
+    /** 显式接收 SerialCommandService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialCommandService(SqlSessionFactory sessions, Clock clock) {
         this.sessions = sessions;
         this.clock = clock;

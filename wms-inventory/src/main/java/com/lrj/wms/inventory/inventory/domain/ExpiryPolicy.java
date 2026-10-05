@@ -1,9 +1,6 @@
 package com.lrj.wms.inventory.inventory.domain;
 
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.Date;
 
 /**
  * 实时效期。有效区间左闭右开：now &lt; expires_at 才满足；时刻为空表示未绑定失效。
@@ -12,29 +9,11 @@ import java.util.Date;
 public final class ExpiryPolicy {
     private ExpiryPolicy() {}
 
+    /** 有效区间左闭右开；未绑定失效时刻可以通过，但调用方必须提供判定时刻。 */
     public static boolean satisfied(Instant expiresAt, Instant now) {
         if (now == null) {
             throw new IllegalArgumentException("判定时刻不能为空");
         }
         return expiresAt == null || now.isBefore(expiresAt);
-    }
-
-    public static Instant instantOf(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Instant instant) {
-            return instant;
-        }
-        if (value instanceof Timestamp timestamp) {
-            return timestamp.toInstant();
-        }
-        if (value instanceof Date date) {
-            return date.toInstant();
-        }
-        if (value instanceof LocalDateTime localDateTime) {
-            return com.lrj.wms.runtime.db.DatabaseInstants.require(localDateTime);
-        }
-        throw new IllegalArgumentException("无法识别的效期类型：" + value.getClass().getName());
     }
 }

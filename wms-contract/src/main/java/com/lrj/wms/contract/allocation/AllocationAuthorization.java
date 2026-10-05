@@ -23,6 +23,7 @@ public record AllocationAuthorization(
         TcProof tcProof,
         List<Participant> participants,
         List<Line> lines) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public AllocationAuthorization {
         if (authorizationSchemaVersion != 1) throw new IllegalArgumentException("未知授权契约版本");
         for (String id :
@@ -69,6 +70,7 @@ public record AllocationAuthorization(
             String applicationId,
             String transactionGroup,
             String terminalEvidence) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public TcProof {
             if (clusterId == null
                     || !clusterId.matches("[A-Za-z0-9._-]{1,64}")
@@ -89,6 +91,7 @@ public record AllocationAuthorization(
             String actionName,
             long routeEpoch,
             long confirmedVersion) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public Participant {
             for (String id : new String[] {warehouseId, allocationId, reservationId, actionName})
                 id(id, 64);
@@ -99,6 +102,7 @@ public record AllocationAuthorization(
 
     /** 原业务订单行而非出库内部行ID，数量精度与持久化DECIMAL(20,6)一致。 */
     public record Line(String orderLineId, String skuId, BigDecimal qty, String baseUnit) {
+        /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
         public Line {
             id(orderLineId, 64);
             id(skuId, 64);

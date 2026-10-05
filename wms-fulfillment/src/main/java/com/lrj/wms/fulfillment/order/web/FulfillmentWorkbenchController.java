@@ -50,6 +50,7 @@ public class FulfillmentWorkbenchController {
     private final SqlSessionFactory sessions;
     private final boolean messagingEnabled;
 
+    /** 显式接收 FulfillmentWorkbenchController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public FulfillmentWorkbenchController(
             SqlSessionFactory sessions,
             @org.springframework.beans.factory.annotation.Value("${wms.messaging.enabled:false}")
@@ -58,6 +59,7 @@ public class FulfillmentWorkbenchController {
         this.messagingEnabled = messagingEnabled;
     }
 
+    /** 处理 GET /fulfillments 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/fulfillments")
     public Map<String, Object> listFulfillments(
             @AuthenticationPrincipal Jwt jwt,
@@ -78,6 +80,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 GET /fulfillments/{fulfillmentId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/fulfillments/{fulfillmentId}")
     public Map<String, Object> getFulfillment(
             @AuthenticationPrincipal Jwt jwt, @PathVariable String fulfillmentId) {
@@ -98,6 +101,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /fulfillments 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/fulfillments")
     public ResponseEntity<Map<String, Object>> createFulfillment(
             @AuthenticationPrincipal Jwt jwt,
@@ -126,6 +130,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /fulfillments/{fulfillmentId}/cancellations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/fulfillments/{fulfillmentId}/cancellations")
     public ResponseEntity<Map<String, Object>> cancelFulfillment(
             @AuthenticationPrincipal Jwt jwt,
@@ -157,6 +162,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /fulfillments/{fulfillmentId}/attempts 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/fulfillments/{fulfillmentId}/attempts")
     public ResponseEntity<Map<String, Object>> prepareAttempt(
             @AuthenticationPrincipal Jwt jwt,
@@ -185,6 +191,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 GET /transfers 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/transfers")
     public Map<String, Object> listTransfers(
             @AuthenticationPrincipal Jwt jwt,
@@ -210,6 +217,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 GET /transfers/{transferId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/transfers/{transferId}")
     public Map<String, Object> getTransfer(
             @AuthenticationPrincipal Jwt jwt,
@@ -237,6 +245,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /transfers/{transferId}/issues 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/transfers/{transferId}/issues")
     public ResponseEntity<Map<String, Object>> issueTransfer(
             @AuthenticationPrincipal Jwt jwt,
@@ -263,6 +272,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /transfers/{transferId}/receipt-authorizations 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/transfers/{transferId}/receipt-authorizations")
     public ResponseEntity<Map<String, Object>> authorizeTransferReceipt(
             @AuthenticationPrincipal Jwt jwt,
@@ -291,6 +301,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /warehouses/{warehouseId}/transfer-receipts 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/warehouses/{warehouseId}/transfer-receipts")
     public ResponseEntity<Map<String, Object>> receiveTransfer(
             @AuthenticationPrincipal Jwt jwt,
@@ -322,6 +333,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /transfers/{transferId}/losses 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/transfers/{transferId}/losses")
     public ResponseEntity<Map<String, Object>> confirmTransferLoss(
             @AuthenticationPrincipal Jwt jwt,
@@ -348,6 +360,7 @@ public class FulfillmentWorkbenchController {
         }
     }
 
+    /** 处理 POST /transfers 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/transfers")
     public ResponseEntity<Map<String, Object>> createTransfer(
             @AuthenticationPrincipal Jwt jwt,

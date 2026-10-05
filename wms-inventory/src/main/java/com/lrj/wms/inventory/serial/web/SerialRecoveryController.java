@@ -28,10 +28,12 @@ import java.util.Map;
 public final class SerialRecoveryController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 SerialRecoveryController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialRecoveryController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 将 list 的协议参数传递给现有处理入口，保持统一的 HTTP 边界与错误转换。 */
     @GetMapping
     public Map<String, Object> list(
             @AuthenticationPrincipal Jwt jwt,
@@ -62,6 +64,7 @@ public final class SerialRecoveryController {
         }
     }
 
+    /** 处理 POST /{intentId}/retries 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/{intentId}/retries")
     public ResponseEntity<Map<String, Object>> retry(
             @AuthenticationPrincipal Jwt jwt,

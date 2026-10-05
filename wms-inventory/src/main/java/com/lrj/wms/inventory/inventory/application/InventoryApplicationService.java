@@ -38,6 +38,7 @@ public final class InventoryApplicationService {
     private final SqlSession session;
     private final Clock clock;
 
+    /** 显式接收 InventoryApplicationService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public InventoryApplicationService(SqlSession session, Clock clock) {
         this.session = session;
         this.clock = clock;
@@ -1687,7 +1688,8 @@ public final class InventoryApplicationService {
             throw new InventoryException("RESOURCE_NOT_FOUND", "批次不存在");
         }
         if (!ExpiryPolicy.satisfied(
-                ExpiryPolicy.instantOf(lot.get("expires_at")), clock.instant())) {
+                com.lrj.wms.runtime.db.DatabaseInstants.instantOf(lot.get("expires_at")),
+                clock.instant())) {
             throw new InventoryException("LOT_EXPIRED", "批次已过期，不能新预占");
         }
     }

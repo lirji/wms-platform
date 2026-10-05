@@ -35,10 +35,12 @@ import java.util.Map;
 public class DomainCommandController {
     private final SqlSessionFactory sessions;
 
+    /** 显式接收 DomainCommandController 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public DomainCommandController(SqlSessionFactory sessions) {
         this.sessions = sessions;
     }
 
+    /** 处理 POST /moves 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/moves")
     public ResponseEntity<Map<String, Object>> move(
             @AuthenticationPrincipal Jwt jwt,
@@ -78,6 +80,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 POST /stock-holds 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/stock-holds")
     public ResponseEntity<Map<String, Object>> hold(
             @AuthenticationPrincipal Jwt jwt,
@@ -118,6 +121,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 POST /stock-holds/{holdId}/releases 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/stock-holds/{holdId}/releases")
     public Map<String, Object> release(
             @AuthenticationPrincipal Jwt jwt,
@@ -144,6 +148,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 POST /adjustments 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/adjustments")
     public ResponseEntity<Map<String, Object>> createAdjustment(
             @AuthenticationPrincipal Jwt jwt,
@@ -175,6 +180,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 GET /adjustments 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/adjustments")
     public Map<String, Object> listAdjustments(
             @AuthenticationPrincipal Jwt jwt,
@@ -194,6 +200,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 GET /adjustments/{adjustmentId} 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @GetMapping("/adjustments/{adjustmentId}")
     public Map<String, Object> getAdjustment(
             @AuthenticationPrincipal Jwt jwt,
@@ -208,6 +215,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 POST /adjustments/{adjustmentId}/approvals 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/adjustments/{adjustmentId}/approvals")
     public Map<String, Object> approve(
             @AuthenticationPrincipal Jwt jwt,
@@ -234,6 +242,7 @@ public class DomainCommandController {
         }
     }
 
+    /** 处理 POST /adjustments/{adjustmentId}/applications 的协议绑定；业务决策沿用应用入口，避免 HTTP 层复制状态规则。 */
     @PostMapping("/adjustments/{adjustmentId}/applications")
     public ResponseEntity<Map<String, Object>> apply(
             @AuthenticationPrincipal Jwt jwt,

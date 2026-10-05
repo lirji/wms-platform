@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 public class DeviceUnknownResultSweep {
     public static final String HANDLER = "deviceUnknownResultSweep";
 
+    /** 调度入口沿用当前任务的执行规则与领取身份，不能绕过业务工作器。 */
     @XxlJob(HANDLER)
     public void execute() {
         XxlJobHelper.log("deviceUnknownResultSweep inspect-only; no blind resend");

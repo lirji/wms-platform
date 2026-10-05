@@ -16,6 +16,7 @@ public record QueryCacheProperties(
         @DefaultValue("1000") int maximumEntries,
         @DefaultValue("4") int originConcurrency,
         @DefaultValue("100") long redisTimeoutMs) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public QueryCacheProperties {
         if (redisHost == null
                 || redisPassword == null
@@ -37,6 +38,7 @@ public record QueryCacheProperties(
         }
     }
 
+    /** 输出缓存配置诊断时沿用脱敏表示，凭据不能进入日志。 */
     @Override
     public String toString() {
         return "QueryCacheProperties[credentials=REDACTED]";

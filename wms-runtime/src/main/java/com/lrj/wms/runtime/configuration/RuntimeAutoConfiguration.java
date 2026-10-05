@@ -18,22 +18,26 @@ import org.springframework.context.annotation.Bean;
     com.lrj.wms.runtime.cache.QueryCacheProperties.class
 })
 public class RuntimeAutoConfiguration {
+    /** 在当前组合根提供 admissionGate，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @Bean
     public AdmissionGate admissionGate(AdmissionBudget budget) {
         return new AdmissionGate(budget);
     }
 
+    /** 在当前组合根提供 readQueryCache，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @Bean(destroyMethod = "close")
     public com.lrj.wms.runtime.cache.ReadQueryCache readQueryCache(
             com.lrj.wms.runtime.cache.QueryCacheProperties properties) {
         return new com.lrj.wms.runtime.cache.ReadQueryCache(properties);
     }
 
+    /** 在当前组合根提供 runtimeErrors，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @Bean
     public RuntimeErrors runtimeErrors() {
         return new RuntimeErrors();
     }
 
+    /** 在当前组合根提供 wmsReadiness，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @Bean
     public com.lrj.wms.runtime.observability.RuntimeReadiness wmsReadiness(
             org.springframework.beans.factory.ObjectProvider<javax.sql.DataSource> sources,
@@ -45,6 +49,7 @@ public class RuntimeAutoConfiguration {
                 sources::getIfAvailable, environment, () -> checks.orderedStream().toList());
     }
 
+    /** 在当前组合根提供 requestCorrelation，使实例依赖沿用该模块已配置的数据源、时钟和运行参数。 */
     @Bean
     public org.springframework.boot.web.servlet.FilterRegistrationBean<
                     com.lrj.wms.runtime.observability.RequestCorrelationFilter>

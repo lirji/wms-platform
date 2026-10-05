@@ -13,6 +13,7 @@ public record DatabaseBudget(
         @DefaultValue("5") int statementTimeoutSeconds,
         @DefaultValue("3000") int connectTimeoutMs,
         @DefaultValue("10000") int socketTimeoutMs) {
+    /** 在不可变契约的构造边界统一处理输入，保证默认值、校验与字段复制不在各调用点分叉。 */
     public DatabaseBudget {
         if (maximumPoolSize < 1
                 || maximumPoolSize > 200

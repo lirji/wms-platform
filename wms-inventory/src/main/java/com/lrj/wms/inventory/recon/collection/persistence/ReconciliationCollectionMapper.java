@@ -15,17 +15,20 @@ public interface ReconciliationCollectionMapper {
     /** 仓级任务优先活动采集，完成后持续巡检最近窗口，避免余额扫描尚未完成就停止。 */
     String active(@Param("e") String e, @Param("w") String w);
 
+    /** 写入{@code reconciliation_history_guard}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int activate(
             @Param("e") String e,
             @Param("w") String w,
             @Param("id") String id,
             @Param("cutoff") Timestamp cutoff);
 
+    /** 写入{@code reconciliation_history_guard}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int release(@Param("e") String e, @Param("w") String w, @Param("id") String id);
 
     /** 锁住原窗口，不能由租约接管改写原cutoff。 */
     Map<String, Object> lock(@Param("e") String e, @Param("w") String w, @Param("id") String id);
 
+    /** 写入{@code reconciliation_cutoff}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int start(
             @Param("e") String e,
             @Param("w") String w,
@@ -33,6 +36,7 @@ public interface ReconciliationCollectionMapper {
             @Param("progress") String progress,
             @Param("now") Timestamp now);
 
+    /** 写入{@code reconciliation_cutoff}，将 SQL 与绑定参数保持在同一持久化入口。返回实际影响行数，调用方据此识别条件不匹配。 */
     int claim(
             @Param("e") String e,
             @Param("w") String w,
@@ -63,6 +67,7 @@ public interface ReconciliationCollectionMapper {
             @Param("state") String state,
             @Param("now") Timestamp now);
 
+    /** 写入{@code reconciliation_collection_audit}，将 SQL 与绑定参数保持在同一持久化入口。 */
     int audit(
             @Param("e") String e,
             @Param("w") String w,
@@ -81,6 +86,7 @@ public interface ReconciliationCollectionMapper {
             @Param("source") String source,
             @Param("commands") List<String> commands);
 
+    /** 读取{@code stock_posting}，将 SQL 与绑定参数保持在同一持久化入口。使用既定分页或批量上限，避免一次读取无界数据。 */
     List<Map<String, Object>> postingPage(
             @Param("e") String e,
             @Param("w") String w,
@@ -96,6 +102,7 @@ public interface ReconciliationCollectionMapper {
             @Param("facts") List<SourceFact> facts,
             @Param("now") Timestamp now);
 
+    /** 读取{@code source_execution_fact}，将 SQL 与绑定参数保持在同一持久化入口。 */
     List<Map<String, Object>> facts(
             @Param("e") String e,
             @Param("w") String w,

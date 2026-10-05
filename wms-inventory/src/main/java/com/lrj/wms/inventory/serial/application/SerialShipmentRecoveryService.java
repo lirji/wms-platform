@@ -22,6 +22,7 @@ public final class SerialShipmentRecoveryService {
     private final Clock clock;
     private final SerialShipmentRegistryPort registry;
 
+    /** 显式接收 SerialShipmentRecoveryService 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public SerialShipmentRecoveryService(
             SqlSessionFactory sessions, Clock clock, SerialShipmentRegistryPort registry) {
         this.sessions = sessions;

@@ -30,6 +30,7 @@ public final class AllocationExecutionWorker {
             new com.lrj.wms.runtime.web.AdmissionGate(
                     new com.lrj.wms.runtime.web.AdmissionBudget(4, 1, 16, 4));
 
+    /** 显式接收 AllocationExecutionWorker 的协作对象或配置，保持本实例使用的依赖与创建入口一致。 */
     public AllocationExecutionWorker(
             SqlSessionFactory sessions,
             AllocationTmPort tm,
