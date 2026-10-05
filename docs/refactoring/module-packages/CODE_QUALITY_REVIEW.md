@@ -52,3 +52,5 @@ SQL 仍在 Mapper/XML 或既有基础设施内。120 份迁移及 64 份 Mapper 
 实际执行结果与准确提交以 [重构报告](PROJECT_REFACTORING_REPORT.md) 和 CI 链接为准。原始失败、基线、AST 检查与技能卫生扫描保存在任务工作树的 `.local/refactoring-module-packages/`，不把私密构建/运行证据加入 Git。
 
 历史大型应用服务和 Map 投影契约仍存在。此次明确模块和责任边界，不为追求类型数量改动公开 JSON，也不机械引入透传层。主 bundle 约 827 KB 的既有构建提示仍记录；生产容量、现场设备、OQ-03 和全部 50 项 AC 沿用原门禁，不能由本次重构测试替代。
+
+最终候选 `a1df348` / [CI37275190238](https://github.com/lirji/wms-platform/actions/runs/37275190238) 完整成功：100单测、230真实IT去重后0失败/错误/跳过，全部默认/warehouse/TC/failure与必需147/3门禁、启动smoke通过；87控制台、14脚本、类型/构建/格式成功。SQL/Mapper/目录/OpenAPI及可见性终审通过。原技能完整增量扫描0阻断，仅命名的262144协议预算提示已审查；独立Java格式CLI自动发现限制已由实际check补证，未改变规则引擎。正式main交付以精确SHA流水线与私密DELIVERY_RESULT记录，不把候选成功或源码发布当成本机重新部署。

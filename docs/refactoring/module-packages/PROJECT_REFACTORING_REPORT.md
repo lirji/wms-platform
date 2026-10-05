@@ -1,6 +1,6 @@
 # WMS 模块包结构与代码质量重构
 
-用户目标：权限部分完成后，使用 Claude SKILL 细化项目每个模块的包结构，格式化代码，并按技能代码要求优化。连续实施，不在每批后等待“继续”。当前根据最近 WMS 接入任务默认处理 WMS；项目范围异步问题未回复时不改 Auth 产品源码。
+用户目标：权限部分完成后，使用 Claude SKILL 细化项目每个模块的包结构，格式化代码，并按技能代码要求优化。用户已明确同时覆盖 Auth 与 WMS，连续实施，不在每批后等待“继续”。本报告负责 WMS；Auth A00–A08 已完整交付，main `e4d14eb` 的 [Auth CI](https://github.com/lirji/auth-platform/actions/runs/37276514965) 和 [Portal CI](https://github.com/lirji/auth-platform/actions/runs/37276514926) 均成功，332单测/325真实IT/1Boot4及另验legacy1、React2通过。Auth 的完整说明见[独立报告](https://github.com/lirji/auth-platform/blob/e4d14eb1b764f53419bbda9ee42920d9b0d3920b/docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md)。
 
 规范来自 `~/.claude/skills/project-refactoring/SKILL.md`、`backend-implementation/SKILL.md` 与 `~/.claude/dev-standards.md`；前三端为同一 Cursor 源，已核对摘要。完整目标保留；仅格式化不等于任务完成。
 
@@ -8,7 +8,7 @@
 
 起点 origin/main `2efa151b77c2620d39e810a3780710532fe0cdfc`；完整 verify CI37257041197 SUCCESS（默认真实IT、warehouse、TC、failure及console）。当前本机全reactor package成功，93个本机单测通过。基线门禁和测试保护门禁PASS。
 
-复用干净工作树 `~/.local/share/git-worktrees/wms-platform/central-authorization`，分支 `refactor/module-packages-code-quality`。原WMS工作区/main17048d5及55个用户文件仍保护；未提交Driver独立开发内容需保持，不纳入提交。其已有包组织另外只读核对，若需要改动且会混入未发布功能，先取得明确范围决定。
+复用既有工作树 `~/.local/share/git-worktrees/wms-platform/central-authorization`，分支 `refactor/module-packages-code-quality`。原 WMS 工作区的 main 在任务期间已快进至 `2efa151`，进度文件也与早期快照不同；其余 54 个保护文件相同。保留当前 main 与全部 55 文件状态，不回退或覆盖。未提交 Driver 仍归原任务所有，不纳入本次交付；其已有包结构只读核对。
 
 基线518个Java源/测试文件、120个SQL文件的摘要已保存于忽略的 `.local/refactoring-module-packages/baseline-source.json`。应用启动类与种子CLI全名、HTTP路径/字段/错误语义、数据库结构/迁移/SQL、事件/消息/幂等/事务/权限/TTL/预算保持。内部Java全名在必要拆包时变化，全部已知消费者、MyBatis namespace/resultType、自动配置注册、脚本/测试/当前文档必须同步；外部协议不变化。
 
@@ -38,7 +38,7 @@
 | R09 | inventory主数据/库存/移动/盘点/serial/recon/TCC/jobs等每个能力的包与代码规范 | R08 | DONE |
 | R10 | test-support场景/基础设施/契约分组、所有FQCN和进程入口同步；console规范/格式/结构审查 | R09 | DONE |
 | R11 | 全模块中文注释、类型/常量/配置、错误处理/规则/事务/SQL/测试的逐条审查及有证据优化 | R10 | DONE |
-| R12 | 全量必要IT/全部CI、接口/SQL/事件兼容、架构与卫生终审、文档进度和正常Git交付 | R11 | IN_PROGRESS |
+| R12 | 全量必要IT/全部CI、接口/SQL/事件兼容、架构与卫生终审；精确main门禁由交付回执记录 | R11 | VALIDATED |
 
 单批迁移映射可审查，编译、相关测试、配置/namespace、diff通过才继续。各批逻辑完整后本地提交在同一任务分支；最终必要完整CI成功后正常合入并推main，保护原main与用户改动。没有新部署授权，不改正在运行的W07制品/数据。
 
@@ -56,7 +56,7 @@ HTTP/API、DB、消息/事件、正式业务规则：UNCHANGED。内部Java包�
 
 ## 当前进度与证据
 
-R00–R11完成本地验证；R12正在执行完整集成测试、最终兼容和Git/CI交付。测试与构建原始日志、原文件摘要、后续每批回执在 `.local/refactoring-module-packages/`。全目标未完成，所有TODO切片持续推进；最终报告补齐已实施映射、验证、技术债、风险、回退和证据索引。
+R00–R12 实施、完整候选验收和终审完成，正常 main 交付及其精确 CI 结果由 `.local/refactoring-module-packages/DELIVERY_RESULT.json` 记录。两个项目的最终门禁全成功才完成整体目标。测试与构建原始日志、基线、各批映射/回执及原失败均保留于忽略目录；以下分批记录描述各阶段当时的状态，最新验收以末尾 R12 为准。
 
 ### R01 验证（f6ceb72）
 
@@ -113,3 +113,9 @@ R03还修正协议到Kafka适配器的反向依赖：262144字节预算由Runtim
 R12 首轮候选 e7c3294 的完整 CI 37269556033 在跨进程迁移后的 RM 就绪检查失败；135 个库存 IT 中 1 项失败，后续 profile 未执行。单测与控制台检查成功。失败发生于子进程退出，当前回执未归档子进程日志，因此补充原测试目录日志上传后重新定位，不放宽断言或跳过测试。R12 保持 IN_PROGRESS。
 
 R12 第二轮0d9d7b7/CI37272193704：完整默认verify成功，跨进程迁移/重启真实通过；随后147项必需清单的2个类名由于迁移前缀误替换而指向错误包，静态门禁失败。按真实源/JUnit身份修正为`com.lrj.wms.inventory.recon.StockInternalReconcileIT`，没有删除用例、改变断言或数量。新增清单身份源码检查及回归，14脚本测试PASS；下载的同源报告与修正清单147项逐项PASS。首轮进程退出原因因缺日志仍未能归因，原失败保留；后续成功不抹去该观察。继续完整CI/profile/smoke，R12保持IN_PROGRESS。
+
+R12 最新候选 `a1df348` / [CI37275190238](https://github.com/lirji/wms-platform/actions/runs/37275190238) 全部成功。真实 JUnit 按类/方法去重：100 单测、230 集成测试，失败、错误和跳过均为 0；其中默认业务 IT 213、warehouse 12、TC 2、failure 3。147 默认必需项和3故障必需项均通过，启动 smoke、87控制台测试、14脚本、类型/build/Java/XML/前端格式检查成功。报告按160份XML去重，没有把各profile残留/复制报告重复计数。
+
+终审再次核对419类迁移、120 SQL、64 Mapper SQL、2权限目录及OpenAPI精确字节；既有类型/方法没有扩张可见性。已说明的内部效期转换入口迁移和实际WCS/UI缺陷修复保留为CHANGED。全任务卫生使用未改动技能引擎、不可变格式化Git基线及公开映射，仅1项已审查的262144字节命名预算建议、0阻断；独立Java格式命令自动发现限制保留，实际check已通过。当前936个源码/验证输入摘要已固定，后续文档提交不改变候选验证输入。
+
+正常远端main发布保留原WMS脏目录与本地main，不在原目录强制切换/覆盖；最终精确提交CI与交付SHA以回执及[主分支流水线](https://github.com/lirji/wms-platform/actions/workflows/verify.yml?query=branch%3Amain)为准。当前任务树仍供既有运行挂载使用，11旧工作树、旧试点未提交内容、私密配置/预算/备份和失败证据保留。可重建的target/构建缓存可在有清理授权时处理；本轮没有清理或重新部署，运行制品仍属于W07交付。

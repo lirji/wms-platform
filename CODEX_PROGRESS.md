@@ -1,43 +1,42 @@
-# Codex Progress — WMS 全模块包结构/格式/代码规范优化 IN_PROGRESS
+# Codex Progress — Auth 与 WMS 重构验收及交付检查点
 
 ## 任务目标
 
-用户已明确范围为Auth与WMS两个项目。权限接入之后按Claude SKILL逐模块拆包、格式化、规范优化、完整验证并分别正常Git交付。当前WMS处于R12，Auth已完成A00–A07本地并推候选bf7a521（332单测/50console/29portal/114部署/7结构ABI与2真实React竞态PASS）；权限实施不重做，本次不部署。
+权限接入完成后，按Claude SKILL整理Auth与WMS正式模块的包结构、统一格式、规范优化、完整验证并正常Git交付。两仓最终main门禁通过才关闭整体goal。本轮不部署或续期。
 
 ## 已完成
 
-- R00–R10：基线/测试保护、Java/XML/console格式工具和所有正式模块包结构迁移，分批提交；保留私有协作边界。详细映射和日志见docs/refactoring/module-packages及.local/refactoring-module-packages。
-- R11：公开方法中文原因说明、全模块规范审查；消息预算归协议、共享纯凭证规则/摘要/错误工厂、数据库投影时刻退出纯领域。
-- WCS无效回执占用去重身份和并发重放、页面清空上下文残留错误已先新增特征/回归测试再修复。
-- 100 Java单测、87 console测试、13脚本测试及类型/build/三类格式、包边界/目录/文档/diff检查PASS。120 SQL/64 Mapper SQL/权限目录保持。
-- R11真实差异卫生CLI零finding，IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS；仅命令发现器不识别独立Java格式CLI，实际格式check PASS。
+- WMS R00–R12源码实施与候选验收完成：419类迁移、765公开说明、共享纯规则/预算与数据库时间边界整理；WCS去重/并发及上下文旧错误修复均先失败后通过。
+- WMS a1df348/CI37275190238完整SUCCESS：去重100单测/230真实IT，0失败/错误/跳过；默认213、warehouse12、TC2、failure3，必需147/3与启动smoke通过；87console/14脚本及类型/build/格式/契约PASS。
+- 120SQL/64Mapper SQL/2权限目录/OpenAPI字节、419映射、可见性及936源码/验证输入指纹核对PASS；全任务卫生0阻断，262144命名预算1建议已审查，Java格式发现限制有实际check补证。
+- Auth A00–A08完整DONE，main e4d14eb1b764f53419bbda9ee42920d9b0d3920b与精确Auth37276514965/Portal37276514926均成功；332单测/325真实IT/1Boot4、另验legacy1/React2，170公开类型兼容，39SQL/6图/2运行配置不变。
+- 初次进程退出原因未知、过期清单包名、Auth CI env归属和首次legacy超时均已保留原始失败及修复/重验记录，不删除用例或放宽断言。
 
 ## 已修改文件
 
-- 各模块src及消费者/namespace/自动配置/测试入口，R02–R10_PACKAGE_MAPPING列出具体映射。
-- scripts/format-java.py、format-xml.py、check-module-packages.py与对应回归、CI、console格式配置/开发锁文件。
-- docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md、CODE_QUALITY_REVIEW.md、PLAN_METADATA.json、README.md和本文件。
+- 各正式模块src、消费者/namespace/自动配置、固定格式与结构守卫/CI、docs/refactoring/module-packages及本文件，按逻辑单元提交。
+- 用户原Driver、旧试点未提交内容、私密配置/证据与既有运行制品不混入本次提交。
 
 ## 未完成
 
-- WMS R12：完整真实默认verify、warehouse/tc/failure profile、启动smoke及精确提交CI37269556033；最终兼容/原工作保护核对和正常main交付。
-- Auth A01–A08：六后端模块、两个前端的全部拆包/格式/优化及完整验证/交付。Auth A00基线331单测PASS，见原项目CODEX_PROGRESS及.local/refactoring-module-packages-auth。整体goal在两个项目全部完成前保持active。
-- 不把本地单测/格式通过宣称整个目标完成；保持主动推进，不等待继续。
+- Git及最终main门禁的实时事实在.local/refactoring-module-packages/DELIVERY_RESULT.json和R12_TEST_RESULT.json；overall/status为DONE时无剩余实施或交付事项。
+- 若回执仍标MAIN_PUSHED_CI_IN_PROGRESS，只等待已记录的精确main CI到终态，失败则保存归档并按原因有界修复；不能以候选成功代替main证据。
 
 ## 当前问题
 
-- R12首轮跨进程启动FAIL原因缺日志未归因；第二轮0d9d7b7/37272193704完整默认verify PASS（含迁移重启），后必需清单2类名错误已按实际源/JUnit修正，147项逐项PASS。新增静态身份检查与回归，14脚本PASS。下一新候选完整CI/profile/smoke；不可提前发布main。原失败及卫生工具发现限制保留于.local/refactoring-module-packages。
-- 原WMSmain17048d5/55个用户文件/Driver保持，11旧工作树和私密证据保留。只在既有central-authorization树的refactor/module-packages-code-quality分支工作。
-- 本次没有重部署授权，现有W07制品/数据及权限TTL不因源码任务更改。
+- 原WMS main已正常快进2efa151，checkpoint与早期快照不同，其余54文件相同；当前55文件摘要已重新捕获并保护。只使用当前既有任务树，不覆盖原脏目录或移动其本地main。
+- 11旧工作树、私密凭据/预算/备份/失败保留。原Driver和旧试点有未提交内容，当前树供运行挂载；无清理/部署/自动续期。可重建target/缓存不承担权威数据，本轮不删除。
+- Java格式CLI自动发现限制已在报告列明，实际固定格式check均通过；容量、真实设备、生产与旧业务待办不由本次测试替代。
 
 ## 下一步建议
 
-1. R11验证提交后推任务分支，执行并核对完整CI中的真实IT、所有profile和console；失败则保留证据并有界修复。
-2. 全量门禁通过后复核兼容与用户工作保护、更新R12结果，按持续授权正常合入推main并核对最终CI，不强推。
+1. 先读取私密DELIVERY_RESULT、R12_TEST_RESULT和Auth对应回执，核对已记录的main SHA及CI。若两仓DONE，则任务结束，不重复实施/测试/发布或等待继续。
+2. 若尚有main CI进行中，继续同一run；不存在私密回执时从远端main与对应精确流水线核对，不重跑历史包迁移脚本。
+3. 保留用户当前工作、旧树和运行数据，不部署、不续期、不清理；只有两仓实际交付完整才将goal标complete。
 
 ## 恢复 Prompt
 
-读取本文件、重构报告和.local/refactoring-module-packages最新R11/R12、Git/CI结果，继续WMS R12完整验证和main交付，再连续完成Auth A01–A08。用户已确认两个项目，不能在WMS结束时把整体goal完成。WMS R00–R11已完成本地验证，不重做包迁移/权限部署，不触碰原WMS、Driver或运行数据，不清理、不等待继续。
+读取本检查点与私密DELIVERY_RESULT/R12_TEST_RESULT的最新实际状态。Auth完整DONE；WMS候选完整CI/所有profile/兼容卫生已PASS，只继续回执中尚未完成的精确main交付。若main全成功则结束，不重做包迁移、Auth发布或权限部署，不清理或覆盖用户内容。
 
 ---
 
