@@ -9,27 +9,29 @@
 - 读取Claude project-refactoring/backend-implementation/dev-standards，同Codex/Claude/ Cursor规范摘要一致。
 - 起点WMS远端main2efa151/完整CI37257041197 SUCCESS；当前全reactor package及93单测PASS；基线/测试保护Gate PASS。
 - 复用既有干净central-authorization工作树，建立refactor/module-packages-code-quality。518 Java/120 SQL/IAM摘要落盘，原WMS17048d5/55文件/Driver/历史pilot工作保持。
-- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00 DONE，R01进行中。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
+- 正式报告与R00–R12全部范围计划落盘docs/refactoring/module-packages/。R00/R01 DONE（f6ceb72），R02开始。选择固定GoogleJavaFormat1.37.0及Prettier3.9.9开发工具，不新增后端运行依赖。
 
 ## 已修改文件
 
 - docs/refactoring/module-packages/PROJECT_REFACTORING_REPORT.md、PLAN_METADATA.json。
-- scripts/format-java.py、.editorconfig、wms-console格式配置及package/lock（安装进行中）。
+- scripts/format-java.py、.editorconfig、wms-console格式配置及package/lock（精确版本已锁定）。
 - 本文件；.local/refactoring-module-packages/为忽略的基线/日志/后续证据。
 
 ## 未完成
 
-- R01实际格式化及check/编译/相关测试；然后连续R02–R12覆盖全部正式模块、代码规范/优化/全量验证/正常main交付。
+- R01格式化/编译及93Java、86前端、10脚本测试PASS；继续R02–R12覆盖全部正式模块、代码规范/优化/全量验证/正常main交付。
 - 原未提交Driver独立工作只能只读核对，不能混入当前任务Git；若需改动，先确定其范围/工作归属。
 
 ## 当前问题
+
+- 导航解析格式回归已修复，原失败保留。规范化基线的未修改技能卫生引擎无阻断，仅命令发现FORMAT_TOOL_NOT_AVAILABLE限制；实际格式check全部PASS，见R01_TEST_RESULT.json。
 
 - 本任务没有重部署授权；现有W07制品和数据保持。SQL迁移/权限与HTTP/事件契约不得因拆包改变。
 - 原WMSlocal main17048d5和55文件保护；不清理11旧工作树/镜像/卷/测试数据/证据，不强推。
 
 ## 下一步建议
 
-1. 完成R01格式检查与编译/单测，保存原始结果并逻辑提交；按报告顺序逐批细化包及有证据的代码优化。
+1. R01已验证提交f6ceb72；按R02_PACKAGE_MAPPING开始契约与WCS包迁移，再连续后续切片。
 2. 每批通过编译/相关真实测试/namespace检查/diff才继续；更新本文件，不等待继续。最终完整CI与兼容门禁再发布main。
 
 ## 恢复 Prompt

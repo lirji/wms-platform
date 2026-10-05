@@ -27,7 +27,7 @@
 | ID | 范围与结果 | 依赖 | 状态 |
 |---|---|---|---|
 | R00 | Claude规范、原工作保护、架构/API/DB/消息/测试基线与整体路线 | — | DONE |
-| R01 | 518 Java源/测试、console源码及相关XML格式化；固定工具/检查入口与风格 | R00 | IN_PROGRESS |
+| R01 | 518 Java源/测试、console源码及相关XML格式化；固定工具/检查入口与风格 | R00 | DONE |
 | R02 | contract按库存/序列/分配/取消/调拨/TCC契约拆包，integration按模型/端口/适配拆包；同步全部已知消费者 | R01 | TODO |
 | R03 | runtime消息/inbox/outbox/Kafka/恢复等职责包及真实重复逻辑优化 | R02 | TODO |
 | R04 | security身份/中央授权/恢复包；保持包内封装与所有边界测试 | R03 | TODO |
@@ -56,4 +56,10 @@ HTTP/API、DB、消息/事件、业务规则：UNCHANGED。内部Java包名：CH
 
 ## 当前进度与证据
 
-R00完成；R01进行中。测试与构建原始日志、原文件摘要、后续每批回执在 `.local/refactoring-module-packages/`。全目标未完成，所有TODO切片持续推进；最终报告补齐已实施映射、验证、技术债、风险、回退和证据索引。
+R00、R01完成；下一批R02。测试与构建原始日志、原文件摘要、后续每批回执在 `.local/refactoring-module-packages/`。全目标未完成，所有TODO切片持续推进；最终报告补齐已实施映射、验证、技术债、风险、回退和证据索引。
+
+### R01 验证（f6ceb72）
+
+518个Java文件、75个XML及人工console源码已格式化；93个Java单测、86个前端测试（39文件）、10个脚本测试通过；前端类型/build与全部格式check通过。120个SQL迁移、中央目录/运行绑定不变。菜单解析支持单/双引号与多行静态声明，仍拒绝动态表达式、重复字段、未知路由；生成的centralBindings.ts按导出器字节核对，不由Prettier重写。锁文件只新增Prettier，后端依赖无变化。
+
+卫生CLI原始结果保留：换行被误判为新增原有依赖/状态。用同一固定格式器独立处理不可变Git基线后，由未修改的技能引擎对真实当前源码和规范化基线扫描，显式应用R01格式变更元数据，得到IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS，无阻断项。唯一限制为技能命令发现器未识别独立Java CLI（FORMAT_TOOL_NOT_AVAILABLE）；实际Java/XML/console三项格式check均已执行通过。下载超时60秒的开发工具固定值另有一条非阻断建议，未改变业务预算。基线规范化摘要、原始CLI与完整扫描结果保存于.local/refactoring-module-packages/；没有删除规则或豁免真实代码新增。此结果仅证明R01，整个重构尚未完成。
