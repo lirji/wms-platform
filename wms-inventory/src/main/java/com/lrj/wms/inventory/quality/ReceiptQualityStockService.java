@@ -1,6 +1,6 @@
 package com.lrj.wms.inventory.quality;
 
-import com.lrj.wms.contract.messaging.ReceiptQualityDecision;
+import com.lrj.wms.contract.inventory.ReceiptQualityDecision;
 import com.lrj.wms.inventory.inventory.InventoryApplicationService;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
@@ -44,7 +44,7 @@ public final class ReceiptQualityStockService {
             String actor,
             StockBucketKey hold,
             ReceiptQualityDecision decision,
-            com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation observation) {
         var mapper = session.getMapper(ReceiptQualityStockMapper.class);
         var receipt = mapper.receipt(ent, wh, decision.receiptCommandId());
         if (receipt == null) throw new InventoryException("RECEIPT_NOT_POSTED", "原收货凭证尚不存在");

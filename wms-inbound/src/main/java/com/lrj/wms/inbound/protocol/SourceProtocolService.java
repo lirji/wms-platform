@@ -324,7 +324,7 @@ public final class SourceProtocolService {
             String partId,
             String lineId,
             String actorId,
-            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
+            com.lrj.wms.contract.inventory.ReceiptQualityDecision decision) {
         BigDecimal qty = decision.inspectedQty();
         Timestamp now = commandTime(enterpriseId, warehouseId, commandId);
         SourceMapper mapper = session.getMapper(SourceMapper.class);

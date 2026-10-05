@@ -1,10 +1,11 @@
 package com.lrj.wms.inventory.tcc;
 
-import com.lrj.wms.contract.messaging.TcTerminalNotice;
+import com.lrj.wms.contract.tcc.TcTerminalNotice;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.CommandDigest;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

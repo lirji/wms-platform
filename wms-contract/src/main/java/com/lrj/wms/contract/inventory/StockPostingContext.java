@@ -1,4 +1,4 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.inventory;
 
 /**
  * 库存命令的显式过账维度；来源库在T1保存，库存库按权威主数据再次验证。

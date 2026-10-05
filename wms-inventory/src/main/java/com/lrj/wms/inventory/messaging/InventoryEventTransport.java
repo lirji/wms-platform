@@ -1,9 +1,12 @@
 package com.lrj.wms.inventory.messaging;
 
-import com.lrj.wms.inventory.inventory.*;
+import com.lrj.wms.inventory.inventory.OutboxIsolateException;
+import com.lrj.wms.inventory.inventory.OutboxRecord;
+import com.lrj.wms.inventory.inventory.OutboxTransport;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 
@@ -68,7 +71,7 @@ public final class InventoryEventTransport implements OutboxTransport {
                         requestId,
                         payload);
         String topic = topicPrefix + ".inventory.events";
-        if (com.lrj.wms.contract.messaging.SerialTransferCommand.RESULT.equals(record.eventType()))
+        if (com.lrj.wms.contract.transfer.SerialTransferCommand.RESULT.equals(record.eventType()))
             topic = topicPrefix + ".fulfillment.results";
         if (InventoryCodes.EVENT_RESERVATION_CONFIRMED.equals(record.eventType())
                 && payload.has("confirmationSchemaVersion")) {

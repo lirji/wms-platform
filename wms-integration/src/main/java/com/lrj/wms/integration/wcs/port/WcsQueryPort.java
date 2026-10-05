@@ -1,4 +1,6 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.port;
+
+import com.lrj.wms.integration.wcs.model.WcsCommandView;
 
 import java.util.Optional;
 

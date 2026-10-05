@@ -511,9 +511,11 @@ public final class CountService {
             String actorId,
             int roundNo,
             List<String> seenSerials) {
-        com.lrj.wms.contract.messaging.SerialCountObservation input;
+        com.lrj.wms.contract.serial.observation.SerialCountObservation input;
         try {
-            input = new com.lrj.wms.contract.messaging.SerialCountObservation(1, seenSerials);
+            input =
+                    new com.lrj.wms.contract.serial.observation.SerialCountObservation(
+                            1, seenSerials);
         } catch (IllegalArgumentException error) {
             throw new InventoryException("SERIAL_SET_REQUIRED", error.getMessage());
         }

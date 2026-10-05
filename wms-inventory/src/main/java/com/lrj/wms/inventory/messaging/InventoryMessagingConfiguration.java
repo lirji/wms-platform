@@ -4,7 +4,15 @@ import com.lrj.wms.inventory.inventory.OutboxBudget;
 import com.lrj.wms.inventory.inventory.OutboxPublisher;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.query.InventoryProjectionService;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.KafkaDependencyHealth;
+import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.MessageWorker;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -123,8 +131,8 @@ public class InventoryMessagingConfiguration {
                         if (!inbox.processNext(
                                 (session, message) -> {
                                     routing.requireLocal(session, message);
-                                    if (com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT
-                                            .equals(message.eventType())) {
+                                    if (com.lrj.wms.contract.tcc.TcTerminalNotice.EVENT.equals(
+                                            message.eventType())) {
                                         com.lrj.wms.inventory.tcc.TcTerminalService.accept(
                                                 session,
                                                 message,

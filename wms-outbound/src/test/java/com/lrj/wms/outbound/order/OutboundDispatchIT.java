@@ -2,7 +2,7 @@ package com.lrj.wms.outbound.order;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.integration.wcs.SimulatorWcsAdapter;
+import com.lrj.wms.integration.wcs.simulator.SimulatorWcsAdapter;
 import com.lrj.wms.outbound.protocol.SourceMapper;
 import com.mysql.cj.jdbc.MysqlDataSource;
 

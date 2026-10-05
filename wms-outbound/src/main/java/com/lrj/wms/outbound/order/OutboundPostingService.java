@@ -1,6 +1,6 @@
 package com.lrj.wms.outbound.order;
 
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 import com.lrj.wms.runtime.messaging.SourceCommandContextStore;
 
@@ -43,7 +43,7 @@ public final class OutboundPostingService {
             BigDecimal qty,
             String partId,
             String lotId,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         if (selection != null) selection.requireQuantity(qty);
         var mapper = session.getMapper(OutboundOrderMapper.class);
         String orderId = mapper.taskOrderId(enterprise, warehouse, taskId);
@@ -124,7 +124,7 @@ public final class OutboundPostingService {
             String partId,
             String locationId,
             String lotId,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         if (selection != null) selection.requireQuantity(qty);
         var mapper = session.getMapper(OutboundOrderMapper.class);
         var order = require(mapper.lockOrder(enterprise, warehouse, orderId), "UNKNOWN_ORDER");
@@ -240,7 +240,7 @@ public final class OutboundPostingService {
             var selection =
                     RuntimeMessage.JSON.treeToValue(
                             body.path("serialExecution"),
-                            com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
+                            com.lrj.wms.contract.serial.selection.SerialExecutionSelection.class);
             selection.requireQuantity(qty);
             new OutboundSerialService(session, clock)
                     .posted(enterprise, warehouse, commandId, selection);
@@ -261,7 +261,7 @@ public final class OutboundPostingService {
             var selection =
                     RuntimeMessage.JSON.treeToValue(
                             body.path("serialExecution"),
-                            com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
+                            com.lrj.wms.contract.serial.selection.SerialExecutionSelection.class);
             selection.requireQuantity(qty);
             new OutboundSerialService(session, clock).shipmentPosted(e, w, command, selection);
         }
@@ -282,7 +282,7 @@ public final class OutboundPostingService {
             Map<String, Object> result,
             Map<String, Object> line,
             StockPostingContext context,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         result.put("documentId", context.documentId());
         new SourceCommandContextStore(session)
                 .bindOutbound(

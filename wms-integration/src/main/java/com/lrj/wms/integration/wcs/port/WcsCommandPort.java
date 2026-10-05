@@ -1,4 +1,7 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.port;
+
+import com.lrj.wms.integration.wcs.model.WcsCommand;
+import com.lrj.wms.integration.wcs.model.WcsDispatchResult;
 
 /** 向设备/WCS 发送已固定身份的命令。实现不得自行换号。 */
 public interface WcsCommandPort {

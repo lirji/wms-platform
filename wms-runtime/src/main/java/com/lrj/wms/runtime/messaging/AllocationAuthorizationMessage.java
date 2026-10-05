@@ -1,6 +1,6 @@
 package com.lrj.wms.runtime.messaging;
 
-import com.lrj.wms.contract.messaging.AllocationAuthorization;
+import com.lrj.wms.contract.allocation.AllocationAuthorization;
 
 import tools.jackson.databind.JsonNode;
 

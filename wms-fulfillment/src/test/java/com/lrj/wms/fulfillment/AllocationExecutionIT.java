@@ -2,7 +2,8 @@ package com.lrj.wms.fulfillment;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.contract.tcc.*;
+import com.lrj.wms.contract.tcc.WarehouseTryRequest;
+import com.lrj.wms.contract.tcc.WarehouseTryResult;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
@@ -269,7 +270,7 @@ class AllocationExecutionIT {
                                 "wms-outbound",
                                 f.e,
                                 warehouse,
-                                com.lrj.wms.contract.messaging.CommittedCancellation.RESULT,
+                                com.lrj.wms.contract.cancellation.CommittedCancellation.RESULT,
                                 f.attempt,
                                 1,
                                 CLOCK.instant().toString(),

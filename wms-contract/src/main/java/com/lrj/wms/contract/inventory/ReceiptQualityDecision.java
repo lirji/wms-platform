@@ -1,4 +1,4 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.inventory;
 
 import java.math.BigDecimal;
 

@@ -3,7 +3,9 @@ package com.lrj.wms.inventory.count;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
-import com.lrj.wms.inventory.serial.*;
+import com.lrj.wms.inventory.serial.LocalSerialMapper;
+import com.lrj.wms.inventory.serial.SerialCountRegistryPort;
+import com.lrj.wms.inventory.serial.SerialRecoveryService;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
@@ -66,7 +68,7 @@ public final class CountSerialAdjustmentService {
         var input =
                 RuntimeMessage.JSON.readValue(
                         String.valueOf(observed.get("serial_input_json")),
-                        com.lrj.wms.contract.messaging.SerialCountObservation.class);
+                        com.lrj.wms.contract.serial.observation.SerialCountObservation.class);
         input.requireQuantity(new BigDecimal(line.get("counted_qty").toString()));
         var sightings = counts.listObservationSerials(e, w, observation);
         // 预占尚未绑定具体SN时，不能猜测盘亏的是自由身份；尤其净数量不变的替换也会撤销原授权。

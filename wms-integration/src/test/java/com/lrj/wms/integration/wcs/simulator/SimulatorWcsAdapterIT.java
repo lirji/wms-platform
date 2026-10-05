@@ -1,6 +1,13 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.simulator;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.lrj.wms.integration.wcs.error.WcsAdapterException;
+import com.lrj.wms.integration.wcs.model.WcsCommand;
+import com.lrj.wms.integration.wcs.model.WcsCommandView;
+import com.lrj.wms.integration.wcs.model.WcsDispatchResult;
+import com.lrj.wms.integration.wcs.model.WcsReceipt;
+import com.lrj.wms.integration.wcs.model.WcsReceiptResult;
 
 import org.junit.jupiter.api.Test;
 

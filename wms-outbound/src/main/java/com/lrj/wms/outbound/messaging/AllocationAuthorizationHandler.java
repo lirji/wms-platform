@@ -3,7 +3,10 @@ package com.lrj.wms.outbound.messaging;
 import com.lrj.wms.outbound.order.OutboundAuthorizationMapper;
 import com.lrj.wms.outbound.order.OutboundAuthorizationService;
 import com.lrj.wms.outbound.order.OutboundOrderService;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.AllocationAuthorizationMessage;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

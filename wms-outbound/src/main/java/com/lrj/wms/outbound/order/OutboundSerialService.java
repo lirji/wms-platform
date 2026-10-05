@@ -1,6 +1,7 @@
 package com.lrj.wms.outbound.order;
 
-import com.lrj.wms.contract.messaging.*;
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;

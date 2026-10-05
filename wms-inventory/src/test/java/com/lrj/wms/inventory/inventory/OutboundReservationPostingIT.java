@@ -2,10 +2,14 @@ package com.lrj.wms.inventory.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.inventory.effect.infrastructure.EffectMapper;
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.inventory.infrastructure.*;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.lrj.wms.runtime.db.DatabaseInstants;
@@ -308,12 +312,12 @@ class OutboundReservationPostingIT {
                                                     session,
                                                     "SERIAL-WRONG-EPOCH",
                                                     "LINE",
-                                                    new com.lrj.wms.contract.messaging
+                                                    new com.lrj.wms.contract.serial.selection
                                                             .SerialExecutionSelection(
                                                             1,
                                                             List.of(
-                                                                    new com.lrj.wms.contract
-                                                                            .messaging
+                                                                    new com.lrj.wms.contract.serial
+                                                                            .selection
                                                                             .SerialExecutionSelection
                                                                             .Identity(
                                                                             "SERIAL-1", 0)))))
@@ -673,7 +677,7 @@ class OutboundReservationPostingIT {
             SqlSession session,
             String command,
             String line,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         return new StockCommandService(session, CLOCK)
                 .applyOutbound(
                         "ENT",
@@ -692,15 +696,15 @@ class OutboundReservationPostingIT {
                         selection);
     }
 
-    private static com.lrj.wms.contract.messaging.SerialExecutionSelection serialSelection(
+    private static com.lrj.wms.contract.serial.selection.SerialExecutionSelection serialSelection(
             String... serials) {
-        return new com.lrj.wms.contract.messaging.SerialExecutionSelection(
+        return new com.lrj.wms.contract.serial.selection.SerialExecutionSelection(
                 1,
                 java.util.Arrays.stream(serials)
                         .map(
                                 sn ->
-                                        new com.lrj.wms.contract.messaging.SerialExecutionSelection
-                                                .Identity(sn, 1L))
+                                        new com.lrj.wms.contract.serial.selection
+                                                .SerialExecutionSelection.Identity(sn, 1L))
                         .toList());
     }
 
@@ -708,7 +712,7 @@ class OutboundReservationPostingIT {
             SqlSession session,
             String command,
             String line,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         return new StockCommandService(session, CLOCK)
                 .applyOutbound(
                         "ENT",

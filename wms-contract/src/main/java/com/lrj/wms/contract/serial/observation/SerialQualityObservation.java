@@ -1,4 +1,6 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.serial.observation;
+
+import com.lrj.wms.contract.inventory.ReceiptQualityDecision;
 
 import java.math.BigDecimal;
 import java.util.*;

@@ -1,4 +1,7 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.transfer;
+
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
 
 import java.util.Set;
 

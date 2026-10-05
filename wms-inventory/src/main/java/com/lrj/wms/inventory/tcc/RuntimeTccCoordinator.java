@@ -2,8 +2,12 @@ package com.lrj.wms.inventory.tcc;
 
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.contract.tcc.WarehouseTryResult;
-import com.lrj.wms.inventory.inventory.*;
-import com.lrj.wms.inventory.inventory.domain.*;
+import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.InventoryException;
+import com.lrj.wms.inventory.inventory.ReservationLineInput;
+import com.lrj.wms.inventory.inventory.domain.CommandDigest;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
@@ -331,8 +335,7 @@ public final class RuntimeTccCoordinator implements FenceHandler {
             throw failure("TCC_CONTEXT_MISMATCH");
         var notice =
                 RuntimeMessage.JSON.readValue(
-                        text(proof, "proof_json"),
-                        com.lrj.wms.contract.messaging.TcTerminalNotice.class);
+                        text(proof, "proof_json"), com.lrj.wms.contract.tcc.TcTerminalNotice.class);
         if (!TcTerminalService.resource(notice.clusterId(), cellId).equals(actionName)
                 || !TcTerminalService.resource(notice.clusterId(), text(row, "cell_id"))
                         .equals(context.getActionName())

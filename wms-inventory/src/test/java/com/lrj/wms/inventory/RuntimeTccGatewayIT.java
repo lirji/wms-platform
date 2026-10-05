@@ -3,12 +3,15 @@ package com.lrj.wms.inventory;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
-import com.lrj.wms.inventory.inventory.*;
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.masterdata.*;
+import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.InventoryException;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
-import com.lrj.wms.inventory.tcc.*;
+import com.lrj.wms.inventory.tcc.InventoryTccFence;
+import com.lrj.wms.inventory.tcc.RuntimeTccCoordinator;
 import com.lrj.wms.runtime.db.DatabaseBudget;
 
 import org.apache.seata.rm.tcc.api.*;

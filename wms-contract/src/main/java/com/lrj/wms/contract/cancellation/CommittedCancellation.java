@@ -1,5 +1,6 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.cancellation;
 
+import com.lrj.wms.contract.tcc.TcTerminalNotice;
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 
 /** 已提交后的业务取消，只携带原冻结分配和TC证明，不改变TCC终态。 */

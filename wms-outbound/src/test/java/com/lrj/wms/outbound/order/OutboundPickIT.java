@@ -840,15 +840,15 @@ class OutboundPickIT {
                         .compareTo(new BigDecimal("2")));
     }
 
-    private static com.lrj.wms.contract.messaging.SerialExecutionSelection selection(
+    private static com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection(
             String... serials) {
-        return new com.lrj.wms.contract.messaging.SerialExecutionSelection(
+        return new com.lrj.wms.contract.serial.selection.SerialExecutionSelection(
                 1,
                 java.util.Arrays.stream(serials)
                         .map(
                                 sn ->
-                                        new com.lrj.wms.contract.messaging.SerialExecutionSelection
-                                                .Identity(sn, 1L))
+                                        new com.lrj.wms.contract.serial.selection
+                                                .SerialExecutionSelection.Identity(sn, 1L))
                         .toList());
     }
 
@@ -1492,12 +1492,12 @@ class OutboundPickIT {
                 new com.lrj.wms.contract.tcc.WarehouseTryRequest(
                         1, "ENT-1", "WH-A", "OWNER-1", id, id, "CELL", 1, lines);
         var value =
-                new com.lrj.wms.contract.messaging.CommittedCancellation(
+                new com.lrj.wms.contract.cancellation.CommittedCancellation(
                         1,
                         id,
                         "actor",
                         request,
-                        new com.lrj.wms.contract.messaging.TcTerminalNotice(
+                        new com.lrj.wms.contract.tcc.TcTerminalNotice(
                                 1, id, id, "xid-" + id, "cluster", "wms-fulfillment", "group", 9));
         return new com.lrj.wms.runtime.messaging.RuntimeMessage(
                 1,
@@ -1505,7 +1505,7 @@ class OutboundPickIT {
                 "wms-fulfillment",
                 "ENT-1",
                 "WH-A",
-                com.lrj.wms.contract.messaging.CommittedCancellation.EVENT,
+                com.lrj.wms.contract.cancellation.CommittedCancellation.EVENT,
                 id,
                 1,
                 clock.instant().toString(),

@@ -1,7 +1,10 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.contract.messaging.*;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
+import com.lrj.wms.contract.transfer.SerialTransferCommand;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 

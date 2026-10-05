@@ -1,12 +1,12 @@
 package com.lrj.wms.outbound.order;
 
-import com.lrj.wms.integration.wcs.SimulatorWcsAdapter;
-import com.lrj.wms.integration.wcs.WcsCommand;
-import com.lrj.wms.integration.wcs.WcsCommandPort;
-import com.lrj.wms.integration.wcs.WcsDispatchResult;
-import com.lrj.wms.integration.wcs.WcsReceipt;
-import com.lrj.wms.integration.wcs.WcsReceiptPort;
-import com.lrj.wms.integration.wcs.WcsReceiptResult;
+import com.lrj.wms.integration.wcs.model.WcsCommand;
+import com.lrj.wms.integration.wcs.model.WcsDispatchResult;
+import com.lrj.wms.integration.wcs.model.WcsReceipt;
+import com.lrj.wms.integration.wcs.model.WcsReceiptResult;
+import com.lrj.wms.integration.wcs.port.WcsCommandPort;
+import com.lrj.wms.integration.wcs.port.WcsReceiptPort;
+import com.lrj.wms.integration.wcs.simulator.SimulatorWcsAdapter;
 
 import org.apache.ibatis.session.SqlSession;
 

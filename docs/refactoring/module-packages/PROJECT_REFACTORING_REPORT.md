@@ -28,8 +28,8 @@
 |---|---|---|---|
 | R00 | Claude规范、原工作保护、架构/API/DB/消息/测试基线与整体路线 | — | DONE |
 | R01 | 518 Java源/测试、console源码及相关XML格式化；固定工具/检查入口与风格 | R00 | DONE |
-| R02 | contract按库存/序列/分配/取消/调拨/TCC契约拆包，integration按模型/端口/适配拆包；同步全部已知消费者 | R01 | TODO |
-| R03 | runtime消息/inbox/outbox/Kafka/恢复等职责包及真实重复逻辑优化 | R02 | TODO |
+| R02 | contract按库存/序列/分配/取消/调拨/TCC契约拆包，integration按模型/端口/适配拆包；同步全部已知消费者 | R01 | DONE |
+| R03 | runtime消息/inbox/outbox/Kafka/恢复等职责包及真实重复逻辑优化 | R02 | IN_PROGRESS |
 | R04 | security身份/中央授权/恢复包；保持包内封装与所有边界测试 | R03 | TODO |
 | R05 | inbound收货/质检/上架/任务/源协议的协议、应用和持久化责任 | R04 | TODO |
 | R06 | outbound订单/授权/拣发/取消/设备/源协议的责任及状态约束 | R05 | TODO |
@@ -63,3 +63,7 @@ R00、R01完成；下一批R02。测试与构建原始日志、原文件摘要�
 518个Java文件、75个XML及人工console源码已格式化；93个Java单测、86个前端测试（39文件）、10个脚本测试通过；前端类型/build与全部格式check通过。120个SQL迁移、中央目录/运行绑定不变。菜单解析支持单/双引号与多行静态声明，仍拒绝动态表达式、重复字段、未知路由；生成的centralBindings.ts按导出器字节核对，不由Prettier重写。锁文件只新增Prettier，后端依赖无变化。
 
 卫生CLI原始结果保留：换行被误判为新增原有依赖/状态。用同一固定格式器独立处理不可变Git基线后，由未修改的技能引擎对真实当前源码和规范化基线扫描，显式应用R01格式变更元数据，得到IMPLEMENTATION_COMPLETE_WITH_LIMITATIONS，无阻断项。唯一限制为技能命令发现器未识别独立Java CLI（FORMAT_TOOL_NOT_AVAILABLE）；实际Java/XML/console三项格式check均已执行通过。下载超时60秒的开发工具固定值另有一条非阻断建议，未改变业务预算。基线规范化摘要、原始CLI与完整扫描结果保存于.local/refactoring-module-packages/；没有删除规则或豁免真实代码新增。此结果仅证明R01，整个重构尚未完成。
+
+### R02 本地包迁移验证
+
+按R02_PACKAGE_MAPPING迁移22个类，未扩大原访问可见性。全reactor清除旧编译结果后构建/单测通过（93项）；120个SQL迁移、64份Mapper SQL文本、权限目录摘要及格式/文档/差异检查通过。完整真实IT、CI与最终卫生审查仍由R12完成。原始结果：.local/refactoring-module-packages/r02-unit-fixed.log，R02_TEST_RESULT.json。

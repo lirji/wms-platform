@@ -1,6 +1,6 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.contract.messaging.SerialExecutionSelection;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
 
 import org.apache.ibatis.annotations.Param;
 

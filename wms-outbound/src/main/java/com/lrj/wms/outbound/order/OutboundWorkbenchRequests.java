@@ -47,7 +47,7 @@ public final class OutboundWorkbenchRequests {
             @Size(max = 64) String clientOperationId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false)
                     BigDecimal qty,
-            @Valid com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution) {
+            @Valid com.lrj.wms.contract.serial.selection.SerialExecutionSelection serialExecution) {
         /** 数量与身份必须一起在协议边界验证，避免业务异常被误报为服务端失败。 */
         public PickRequest {
             if (serialExecution != null) serialExecution.requireQuantity(qty);
@@ -75,7 +75,7 @@ public final class OutboundWorkbenchRequests {
             @Size(max = 64) String clientOperationId,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false)
                     BigDecimal qty,
-            @Valid com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution) {
+            @Valid com.lrj.wms.contract.serial.selection.SerialExecutionSelection serialExecution) {
         /** 协议边界验证数量与身份集合，避免到业务事务内才发现不一致。 */
         public ShipRequest {
             if (serialExecution != null) serialExecution.requireQuantity(qty);

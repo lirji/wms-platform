@@ -1,6 +1,13 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.KafkaDependencyHealth;
+import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.MessageWorker;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -69,10 +76,11 @@ public class FulfillmentMessagingConfiguration {
                             i++) {
                         if (!inbox.processNext(
                                 (session, message) -> {
-                                    if (com.lrj.wms.contract.messaging.CommittedCancellation.RESULT
+                                    if (com.lrj.wms.contract.cancellation.CommittedCancellation
+                                            .RESULT
                                             .equals(message.eventType()))
                                         CommittedCancellationFlow.complete(session, message);
-                                    else if (com.lrj.wms.contract.messaging.SerialTransferCommand
+                                    else if (com.lrj.wms.contract.transfer.SerialTransferCommand
                                             .RESULT
                                             .equals(message.eventType()))
                                         new SerialTransferService(session, Clock.systemUTC())

@@ -330,7 +330,7 @@ public final class InboundReceiptService {
             Map<String, Object> result,
             String locationId,
             String lotId,
-            com.lrj.wms.contract.messaging.SerialReceiptObservation observation) {
+            com.lrj.wms.contract.serial.observation.SerialReceiptObservation observation) {
         if (locationId == null || locationId.isBlank() || lotId == null || lotId.isBlank()) {
             throw new InboundException("MISSING_POSTING_CONTEXT", "收货需要明确库位与批次标识");
         }
@@ -339,7 +339,7 @@ public final class InboundReceiptService {
         var order = mapper().getOrder(enterpriseId, warehouseId, orderId);
         if (order == null) throw new InboundException("RESOURCE_NOT_FOUND", "入库单不存在");
         var context =
-                new com.lrj.wms.contract.messaging.StockPostingContext(
+                new com.lrj.wms.contract.inventory.StockPostingContext(
                         orderId,
                         String.valueOf(order.get("owner_id")),
                         String.valueOf(line.get("sku_id")),
@@ -532,7 +532,7 @@ public final class InboundReceiptService {
             String commandId,
             String actorId,
             String receiptCommandId,
-            com.lrj.wms.contract.messaging.SerialStockSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialStockSelection selection) {
         requireIdentity("操作人", actorId);
         requireIdentity("命令", commandId);
         if (qty == null || qty.signum() <= 0) throw new InboundException("INVALID_QTY", "上架数量必须为正");
@@ -565,7 +565,7 @@ public final class InboundReceiptService {
                         || qty.compareTo(decimal(task.get("planned_qty"))) != 0)) {
             throw new com.lrj.wms.runtime.command.CommandConflictException();
         }
-        com.lrj.wms.contract.messaging.StockPostingContext batchContext = null;
+        com.lrj.wms.contract.inventory.StockPostingContext batchContext = null;
         if (receiptCommandId != null) {
             var receipt =
                     session.getMapper(ReceiptQualityMapper.class)
@@ -583,7 +583,8 @@ public final class InboundReceiptService {
                 var observed =
                         com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(
                                 payload.path("serialObservation"),
-                                com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
+                                com.lrj.wms.contract.serial.observation.SerialReceiptObservation
+                                        .class);
                 if (!observed.serialIds().containsAll(selection.serialIds()))
                     throw new InboundException("SERIAL_BATCH_CONFLICT", "所选身份不属于原收货批次");
             } else if (selection != null)
@@ -593,12 +594,12 @@ public final class InboundReceiptService {
             var original =
                     com.lrj.wms.runtime.messaging.RuntimeMessage.JSON.treeToValue(
                             payload.path("postingContext"),
-                            com.lrj.wms.contract.messaging.StockPostingContext.class);
+                            com.lrj.wms.contract.inventory.StockPostingContext.class);
             original.requireForAction("RECEIVE");
             if (original.sourceLocationId().equals(targetLocationId))
                 throw new InboundException("INVALID_PUTAWAY_LOCATION", "上架目标不能与收货库位相同");
             batchContext =
-                    new com.lrj.wms.contract.messaging.StockPostingContext(
+                    new com.lrj.wms.contract.inventory.StockPostingContext(
                             orderId,
                             original.ownerId(),
                             original.skuId(),

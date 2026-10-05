@@ -3,9 +3,13 @@ package com.lrj.wms.inventory;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.inventory.inventory.InventoryApplicationService;
-import com.lrj.wms.inventory.inventory.domain.*;
+import com.lrj.wms.inventory.inventory.domain.ExpiryPolicy;
+import com.lrj.wms.inventory.inventory.domain.InventoryCodes;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
-import com.lrj.wms.inventory.masterdata.domain.*;
+import com.lrj.wms.inventory.masterdata.domain.MasterdataCodes;
+import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
 
 import org.apache.ibatis.session.SqlSessionFactory;

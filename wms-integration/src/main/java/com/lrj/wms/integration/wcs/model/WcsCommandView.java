@@ -1,4 +1,4 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;

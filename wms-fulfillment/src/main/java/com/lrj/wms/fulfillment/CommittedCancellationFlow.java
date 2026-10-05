@@ -1,6 +1,7 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.contract.messaging.*;
+import com.lrj.wms.contract.cancellation.CommittedCancellation;
+import com.lrj.wms.contract.tcc.TcTerminalNotice;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;

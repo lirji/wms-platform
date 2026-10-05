@@ -1,4 +1,14 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.simulator;
+
+import com.lrj.wms.integration.wcs.error.WcsAdapterException;
+import com.lrj.wms.integration.wcs.model.WcsCommand;
+import com.lrj.wms.integration.wcs.model.WcsCommandView;
+import com.lrj.wms.integration.wcs.model.WcsDispatchResult;
+import com.lrj.wms.integration.wcs.model.WcsReceipt;
+import com.lrj.wms.integration.wcs.model.WcsReceiptResult;
+import com.lrj.wms.integration.wcs.port.WcsCommandPort;
+import com.lrj.wms.integration.wcs.port.WcsQueryPort;
+import com.lrj.wms.integration.wcs.port.WcsReceiptPort;
 
 import java.time.Clock;
 import java.time.Instant;

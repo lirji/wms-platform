@@ -3,12 +3,14 @@ package com.lrj.wms.inventory;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dockerjava.api.model.*;
-import com.lrj.wms.contract.tcc.*;
+import com.lrj.wms.contract.tcc.WarehouseTryRequest;
+import com.lrj.wms.contract.tcc.WarehouseTryResult;
 import com.lrj.wms.fulfillment.SeataTmDriver;
 import com.lrj.wms.fulfillment.TcEvidenceScope;
-import com.lrj.wms.inventory.inventory.*;
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.masterdata.*;
+import com.lrj.wms.inventory.inventory.InventoryApplicationService;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.migrate.WarehouseRouteMapper;
 import com.lrj.wms.runtime.db.DatabaseBudget;

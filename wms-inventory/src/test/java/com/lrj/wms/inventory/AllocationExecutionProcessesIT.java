@@ -5,8 +5,10 @@ import static com.lrj.wms.inventory.RuntimeRmProcessesIT.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dockerjava.api.model.*;
-import com.lrj.wms.contract.tcc.*;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.contract.tcc.WarehouseTryRequest;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.*;
@@ -906,7 +908,7 @@ class AllocationExecutionProcessesIT {
         body.put("sourceExecutionId", "EXEC-" + command);
         body.put(
                 "postingContext",
-                new com.lrj.wms.contract.messaging.StockPostingContext(
+                new com.lrj.wms.contract.inventory.StockPostingContext(
                         "DOC-" + command,
                         "OWNER",
                         "SKU",

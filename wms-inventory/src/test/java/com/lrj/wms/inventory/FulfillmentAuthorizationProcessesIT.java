@@ -2,8 +2,13 @@ package com.lrj.wms.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.fulfillment.*;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.fulfillment.AllocationRecoveryMapper;
+import com.lrj.wms.fulfillment.FulfillmentMapper;
+import com.lrj.wms.fulfillment.FulfillmentService;
+import com.lrj.wms.fulfillment.TcEvidenceScope;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;

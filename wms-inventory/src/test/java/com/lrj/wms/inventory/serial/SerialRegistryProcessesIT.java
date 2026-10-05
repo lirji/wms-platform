@@ -2,8 +2,12 @@ package com.lrj.wms.inventory.serial;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.inventory.infrastructure.*;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
@@ -506,10 +510,10 @@ class SerialRegistryProcessesIT {
 
                 // 多个身份共享原收货命令，逐身份真实HTTP登记不能因操作ID相同而互相覆盖或再次加量。
                 var observation =
-                        new com.lrj.wms.contract.messaging.SerialReceiptObservation(
+                        new com.lrj.wms.contract.serial.observation.SerialReceiptObservation(
                                 1, List.of("BATCH-1", "BATCH-2"));
                 var context =
-                        new com.lrj.wms.contract.messaging.StockPostingContext(
+                        new com.lrj.wms.contract.inventory.StockPostingContext(
                                 "BATCH-DOC",
                                 "OWNER",
                                 "SKU",
@@ -583,10 +587,10 @@ class SerialRegistryProcessesIT {
                                 Integer.class));
                 try (var session = sessions.openSession(false)) {
                     var decision =
-                            new com.lrj.wms.contract.messaging.ReceiptQualityDecision(
+                            new com.lrj.wms.contract.inventory.ReceiptQualityDecision(
                                     "BATCH-RECEIPT", "BATCH-Q", 1, BigDecimal.ONE, BigDecimal.ONE);
                     var quality =
-                            new com.lrj.wms.contract.messaging.SerialQualityObservation(
+                            new com.lrj.wms.contract.serial.observation.SerialQualityObservation(
                                     1, List.of("BATCH-1"), List.of("BATCH-2"));
                     new com.lrj.wms.inventory.inventory.StockCommandService(session, clock)
                             .applyQuality(
@@ -640,7 +644,7 @@ class SerialRegistryProcessesIT {
                                     from,
                                     to,
                                     Quantity.parse("1", 0),
-                                    new com.lrj.wms.contract.messaging.SerialStockSelection(
+                                    new com.lrj.wms.contract.serial.selection.SerialStockSelection(
                                             1, List.of("BATCH-1")));
                     session.commit();
                 }
@@ -813,7 +817,7 @@ class SerialRegistryProcessesIT {
         var clock = at(now, 500);
         try (var session = sessions.openSession(false)) {
             var context =
-                    new com.lrj.wms.contract.messaging.StockPostingContext(
+                    new com.lrj.wms.contract.inventory.StockPostingContext(
                             "COUNT-RECEIPT-DOC",
                             "OWNER",
                             "SKU",
@@ -837,7 +841,7 @@ class SerialRegistryProcessesIT {
                             context,
                             Quantity.parse("2", 0),
                             null,
-                            new com.lrj.wms.contract.messaging.SerialReceiptObservation(
+                            new com.lrj.wms.contract.serial.observation.SerialReceiptObservation(
                                     1, List.of("COUNT-C1", "COUNT-C2")));
             session.commit();
         }

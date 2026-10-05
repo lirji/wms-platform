@@ -2,12 +2,15 @@ package com.lrj.wms.inventory.serial;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.inventory.infrastructure.*;
-import com.lrj.wms.inventory.masterdata.*;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.*;

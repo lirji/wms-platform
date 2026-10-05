@@ -3,7 +3,10 @@ package com.lrj.wms.runtime;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.web.*;
+import com.lrj.wms.runtime.web.AdmissionBudget;
+import com.lrj.wms.runtime.web.AdmissionGate;
+import com.lrj.wms.runtime.web.CursorPage;
+import com.lrj.wms.runtime.web.InvalidPageException;
 
 import org.junit.jupiter.api.Test;
 

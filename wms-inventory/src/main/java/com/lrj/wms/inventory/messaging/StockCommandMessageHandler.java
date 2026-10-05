@@ -1,11 +1,15 @@
 package com.lrj.wms.inventory.messaging;
 
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.inventory.inventory.StockCommandService;
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.inventory.infrastructure.*;
+import com.lrj.wms.inventory.inventory.domain.Quantity;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.StockCommandMapper;
 import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSession;
 
@@ -68,7 +72,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
         if (!context.baseUnit().equals(sku.get("base_unit")))
             throw new MessageRejectedException("BASE_UNIT_MISMATCH");
         boolean serialEnabled = flag(sku.get("serial_enabled"));
-        com.lrj.wms.contract.messaging.SerialReceiptObservation serialObservation = null;
+        com.lrj.wms.contract.serial.observation.SerialReceiptObservation serialObservation = null;
         if (serialEnabled && "RECEIVE".equals(action)) {
             try {
                 var observation = payload.path("serialObservation");
@@ -89,7 +93,8 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 serialObservation =
                         RuntimeMessage.JSON.treeToValue(
                                 observation,
-                                com.lrj.wms.contract.messaging.SerialReceiptObservation.class);
+                                com.lrj.wms.contract.serial.observation.SerialReceiptObservation
+                                        .class);
                 serialObservation.requireQuantity(rawQty);
             } catch (RuntimeException invalid) {
                 throw new MessageRejectedException("SERIAL_OBSERVATION_REQUIRED");
@@ -104,7 +109,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
         if (payload.hasNonNull("serialSelection") && (!serialEnabled || !"PUTAWAY".equals(action)))
             throw new MessageRejectedException("SERIAL_POLICY_MISMATCH");
-        com.lrj.wms.contract.messaging.SerialExecutionSelection serialExecution = null;
+        com.lrj.wms.contract.serial.selection.SerialExecutionSelection serialExecution = null;
         if (serialEnabled && Set.of("PICK", "SHIP").contains(action)) {
             try {
                 var raw = payload.path("serialExecution");
@@ -134,7 +139,9 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                         throw new IllegalArgumentException();
                 serialExecution =
                         RuntimeMessage.JSON.treeToValue(
-                                raw, com.lrj.wms.contract.messaging.SerialExecutionSelection.class);
+                                raw,
+                                com.lrj.wms.contract.serial.selection.SerialExecutionSelection
+                                        .class);
                 serialExecution.requireQuantity(rawQty);
             } catch (RuntimeException invalid) {
                 throw new MessageRejectedException("INVALID_SERIAL_EXECUTION");
@@ -212,7 +219,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                                             : null,
                                     serialExecution);
         } else if ("QUALITY".equals(action)) {
-            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
+            com.lrj.wms.contract.inventory.ReceiptQualityDecision decision;
             try {
                 var rawDecision = payload.path("qualityDecision");
                 if (!rawDecision.path("sourceVersion").isIntegralNumber()
@@ -223,7 +230,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                 decision =
                         RuntimeMessage.JSON.treeToValue(
                                 rawDecision,
-                                com.lrj.wms.contract.messaging.ReceiptQualityDecision.class);
+                                com.lrj.wms.contract.inventory.ReceiptQualityDecision.class);
                 Quantity.of(
                         decision.acceptedQty(), ((Number) sku.get("quantity_scale")).intValue());
                 Quantity.of(
@@ -236,7 +243,8 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
             } catch (RuntimeException invalid) {
                 throw new MessageRejectedException("INVALID_QUALITY_DECISION");
             }
-            com.lrj.wms.contract.messaging.SerialQualityObservation qualityObservation = null;
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation qualityObservation =
+                    null;
             if (serialEnabled) {
                 try {
                     var raw = payload.path("serialQualityObservation");
@@ -262,7 +270,8 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                     qualityObservation =
                             RuntimeMessage.JSON.treeToValue(
                                     raw,
-                                    com.lrj.wms.contract.messaging.SerialQualityObservation.class);
+                                    com.lrj.wms.contract.serial.observation.SerialQualityObservation
+                                            .class);
                     qualityObservation.requireDecision(decision);
                 } catch (RuntimeException invalid) {
                     throw new MessageRejectedException("INVALID_SERIAL_QUALITY");
@@ -282,7 +291,7 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                                     decision,
                                     qualityObservation);
         } else if ("PUTAWAY".equals(action)) {
-            com.lrj.wms.contract.messaging.SerialStockSelection selection = null;
+            com.lrj.wms.contract.serial.selection.SerialStockSelection selection = null;
             if (serialEnabled) {
                 try {
                     var raw = payload.path("serialSelection");
@@ -302,7 +311,9 @@ public final class StockCommandMessageHandler implements RuntimeInbox.Handler {
                         if (!serial.isString()) throw new IllegalArgumentException();
                     selection =
                             RuntimeMessage.JSON.treeToValue(
-                                    raw, com.lrj.wms.contract.messaging.SerialStockSelection.class);
+                                    raw,
+                                    com.lrj.wms.contract.serial.selection.SerialStockSelection
+                                            .class);
                     selection.requireQuantity(rawQty);
                 } catch (RuntimeException invalid) {
                     throw new MessageRejectedException("INVALID_SERIAL_SELECTION");

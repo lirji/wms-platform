@@ -1,4 +1,7 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.port;
+
+import com.lrj.wms.integration.wcs.model.WcsReceipt;
+import com.lrj.wms.integration.wcs.model.WcsReceiptResult;
 
 /** 接收设备回执。旧 worker 可信回执按原命令身份恢复，不得改派新命令。 */
 public interface WcsReceiptPort {

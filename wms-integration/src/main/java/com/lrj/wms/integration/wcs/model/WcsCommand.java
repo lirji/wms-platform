@@ -1,4 +1,6 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.model;
+
+import com.lrj.wms.integration.wcs.error.WcsAdapterException;
 
 import java.math.BigDecimal;
 import java.util.Objects;

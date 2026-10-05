@@ -206,10 +206,10 @@ public class InboundWorkbenchController {
             throw new InboundException("RECEIPT_BATCH_REQUIRED", "身份质检必须明确收货批次");
         try (SqlSession session = sessions.openSession(false)) {
             if (body.receiptCommandId() != null) {
-                com.lrj.wms.contract.messaging.ReceiptQualityDecision decision;
+                com.lrj.wms.contract.inventory.ReceiptQualityDecision decision;
                 try {
                     decision =
-                            new com.lrj.wms.contract.messaging.ReceiptQualityDecision(
+                            new com.lrj.wms.contract.inventory.ReceiptQualityDecision(
                                     body.receiptCommandId(),
                                     inspectionId,
                                     longValue(body.sourceVersion(), 1),

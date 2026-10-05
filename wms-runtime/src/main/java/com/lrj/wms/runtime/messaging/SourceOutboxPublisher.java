@@ -1,6 +1,6 @@
 package com.lrj.wms.runtime.messaging;
 
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.runtime.messaging.persistence.SourceOutboxMapper;
 
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -70,7 +70,7 @@ public final class SourceOutboxPublisher {
                 if (attempt > 8) throw new MessageRejectedException("RETRY_EXHAUSTED");
                 RuntimeMessage message = message(event);
                 publisher.publish(
-                        com.lrj.wms.contract.messaging.CommittedCancellation.RESULT.equals(
+                        com.lrj.wms.contract.cancellation.CommittedCancellation.RESULT.equals(
                                         message.eventType())
                                 ? cancellationTopic
                                 : topic,
@@ -100,7 +100,7 @@ public final class SourceOutboxPublisher {
     }
 
     private RuntimeMessage message(Map<String, Object> event) {
-        if (com.lrj.wms.contract.messaging.CommittedCancellation.RESULT.equals(
+        if (com.lrj.wms.contract.cancellation.CommittedCancellation.RESULT.equals(
                 event.get("event_type"))) {
             var payload = RuntimeMessage.JSON.readTree(text(event, "payload"));
             if (!"wms-outbound".equals(sourceService)
@@ -114,7 +114,7 @@ public final class SourceOutboxPublisher {
                     sourceService,
                     text(event, "enterprise_id"),
                     text(event, "warehouse_id"),
-                    com.lrj.wms.contract.messaging.CommittedCancellation.RESULT,
+                    com.lrj.wms.contract.cancellation.CommittedCancellation.RESULT,
                     text(event, "command_id"),
                     1,
                     instant(event.get("created_at")).toString(),

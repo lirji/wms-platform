@@ -1,6 +1,6 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.contract.messaging.AllocationAuthorization;
+import com.lrj.wms.contract.allocation.AllocationAuthorization;
 import com.lrj.wms.runtime.messaging.AllocationAuthorizationMessage;
 import com.lrj.wms.runtime.messaging.RuntimeMessage;
 

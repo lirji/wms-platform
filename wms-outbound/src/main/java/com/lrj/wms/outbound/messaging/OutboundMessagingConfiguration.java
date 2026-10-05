@@ -2,7 +2,16 @@ package com.lrj.wms.outbound.messaging;
 
 import com.lrj.wms.outbound.order.OutboundOrderService;
 import com.lrj.wms.outbound.protocol.SourceMapper;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.KafkaDependencyHealth;
+import com.lrj.wms.runtime.messaging.KafkaInboxConsumer;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.KafkaSettings;
+import com.lrj.wms.runtime.messaging.MessageQueueMetrics;
+import com.lrj.wms.runtime.messaging.MessageRecoveryService;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.MessageWorker;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.SourceOutboxPublisher;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -96,7 +105,7 @@ public class OutboundMessagingConfiguration {
                         if (!inbox.processNext(
                                 (session, message) -> {
                                     if ("wms-fulfillment".equals(message.sourceService())) {
-                                        if (com.lrj.wms.contract.messaging.CommittedCancellation
+                                        if (com.lrj.wms.contract.cancellation.CommittedCancellation
                                                 .EVENT
                                                 .equals(message.eventType())) {
                                             new com.lrj.wms.outbound.order

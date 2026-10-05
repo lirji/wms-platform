@@ -1,6 +1,9 @@
 package com.lrj.wms.fulfillment;
 
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.AllocationAuthorizationMessage;
+import com.lrj.wms.runtime.messaging.KafkaMessagePublisher;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 
@@ -73,10 +76,10 @@ public final class FulfillmentOutboxPublisher {
                                                 message.eventType())
                                         ? ".fulfillment.events"
                                         : ".outbound.authorizations");
-                if (com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(
+                if (com.lrj.wms.contract.transfer.SerialTransferCommand.EVENT.equals(
                         message.eventType())) topic = prefix + ".transfer.commands";
-                if (com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(
-                        message.eventType())) topic = prefix + ".tcc.terminals";
+                if (com.lrj.wms.contract.tcc.TcTerminalNotice.EVENT.equals(message.eventType()))
+                    topic = prefix + ".tcc.terminals";
                 publisher.publish(
                         topic,
                         RuntimeMessage.hash(
@@ -109,26 +112,26 @@ public final class FulfillmentOutboxPublisher {
                 warehouse = text(row, "warehouse_id"),
                 attempt = text(row, "attempt_id");
         tools.jackson.databind.JsonNode body;
-        if (com.lrj.wms.contract.messaging.CommittedCancellation.EVENT.equals(type)) {
+        if (com.lrj.wms.contract.cancellation.CommittedCancellation.EVENT.equals(type)) {
             body = RuntimeMessage.JSON.readTree(text(row, "payload"));
             var value =
                     RuntimeMessage.JSON.treeToValue(
-                            body, com.lrj.wms.contract.messaging.CommittedCancellation.class);
+                            body, com.lrj.wms.contract.cancellation.CommittedCancellation.class);
             if (!attempt.equals(value.request().attemptId())
                     || !warehouse.equals(value.request().warehouseId()))
                 throw new MessageRejectedException("CANCELLATION_SCOPE_MISMATCH");
-        } else if (com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)) {
+        } else if (com.lrj.wms.contract.tcc.TcTerminalNotice.EVENT.equals(type)) {
             body = RuntimeMessage.JSON.readTree(text(row, "payload"));
             var notice =
                     RuntimeMessage.JSON.treeToValue(
-                            body, com.lrj.wms.contract.messaging.TcTerminalNotice.class);
+                            body, com.lrj.wms.contract.tcc.TcTerminalNotice.class);
             if (!attempt.equals(notice.attemptId()))
                 throw new MessageRejectedException("TC_NOTICE_SCOPE_MISMATCH");
-        } else if (com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(type)) {
+        } else if (com.lrj.wms.contract.transfer.SerialTransferCommand.EVENT.equals(type)) {
             body = RuntimeMessage.JSON.readTree(text(row, "payload"));
             var command =
                     RuntimeMessage.JSON.treeToValue(
-                            body, com.lrj.wms.contract.messaging.SerialTransferCommand.class);
+                            body, com.lrj.wms.contract.transfer.SerialTransferCommand.class);
             if (!attempt.equals(command.commandId()) || !warehouse.equals(command.warehouseId()))
                 throw new MessageRejectedException("TRANSFER_COMMAND_SCOPE_MISMATCH");
         } else if (FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type)) {
@@ -156,9 +159,9 @@ public final class FulfillmentOutboxPublisher {
                         null,
                         body);
         if (!FulfillmentService.EVENT_ALLOCATION_COMPLETED.equals(type)
-                && !com.lrj.wms.contract.messaging.SerialTransferCommand.EVENT.equals(type)
-                && !com.lrj.wms.contract.messaging.TcTerminalNotice.EVENT.equals(type)
-                && !com.lrj.wms.contract.messaging.CommittedCancellation.EVENT.equals(type))
+                && !com.lrj.wms.contract.transfer.SerialTransferCommand.EVENT.equals(type)
+                && !com.lrj.wms.contract.tcc.TcTerminalNotice.EVENT.equals(type)
+                && !com.lrj.wms.contract.cancellation.CommittedCancellation.EVENT.equals(type))
             AllocationAuthorizationMessage.from(message);
         return message;
     }

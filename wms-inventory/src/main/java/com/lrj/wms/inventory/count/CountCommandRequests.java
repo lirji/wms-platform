@@ -28,7 +28,9 @@ public final class CountCommandRequests {
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = true)
                     BigDecimal qty,
             @Min(1) Integer roundNo,
-            @Valid com.lrj.wms.contract.messaging.SerialCountObservation serialObservation) {
+            @Valid
+                    com.lrj.wms.contract.serial.observation.SerialCountObservation
+                            serialObservation) {
         public ObserveRequest(
                 String lineId, String observationId, BigDecimal qty, Integer roundNo) {
             this(lineId, observationId, qty, roundNo, null);

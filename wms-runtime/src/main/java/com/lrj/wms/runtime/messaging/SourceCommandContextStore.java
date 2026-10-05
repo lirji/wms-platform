@@ -1,6 +1,6 @@
 package com.lrj.wms.runtime.messaging;
 
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.runtime.command.CommandConflictException;
 import com.lrj.wms.runtime.messaging.persistence.SourceContextMapper;
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
@@ -55,7 +55,7 @@ public final class SourceCommandContextStore {
             String warehouseId,
             String commandId,
             StockPostingContext context,
-            com.lrj.wms.contract.messaging.SerialReceiptObservation observation,
+            com.lrj.wms.contract.serial.observation.SerialReceiptObservation observation,
             boolean replayed) {
         bindContext(
                 enterpriseId,
@@ -77,7 +77,7 @@ public final class SourceCommandContextStore {
             String warehouseId,
             String commandId,
             StockPostingContext context,
-            com.lrj.wms.contract.messaging.SerialQualityObservation observation,
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation observation,
             boolean replayed) {
         bindContext(
                 enterpriseId,
@@ -100,7 +100,7 @@ public final class SourceCommandContextStore {
             String commandId,
             StockPostingContext context,
             String receipt,
-            com.lrj.wms.contract.messaging.SerialStockSelection selection,
+            com.lrj.wms.contract.serial.selection.SerialStockSelection selection,
             boolean replayed) {
         bindContext(
                 enterpriseId,
@@ -141,7 +141,7 @@ public final class SourceCommandContextStore {
             String commandId,
             StockPostingContext context,
             String reservationOrderLineId,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection execution,
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection execution,
             boolean replayed) {
         if (reservationOrderLineId == null
                 || reservationOrderLineId.isBlank()
@@ -167,10 +167,10 @@ public final class SourceCommandContextStore {
             StockPostingContext context,
             String receiptCommandId,
             String reservationOrderLineId,
-            com.lrj.wms.contract.messaging.SerialReceiptObservation observation,
-            com.lrj.wms.contract.messaging.SerialQualityObservation qualityObservation,
-            com.lrj.wms.contract.messaging.SerialStockSelection selection,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection execution,
+            com.lrj.wms.contract.serial.observation.SerialReceiptObservation observation,
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation qualityObservation,
+            com.lrj.wms.contract.serial.selection.SerialStockSelection selection,
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection execution,
             boolean replayed) {
         if (receiptCommandId != null
                 && (receiptCommandId.isBlank() || receiptCommandId.length() > 64))
@@ -194,7 +194,7 @@ public final class SourceCommandContextStore {
             qualityObservation.requireDecision(
                     RuntimeMessage.JSON.treeToValue(
                             object.path("qualityDecision"),
-                            com.lrj.wms.contract.messaging.ReceiptQualityDecision.class));
+                            com.lrj.wms.contract.inventory.ReceiptQualityDecision.class));
         }
         if (selection != null) {
             if (!"PUTAWAY".equals(action) || receiptCommandId == null)

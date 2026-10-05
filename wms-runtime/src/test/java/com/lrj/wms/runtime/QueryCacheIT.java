@@ -2,7 +2,9 @@ package com.lrj.wms.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.runtime.cache.*;
+import com.lrj.wms.runtime.cache.QueryCacheBusyException;
+import com.lrj.wms.runtime.cache.QueryCacheProperties;
+import com.lrj.wms.runtime.cache.ReadQueryCache;
 
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;

@@ -1,6 +1,7 @@
 package com.lrj.wms.inventory.serial;
 
-import com.lrj.wms.contract.messaging.*;
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
 import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;

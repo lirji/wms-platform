@@ -2,13 +2,23 @@ package com.lrj.wms.inventory.serial;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.contract.messaging.*;
-import com.lrj.wms.fulfillment.*;
-import com.lrj.wms.inventory.inventory.domain.*;
-import com.lrj.wms.inventory.inventory.infrastructure.*;
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.selection.SerialExecutionSelection;
+import com.lrj.wms.contract.transfer.SerialTransferCommand;
+import com.lrj.wms.fulfillment.FulfillmentMapper;
+import com.lrj.wms.fulfillment.SerialTransferMapper;
+import com.lrj.wms.fulfillment.SerialTransferService;
+import com.lrj.wms.fulfillment.TransferException;
+import com.lrj.wms.fulfillment.TransferMapper;
+import com.lrj.wms.fulfillment.TransferService;
+import com.lrj.wms.inventory.inventory.domain.StockBucketKey;
+import com.lrj.wms.inventory.inventory.infrastructure.CommandDedupMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.InventoryMapper;
+import com.lrj.wms.inventory.inventory.infrastructure.OutboxMapper;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
-import com.lrj.wms.inventory.masterdata.infrastructure.*;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataHttpMapper;
+import com.lrj.wms.inventory.masterdata.infrastructure.MasterdataMapper;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.*;

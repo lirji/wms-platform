@@ -1,4 +1,4 @@
-package com.lrj.wms.contract.messaging;
+package com.lrj.wms.contract.tcc;
 
 /** 只读TC审计的可靠逐仓通知；它是终态证据，不能触发业务Confirm/Cancel。 */
 public record TcTerminalNotice(

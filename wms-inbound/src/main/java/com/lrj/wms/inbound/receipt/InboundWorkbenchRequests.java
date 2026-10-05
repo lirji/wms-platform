@@ -31,7 +31,9 @@ public final class InboundWorkbenchRequests {
             @Min(0) Long scanSequence,
             @NotNull @Digits(integer = 14, fraction = 6) @DecimalMin(value = "0", inclusive = false)
                     BigDecimal qty,
-            @Valid com.lrj.wms.contract.messaging.SerialReceiptObservation serialObservation) {
+            @Valid
+                    com.lrj.wms.contract.serial.observation.SerialReceiptObservation
+                            serialObservation) {
         /** 身份观察必须和本次收货数量、库存维度一起固定，不能仅保存数量后再补名单。 */
         @AssertTrue(message = "序列号数量或库存维度不完整")
         public boolean isSerialObservationComplete() {
@@ -80,7 +82,7 @@ public final class InboundWorkbenchRequests {
             @Min(1) Long sourceVersion,
             @Size(max = 64) String receiptCommandId,
             @Valid
-                    com.lrj.wms.contract.messaging.SerialQualityObservation
+                    com.lrj.wms.contract.serial.observation.SerialQualityObservation
                             serialQualityObservation) {
         public InspectRequest(
                 String lineId,
@@ -113,7 +115,7 @@ public final class InboundWorkbenchRequests {
                     BigDecimal qty,
             @Size(max = 64) String clientOperationId,
             @Size(max = 64) String receiptCommandId,
-            @Valid com.lrj.wms.contract.messaging.SerialStockSelection serialSelection) {
+            @Valid com.lrj.wms.contract.serial.selection.SerialStockSelection serialSelection) {
         public PutawayRequest(
                 String inboundOrderId,
                 String lineId,

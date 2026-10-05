@@ -2,13 +2,18 @@ package com.lrj.wms.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.contract.messaging.*;
+import com.lrj.wms.contract.inventory.ReceiptQualityDecision;
+import com.lrj.wms.contract.inventory.StockPostingContext;
+import com.lrj.wms.contract.serial.observation.SerialQualityObservation;
+import com.lrj.wms.contract.serial.observation.SerialReceiptObservation;
+import com.lrj.wms.contract.serial.selection.SerialStockSelection;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.masterdata.MasterdataService;
 import com.lrj.wms.inventory.masterdata.domain.SkuPolicy;
 import com.lrj.wms.inventory.messaging.StockCommandMessageHandler;
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
@@ -86,8 +91,16 @@ class SerialReceiptBatchIT {
                 "postingContext",
                 RuntimeMessage.JSON.valueToTree(
                         new StockPostingContext(
-                                "ORDER", "OWNER", "SKU-" + e, "EA", "LOC-" + e, null, "NO_LOT",
-                                "HOLD", null, null)));
+                                "ORDER",
+                                "OWNER",
+                                "SKU-" + e,
+                                "EA",
+                                "LOC-" + e,
+                                null,
+                                "NO_LOT",
+                                "HOLD",
+                                null,
+                                null)));
         body.set(
                 "serialObservation",
                 RuntimeMessage.JSON.valueToTree(new SerialReceiptObservation(1, List.of(serials))));
@@ -225,7 +238,12 @@ class SerialReceiptBatchIT {
                             "operator",
                             "RECEIVE",
                             com.lrj.wms.inventory.inventory.domain.StockBucketKey.of(
-                                    e, "WH-" + e, "OWNER", "LOC-" + e, "SKU-" + e, "NO_LOT",
+                                    e,
+                                    "WH-" + e,
+                                    "OWNER",
+                                    "LOC-" + e,
+                                    "SKU-" + e,
+                                    "NO_LOT",
                                     "HOLD"),
                             com.lrj.wms.inventory.inventory.domain.Quantity.parse("1", 0));
             session.commit();

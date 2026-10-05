@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.lrj.wms.inventory.messaging.InventoryCellRouting;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.RuntimeInbox;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;

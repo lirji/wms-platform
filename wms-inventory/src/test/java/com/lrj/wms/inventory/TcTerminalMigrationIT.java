@@ -2,13 +2,16 @@ package com.lrj.wms.inventory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.lrj.wms.contract.messaging.TcTerminalNotice;
+import com.lrj.wms.contract.tcc.TcTerminalNotice;
 import com.lrj.wms.contract.tcc.WarehouseTryRequest;
 import com.lrj.wms.inventory.inventory.InventoryException;
 import com.lrj.wms.inventory.migrate.WarehouseMigrationService;
-import com.lrj.wms.inventory.tcc.*;
+import com.lrj.wms.inventory.tcc.InventoryTccFence;
+import com.lrj.wms.inventory.tcc.RuntimeTccCoordinator;
+import com.lrj.wms.inventory.tcc.TcTerminalService;
 import com.lrj.wms.runtime.db.DatabaseBudget;
-import com.lrj.wms.runtime.messaging.*;
+import com.lrj.wms.runtime.messaging.MessageRejectedException;
+import com.lrj.wms.runtime.messaging.RuntimeMessage;
 
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.seata.rm.tcc.api.*;

@@ -1,0 +1,28 @@
+{
+  "id": "R02",
+  "reason": "业务契约按能力组织；WCS模型、端口、隔离模拟器和错误职责分开。既有TCC请求/结果保持原包，Java全名变化但HTTP/事件负载不变，所有已知消费者同步。",
+  "classes": {
+    "com.lrj.wms.contract.messaging.StockPostingContext": "com.lrj.wms.contract.inventory.StockPostingContext",
+    "com.lrj.wms.contract.messaging.ReceiptQualityDecision": "com.lrj.wms.contract.inventory.ReceiptQualityDecision",
+    "com.lrj.wms.contract.messaging.SerialStockSelection": "com.lrj.wms.contract.serial.selection.SerialStockSelection",
+    "com.lrj.wms.contract.messaging.SerialExecutionSelection": "com.lrj.wms.contract.serial.selection.SerialExecutionSelection",
+    "com.lrj.wms.contract.messaging.SerialReceiptObservation": "com.lrj.wms.contract.serial.observation.SerialReceiptObservation",
+    "com.lrj.wms.contract.messaging.SerialQualityObservation": "com.lrj.wms.contract.serial.observation.SerialQualityObservation",
+    "com.lrj.wms.contract.messaging.SerialCountObservation": "com.lrj.wms.contract.serial.observation.SerialCountObservation",
+    "com.lrj.wms.contract.messaging.SerialTransferCommand": "com.lrj.wms.contract.transfer.SerialTransferCommand",
+    "com.lrj.wms.contract.messaging.AllocationAuthorization": "com.lrj.wms.contract.allocation.AllocationAuthorization",
+    "com.lrj.wms.contract.messaging.CommittedCancellation": "com.lrj.wms.contract.cancellation.CommittedCancellation",
+    "com.lrj.wms.contract.messaging.TcTerminalNotice": "com.lrj.wms.contract.tcc.TcTerminalNotice",
+    "com.lrj.wms.integration.wcs.WcsCommand": "com.lrj.wms.integration.wcs.model.WcsCommand",
+    "com.lrj.wms.integration.wcs.WcsCommandView": "com.lrj.wms.integration.wcs.model.WcsCommandView",
+    "com.lrj.wms.integration.wcs.WcsDispatchResult": "com.lrj.wms.integration.wcs.model.WcsDispatchResult",
+    "com.lrj.wms.integration.wcs.WcsReceipt": "com.lrj.wms.integration.wcs.model.WcsReceipt",
+    "com.lrj.wms.integration.wcs.WcsReceiptResult": "com.lrj.wms.integration.wcs.model.WcsReceiptResult",
+    "com.lrj.wms.integration.wcs.WcsCommandPort": "com.lrj.wms.integration.wcs.port.WcsCommandPort",
+    "com.lrj.wms.integration.wcs.WcsQueryPort": "com.lrj.wms.integration.wcs.port.WcsQueryPort",
+    "com.lrj.wms.integration.wcs.WcsReceiptPort": "com.lrj.wms.integration.wcs.port.WcsReceiptPort",
+    "com.lrj.wms.integration.wcs.WcsAdapterException": "com.lrj.wms.integration.wcs.error.WcsAdapterException",
+    "com.lrj.wms.integration.wcs.SimulatorWcsAdapter": "com.lrj.wms.integration.wcs.simulator.SimulatorWcsAdapter",
+    "com.lrj.wms.integration.wcs.SimulatorWcsAdapterIT": "com.lrj.wms.integration.wcs.simulator.SimulatorWcsAdapterIT"
+  }
+}

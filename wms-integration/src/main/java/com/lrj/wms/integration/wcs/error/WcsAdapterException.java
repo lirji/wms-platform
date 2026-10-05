@@ -1,4 +1,4 @@
-package com.lrj.wms.integration.wcs;
+package com.lrj.wms.integration.wcs.error;
 
 /** WCS 适配冲突，携带稳定错误码。 */
 public final class WcsAdapterException extends RuntimeException {

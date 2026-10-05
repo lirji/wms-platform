@@ -1,7 +1,9 @@
 package com.lrj.wms.serial;
 
 import com.lrj.wms.runtime.observability.RequestCorrelationFilter;
-import com.lrj.wms.security.*;
+import com.lrj.wms.security.ScopeForbiddenException;
+import com.lrj.wms.security.WarehouseForbiddenException;
+import com.lrj.wms.security.WmsJwtAuthorities;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

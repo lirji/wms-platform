@@ -1,7 +1,7 @@
 package com.lrj.wms.inbound.receipt;
 
-import com.lrj.wms.contract.messaging.ReceiptQualityDecision;
-import com.lrj.wms.contract.messaging.StockPostingContext;
+import com.lrj.wms.contract.inventory.ReceiptQualityDecision;
+import com.lrj.wms.contract.inventory.StockPostingContext;
 import com.lrj.wms.inbound.protocol.SourceProtocolService;
 import com.lrj.wms.runtime.command.CommandConflictException;
 import com.lrj.wms.runtime.command.CommandKeys;
@@ -72,7 +72,7 @@ public final class ReceiptQualityService {
             String command,
             String actor,
             ReceiptQualityDecision decision,
-            com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation observation) {
         CommandKeys.resolve(command, null);
         var mapper = session.getMapper(ReceiptQualityMapper.class);
         var receipt = mapper.receipt(ent, wh, decision.receiptCommandId());
@@ -115,7 +115,8 @@ public final class ReceiptQualityService {
                 observation.requireReceipt(
                         RuntimeMessage.JSON.treeToValue(
                                 payload.path("serialObservation"),
-                                com.lrj.wms.contract.messaging.SerialReceiptObservation.class));
+                                com.lrj.wms.contract.serial.observation.SerialReceiptObservation
+                                        .class));
             } catch (IllegalArgumentException invalid) {
                 throw new InboundException("INVALID_SERIAL_QUALITY", "质检数量或身份不属于本批");
             }

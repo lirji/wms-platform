@@ -817,7 +817,7 @@ public final class StockCommandService {
             StockBucketKey source,
             StockBucketKey target,
             Quantity qty,
-            com.lrj.wms.contract.messaging.SerialStockSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialStockSelection selection) {
         if (selection != null) selection.requireQuantity(qty.toBigDecimal());
         String sourceService = StockCommandCodes.SOURCE_INBOUND,
                 action = EffectCodes.ACTION_PUTAWAY;
@@ -970,7 +970,7 @@ public final class StockCommandService {
             String actorId,
             String sourceExecutionId,
             StockBucketKey hold,
-            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision) {
+            com.lrj.wms.contract.inventory.ReceiptQualityDecision decision) {
         return applyQuality(
                 enterpriseId,
                 warehouseId,
@@ -994,8 +994,8 @@ public final class StockCommandService {
             String actorId,
             String sourceExecutionId,
             StockBucketKey hold,
-            com.lrj.wms.contract.messaging.ReceiptQualityDecision decision,
-            com.lrj.wms.contract.messaging.SerialQualityObservation observation) {
+            com.lrj.wms.contract.inventory.ReceiptQualityDecision decision,
+            com.lrj.wms.contract.serial.observation.SerialQualityObservation observation) {
         String sourceService = StockCommandCodes.SOURCE_INBOUND,
                 action = EffectCodes.ACTION_QUALITY;
         Timestamp now = Timestamp.from(clock.instant());
@@ -1487,7 +1487,7 @@ public final class StockCommandService {
             String actorId,
             String sourceExecutionId,
             String reservationOrderLineId,
-            com.lrj.wms.contract.messaging.StockPostingContext context,
+            com.lrj.wms.contract.inventory.StockPostingContext context,
             Quantity qty,
             String previousCommandId) {
         return applyOutbound(
@@ -1519,10 +1519,10 @@ public final class StockCommandService {
             String actorId,
             String sourceExecutionId,
             String reservationOrderLineId,
-            com.lrj.wms.contract.messaging.StockPostingContext context,
+            com.lrj.wms.contract.inventory.StockPostingContext context,
             Quantity qty,
             String previousCommandId,
-            com.lrj.wms.contract.messaging.SerialExecutionSelection selection) {
+            com.lrj.wms.contract.serial.selection.SerialExecutionSelection selection) {
         if (selection != null) {
             if (!java.util.Set.of("PICK", "SHIP").contains(action))
                 throw new InventoryException("SERIAL_PICK_CONTEXT_REQUIRED", "身份选择只可用于拣货或发运");
